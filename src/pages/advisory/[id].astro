@@ -1,7 +1,6 @@
 ---
 import { render } from 'astro:content';
 import Base from '../../layouts/Base.astro';
-import Cursore from '../../components/Cursore.astro';
 import { advisoryPubbliche, scrittiPubblici } from '../../lib/grafi';
 import { COMPETENZE_ADVISORY } from '../../content.config';
 
@@ -28,7 +27,6 @@ const scritti = (await scrittiPubblici()).filter(s => a.data.related.includes(s.
       </section> : null}
     </article>
   </main>
-  <Cursore />
 </Base>
 
 <style>

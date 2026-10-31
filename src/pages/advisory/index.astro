@@ -1,7 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
 import Competenze from '../../components/Competenze.astro';
-import Cursore from '../../components/Cursore.astro';
 import Grafo from '../../components/Grafo.astro';
 import { grafoCompetenze } from '../../lib/grafi';
 
@@ -20,7 +19,6 @@ const dati = await grafoCompetenze('advisory');
       <Competenze sezione="advisory" />
     </div>
   </main>
-  <Cursore />
 </Base>
 
 <style>

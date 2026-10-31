@@ -1,5 +1,6 @@
 ---
 import '@/components/arc/foundation.css';
+import Cursore from '@/components/Cursore.astro';
 // tono: colore d'accento della pagina. Senza tono resta l'acquamarina del sito.
 // largo: pagina a tutta larghezza su schermi grandi (home, Knowledge, Projects); i testi restano stretti.
 interface Props { title: string; description?: string; lang?: 'it' | 'en'; tono?: 'arancio' | 'lilla'; largo?: boolean }
@@ -29,6 +30,7 @@ const build = new Date().toISOString().slice(0, 10);
       <span>build {build}</span>
       <span>static · github pages</span>
     </footer>
+    <Cursore />
   </body>
 </html>
 

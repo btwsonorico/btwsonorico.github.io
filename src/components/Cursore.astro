@@ -1,6 +1,6 @@
 ---
 // Cursore a pallino bianco. Al clic si stringe e lascia un anello che si allarga.
-// Solo con mouse o trackpad: su schermi touch resta il comportamento normale.
+// Solo con mouse o trackpad: su schermi touch resta il comportamento normale. Incluso in Base: vale per tutte le pagine.
 ---
 <div class="cursore-punto" aria-hidden="true"></div>
 
@@ -15,8 +15,10 @@
     window.addEventListener('pointermove', e => {
       x = e.clientX; y = e.clientY;
       punto.classList.add('visibile');
-      // Più grande sopra link, pulsanti, voci apribili e grafo
-      punto.classList.toggle('sopra', !!(e.target as Element).closest('a, button, summary, [role="button"], .scena'));
+      // Più grande dove si può interagire: link, pulsanti, tab, voci apribili, nodi del grafo
+      const el = e.target as Element;
+      const nodo = (el.closest('.scena') as HTMLElement | null)?.style.cursor === 'pointer';
+      punto.classList.toggle('sopra', nodo || !!el.closest('a, button, summary, label, input, select, textarea, [role="button"], [role="radio"], [role="tab"]'));
       muovi();
     });
     document.addEventListener('pointerleave', () => punto.classList.remove('visibile'));
