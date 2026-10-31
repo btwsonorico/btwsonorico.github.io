@@ -9,19 +9,19 @@ export const TECNOLOGIE = ['python', 'fastapi', 'typescript', 'react', 'mongodb'
 export const CONTESTI = ['interview analysis', 'event reports', 'feedback hub', 'shared specs', 'this site'] as const;
 // Competenze chiave: raggruppano le aree nella pagina Projects, in questo ordine.
 export const COMPETENZE = {
-  'ai-engineering': { title: 'AI engineering', summary: 'Prompts, grounded output, evaluation and pipelines around LLMs.' },
-  'human-ai': { title: 'Human-AI product design', summary: 'Tools where the person decides and the AI assists.' },
-  backend: { title: 'Backend and data', summary: 'APIs, background jobs, data integrity and telemetry.' },
-  practice: { title: 'Engineering practice', summary: 'Specs before code, honest tests, one-command deploys.' },
+  'ai-engineering': { title: 'AI engineering', summary: 'Making AI output reliable and traceable.' },
+  'human-ai': { title: 'Human-AI product design', summary: 'Tools where people decide and AI helps.' },
+  backend: { title: 'Backend and data', summary: 'The parts users do not see: data, jobs, metrics.' },
+  practice: { title: 'Engineering practice', summary: 'How I plan, test and ship.' },
 } as const;
 const CHIAVI_COMPETENZE = Object.keys(COMPETENZE) as [keyof typeof COMPETENZE, ...(keyof typeof COMPETENZE)[]];
 // Advisory: competenze chiave della consulenza e metodi usati. Solo descrizioni generali: mai clienti, settori o dettagli dei framework.
 export const COMPETENZE_ADVISORY = {
-  strategy: { title: 'AI strategy', summary: 'Where an organisation stands with AI, and where it can go.' },
-  opportunities: { title: 'Opportunity mapping', summary: 'Which processes and use cases are worth doing with AI.' },
-  design: { title: 'Business design', summary: 'How the process changes with AI, and what it is worth.' },
-  adoption: { title: 'People and adoption', summary: 'From AI used on single tasks to AI that changes the whole process.' },
-  engagement: { title: 'Engagement management', summary: 'Running an advisory project: clear goals, evidence, and outputs both business and engineering understand.' },
+  strategy: { title: 'AI strategy', summary: 'Where to start with AI.' },
+  opportunities: { title: 'Opportunity mapping', summary: 'Where AI creates value.' },
+  design: { title: 'Business design', summary: 'How the work changes, and what it is worth.' },
+  adoption: { title: 'People and adoption', summary: 'Helping people really use AI.' },
+  engagement: { title: 'Engagement management', summary: 'Running the project, from first interview to final report.' },
 } as const;
 const CHIAVI_ADVISORY = Object.keys(COMPETENZE_ADVISORY) as [keyof typeof COMPETENZE_ADVISORY, ...(keyof typeof COMPETENZE_ADVISORY)[]];
 export const METODI = ['interviews', 'benchmarking', 'literature review', 'process mapping', 'prioritisation matrix', 'business case', 'survey', 'field experiment', 'kpi design'] as const;

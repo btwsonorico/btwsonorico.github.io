@@ -1,6 +1,6 @@
 ---
 title: Process redesign
-summary: "Redraw the process around AI, and decide where the person stays in the loop."
+summary: "How the work changes, and where people stay in control."
 order: 6
 skill: "design"
 methods: ["process mapping"]

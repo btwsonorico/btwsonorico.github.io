@@ -1,6 +1,6 @@
 ---
 title: Backend and data integrity
-summary: "Background jobs, no silent overwrites, and nothing deleted without a copy."
+summary: "Reliable servers: long jobs, no lost data."
 order: 8
 skill: "backend"
 stack: ["python", "fastapi", "mongodb", "aws"]

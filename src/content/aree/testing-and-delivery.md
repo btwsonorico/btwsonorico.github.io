@@ -1,6 +1,6 @@
 ---
 title: Testing and delivery
-summary: "Tests on throwaway data only, honest checks, and a one-command deploy."
+summary: "Tests on safe data and one-command releases."
 order: 13
 skill: "practice"
 stack: ["python", "playwright", "docker", "aws"]

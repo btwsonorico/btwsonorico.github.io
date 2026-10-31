@@ -1,6 +1,6 @@
 ---
 title: Business case and roadmap
-summary: "Expected benefits, costs and the order in which to do things."
+summary: "Costs, benefits and the order of the steps."
 order: 7
 skill: "design"
 methods: ["business case"]

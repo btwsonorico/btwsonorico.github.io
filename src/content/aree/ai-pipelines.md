@@ -1,6 +1,6 @@
 ---
 title: AI pipelines
-summary: "From raw recordings and slides to structured, personalised documents."
+summary: "From recordings and slides to finished reports."
 order: 6
 skill: "ai-engineering"
 stack: ["python", "azure", "llm-api", "typescript"]

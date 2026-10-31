@@ -1,6 +1,6 @@
 ---
 title: Qualitative coding
-summary: "A three-level codebook, expected and emerging themes, and measures of when the data stops saying new things."
+summary: "Turning interviews into clear themes."
 order: 7
 skill: "human-ai"
 stack: ["python", "react", "mongodb"]

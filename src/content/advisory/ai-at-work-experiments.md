@@ -1,6 +1,6 @@
 ---
 title: AI at work experiments
-summary: "Controlled studies on what generative AI changes in productivity, quality and wellbeing."
+summary: "Tests on how AI changes productivity and wellbeing."
 order: 10
 skill: "adoption"
 methods: ["field experiment", "survey"]

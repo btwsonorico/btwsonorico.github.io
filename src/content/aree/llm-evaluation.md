@@ -1,6 +1,6 @@
 ---
 title: LLM evaluation
-summary: "Measuring an AI analysis against a human one, and comparing providers on the same task."
+summary: "Checking AI work against human work, and comparing models."
 order: 3
 skill: "ai-engineering"
 stack: ["python", "scikit-learn", "llm-api"]

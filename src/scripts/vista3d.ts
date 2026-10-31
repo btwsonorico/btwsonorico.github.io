@@ -109,7 +109,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
   // Un clic mostra l'argomento: se la pagina ha la lista delle competenze, apre lì la sua voce;
   // altrimenti (per esempio nella home) va alla pagina dell'argomento
   function apri(p: Punto) {
-    const voce = document.querySelector<HTMLElement>(`.competenze summary[data-id="${p.id}"]`);
+    const voce = document.querySelector<HTMLElement>(`.competenze [data-id="${p.id}"]`);
     if (!voce) { window.location.href = p.href; return; }
     for (let d = voce.closest('details'); d; d = d.parentElement?.closest('details') ?? null) d.open = true;
     voce.scrollIntoView({ block: 'center', behavior: ridotto ? 'auto' : 'smooth' });

@@ -1,6 +1,6 @@
 ---
 title: Use case prioritisation
-summary: "From a long list of ideas to the few use cases worth starting."
+summary: "Which AI ideas to start first: value against effort."
 order: 4
 skill: "opportunities"
 methods: ["prioritisation matrix", "benchmarking"]

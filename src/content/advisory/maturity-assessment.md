@@ -1,6 +1,6 @@
 ---
 title: Maturity assessment
-summary: "Measure how far an organisation is with AI, and compare it with the market."
+summary: "Where an organisation stands with AI, compared with others."
 order: 1
 skill: "strategy"
 methods: ["benchmarking", "interviews", "survey"]

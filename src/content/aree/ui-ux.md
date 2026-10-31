@@ -1,6 +1,6 @@
 ---
 title: UI and UX design
-summary: "Few reusable patterns, specified once: lists with progress, resumable wizards, long-job panels."
+summary: "Simple, consistent screens, designed once and reused."
 order: 9
 skill: "human-ai"
 stack: ["react", "typescript", "astro", "three.js"]

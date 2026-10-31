@@ -1,6 +1,6 @@
 ---
 title: Cyclical adoption framework
-summary: "Move from nominal adoption on a task to effective adoption on the whole process."
+summary: "Making AI part of the whole process, not just one task."
 order: 8
 skill: "adoption"
 methods: ["process mapping", "kpi design", "literature review"]

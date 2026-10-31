@@ -1,6 +1,6 @@
 ---
 title: Process prioritisation for AI
-summary: "Find the areas and processes where AI creates the most value."
+summary: "Which processes gain the most from AI."
 order: 3
 skill: "opportunities"
 methods: ["interviews", "process mapping", "prioritisation matrix"]

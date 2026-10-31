@@ -1,6 +1,6 @@
 ---
 title: Spec-driven development
-summary: "One shared constitution, specs before code, and as-built specs where every requirement shows its status."
+summary: "Write down what to build first, then build it."
 order: 12
 skill: "practice"
 stack: ["spec-kit"]

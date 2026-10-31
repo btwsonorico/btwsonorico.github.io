@@ -1,6 +1,6 @@
 ---
 title: Evidence-based advice
-summary: "Recommendations backed by research, benchmarks and literature."
+summary: "Advice backed by research and data."
 order: 14
 skill: "engagement"
 methods: ["literature review", "benchmarking", "survey"]

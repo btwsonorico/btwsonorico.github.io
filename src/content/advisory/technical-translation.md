@@ -1,6 +1,6 @@
 ---
 title: Technical translation
-summary: "The bridge between business questions and what technology can really do."
+summary: "Explaining technology to business, and business to engineers."
 order: 13
 skill: "engagement"
 methods: ["process mapping"]

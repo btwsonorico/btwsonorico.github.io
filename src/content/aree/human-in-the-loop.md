@@ -1,6 +1,6 @@
 ---
 title: Human in the loop
-summary: "AI as a second opinion: the person decides first, the model compares, and every item says who made it."
+summary: "The person decides; AI gives a second opinion."
 order: 1
 skill: "human-ai"
 stack: ["python", "fastapi", "llm-api", "react"]

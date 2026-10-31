@@ -1,6 +1,6 @@
 ---
 title: Measurement and telemetry
-summary: "Numbers, never content. AI cost measured from tokens, not estimated."
+summary: "Measuring usage and AI cost, without reading user content."
 order: 11
 skill: "backend"
 stack: ["python", "mongodb"]

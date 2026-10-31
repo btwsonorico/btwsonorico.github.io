@@ -1,6 +1,6 @@
 ---
 title: Make or buy
-summary: "Build, buy or adapt: a choice based on technology, cost and internal skills."
+summary: "Build it, buy it, or adapt something that exists."
 order: 5
 skill: "opportunities"
 methods: ["benchmarking", "business case"]

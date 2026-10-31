@@ -1,6 +1,6 @@
 ---
 title: Grounded generation
-summary: "Every claim points to a real passage. Quotes are matched back to the source text."
+summary: "AI text that always points to its real source."
 order: 4
 skill: "ai-engineering"
 stack: ["python", "llm-api", "mongodb"]

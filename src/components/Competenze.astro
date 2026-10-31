@@ -1,20 +1,14 @@
 ---
-// Competenze chiave collassabili; dentro ognuna, le aree con i punti del loro file Markdown.
-// Usata da Projects e Advisory. Passare sopra una voce evidenzia il suo nodo nel grafo.
-import { render } from 'astro:content';
+// Competenze chiave collassabili; dentro ognuna, solo il nome di ogni area e una frase. Il dettaglio è nella pagina dell'area.
+// Usata da Projects e Advisory. Passare sopra una voce evidenzia il suo nodo nella scena.
 import { sezioni, type Sezione } from '../lib/grafi';
 
 interface Props { sezione: Sezione }
 const { sezione } = Astro.props;
 const { competenze: tutte, aree: carica } = sezioni[sezione];
-const aree = await Promise.all((await carica()).map(async a => ({ a, Content: (await render(a)).Content })));
+const aree = await carica();
 const competenze = Object.entries(tutte)
-  .map(([id, c]) => {
-    const sue = aree.filter(x => x.a.data.skill === id);
-    // Etichette della competenza: tecnologie in Projects, metodi in Advisory
-    const etichette = [...new Set(sue.flatMap(({ a }) => 'stack' in a.data ? a.data.stack : a.data.methods))];
-    return { id, ...c, aree: sue, etichette };
-  })
+  .map(([id, c]) => ({ id, ...c, aree: aree.filter(a => a.data.skill === id) }))
   .filter(c => c.aree.length);
 ---
 <section class="sezione competenze">
@@ -25,33 +19,22 @@ const competenze = Object.entries(tutte)
       <span class="titolo">
         <span class="nome">{c.title}</span>
         <span class="nota">{c.summary}</span>
-        <span class="mono stack">{c.etichette.map(t => <span>{t}</span>)}</span>
       </span>
       <span class="mono segno" aria-hidden="true"></span>
     </summary>
     <ul class="aree">
-      {c.aree.map(({ a, Content }) => <li>
-        <details class="area">
-          <summary data-id={`area:${a.id}`}>
-            <span class="titolo">
-              <span class="nome">{a.data.title}</span>
-              <span class="nota">{a.data.summary}</span>
-            </span>
-            <span class="mono segno" aria-hidden="true"></span>
-          </summary>
-          <div class="prosa"><Content /></div>
-          <p class="mono piede-area">
-            {'contexts' in a.data && a.data.contexts.length ? <span>learned in {a.data.contexts.join(' · ')}</span> : <span></span>}
-            <a href={`/${sezione}/${a.id}/`}>details →</a>
-          </p>
-        </details>
+      {c.aree.map(a => <li>
+        <a class="area" href={`/${sezione}/${a.id}/`} data-id={`area:${a.id}`}>
+          <span class="nome">{a.data.title}</span>
+          <span class="nota">{a.data.summary}</span>
+        </a>
       </li>)}
     </ul>
   </details>)}
 </section>
 
 <script>
-  document.querySelectorAll<HTMLElement>('.competenze summary[data-id]').forEach(s => {
+  document.querySelectorAll<HTMLElement>('.competenze [data-id]').forEach(s => {
     const invia = (id: string | null) => window.dispatchEvent(new CustomEvent('grafo:evidenzia', { detail: id }));
     s.addEventListener('mouseenter', () => invia(s.dataset.id!));
     s.addEventListener('mouseleave', () => invia(null));
@@ -66,35 +49,27 @@ const competenze = Object.entries(tutte)
 </script>
 
 <style>
-  .competenza { scroll-margin-top: var(--s2); }
-  details { border-top: 1px solid var(--line); }
+  .competenza { scroll-margin-top: var(--s2); border-top: 1px solid var(--line); }
   .competenza:last-child { border-bottom: 1px solid var(--line); }
-  summary { display: grid; gap: var(--s2); align-items: baseline; padding: var(--s2) 0; cursor: pointer; list-style: none; }
+  summary { display: grid; grid-template-columns: 32px 1fr auto; gap: var(--s2); align-items: baseline; padding: var(--s2) 0; cursor: pointer; list-style: none; }
   summary::-webkit-details-marker { display: none; }
-  .competenza > summary { grid-template-columns: 32px 1fr auto; }
-  .area > summary { grid-template-columns: 1fr auto; padding: var(--s1) 0; }
   .titolo { display: flex; flex-direction: column; }
-  .competenza > summary .nome { font-size: 22px; line-height: 1.3; }
+  summary .nome { font-size: 22px; line-height: 1.3; }
   summary:hover .nome { color: var(--accent); }
-  /* Voce aperta da un clic nella scena 3D: un lampo di colore per trovarla */
-  summary.lampo { animation: lampo 1.6s ease-out; }
-  @keyframes lampo { from { background: color-mix(in srgb, var(--accent) 22%, transparent); } to { background: transparent; } }
-  @media (prefers-reduced-motion: reduce) { summary.lampo { animation: none; outline: 1px solid var(--accent); } }
   .nota { color: var(--muted); font-size: 13px; }
   .segno { color: var(--accent); }
   .segno::before { content: '[+]'; }
   details[open] > summary .segno::before { content: '[−]'; }
-  .stack { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s1); }
-  .stack span { border: 1px solid var(--line); padding: 0 6px; color: var(--accent); }
 
   .aree { list-style: none; margin: 0 0 var(--s2) 48px; padding: 0; }
-  .area { border-top-style: dashed; }
-  .prosa :global(ul) { margin: 0; padding-left: 18px; }
-  .prosa :global(li) { margin-bottom: var(--s1); }
-  .piede-area { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s1); margin: var(--s1) 0 var(--s2); }
-  .piede-area a { color: var(--accent); text-decoration: none; }
+  .area { display: flex; flex-direction: column; padding: var(--s1) 0; border-top: 1px dashed var(--line); text-decoration: none; }
+  .area:hover .nome { color: var(--accent); }
+  /* Voce aperta da un clic nella scena 3D: un lampo di colore per trovarla */
+  .lampo { animation: lampo 1.6s ease-out; }
+  @keyframes lampo { from { background: color-mix(in srgb, var(--accent) 22%, transparent); } to { background: transparent; } }
+  @media (prefers-reduced-motion: reduce) { .lampo { animation: none; outline: 1px solid var(--accent); } }
   @media (max-width: 640px) {
-    .competenza > summary { grid-template-columns: 1fr auto; gap: 4px 12px; }
+    summary { grid-template-columns: 1fr auto; gap: 4px 12px; }
     .numero { display: none; }
     .aree { margin-left: 0; }
   }

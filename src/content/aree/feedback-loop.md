@@ -1,6 +1,6 @@
 ---
 title: Feedback loop
-summary: "Feedback collected inside each tool, sent to one shared hub, and turned into specs."
+summary: "User feedback collected in the tool and turned into improvements."
 order: 10
 skill: "backend"
 stack: ["fastapi", "react", "mongodb"]

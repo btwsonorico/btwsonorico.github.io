@@ -1,6 +1,6 @@
 ---
 title: Prompt engineering
-summary: "Prompts as versioned files, with a hash saved next to every output."
+summary: "Prompts kept as versioned files, so every result can be traced."
 order: 2
 skill: "ai-engineering"
 stack: ["python", "llm-api"]

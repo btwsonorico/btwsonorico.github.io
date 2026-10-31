@@ -1,6 +1,6 @@
 ---
 title: Deliverables and alignment
-summary: "Clear outputs, shared with the people who decide."
+summary: "Clear outputs, agreed with the people who decide."
 order: 12
 skill: "engagement"
 methods: ["business case", "kpi design"]

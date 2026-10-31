@@ -1,6 +1,6 @@
 ---
 title: AI envisioning
-summary: "Concrete opportunities to change the business with AI, grounded in research and real cases."
+summary: "Concrete ideas for using AI in the business."
 order: 2
 skill: "strategy"
 methods: ["literature review", "benchmarking"]
