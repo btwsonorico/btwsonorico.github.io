@@ -6,7 +6,8 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "export": "astro build && node scripts/file-unico.mjs"
+    "export": "astro build && node scripts/file-unico.mjs",
+    "contributi": "node scripts/contributi.mjs"
   },
   "dependencies": {
     "@astrojs/react": "^4.4.2",

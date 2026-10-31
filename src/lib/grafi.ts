@@ -1,6 +1,8 @@
 import { getCollection } from 'astro:content';
 
-export type TipoNodo = 'testo' | 'tema' | 'fonte' | 'area' | 'tech';
+import { COMPETENZE } from '../content.config';
+
+export type TipoNodo = 'testo' | 'tema' | 'fonte' | 'area' | 'tech' | 'skill';
 export interface Nodo { id: string; tipo: TipoNodo; label: string; href?: string; debole?: boolean }
 // Stella: un testo meno recente. Nel grafo è un punto piccolo che gira intorno ai suoi temi, senza archi.
 export interface Stella { id: string; label: string; href: string; temi: string[] }
@@ -79,6 +81,16 @@ export async function grafoKnowledge({ fonti = true } = {}): Promise<DatiGrafo> 
     for (const m of (s.body ?? '').matchAll(/\/knowledge\/([\w-]+)\//g)) archi.push([s.id, m[1]!]);
   }
   return { ...chiudi(nodi, archi), stelle };
+}
+
+// Pagina Projects: competenze chiave e le loro aree. Una competenza apre la sua voce nella pagina.
+export async function grafoCompetenze(): Promise<DatiGrafo> {
+  const aree = await areePubbliche();
+  const nodi: Nodo[] = Object.entries(COMPETENZE)
+    .filter(([id]) => aree.some(a => a.data.skill === id))
+    .map(([id, c]) => ({ id: `skill:${id}`, tipo: 'skill', label: c.title, href: `/projects/#${id}` }));
+  for (const a of aree) nodi.push({ id: `area:${a.id}`, tipo: 'area', label: a.data.title, href: `/projects/${a.id}/` });
+  return chiudi(nodi, aree.map(a => [`skill:${a.data.skill}`, `area:${a.id}`]));
 }
 
 // Projects: aree, tecnologie e i testi che ogni area cita in "related".

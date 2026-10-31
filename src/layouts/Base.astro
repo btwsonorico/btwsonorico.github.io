@@ -1,11 +1,12 @@
 ---
 import '@/components/arc/foundation.css';
-interface Props { title: string; description?: string; lang?: 'it' | 'en' }
-const { title, description = 'Research, advisory, software.', lang = 'en' } = Astro.props;
+// tono: colore d'accento della pagina. Senza tono resta l'acquamarina del sito.
+interface Props { title: string; description?: string; lang?: 'it' | 'en'; tono?: 'arancio' }
+const { title, description = 'Research, advisory, software.', lang = 'en', tono } = Astro.props;
 const build = new Date().toISOString().slice(0, 10);
 ---
 <!doctype html>
-<html lang={lang} data-theme="dark" data-cyber>
+<html lang={lang} data-theme="dark" data-cyber data-tono={tono}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -57,6 +58,8 @@ const build = new Date().toISOString().slice(0, 10);
     --shadow-resting: none;
     --radius-control: 2px;
   }
+  /* Arancio: complementare dell'acquamarina, con la stessa luminosità e saturazione */
+  :root[data-theme="dark"][data-cyber][data-tono="arancio"] { --accent: #ffa45e; }
   /* Departure Mono (SIL OFL, helenazhang.com): nitida a multipli di 11px */
   @font-face {
     font-family: 'Departure Mono';

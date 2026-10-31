@@ -1,9 +1,11 @@
 ---
 import { execSync } from 'node:child_process';
+import salvati from '../data/contributi.json';
 
 // Griglia dei contributi degli ultimi 12 mesi, dall'API GraphQL di GitHub durante la build.
 // Token: GH_CONTRIB_TOKEN (secret nel workflow) oppure, in locale, quello della gh CLI.
 // Serve il token dell'utente: solo così il conteggio include i repository privati.
+// Senza token usa l'ultimo calendario salvato con "npm run contributi".
 const UTENTE = 'btwsonorico';
 
 function token() {
@@ -15,7 +17,7 @@ function token() {
 interface Giorno { date: string; weekday: number; contributionCount: number }
 async function calendario(): Promise<Giorno[]> {
   const t = token();
-  if (!t) { console.warn('[Attivita] Nessun token GitHub: la griglia dei commit resta vuota.'); return []; }
+  if (!t) { console.warn('[Attivita] Nessun token GitHub: uso src/data/contributi.json.'); return salvati; }
   const query = `query($login: String!) { user(login: $login) { contributionsCollection { contributionCalendar {
     weeks { contributionDays { date weekday contributionCount } } } } } }`;
   const r = await fetch('https://api.github.com/graphql', {
@@ -24,7 +26,7 @@ async function calendario(): Promise<Giorno[]> {
     body: JSON.stringify({ query, variables: { login: UTENTE } }),
   });
   const json = await r.json();
-  if (!r.ok || json.errors) { console.warn('[Attivita] Risposta GitHub non valida:', json.errors ?? r.status); return []; }
+  if (!r.ok || json.errors) { console.warn('[Attivita] Risposta GitHub non valida, uso src/data/contributi.json:', json.errors ?? r.status); return salvati; }
   return json.data.user.contributionsCollection.contributionCalendar.weeks.flatMap((w: { contributionDays: Giorno[] }) => w.contributionDays);
 }
 

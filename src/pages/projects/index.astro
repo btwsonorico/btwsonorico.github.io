@@ -2,7 +2,8 @@
 import { render } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import Attivita from '../../components/Attivita.astro';
-import { areePubbliche } from '../../lib/grafi';
+import Grafo from '../../components/Grafo.astro';
+import { areePubbliche, grafoCompetenze } from '../../lib/grafi';
 import { COMPETENZE } from '../../content.config';
 
 // Una voce per competenza chiave; dentro, le aree con i punti del loro file Markdown.
@@ -13,8 +14,9 @@ const competenze = Object.entries(COMPETENZE)
     return { id, ...c, aree: sue, stack: [...new Set(sue.flatMap(x => x.a.data.stack))] };
   })
   .filter(c => c.aree.length);
+const dati = await grafoCompetenze();
 ---
-<Base title="Projects · Riccardo Mondi" description="Key programming skills, learned building tools.">
+<Base title="Projects · Riccardo Mondi" description="Key programming skills, learned building tools." tono="arancio">
   <main>
     <header class="testa">
       <h1>Projects</h1>
@@ -26,10 +28,12 @@ const competenze = Object.entries(COMPETENZE)
       <Attivita />
     </section>
 
+    <Grafo dati={dati} legenda={['skill', 'area']} />
+
     <section class="competenze">
       <h2 class="mono">Key skills</h2>
-      {competenze.map((c, i) => <details class="competenza" open={i === 0}>
-        <summary>
+      {competenze.map((c, i) => <details class="competenza" id={c.id} open={i === 0}>
+        <summary data-id={`skill:${c.id}`}>
           <span class="mono numero">{String(i + 1).padStart(2, '0')}</span>
           <span class="titolo">
             <span class="nome">{c.title}</span>
@@ -41,7 +45,7 @@ const competenze = Object.entries(COMPETENZE)
         <ul class="aree">
           {c.aree.map(({ a, Content }) => <li>
             <details class="area">
-              <summary>
+              <summary data-id={`area:${a.id}`}>
                 <span class="titolo">
                   <span class="nome">{a.data.title}</span>
                   <span class="nota">{a.data.summary}</span>
@@ -61,12 +65,29 @@ const competenze = Object.entries(COMPETENZE)
   </main>
 </Base>
 
+<script>
+  // Passare sopra una voce evidenzia il suo nodo nel grafo
+  document.querySelectorAll<HTMLElement>('summary[data-id]').forEach(s => {
+    const invia = (id: string | null) => window.dispatchEvent(new CustomEvent('grafo:evidenzia', { detail: id }));
+    s.addEventListener('mouseenter', () => invia(s.dataset.id!));
+    s.addEventListener('mouseleave', () => invia(null));
+  });
+  // Un clic su una competenza nel grafo porta a #competenza: apri quella voce
+  const apri = () => {
+    const d = location.hash && document.getElementById(location.hash.slice(1));
+    if (d instanceof HTMLDetailsElement) { d.open = true; d.scrollIntoView({ block: 'start' }); }
+  };
+  window.addEventListener('hashchange', apri);
+  apri();
+</script>
+
 <style>
   .testa { padding: 40px 0 24px; }
   h1 { margin: 0 0 8px; font-size: 38px; font-weight: 400; }
   .testa p { margin: 0; color: var(--muted); max-width: 560px; }
   .commit { padding: 8px 0 28px; }
-  .competenze { padding: 28px 0 48px; border-top: 1px solid var(--line); }
+  .competenze { padding: 28px 0 48px; }
+  .competenza { scroll-margin-top: 16px; }
   h2 { margin: 0 0 14px; font-weight: 400; color: var(--accent); }
   h2::before { content: '// '; color: var(--muted); }
 
