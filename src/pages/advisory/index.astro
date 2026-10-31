@@ -13,7 +13,7 @@ const dati = await datiCompetenze('advisory');
       <p>Four key skills from AI advisory work with organisations: where to start, where AI creates value, how people adopt it, and how to run the project. In the orbital system, each planet is a skill and each moon is an area of it. Open a skill below to see what it means in practice.</p>
     </header>
 
-    <div class="a-grafo"><Grafo dati={dati} legenda={['skill', 'area']} motore="orbite" nomi={{ skill: 'planet: key skill', area: 'moon: area' }} aiuto="click a planet or a moon to open · drag to rotate" /></div>
+    <div class="a-grafo"><Grafo dati={dati} legenda={['skill', 'area']} motore="orbite" nomi={{ skill: 'planet: key skill', area: 'moon: area' }} aiuto="click a planet or a moon to see its topic · drag to rotate" /></div>
 
     <div class="a-resto">
       <Competenze sezione="advisory" />

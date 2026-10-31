@@ -82,9 +82,20 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     if (mosso < 4) {
       const m = locale(e);
       const i = piuVicino(m.x, m.y);
-      if (i >= 0 && punti[i]!.href) window.location.href = punti[i]!.href;
+      if (i >= 0 && punti[i]!.href) apri(punti[i]!);
     }
   });
+  // Un clic mostra l'argomento: se la pagina ha la lista delle competenze, apre lì la sua voce;
+  // altrimenti (per esempio nella home) va alla pagina dell'argomento
+  function apri(p: Punto) {
+    const voce = document.querySelector<HTMLElement>(`.competenze summary[data-id="${p.id}"]`);
+    if (!voce) { window.location.href = p.href; return; }
+    for (let d = voce.closest('details'); d; d = d.parentElement?.closest('details') ?? null) d.open = true;
+    voce.scrollIntoView({ block: 'center', behavior: ridotto ? 'auto' : 'smooth' });
+    voce.classList.remove('lampo');
+    void voce.offsetWidth; // riparte l'animazione CSS
+    voce.classList.add('lampo');
+  }
   el.addEventListener('pointerleave', () => { sopra = -1; });
   window.addEventListener('grafo:evidenzia', e => {
     const id = (e as CustomEvent<string | null>).detail ?? '';

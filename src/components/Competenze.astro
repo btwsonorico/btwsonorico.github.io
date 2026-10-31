@@ -76,6 +76,10 @@ const competenze = Object.entries(tutte)
   .titolo { display: flex; flex-direction: column; }
   .competenza > summary .nome { font-size: 22px; line-height: 1.3; }
   summary:hover .nome { color: var(--accent); }
+  /* Voce aperta da un clic nella scena 3D: un lampo di colore per trovarla */
+  summary.lampo { animation: lampo 1.6s ease-out; }
+  @keyframes lampo { from { background: color-mix(in srgb, var(--accent) 22%, transparent); } to { background: transparent; } }
+  @media (prefers-reduced-motion: reduce) { summary.lampo { animation: none; outline: 1px solid var(--accent); } }
   .nota { color: var(--muted); font-size: 13px; }
   .segno { color: var(--accent); }
   .segno::before { content: '[+]'; }

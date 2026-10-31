@@ -1,124 +1,110 @@
 import * as THREE from 'three';
 import { colori, vista, type DatiCompetenze, type Punto } from './vista3d';
 
-// Advisory come sistema solare: al centro un mondo, intorno le competenze chiave come pianeti,
+// Advisory come sistema solare minimale: al centro un mondo, intorno le competenze chiave come pianeti,
 // ognuno sulla sua orbita. Le aree sono lune che girano intorno al loro pianeta (orbite non disegnate).
-// Come nel sistema solare, i pianeti hanno grandezze e decorazioni diverse:
-// la grandezza segue il numero di aree, la decorazione cambia da pianeta a pianeta.
+// Pianeti pieni e piccoli: la grandezza segue il numero di aree; solo il più grande ha un anello.
+// Intorno: una fascia di asteroidi e un cielo di stelle, solo decorazione.
 
-type Decorazione = 'roccioso' | 'anelli' | 'gigante' | 'reticolo';
-const DECORAZIONI: Decorazione[] = ['roccioso', 'gigante', 'anelli', 'reticolo'];
+function casuale(seme: number) {
+  return () => { seme = (seme * 16807) % 2147483647; return (seme - 1) / 2147483646; };
+}
 
 export function monta(el: HTMLElement) {
   const { competenze } = JSON.parse(el.dataset.grafo!) as DatiCompetenze;
   const c = colori(el);
   const gruppo = new THREE.Group();
   const punti: Punto[] = [];
+  const r = casuale(7);
   const linea = (colore: THREE.Color, opacita = 1) => new THREE.LineBasicMaterial({ color: colore, transparent: true, opacity: opacita });
-  const cerchio = (r: number, mat: THREE.LineBasicMaterial, y = 0) => new THREE.Line(
+  const cerchio = (raggio: number, mat: THREE.LineBasicMaterial) => new THREE.Line(
     new THREE.BufferGeometry().setFromPoints(Array.from({ length: 129 }, (_, i) => {
       const a = (i / 128) * Math.PI * 2;
-      return new THREE.Vector3(Math.cos(a) * r, y, Math.sin(a) * r);
+      return new THREE.Vector3(Math.cos(a) * raggio, 0, Math.sin(a) * raggio);
     })),
     mat,
   );
-  const filo = (geo: THREE.BufferGeometry, mat: THREE.LineBasicMaterial) => new THREE.LineSegments(new THREE.EdgesGeometry(geo), mat);
+  const sfera = (raggio: number, colore: THREE.Color) => new THREE.Mesh(new THREE.SphereGeometry(raggio, 20, 14), new THREE.MeshBasicMaterial({ color: colore, transparent: true }));
+  const nuvola = (xyz: number[], colore: THREE.Color, size: number, opacita: number) => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(xyz, 3));
+    return new THREE.Points(g, new THREE.PointsMaterial({ color: colore, size, transparent: true, opacity: opacita }));
+  };
 
-  // Il mondo al centro: una sfera a reticolo con un nucleo pieno
-  const mondo = new THREE.Group();
-  mondo.add(
-    new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.SphereGeometry(0.5, 14, 10)), linea(c.muted, 0.55)),
-    new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), new THREE.MeshBasicMaterial({ color: c.fg })),
-  );
-  gruppo.add(mondo);
+  // Il mondo al centro: una sfera piena con un alone sottile
+  const mondo = sfera(0.26, c.fg);
+  gruppo.add(mondo, cerchio(0.4, linea(c.muted, 0.5)));
 
-  // Ogni pianeta si costruisce con la sua decorazione; restituisce i materiali da accendere e spegnere
-  function pianeta(r: number, tipo: Decorazione) {
-    const corpo = new THREE.Group();
-    const inclinato = new THREE.Group();
-    corpo.add(inclinato);
-    const mats: (THREE.LineBasicMaterial | THREE.MeshBasicMaterial)[] = [];
-    const add = (o: THREE.Object3D, m: THREE.LineBasicMaterial | THREE.MeshBasicMaterial) => { inclinato.add(o); mats.push(m); };
-    const cuore = new THREE.MeshBasicMaterial({ color: c.accent, transparent: true });
-    add(new THREE.Mesh(new THREE.SphereGeometry(r * 0.45, 16, 12), cuore), cuore);
-    if (tipo === 'roccioso') {
-      // Poche facce, come una roccia
-      const m = linea(c.accent);
-      add(filo(new THREE.IcosahedronGeometry(r, 0), m), m);
-    } else if (tipo === 'gigante') {
-      // Gigante gassoso: fasce di latitudine, più un anello largo e sottile
-      const m = linea(c.accent);
-      const sfera = new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.SphereGeometry(r, 18, 9)), m);
-      add(sfera, m);
-      const ma = linea(c.accent, 0.6);
-      for (const k of [1.45, 1.6, 1.75]) add(cerchio(r * k, ma), ma);
-      inclinato.rotation.z = 0.35;
-    } else if (tipo === 'anelli') {
-      // Due anelli inclinati intorno a una sfera liscia
-      const m = linea(c.accent);
-      add(filo(new THREE.IcosahedronGeometry(r, 2), m), m);
-      const ma = linea(c.accent, 0.7);
-      const anelli = new THREE.Group();
-      anelli.add(cerchio(r * 1.55, ma), cerchio(r * 1.85, ma));
-      anelli.rotation.x = 1.1;
-      inclinato.add(anelli);
-      mats.push(ma);
-    } else {
-      // Reticolo: meridiani e paralleli, asse inclinato, una calotta polare
-      const m = linea(c.accent);
-      add(new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.SphereGeometry(r, 10, 7)), m), m);
-      const mc = linea(c.fg, 0.8);
-      add(cerchio(r * 0.45, mc, r * 0.88), mc);
-      inclinato.rotation.z = -0.5;
-    }
-    return { corpo, inclinato, mats };
-  }
-
-  // Orbite: raggi crescenti; più lontano, più lento (come le leggi di Keplero, in piccolo)
+  // Orbite a distanze crescenti; più lontano, più lento (come Keplero, in piccolo)
+  const ORBITE = competenze.map((_, i) => 1.4 + i * 0.82);
+  const massimo = Math.max(...competenze.map(k => k.aree.length));
   const pianeti = competenze.map((k, i) => {
-    const r = 0.16 + k.aree.length * 0.055;
-    const orbita = 1.7 + i * 1.05;
+    const raggio = 0.09 + k.aree.length * 0.028;
+    const orbita = ORBITE[i]!;
     const matOrbita = linea(c.line, 1);
     gruppo.add(cerchio(orbita, matOrbita));
-    const p = pianeta(r, DECORAZIONI[i % DECORAZIONI.length]!);
-    gruppo.add(p.corpo);
-    punti.push({ id: `skill:${k.id}`, label: k.label, href: k.href, hub: true, famiglia: k.id, ancora: p.corpo });
+    const corpo = new THREE.Group();
+    const pieno = sfera(raggio, c.accent);
+    corpo.add(pieno);
+    // Solo il pianeta più grande ha un anello: basta un dettaglio per riconoscerli
+    let anello: THREE.Line | null = null;
+    if (k.aree.length === massimo) {
+      anello = cerchio(raggio * 1.8, linea(c.accent, 0.8));
+      anello.rotation.x = 0.45;
+      corpo.add(anello);
+    }
+    gruppo.add(corpo);
+    punti.push({ id: `skill:${k.id}`, label: k.label, href: k.href, hub: true, famiglia: k.id, ancora: corpo });
 
-    // Lune: piccole sfere su piani inclinati, oltre gli anelli del pianeta
     const lune = k.aree.map((a, j) => {
       const piano = new THREE.Group();
       piano.rotation.set(0.4 + j * 0.45, j * 1.3, 0.25 * j);
-      const luna = new THREE.Mesh(new THREE.SphereGeometry(0.045 + Math.min(a.punti, 5) * 0.006, 10, 8), new THREE.MeshBasicMaterial({ color: c.fg, transparent: true }));
+      const luna = sfera(0.035, c.fg);
       piano.add(luna);
-      p.corpo.add(piano);
+      corpo.add(piano);
       punti.push({ id: `area:${a.id}`, label: a.label, href: a.href, hub: false, famiglia: k.id, ancora: luna });
-      return { a, luna, raggio: r * 2 + 0.12 + j * 0.13, fase: j * 2.1 + i, velocita: 0.0006 / (1 + j * 0.3) };
+      return { a, luna, raggio: raggio + 0.16 + j * 0.09, fase: j * 2.1 + i, velocita: 0.0007 / (1 + j * 0.3) };
     });
-    return { k, ...p, matOrbita, lune, orbita, fase: i * 2.3, velocita: 0.00022 / Math.pow(orbita, 1.5), rotazione: 0.0004 + (i % 2) * 0.0003 };
+    return { k, corpo, pieno, anello, matOrbita, lune, orbita, fase: i * 2.3, velocita: 0.00022 / Math.pow(orbita, 1.5) };
   });
 
+  // Fascia di asteroidi fra la seconda e la terza orbita, e stelle lontane
+  const fascia: number[] = [];
+  const dentro = ORBITE[1] ?? 2.5, fuori = ORBITE[2] ?? 3.4;
+  for (let k = 0; k < 260; k++) {
+    const a = r() * Math.PI * 2, d = dentro + 0.3 + r() * (fuori - dentro - 0.6);
+    fascia.push(Math.cos(a) * d, (r() - 0.5) * 0.12, Math.sin(a) * d);
+  }
+  const asteroidi = nuvola(fascia, c.muted, 0.03, 0.7);
+  const cielo: number[] = [];
+  for (let k = 0; k < 220; k++) {
+    const v = new THREE.Vector3(r() - 0.5, r() - 0.3, r() - 0.5).normalize().multiplyScalar(9 + r() * 4);
+    cielo.push(v.x, v.y, v.z);
+  }
+  gruppo.add(asteroidi, nuvola(cielo, c.fg, 0.035, 0.5));
+
   vista(el, gruppo, punti, {
-    camera: new THREE.Vector3(0, 5.6, 11.2),
+    camera: new THREE.Vector3(0, 4.6, 8.4),
     mira: new THREE.Vector3(0, -0.3, 0),
     inclinazione: [0.12, 0.6],
     aggiorna: (t, acceso) => {
-      mondo.rotation.y = t * 0.0001;
+      asteroidi.rotation.y = t * 0.00003;
       pianeti.forEach(p => {
         const ang = p.fase + t * p.velocita;
         p.corpo.position.set(Math.cos(ang) * p.orbita, 0, Math.sin(ang) * p.orbita);
-        p.inclinato.rotation.y = t * p.rotazione;
         const lp = acceso(p.k.id, `skill:${p.k.id}`);
-        const s = lp === 1 ? 1.3 : 1;
+        const s = lp === 1 ? 1.4 : 1;
         p.corpo.scale.lerp(new THREE.Vector3(s, s, s), 0.15);
         const o = Math.min(1, lp * 2);
-        p.mats.forEach(m => { m.opacity = o * (m.userData.base ??= m.opacity); });
-        p.matOrbita.opacity = lp === 1 ? 1 : lp > 0.15 ? 0.8 : 0.3;
+        (p.pieno.material as THREE.MeshBasicMaterial).opacity = o;
+        if (p.anello) (p.anello.material as THREE.LineBasicMaterial).opacity = o * 0.8;
         p.matOrbita.color.copy(lp === 1 ? c.accent : c.line);
+        p.matOrbita.opacity = lp > 0.15 ? 1 : 0.4;
         p.lune.forEach(l => {
           const a = l.fase + t * l.velocita;
           l.luna.position.set(Math.cos(a) * l.raggio, 0, Math.sin(a) * l.raggio);
           const ll = acceso(p.k.id, `area:${l.a.id}`);
-          const sl = ll === 1 ? 2 : 1;
+          const sl = ll === 1 ? 2.2 : 1;
           l.luna.scale.lerp(new THREE.Vector3(sl, sl, sl), 0.2);
           (l.luna.material as THREE.MeshBasicMaterial).opacity = Math.min(1, ll * 2);
         });
