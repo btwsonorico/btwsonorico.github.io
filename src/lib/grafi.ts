@@ -1,5 +1,5 @@
 import { getCollection } from 'astro:content';
-import { COMPETENZE } from '../content.config';
+import { COMPETENZE, COMPETENZE_ADVISORY } from '../content.config';
 
 export type TipoNodo = 'testo' | 'tema' | 'fonte' | 'area' | 'tech' | 'skill';
 export interface Nodo { id: string; tipo: TipoNodo; label: string; href?: string; debole?: boolean }
@@ -15,6 +15,16 @@ export const scrittiPubblici = async () =>
 
 export const areePubbliche = async () =>
   (await getCollection('aree', ({ data }) => !data.draft)).sort((a, b) => a.data.order - b.data.order);
+
+export const advisoryPubbliche = async () =>
+  (await getCollection('advisory', ({ data }) => !data.draft)).sort((a, b) => a.data.order - b.data.order);
+
+// Le due sezioni con competenze chiave e aree: stessa forma, contenuti diversi
+export type Sezione = 'projects' | 'advisory';
+export const sezioni = {
+  projects: { competenze: COMPETENZE as Record<string, { title: string; summary: string }>, aree: areePubbliche },
+  advisory: { competenze: COMPETENZE_ADVISORY as Record<string, { title: string; summary: string }>, aree: advisoryPubbliche },
+};
 
 function chiudi(nodi: Nodo[], archi: [string, string][]): DatiGrafo {
   const ids = new Set(nodi.map(n => n.id));
@@ -82,16 +92,17 @@ export async function grafoKnowledge({ fonti = true } = {}): Promise<DatiGrafo> 
   return { ...chiudi(nodi, archi), stelle };
 }
 
-// Projects: le competenze chiave (palle grandi) e le loro aree (palle piccole), come temi e testi in Knowledge.
-// Una competenza apre la sua voce nella pagina Projects; un'area apre la sua pagina.
-export async function grafoCompetenze(): Promise<DatiGrafo> {
-  const aree = await areePubbliche();
+// Projects e Advisory: le competenze chiave (palle grandi) e le loro aree (palle piccole), come temi e testi in Knowledge.
+// Una competenza apre la sua voce nella pagina della sezione; un'area apre la sua pagina.
+export async function grafoCompetenze(sezione: Sezione = 'projects'): Promise<DatiGrafo> {
+  const { competenze, aree: carica } = sezioni[sezione];
+  const aree = await carica();
   const scritti = await scrittiPubblici();
   for (const a of aree) for (const r of a.data.related)
     if (!scritti.some(s => s.id === r)) throw new Error(`L'area "${a.id}" cita "${r}" in related, ma il testo non esiste.`);
-  const nodi: Nodo[] = Object.entries(COMPETENZE)
+  const nodi: Nodo[] = Object.entries(competenze)
     .filter(([id]) => aree.some(a => a.data.skill === id))
-    .map(([id, c]) => ({ id: `skill:${id}`, tipo: 'skill', label: c.title, href: `/projects/#${id}` }));
-  for (const a of aree) nodi.push({ id: `area:${a.id}`, tipo: 'area', label: a.data.title, href: `/projects/${a.id}/` });
+    .map(([id, c]) => ({ id: `skill:${id}`, tipo: 'skill', label: c.title, href: `/${sezione}/#${id}` }));
+  for (const a of aree) nodi.push({ id: `area:${a.id}`, tipo: 'area', label: a.data.title, href: `/${sezione}/${a.id}/` });
   return chiudi(nodi, aree.map(a => [`skill:${a.data.skill}`, `area:${a.id}`]));
 }

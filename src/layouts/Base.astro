@@ -2,7 +2,7 @@
 import '@/components/arc/foundation.css';
 // tono: colore d'accento della pagina. Senza tono resta l'acquamarina del sito.
 // largo: pagina a tutta larghezza su schermi grandi (home, Knowledge, Projects); i testi restano stretti.
-interface Props { title: string; description?: string; lang?: 'it' | 'en'; tono?: 'arancio'; largo?: boolean }
+interface Props { title: string; description?: string; lang?: 'it' | 'en'; tono?: 'arancio' | 'lilla'; largo?: boolean }
 const { title, description = 'Research, advisory, software.', lang = 'en', tono, largo = false } = Astro.props;
 const build = new Date().toISOString().slice(0, 10);
 ---
@@ -21,6 +21,7 @@ const build = new Date().toISOString().slice(0, 10);
       <nav>
         <a href="/knowledge/">knowledge</a>
         <a href="/projects/">projects</a>
+        <a href="/advisory/">advisory</a>
       </nav>
     </header>
     <slot />
@@ -63,6 +64,8 @@ const build = new Date().toISOString().slice(0, 10);
   /* Arancio: complementare dell'acquamarina, con la stessa luminosità e saturazione */
   /* Vale per una pagina intera (Base con tono) o per una sola sezione (data-tono sull'elemento) */
   :root[data-theme="dark"][data-cyber][data-tono="arancio"], [data-tono="arancio"] { --accent: #ffa45e; }
+  /* Lilla per Advisory: terzo colore della stessa famiglia, stessa luminosità di acquamarina e arancio */
+  :root[data-theme="dark"][data-cyber][data-tono="lilla"], [data-tono="lilla"] { --accent: #c4a7ff; }
   /* Departure Mono (SIL OFL, helenazhang.com): nitida a multipli di 11px */
   @font-face {
     font-family: 'Departure Mono';

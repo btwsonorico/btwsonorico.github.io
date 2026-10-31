@@ -1,0 +1,68 @@
+---
+// Cursore a pallino bianco. Al clic si stringe e lascia un anello che si allarga.
+// Solo con mouse o trackpad: su schermi touch resta il comportamento normale.
+---
+<div class="cursore-punto" aria-hidden="true"></div>
+
+<script>
+  const fine = window.matchMedia('(hover: hover) and (pointer: fine)');
+  const ridotto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const punto = document.querySelector<HTMLElement>('.cursore-punto');
+  if (fine.matches && punto) {
+    document.documentElement.classList.add('con-cursore');
+    let x = -100, y = -100;
+    const muovi = () => { punto.style.transform = `translate(${x}px, ${y}px)`; };
+    window.addEventListener('pointermove', e => {
+      x = e.clientX; y = e.clientY;
+      punto.classList.add('visibile');
+      // Più grande sopra link, pulsanti, voci apribili e grafo
+      punto.classList.toggle('sopra', !!(e.target as Element).closest('a, button, summary, [role="button"], .scena'));
+      muovi();
+    });
+    document.addEventListener('pointerleave', () => punto.classList.remove('visibile'));
+    window.addEventListener('pointerdown', () => {
+      punto.classList.add('premuto');
+      if (ridotto) return;
+      const anello = document.createElement('div');
+      anello.className = 'cursore-anello';
+      anello.style.transform = `translate(${x}px, ${y}px)`;
+      document.body.appendChild(anello);
+      anello.addEventListener('animationend', () => anello.remove());
+    });
+    window.addEventListener('pointerup', () => punto.classList.remove('premuto'));
+  }
+</script>
+
+<style is:global>
+  html.con-cursore, html.con-cursore * { cursor: none !important; }
+  .cursore-punto, .cursore-anello {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1000;
+    pointer-events: none;
+    border-radius: 50%;
+  }
+  .cursore-punto {
+    width: 10px;
+    height: 10px;
+    margin: -5px 0 0 -5px;
+    background: var(--fg);
+    opacity: 0;
+    transition: opacity .15s, width .15s, height .15s, margin .15s;
+  }
+  .cursore-punto.visibile { opacity: 1; }
+  .cursore-punto.sopra { width: 18px; height: 18px; margin: -9px 0 0 -9px; opacity: .85; }
+  .cursore-punto.premuto { width: 6px; height: 6px; margin: -3px 0 0 -3px; }
+  .cursore-anello {
+    width: 10px;
+    height: 10px;
+    margin: -5px 0 0 -5px;
+    border: 1px solid var(--fg);
+    animation: cursore-onda .5s cubic-bezier(.2, .7, .3, 1) forwards;
+  }
+  @keyframes cursore-onda {
+    from { width: 10px; height: 10px; margin: -5px 0 0 -5px; opacity: .8; }
+    to { width: 44px; height: 44px; margin: -22px 0 0 -22px; opacity: 0; }
+  }
+</style>

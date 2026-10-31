@@ -4,12 +4,13 @@ import Attivita from '../components/Attivita.astro';
 import Grafo from '../components/Grafo.astro';
 import Lista from '../components/Lista.astro';
 import TabHome from '../components/TabHome';
-import { areePubbliche, grafoCompetenze, grafoKnowledge, scrittiPubblici } from '../lib/grafi';
-import { COMPETENZE } from '../content.config';
+import { advisoryPubbliche, areePubbliche, grafoCompetenze, grafoKnowledge, scrittiPubblici } from '../lib/grafi';
+import { COMPETENZE, COMPETENZE_ADVISORY } from '../content.config';
 
 const scritti = (await scrittiPubblici()).slice(0, 5);
 const aree = await areePubbliche();
-const [knowledge, projects] = await Promise.all([grafoKnowledge({ fonti: false }), grafoCompetenze()]);
+const [knowledge, projects, advisory] = await Promise.all([grafoKnowledge({ fonti: false }), grafoCompetenze('projects'), grafoCompetenze('advisory')]);
+const consulenze = await advisoryPubbliche();
 const data = (d: Date) => d.toISOString().slice(0, 10);
 const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role === 'main')?.type;
 ---
@@ -36,6 +37,7 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
     <div class="a-grafo grafi">
       <div data-pannello="knowledge"><Grafo dati={knowledge} legenda={['testo', 'tema']} /></div>
       <div data-pannello="projects" data-tono="arancio" hidden><Grafo dati={projects} legenda={['skill', 'area']} /></div>
+      <div data-pannello="advisory" data-tono="lilla" hidden><Grafo dati={advisory} legenda={['skill', 'area']} /></div>
     </div>
 
     <div class="a-resto pannelli">
@@ -55,6 +57,14 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
         }))} />
         <p class="tutto mono"><a href="/projects/">all skills and areas →</a></p>
       </section>
+
+      <section data-pannello="advisory" data-tono="lilla" hidden>
+        <Lista titolo="Key skills" righe={Object.entries(COMPETENZE_ADVISORY).map(([id, c], i) => ({
+          id: `skill:${id}`, data: String(i + 1).padStart(2, '0'), titolo: c.title, href: `/advisory/#${id}`, nota: c.summary,
+          etichetta: `${consulenze.filter(a => a.data.skill === id).length} areas`,
+        }))} />
+        <p class="tutto mono"><a href="/advisory/">all skills and areas →</a></p>
+      </section>
     </div>
   </main>
 </Base>
@@ -63,10 +73,11 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
   // Cambio di tab: dissolvenza con le View Transitions quando il browser le supporta
   const pannelli = document.querySelectorAll<HTMLElement>('[data-pannello]');
   let attuale = 'knowledge';
-  // /#projects apre subito Projects: il controllo dei tab può caricarsi prima di questo script e il suo evento andrebbe perso
-  if (location.hash === '#projects') {
-    attuale = 'projects';
-    pannelli.forEach(p => { p.hidden = p.dataset.pannello !== 'projects'; });
+  // /#projects e /#advisory aprono subito quel tab: il controllo dei tab può caricarsi prima di questo script e il suo evento andrebbe perso
+  const daIndirizzo = location.hash.slice(1);
+  if (daIndirizzo === 'projects' || daIndirizzo === 'advisory') {
+    attuale = daIndirizzo;
+    pannelli.forEach(p => { p.hidden = p.dataset.pannello !== daIndirizzo; });
   }
   window.addEventListener('home:tab', e => {
     const tab = (e as CustomEvent<string>).detail;
