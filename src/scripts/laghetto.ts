@@ -2,21 +2,21 @@ import * as THREE from 'three';
 import { colori, vista, type DatiCompetenze, type Punto } from './vista3d';
 
 // Advisory come laghetto visto dall'alto: ogni competenza chiave è un branco di pesci, ogni area è un pesce.
-// Ogni branco ha la sua specie e nuota sul suo percorso a otto; i pesci lo seguono muovendo la coda.
-// Intorno: riva irregolare, canne, ninfee che girano piano e cerchi d'acqua che si allargano. Tutto in wireframe.
+// Ogni branco ha la sua specie e segue un capofila che vaga per il lago; i pesci nuotano in 3D, a profondità diverse.
+// Intorno: riva irregolare, canne, ninfee fiorite e, ogni tanto, un cerchio d'acqua. Tutto in wireframe.
 
 function casuale(seme: number) {
   return () => { seme = (seme * 16807) % 2147483647; return (seme - 1) / 2147483646; };
 }
 
-// Specie: proporzioni del corpo (lunghezza, larghezza, coda) e un dettaglio che le distingue
-type Specie = { lungo: number; largo: number; coda: number; dettaglio: 'pinne' | 'riga' | 'puntini' | 'nessuno' };
+// Specie: proporzioni del corpo in 3D (lungo, largo, alto), coda e pinna dorsale. Pesci piccoli, come in uno stagno.
+type Specie = { lungo: number; largo: number; alto: number; coda: number; dorsale: number; velocita: number };
 const SPECIE: Specie[] = [
-  { lungo: 0.34, largo: 0.1, coda: 0.1, dettaglio: 'pinne' },    // carpa koi
-  { lungo: 0.4, largo: 0.055, coda: 0.08, dettaglio: 'riga' },   // pesce lungo e sottile
-  { lungo: 0.24, largo: 0.12, coda: 0.08, dettaglio: 'puntini' }, // pesce tondo
-  { lungo: 0.18, largo: 0.05, coda: 0.06, dettaglio: 'nessuno' }, // pesciolino veloce
-  { lungo: 0.3, largo: 0.08, coda: 0.12, dettaglio: 'pinne' },    // pesce dalla coda larga
+  { lungo: 0.2, largo: 0.05, alto: 0.06, coda: 0.07, dorsale: 0.05, velocita: 0.55 },  // carpa koi
+  { lungo: 0.22, largo: 0.03, alto: 0.035, coda: 0.05, dorsale: 0.02, velocita: 0.8 }, // pesce lungo e sottile
+  { lungo: 0.14, largo: 0.045, alto: 0.08, coda: 0.05, dorsale: 0.04, velocita: 0.5 }, // pesce alto e tondo
+  { lungo: 0.11, largo: 0.025, alto: 0.03, coda: 0.04, dorsale: 0.02, velocita: 1 },   // pesciolino veloce
+  { lungo: 0.18, largo: 0.04, alto: 0.05, coda: 0.09, dorsale: 0.06, velocita: 0.65 }, // coda e pinne larghe
 ];
 
 export function monta(el: HTMLElement) {
@@ -71,16 +71,21 @@ export function monta(el: HTMLElement) {
   const matCanne = linea(c.muted, 0.8);
   gruppo.add(new THREE.LineSegments(geoCanne, matCanne));
 
-  // Ninfee: dischi con lo spicchio tagliato e le nervature; due hanno un fiore
-  const ninfee = Array.from({ length: 6 }, (_, k) => {
-    const raggio = 0.18 + r() * 0.14;
+  // Ninfee: foglie con lo spicchio tagliato e le nervature; quasi tutte hanno un fiore aperto,
+  // con due giri di petali a punta rivolti verso l'alto e il cuore chiaro
+  const petalo = (lungo: number, largo: number) => [
+    new THREE.Vector3(0, 0, 0), new THREE.Vector3(largo, lungo * 0.35, lungo * 0.45),
+    new THREE.Vector3(0, lungo * 0.55, lungo), new THREE.Vector3(-largo, lungo * 0.35, lungo * 0.45),
+  ];
+  const ninfee = Array.from({ length: 8 }, (_, k) => {
+    const raggio = 0.16 + r() * 0.12;
     const n = 28, taglio = 0.5;
     const bordo = [new THREE.Vector3(0, 0, 0), ...Array.from({ length: n + 1 }, (_, i) => {
       const a = taglio / 2 + (i / n) * (Math.PI * 2 - taglio);
       return new THREE.Vector3(Math.cos(a) * raggio, 0, Math.sin(a) * raggio);
     })];
     const foglia = new THREE.Group();
-    foglia.add(anello(bordo, linea(c.accent, 0.7)));
+    foglia.add(anello(bordo, linea(c.accent, 0.6)));
     const nervature: number[] = [];
     for (let i = 1; i < 5; i++) {
       const a = taglio / 2 + (i / 5) * (Math.PI * 2 - taglio);
@@ -88,14 +93,26 @@ export function monta(el: HTMLElement) {
     }
     const geoN = new THREE.BufferGeometry();
     geoN.setAttribute('position', new THREE.Float32BufferAttribute(nervature, 3));
-    foglia.add(new THREE.LineSegments(geoN, linea(c.accent, 0.35)));
-    if (k % 3 === 0) {
-      const fiore = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.OctahedronGeometry(0.06, 0)), linea(c.fg, 0.9));
-      fiore.position.y = 0.05;
-      fiore.scale.y = 0.7;
+    foglia.add(new THREE.LineSegments(geoN, linea(c.accent, 0.3)));
+    if (k % 4 !== 3) {
+      const fiore = new THREE.Group();
+      const matPetali = linea(c.fg, 0.9), matInterni = linea(c.fg, 0.6);
+      for (const [giro, quanti, lungo, inclina, mat] of [[0, 8, 0.11, 0.35, matPetali], [0.4, 6, 0.08, 0.7, matInterni]] as const) {
+        for (let i = 0; i < quanti; i++) {
+          const p = anello(petalo(lungo, 0.025), mat);
+          p.rotation.y = giro + (i / quanti) * Math.PI * 2;
+          p.rotateX(-inclina);
+          fiore.add(p);
+        }
+      }
+      const cuore = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), new THREE.MeshBasicMaterial({ color: c.accent.clone().offsetHSL(0.12, 0, 0.1) }));
+      cuore.position.y = 0.02;
+      fiore.add(cuore);
+      fiore.position.set(raggio * 0.15, 0.01, 0);
+      fiore.scale.setScalar(0.8 + r() * 0.5);
       foglia.add(fiore);
     }
-    const a = r() * Math.PI * 2, d = (0.45 + r() * 0.4) * raggioRiva(a);
+    const a = r() * Math.PI * 2, d = (0.4 + r() * 0.45) * raggioRiva(a);
     foglia.position.set(Math.cos(a) * d, 0.01, Math.sin(a) * d);
     foglia.rotation.y = r() * Math.PI * 2;
     gruppo.add(foglia);
@@ -104,123 +121,140 @@ export function monta(el: HTMLElement) {
 
   // Cerchi d'acqua: ogni tanto un anello nasce in un punto del lago, si allarga e svanisce
   const matOnda = () => linea(c.accent, 0);
-  const onde = Array.from({ length: 7 }, () => {
+  const onde = Array.from({ length: 3 }, () => {
     const o = anello(cerchio(1, 40), matOnda());
     gruppo.add(o);
     return { o, nato: -1e9, durata: 2600 };
   });
   let prossimaOnda = 0, quale = 0;
 
-  // Pesci: corpo a fuso visto dall'alto, coda che si muove, più il dettaglio della specie.
+  // Pesci in 3D: corpo a fuso sfaccettato, coda e pinna dorsale verticali, pinne laterali.
   // Il pesce guarda verso +z; la coda è un gruppo a parte che oscilla intorno al suo attacco.
   const SFUMATURE = [-0.12, -0.05, 0.04, 0.11].map(dl => c.accent.clone().offsetHSL(0, 0, dl));
   function pesce(sp: Specie, colore: THREE.Color) {
     const corpo = new THREE.Group();
-    const mats: THREE.LineBasicMaterial[] = [];
-    const m = linea(colore);
-    mats.push(m);
-    // Proporzioni della specie, ingrandite: dall'alto i pesci devono leggersi bene
-    const L = sp.lungo * 1.6, W = sp.largo * 1.6;
-    corpo.add(anello([
-      new THREE.Vector3(0, 0, L * 0.5), new THREE.Vector3(W * 0.7, 0, L * 0.32), new THREE.Vector3(W, 0, L * 0.05),
-      new THREE.Vector3(W * 0.6, 0, -L * 0.3), new THREE.Vector3(0, 0, -L * 0.45),
-      new THREE.Vector3(-W * 0.6, 0, -L * 0.3), new THREE.Vector3(-W, 0, L * 0.05), new THREE.Vector3(-W * 0.7, 0, L * 0.32),
-    ], m));
+    const m = linea(colore), mp = linea(colore, 0.65);
+    const fuso = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.SphereGeometry(1, 7, 5)), m);
+    fuso.scale.set(sp.largo, sp.alto, sp.lungo / 2);
+    corpo.add(fuso);
     const coda = new THREE.Group();
-    coda.position.z = -L * 0.42;
-    const C = sp.coda * 1.6;
-    coda.add(anello([new THREE.Vector3(0, 0, 0), new THREE.Vector3(C * 0.8, 0, -C * 1.3), new THREE.Vector3(0, 0, -C * 0.9), new THREE.Vector3(-C * 0.8, 0, -C * 1.3)], m));
+    coda.position.z = -sp.lungo * 0.45;
+    coda.add(anello([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, sp.coda * 0.7, -sp.coda), new THREE.Vector3(0, 0, -sp.coda * 0.7), new THREE.Vector3(0, -sp.coda * 0.7, -sp.coda)], m));
     corpo.add(coda);
-    const md = linea(colore, 0.6);
-    mats.push(md);
-    const tratti: number[] = [];
-    if (sp.dettaglio === 'pinne') tratti.push(W, 0, L * 0.05, W * 1.9, 0, -L * 0.08, -W, 0, L * 0.05, -W * 1.9, 0, -L * 0.08);
-    if (sp.dettaglio === 'riga') tratti.push(0, 0, L * 0.4, 0, 0, -L * 0.4);
-    if (sp.dettaglio === 'puntini') tratti.push(W * 0.3, 0, L * 0.15, W * 0.3, 0, L * 0.1, -W * 0.3, 0, -L * 0.05, -W * 0.3, 0, -L * 0.1, 0, 0, L * 0.3, 0, 0, L * 0.25);
-    if (tratti.length) {
-      const g = new THREE.BufferGeometry();
-      g.setAttribute('position', new THREE.Float32BufferAttribute(tratti, 3));
-      corpo.add(new THREE.LineSegments(g, md));
-    }
-    // Occhi: due punti sul muso
-    const occhi = nuvola([W * 0.35, 0.01, L * 0.33, -W * 0.35, 0.01, L * 0.33], c.fg, 0.03, 1);
-    corpo.add(occhi);
-    mats.push(occhi.material as unknown as THREE.LineBasicMaterial);
-    return { corpo, coda, mats };
+    // Pinna dorsale e pinne laterali
+    corpo.add(anello([new THREE.Vector3(0, sp.alto * 0.9, sp.lungo * 0.1), new THREE.Vector3(0, sp.alto + sp.dorsale, -sp.lungo * 0.05), new THREE.Vector3(0, sp.alto * 0.8, -sp.lungo * 0.25)], mp));
+    for (const lato of [1, -1]) corpo.add(anello([new THREE.Vector3(lato * sp.largo * 0.9, -sp.alto * 0.3, sp.lungo * 0.15), new THREE.Vector3(lato * (sp.largo + 0.04), -sp.alto * 0.6, sp.lungo * 0.02), new THREE.Vector3(lato * sp.largo * 0.8, -sp.alto * 0.4, 0)], mp));
+    return { corpo, coda, mats: [m, mp] };
   }
 
-  // Branchi: uno per competenza, ognuno sul suo percorso a otto dentro il lago
+  // Branchi: uno per competenza. Il capofila vaga per il lago con una rotta morbida;
+  // i pesci lo seguono con tre regole semplici (raggiungere il proprio posto, non urtarsi, andare nella stessa direzione).
   const branchi = competenze.map((k, i) => {
     const sp = SPECIE[i % SPECIE.length]!;
     const centro = new THREE.Object3D();
     gruppo.add(centro);
     punti.push({ id: `skill:${k.id}`, label: k.label, href: k.href, hub: true, famiglia: k.id, ancora: centro });
+    const angolo = (i / competenze.length) * Math.PI * 2;
     const pesci = k.aree.map((a, j) => {
       const p = pesce(sp, SFUMATURE[(i + j) % SFUMATURE.length]!);
       gruppo.add(p.corpo);
       punti.push({ id: `area:${a.id}`, label: a.label, href: a.href, hub: false, famiglia: k.id, ancora: p.corpo });
-      // Posto nel branco: a V dietro al capofila, con un po' di disordine
-      const fila = Math.ceil(j / 2), lato = j === 0 ? 0 : j % 2 ? 1 : -1;
-      return { a, ...p, dietro: fila * 0.5 + r() * 0.1, lato: lato * fila * 0.32 + (r() - 0.5) * 0.08, fase: r() * 10, battito: 0.012 + r() * 0.006 };
+      const pos = new THREE.Vector3(Math.cos(angolo) * 1.4 + (r() - 0.5) * 0.4, -0.15, Math.sin(angolo) * 1.4 + (r() - 0.5) * 0.4);
+      return {
+        a, ...p, pos, vel: new THREE.Vector3(),
+        posto: new THREE.Vector3((r() - 0.5) * 0.35, 0, -0.1 - r() * 0.3),
+        fase: r() * 10, profondo: 0.1 + r() * 0.25, colpo: 0,
+      };
     });
-    return {
-      k, centro, pesci,
-      // Percorso a otto intorno a un centro tutto suo, così i branchi non si ammucchiano; ampiezze e velocità diverse
-      cx: Math.cos((i / competenze.length) * Math.PI * 2) * 1.15, cz: Math.sin((i / competenze.length) * Math.PI * 2) * 1.15,
-      ax: 0.9 + (i % 3) * 0.25, az: 0.7 + ((i + 1) % 3) * 0.2, rot: (i / competenze.length) * Math.PI * 2 + 0.6,
-      vel: 0.00011 + (i % 2) * 0.00004, fase: i * 1.7,
-    };
+    // Rotta del capofila: somma di onde lente con frequenze diverse per branco, dentro un cerchio sicuro
+    const f = [0.00011 + i * 0.000013, 0.00017 + i * 0.00001, 0.00007 + i * 0.000017];
+    return { k, sp, centro, pesci, f, fase: i * 2.1, capo: new THREE.Vector3(), rotta: new THREE.Vector3() };
   });
-  const percorso = (b: (typeof branchi)[number], t: number, out: THREE.Vector3) => {
-    const u = b.fase + t * b.vel;
-    const x = Math.sin(u) * b.ax, z = Math.sin(2 * u) * b.az * 0.6;
-    return out.set(b.cx + x * Math.cos(b.rot) - z * Math.sin(b.rot), -0.08, b.cz + x * Math.sin(b.rot) + z * Math.cos(b.rot));
+  const capofila = (b: (typeof branchi)[number], t: number, out: THREE.Vector3) => {
+    const u = b.fase;
+    const x = Math.sin(t * b.f[0]! + u) * 1.5 + Math.sin(t * b.f[1]! * 1.7 + u * 2) * 0.6;
+    const z = Math.cos(t * b.f[2]! + u * 1.3) * 1.4 + Math.sin(t * b.f[1]! + u) * 0.5;
+    out.set(x, -0.15, z);
+    // Dentro la riva, con un margine
+    const a = Math.atan2(z, x), max = raggioRiva(a) - 0.7, d = Math.hypot(x, z);
+    if (d > max) out.multiplyScalar(max / d).setY(-0.15);
+    return out;
   };
-  const qui = new THREE.Vector3(), poco = new THREE.Vector3(), avanti = new THREE.Vector3(), destra = new THREE.Vector3(), su = new THREE.Vector3(0, 1, 0);
+  const avanti = new THREE.Vector3(), vuole = new THREE.Vector3(), lontano = new THREE.Vector3(), mira = new THREE.Vector3(), dopo = new THREE.Vector3();
+  let prima = -1;
 
   vista(el, gruppo, punti, {
-    camera: new THREE.Vector3(0, 6.2, 6.4),
+    camera: new THREE.Vector3(0, 5.6, 5.4),
     mira: new THREE.Vector3(0, -0.2, 0),
-    inclinazione: [0.1, 0.45],
+    inclinazione: [0.12, 0.5],
     aggiorna: (t, acceso) => {
+      // Passo di tempo in secondi, limitato: se la scheda torna visibile i pesci non saltano
+      const dt = prima < 0 || t === 0 ? 0 : Math.min(0.05, (t - prima) / 1000);
+      prima = t;
       ninfee.forEach(n => { n.foglia.rotation.y += n.giro * 16; });
 
-      // Un nuovo cerchio d'acqua ogni 0,9-2 secondi, mai con prefers-reduced-motion
+      // Un cerchio d'acqua ogni 3-6 secondi, mai con prefers-reduced-motion
       if (t > 0 && t > prossimaOnda) {
         const o = onde[quale++ % onde.length]!;
         const a = r() * Math.PI * 2, d = Math.sqrt(r()) * raggioRiva(a) * 0.8;
         o.o.position.set(Math.cos(a) * d, 0, Math.sin(a) * d);
         o.nato = t;
-        prossimaOnda = t + 900 + r() * 1100;
+        prossimaOnda = t + 3000 + r() * 3000;
       }
       onde.forEach(o => {
         const u = (t - o.nato) / o.durata;
         const m = o.o.material as THREE.LineBasicMaterial;
         if (u < 0 || u > 1) { m.opacity = 0; return; }
-        o.o.scale.setScalar(0.05 + u * 0.75);
-        m.opacity = (1 - u) * 0.5;
+        o.o.scale.setScalar(0.04 + u * 0.4);
+        m.opacity = (1 - u) * 0.35;
       });
 
       branchi.forEach(b => {
-        percorso(b, t, qui);
-        percorso(b, t + 400, poco);
-        avanti.copy(poco).sub(qui).normalize();
-        if (avanti.lengthSq() < 0.5) avanti.set(0, 0, 1);
-        destra.crossVectors(su, avanti).normalize();
-        b.centro.position.copy(qui).setY(0.35);
+        capofila(b, t, b.capo);
+        capofila(b, t + 600, dopo);
+        b.rotta.copy(dopo).sub(b.capo).setY(0);
+        if (b.rotta.lengthSq() < 1e-6) b.rotta.set(0, 0, 1);
+        b.rotta.normalize();
+        b.centro.position.copy(b.capo).setY(0.3);
         const lb = acceso(b.k.id, `skill:${b.k.id}`);
-        b.pesci.forEach(p => {
-          // Il pesce sta al suo posto nel branco e ondeggia un poco; la coda batte
-          const ondeggia = Math.sin(t * 0.0015 + p.fase) * 0.05;
-          p.corpo.position.copy(qui).addScaledVector(avanti, -p.dietro).addScaledVector(destra, p.lato + ondeggia);
-          p.corpo.position.y = -0.08 + Math.sin(t * 0.001 + p.fase) * 0.02;
-          // lookAt vuole un punto nel mondo: il punto davanti al pesce, portato fuori dal gruppo che ruota
-          p.corpo.lookAt(gruppo.localToWorld(poco.copy(p.corpo.position).add(avanti)));
-          p.coda.rotation.y = Math.sin(t * p.battito + p.fase) * 0.45;
+        // Base del capofila per mettere i pesci "dietro" e "di lato" rispetto alla rotta
+        const destra = new THREE.Vector3(b.rotta.z, 0, -b.rotta.x);
+        b.pesci.forEach((p, n) => {
+          // 1) Raggiungere il proprio posto nel branco, a una profondità che cambia piano
+          mira.copy(b.capo).addScaledVector(destra, p.posto.x).addScaledVector(b.rotta, p.posto.z);
+          mira.y = -p.profondo - Math.sin(t * 0.0006 + p.fase) * 0.08;
+          vuole.copy(mira).sub(p.pos).multiplyScalar(2.2);
+          // 2) Non urtarsi con gli altri del branco
+          b.pesci.forEach((q, m) => {
+            if (m === n) return;
+            lontano.copy(p.pos).sub(q.pos);
+            const d = lontano.length();
+            if (d < 0.12 && d > 1e-4) vuole.addScaledVector(lontano, (0.12 - d) * 25 / d);
+          });
+          // 3) Andare nella direzione del branco, con un guizzo ogni tanto
+          vuole.addScaledVector(b.rotta, 0.4);
+          if (Math.sin(t * 0.0013 + p.fase * 7) > 0.995) p.colpo = 1;
+          p.colpo = Math.max(0, p.colpo - dt * 1.5);
+          p.vel.lerp(vuole, Math.min(1, dt * 2.5));
+          const max = b.sp.velocita * (1 + p.colpo * 0.8);
+          if (p.vel.length() > max) p.vel.setLength(max);
+          p.pos.addScaledVector(p.vel, dt);
+          p.corpo.position.copy(p.pos);
+          // Orientamento: il muso segue la velocità, con un po' di inclinazione in curva
+          if (p.vel.lengthSq() > 1e-5) {
+            avanti.copy(p.vel).normalize();
+            p.corpo.lookAt(gruppo.localToWorld(dopo.copy(p.pos).add(avanti)));
+          }
+          // La coda batte più forte quando il pesce va veloce
+          const velocita = p.vel.length();
+          p.fase += dt * (6 + velocita * 18);
+          p.coda.rotation.y = Math.sin(p.fase) * (0.35 + velocita * 0.4);
+          // Più in profondità, più tenue: l'acqua dà profondità alla scena
           const l = acceso(b.k.id, `area:${p.a.id}`);
-          const s = l === 1 ? 1.6 : lb === 1 ? 1.2 : 1;
+          const s = l === 1 ? 1.8 : lb === 1 ? 1.3 : 1;
           p.corpo.scale.lerp(new THREE.Vector3(s, s, s), 0.15);
-          p.mats.forEach(m => { m.opacity = Math.min(1, l * 2) * (m.userData.base ??= m.opacity); });
+          const acqua = THREE.MathUtils.clamp(1.15 - p.profondo * 1.6, 0.45, 1);
+          p.mats.forEach(m => { m.opacity = Math.min(1, l * 2) * (m.userData.base ??= m.opacity) * (l === 1 ? 1 : acqua); });
         });
       });
     },
