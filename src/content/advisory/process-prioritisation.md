@@ -2,7 +2,7 @@
 title: Process prioritisation for AI
 summary: "Find the areas and processes where AI creates the most value."
 order: 3
-skill: "value"
+skill: "opportunities"
 methods: ["interviews", "process mapping", "prioritisation matrix"]
 related: []
 ---

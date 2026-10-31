@@ -1,8 +1,8 @@
 ---
 title: Process redesign
 summary: "Redraw the process around AI, and decide where the person stays in the loop."
-order: 5
-skill: "value"
+order: 6
+skill: "design"
 methods: ["process mapping"]
 related: ["reading-intelligent-delegation"]
 ---

@@ -1,8 +1,8 @@
 ---
 title: Evidence-based advice
 summary: "Recommendations backed by research, benchmarks and literature."
-order: 13
-skill: "engagement"
+order: 14
+skill: "research"
 methods: ["literature review", "benchmarking", "survey"]
 related: ["reading-ironies-genai", "reading-intelligent-delegation"]
 ---

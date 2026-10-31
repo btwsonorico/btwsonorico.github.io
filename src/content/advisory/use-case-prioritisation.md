@@ -2,7 +2,7 @@
 title: Use case prioritisation
 summary: "From a long list of ideas to the few use cases worth starting."
 order: 4
-skill: "value"
+skill: "opportunities"
 methods: ["prioritisation matrix", "benchmarking"]
 related: []
 ---

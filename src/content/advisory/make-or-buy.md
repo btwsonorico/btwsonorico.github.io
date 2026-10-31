@@ -1,8 +1,8 @@
 ---
 title: Make or buy
 summary: "Build, buy or adapt: a choice based on technology, cost and internal skills."
-order: 6
-skill: "value"
+order: 5
+skill: "opportunities"
 methods: ["benchmarking", "business case"]
 related: []
 ---

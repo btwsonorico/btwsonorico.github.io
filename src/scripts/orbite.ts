@@ -36,8 +36,9 @@ export function monta(el: HTMLElement) {
   gruppo.add(mondo, cerchio(0.4, linea(c.muted, 0.5)));
 
   // Orbite a distanze crescenti; più lontano, più lento (come Keplero, in piccolo)
-  const ORBITE = competenze.map((_, i) => 1.4 + i * 0.82);
+  const ORBITE = competenze.map((_, i) => 1.3 + i * 0.62);
   const massimo = Math.max(...competenze.map(k => k.aree.length));
+  let conAnello = false;
   const pianeti = competenze.map((k, i) => {
     const raggio = 0.09 + k.aree.length * 0.028;
     const orbita = ORBITE[i]!;
@@ -46,9 +47,10 @@ export function monta(el: HTMLElement) {
     const corpo = new THREE.Group();
     const pieno = sfera(raggio, c.accent);
     corpo.add(pieno);
-    // Solo il pianeta più grande ha un anello: basta un dettaglio per riconoscerli
+    // Solo il primo dei pianeti più grandi ha un anello: basta un dettaglio per riconoscerli
     let anello: THREE.Line | null = null;
-    if (k.aree.length === massimo) {
+    if (k.aree.length === massimo && !conAnello) {
+      conAnello = true;
       anello = cerchio(raggio * 1.8, linea(c.accent, 0.8));
       anello.rotation.x = 0.45;
       corpo.add(anello);

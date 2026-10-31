@@ -2,7 +2,7 @@
 title: Business case and roadmap
 summary: "Expected benefits, costs and the order in which to do things."
 order: 7
-skill: "value"
+skill: "design"
 methods: ["business case"]
 related: []
 ---

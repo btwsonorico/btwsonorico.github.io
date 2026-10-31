@@ -18,9 +18,11 @@ const CHIAVI_COMPETENZE = Object.keys(COMPETENZE) as [keyof typeof COMPETENZE, .
 // Advisory: competenze chiave della consulenza e metodi usati. Solo descrizioni generali: mai clienti, settori o dettagli dei framework.
 export const COMPETENZE_ADVISORY = {
   strategy: { title: 'AI strategy', summary: 'Where an organisation stands with AI, and where it can go.' },
-  value: { title: 'Value analysis', summary: 'Which processes and use cases are worth doing with AI, and how.' },
+  opportunities: { title: 'Opportunity mapping', summary: 'Which processes and use cases are worth doing with AI.' },
+  design: { title: 'Business design', summary: 'How the process changes with AI, and what it is worth.' },
   adoption: { title: 'People and adoption', summary: 'From AI used on single tasks to AI that changes the whole process.' },
-  engagement: { title: 'Engagement management', summary: 'Running an advisory project from the first interview to the roadmap.' },
+  stakeholders: { title: 'Stakeholder management', summary: 'Clear goals at the start, clear outputs at the end.' },
+  research: { title: 'Research and translation', summary: 'Evidence from research, in a language both business and engineering understand.' },
 } as const;
 const CHIAVI_ADVISORY = Object.keys(COMPETENZE_ADVISORY) as [keyof typeof COMPETENZE_ADVISORY, ...(keyof typeof COMPETENZE_ADVISORY)[]];
 export const METODI = ['interviews', 'benchmarking', 'literature review', 'process mapping', 'prioritisation matrix', 'business case', 'survey', 'field experiment', 'kpi design'] as const;
