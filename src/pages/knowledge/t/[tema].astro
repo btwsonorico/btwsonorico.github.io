@@ -13,7 +13,7 @@ const { n } = Astro.props;
 const scritti = (await scrittiPubblici()).filter(s => s.data.topics.includes(tema));
 const data = (d: Date) => d.toISOString().slice(0, 10);
 ---
-<Base title={`#${tema} · Riccardo Mondi`} description={`All writing on #${tema}.`}>
+<Base title={`#${tema} · Riccardo Mondi`} description={`All writing on #${tema}.`} tono="arancio">
   <main>
     <header class="testa testa-pagina">
       <p class="mono"><a href="/knowledge/">knowledge</a> · topic</p>

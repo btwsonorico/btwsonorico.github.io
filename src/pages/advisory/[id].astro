@@ -13,7 +13,7 @@ const { Content } = await render(a);
 const competenza = COMPETENZE_ADVISORY[a.data.skill];
 const scritti = (await scrittiPubblici()).filter(s => a.data.related.includes(s.id));
 ---
-<Base title={`${a.data.title} · Riccardo Mondi`} description={a.data.summary} tono="arancio">
+<Base title={`${a.data.title} · Riccardo Mondi`} description={a.data.summary} tono="azzurro">
   <main>
     <article>
       <p class="mono testa"><a href="/advisory/">advisory</a> · <a href={`/advisory/#${a.data.skill}`}>{competenza.title}</a></p>

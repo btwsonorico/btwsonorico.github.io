@@ -16,7 +16,7 @@ const aree = (await areePubbliche()).filter(p => p.data.related.includes(s.id));
 const principali = s.data.sources.filter(f => f.role === 'main');
 const secondarie = s.data.sources.filter(f => f.role === 'secondary');
 ---
-<Base title={`${s.data.title} · Riccardo Mondi`} description={s.data.summary} lang={s.data.lang}>
+<Base title={`${s.data.title} · Riccardo Mondi`} description={s.data.summary} lang={s.data.lang} tono="arancio">
   <main>
     <article>
       <header>
