@@ -5,8 +5,8 @@ import SegmentedControl from "@/components/arc/segmented-control/segmented-contr
 // Projects è la prima tab e quella aperta all'avvio.
 const TAB = [
   { value: "projects", label: "Projects" },
-  { value: "knowledge", label: "Knowledge" },
   { value: "advisory", label: "Advisory" },
+  { value: "knowledge", label: "Knowledge" },
 ];
 const daIndirizzo = () => TAB.find(t => t.value !== "projects" && window.location.hash === `#${t.value}`)?.value ?? "projects";
 
