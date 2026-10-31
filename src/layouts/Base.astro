@@ -59,7 +59,8 @@ const build = new Date().toISOString().slice(0, 10);
     --radius-control: 2px;
   }
   /* Arancio: complementare dell'acquamarina, con la stessa luminosità e saturazione */
-  :root[data-theme="dark"][data-cyber][data-tono="arancio"] { --accent: #ffa45e; }
+  /* Vale per una pagina intera (Base con tono) o per una sola sezione (data-tono sull'elemento) */
+  :root[data-theme="dark"][data-cyber][data-tono="arancio"], [data-tono="arancio"] { --accent: #ffa45e; }
   /* Departure Mono (SIL OFL, helenazhang.com): nitida a multipli di 11px */
   @font-face {
     font-family: 'Departure Mono';

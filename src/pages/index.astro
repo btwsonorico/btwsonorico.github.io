@@ -4,11 +4,12 @@ import Attivita from '../components/Attivita.astro';
 import Grafo from '../components/Grafo.astro';
 import Lista from '../components/Lista.astro';
 import TabHome from '../components/TabHome';
-import { areePubbliche, grafoAree, grafoKnowledge, scrittiPubblici } from '../lib/grafi';
+import { areePubbliche, grafoCompetenze, grafoKnowledge, scrittiPubblici } from '../lib/grafi';
+import { COMPETENZE } from '../content.config';
 
 const scritti = (await scrittiPubblici()).slice(0, 5);
 const aree = await areePubbliche();
-const [knowledge, projects] = await Promise.all([grafoKnowledge({ fonti: false }), grafoAree()]);
+const [knowledge, projects] = await Promise.all([grafoKnowledge({ fonti: false }), grafoCompetenze()]);
 const data = (d: Date) => d.toISOString().slice(0, 10);
 const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role === 'main')?.type;
 ---
@@ -17,7 +18,8 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
     <section class="intro">
       <h1>Riccardo Mondi</h1>
       <p class="ruoli mono">
-        <span>Developer & AI consultant <span class="at">@</span> Politecnico di Milano</span>
+        <span>AI Advisor & Developer</span>
+        <span class="ente">Politecnico di Milano - Osservatorio Artificial Intelligence</span>
       </p>
       <p class="link mono">
         <a href="mailto:nome@esempio.it">email</a>
@@ -39,13 +41,14 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
         <p class="tutto mono"><a href="/knowledge/">all writing →</a></p>
       </section>
 
-      <section data-pannello="projects" hidden>
-        <Grafo dati={projects} legenda={['area', 'tech', 'testo']} />
+      <section data-pannello="projects" data-tono="arancio" hidden>
+        <Grafo dati={projects} legenda={['skill', 'area']} />
         <div class="commit"><Attivita /></div>
-        <Lista titolo="What I build with" righe={aree.map(a => ({
-          id: `area:${a.id}`, data: String(a.data.order).padStart(2, '0'), titolo: a.data.title, href: `/projects/${a.id}/`, nota: a.data.summary,
+        <Lista titolo="Key skills" righe={Object.entries(COMPETENZE).map(([id, c], i) => ({
+          id: `skill:${id}`, data: String(i + 1).padStart(2, '0'), titolo: c.title, href: `/projects/#${id}`, nota: c.summary,
+          etichetta: `${aree.filter(a => a.data.skill === id).length} areas`,
         }))} />
-        <p class="tutto mono"><a href="/projects/">all areas →</a></p>
+        <p class="tutto mono"><a href="/projects/">all skills and areas →</a></p>
       </section>
     </div>
   </main>
@@ -72,7 +75,7 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
   .intro p { margin: 0 0 16px; max-width: 560px; }
   .ruoli { display: flex; flex-direction: column; gap: 2px; font-size: 22px; color: var(--fg); }
   .intro .ruoli { max-width: none; }
-  .at { color: var(--accent); }
+  .ente { font-size: 14px; color: var(--muted); }
   .link { display: flex; gap: 18px; flex-wrap: wrap; }
   .tab { min-height: 40px; margin-bottom: 14px; font-family: var(--mono); }
   .pannelli { view-transition-name: pannelli; }

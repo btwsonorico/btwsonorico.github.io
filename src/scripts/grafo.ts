@@ -4,17 +4,18 @@ import * as THREE from 'three';
 // ruotare la scena trascinando lo spazio vuoto. La lista dei testi può evidenziare un nodo
 // con l'evento "grafo:evidenzia".
 
-type Tipo = 'testo' | 'tema' | 'fonte' | 'area' | 'tech';
+type Tipo = 'testo' | 'tema' | 'fonte' | 'area' | 'tech' | 'skill';
 interface Nodo { id: string; tipo: Tipo; label: string; href?: string; debole?: boolean }
 interface Stato extends Nodo { p: THREE.Vector3; v: THREE.Vector3; mesh: THREE.Mesh; etichetta: HTMLSpanElement; vicini: Set<number> }
 interface StellaGrezza { id: string; label: string; href: string; temi: string[] }
 
-const css = (nome: string) => new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue(nome).trim());
+// Colori letti dal grafo stesso: una sezione può avere un suo --accent
+const css = (el: HTMLElement, nome: string) => new THREE.Color(getComputedStyle(el).getPropertyValue(nome).trim());
 
 export function monta(el: HTMLElement) {
   const { nodi: grezzi, archi: archiId, stelle: grezzeStelle = [] } = JSON.parse(el.dataset.grafo!) as { nodi: Nodo[]; archi: [string, string][]; stelle?: StellaGrezza[] };
   const ridotto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const colori = { fg: css('--fg'), accent: css('--accent'), muted: css('--muted'), line: css('--line'), bg: css('--bg') };
+  const colori = { fg: css(el, '--fg'), accent: css(el, '--accent'), muted: css(el, '--muted'), line: css(el, '--line'), bg: css(el, '--bg') };
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -26,13 +27,15 @@ export function monta(el: HTMLElement) {
   const gruppo = new THREE.Group();
   scene.add(gruppo);
 
-  // Forma e colore per tipo. I nodi "hub" (temi, tecnologie, aree) hanno sempre l'etichetta.
+  // Forma e colore per tipo. I nodi "hub" (temi, tecnologie, competenze) hanno sempre l'etichetta.
+  // Competenze e aree hanno le stesse palle di temi e testi: il grafo Projects si legge come quello Knowledge.
   const stile: Record<Tipo, { geo: THREE.BufferGeometry; colore: THREE.Color; wire: boolean; hub: boolean }> = {
     testo: { geo: new THREE.SphereGeometry(0.09, 16, 12), colore: colori.fg, wire: false, hub: false },
     tema: { geo: new THREE.SphereGeometry(0.14, 20, 14), colore: colori.accent, wire: false, hub: true },
     fonte: { geo: new THREE.OctahedronGeometry(0.13), colore: colori.muted, wire: true, hub: false },
-    area: { geo: new THREE.BoxGeometry(0.26, 0.26, 0.26), colore: colori.fg, wire: true, hub: true },
+    area: { geo: new THREE.SphereGeometry(0.09, 16, 12), colore: colori.fg, wire: false, hub: false },
     tech: { geo: new THREE.BoxGeometry(0.15, 0.15, 0.15), colore: colori.accent, wire: false, hub: true },
+    skill: { geo: new THREE.SphereGeometry(0.14, 20, 14), colore: colori.accent, wire: false, hub: true },
   };
 
   // Posizioni iniziali su una sfera, deterministiche

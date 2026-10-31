@@ -3,7 +3,7 @@ import { render } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import Attivita from '../../components/Attivita.astro';
 import Grafo from '../../components/Grafo.astro';
-import { areePubbliche, grafoAree } from '../../lib/grafi';
+import { areePubbliche, grafoCompetenze } from '../../lib/grafi';
 import { COMPETENZE } from '../../content.config';
 
 // Una voce per competenza chiave; dentro, le aree con i punti del loro file Markdown.
@@ -14,13 +14,13 @@ const competenze = Object.entries(COMPETENZE)
     return { id, ...c, aree: sue, stack: [...new Set(sue.flatMap(x => x.a.data.stack))] };
   })
   .filter(c => c.aree.length);
-const dati = await grafoAree();
+const dati = await grafoCompetenze();
 ---
 <Base title="Projects · Riccardo Mondi" description="Key programming skills, learned building tools." tono="arancio">
   <main>
     <header class="testa">
       <h1>Projects</h1>
-      <p>Four skills I use every day, learned building tools for interview analysis, event reports and feedback collection. Open a skill to see what it means in practice.</p>
+      <p>Four key skills, learned building tools for interview analysis, event reports and feedback collection. In the map, each orange point is a skill and each white point is an area of it. Open a skill below to see what it means in practice.</p>
     </header>
 
     <section class="commit">
@@ -28,12 +28,12 @@ const dati = await grafoAree();
       <Attivita />
     </section>
 
-    <Grafo dati={dati} legenda={['area', 'tech', 'testo']} />
+    <Grafo dati={dati} legenda={['skill', 'area']} />
 
     <section class="competenze">
       <h2 class="mono">Key skills</h2>
-      {competenze.map((c, i) => <details class="competenza" open={i === 0}>
-        <summary>
+      {competenze.map((c, i) => <details class="competenza" id={c.id} open={i === 0}>
+        <summary data-id={`skill:${c.id}`}>
           <span class="mono numero">{String(i + 1).padStart(2, '0')}</span>
           <span class="titolo">
             <span class="nome">{c.title}</span>
@@ -72,6 +72,13 @@ const dati = await grafoAree();
     s.addEventListener('mouseenter', () => invia(s.dataset.id!));
     s.addEventListener('mouseleave', () => invia(null));
   });
+  // Un link a /projects/#competenza (dal grafo o dalla home) apre quella voce
+  const apri = () => {
+    const d = location.hash && document.getElementById(location.hash.slice(1));
+    if (d instanceof HTMLDetailsElement) { d.open = true; d.scrollIntoView({ block: 'start' }); }
+  };
+  window.addEventListener('hashchange', apri);
+  apri();
 </script>
 
 <style>
@@ -80,6 +87,7 @@ const dati = await grafoAree();
   .testa p { margin: 0; color: var(--muted); max-width: 560px; }
   .commit { padding: 8px 0 28px; }
   .competenze { padding: 28px 0 48px; }
+  .competenza { scroll-margin-top: 16px; }
   h2 { margin: 0 0 14px; font-weight: 400; color: var(--accent); }
   h2::before { content: '// '; color: var(--muted); }
 

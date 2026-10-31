@@ -1,6 +1,7 @@
 import { getCollection } from 'astro:content';
+import { COMPETENZE } from '../content.config';
 
-export type TipoNodo = 'testo' | 'tema' | 'fonte' | 'area' | 'tech';
+export type TipoNodo = 'testo' | 'tema' | 'fonte' | 'area' | 'tech' | 'skill';
 export interface Nodo { id: string; tipo: TipoNodo; label: string; href?: string; debole?: boolean }
 // Stella: un testo meno recente. Nel grafo è un punto piccolo che gira intorno ai suoi temi, senza archi.
 export interface Stella { id: string; label: string; href: string; temi: string[] }
@@ -81,22 +82,16 @@ export async function grafoKnowledge({ fonti = true } = {}): Promise<DatiGrafo> 
   return { ...chiudi(nodi, archi), stelle };
 }
 
-// Projects: aree, tecnologie e i testi che ogni area cita in "related".
-export async function grafoAree(): Promise<DatiGrafo> {
+// Projects: le competenze chiave (palle grandi) e le loro aree (palle piccole), come temi e testi in Knowledge.
+// Una competenza apre la sua voce nella pagina Projects; un'area apre la sua pagina.
+export async function grafoCompetenze(): Promise<DatiGrafo> {
   const aree = await areePubbliche();
   const scritti = await scrittiPubblici();
-  const nodi: Nodo[] = [];
-  const archi: [string, string][] = [];
-  const aggiungi = (n: Nodo) => { if (!nodi.some(x => x.id === n.id)) nodi.push(n); };
-  for (const p of aree) {
-    aggiungi({ id: `area:${p.id}`, tipo: 'area', label: p.data.title, href: `/projects/${p.id}/` });
-    for (const t of p.data.stack) { aggiungi({ id: `tech:${t}`, tipo: 'tech', label: t }); archi.push([`area:${p.id}`, `tech:${t}`]); }
-    for (const r of p.data.related) {
-      const s = scritti.find(x => x.id === r);
-      if (!s) throw new Error(`L'area "${p.id}" cita "${r}" in related, ma il testo non esiste.`);
-      aggiungi({ id: s.id, tipo: 'testo', label: s.data.title, href: `/knowledge/${s.id}/` });
-      archi.push([`area:${p.id}`, s.id]);
-    }
-  }
-  return chiudi(nodi, archi);
+  for (const a of aree) for (const r of a.data.related)
+    if (!scritti.some(s => s.id === r)) throw new Error(`L'area "${a.id}" cita "${r}" in related, ma il testo non esiste.`);
+  const nodi: Nodo[] = Object.entries(COMPETENZE)
+    .filter(([id]) => aree.some(a => a.data.skill === id))
+    .map(([id, c]) => ({ id: `skill:${id}`, tipo: 'skill', label: c.title, href: `/projects/#${id}` }));
+  for (const a of aree) nodi.push({ id: `area:${a.id}`, tipo: 'area', label: a.data.title, href: `/projects/${a.id}/` });
+  return chiudi(nodi, aree.map(a => [`skill:${a.data.skill}`, `area:${a.id}`]));
 }

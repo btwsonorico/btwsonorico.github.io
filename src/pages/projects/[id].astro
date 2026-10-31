@@ -2,6 +2,7 @@
 import { render } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import { areePubbliche, scrittiPubblici } from '../../lib/grafi';
+import { COMPETENZE } from '../../content.config';
 
 export async function getStaticPaths() {
   return (await areePubbliche()).map(a => ({ params: { id: a.id }, props: { a } }));
@@ -9,12 +10,13 @@ export async function getStaticPaths() {
 
 const { a } = Astro.props;
 const { Content } = await render(a);
+const competenza = COMPETENZE[a.data.skill];
 const scritti = (await scrittiPubblici()).filter(s => a.data.related.includes(s.id));
 ---
-<Base title={`${a.data.title} · Riccardo Mondi`} description={a.data.summary}>
+<Base title={`${a.data.title} · Riccardo Mondi`} description={a.data.summary} tono="arancio">
   <main>
     <article>
-      <p class="mono testa"><a href="/projects/">projects</a> · area {String(a.data.order).padStart(2, '0')}</p>
+      <p class="mono testa"><a href="/projects/">projects</a> · <a href={`/projects/#${a.data.skill}`}>{competenza.title}</a></p>
       <h1>{a.data.title}</h1>
       <p class="sommario">{a.data.summary}</p>
       <p class="mono stack">{a.data.stack.map(t => <span>{t}</span>)}</p>
