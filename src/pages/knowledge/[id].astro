@@ -30,7 +30,7 @@ const secondarie = s.data.sources.filter(f => f.role === 'secondary');
         </p>)}
       </header>
       <div class="prosa"><Content /></div>
-      {secondarie.length ? <section class="secondarie">
+      {secondarie.length ? <section class="secondarie sezione">
         <h2 class="mono">Sources</h2>
         <ol class="mono">{secondarie.map(f => <li><span>{f.type}</span> <a href={f.url}>{f.title}</a>{f.author && <span> · {f.author}</span>}</li>)}</ol>
       </section> : null}
@@ -47,42 +47,41 @@ const secondarie = s.data.sources.filter(f => f.role === 'secondary');
   /* Pagina di lettura: tutto in Newsreader, più leggibile del font pixel. Barra in alto e codice restano mono. */
   article, .vicini { font-family: var(--serif); }
   article .mono, .vicini { font-family: var(--serif); font-size: 15px; }
-  article { max-width: 640px; padding: 40px 0 24px; }
+  article { max-width: 640px; padding: var(--s4) 0 var(--s3); }
   .testa { margin: 0; }
   .testa a { text-decoration: none; }
   .testa span { color: var(--accent); }
-  h1 { margin: 8px 0 12px; font-size: 38px; font-weight: 400; line-height: 1.15; letter-spacing: -0.01em; }
-  .sommario { margin: 0 0 24px; font-size: 19px; color: var(--muted); font-style: italic; }
+  h1 { margin: var(--s1) 0 var(--s2); font-size: 38px; font-weight: 400; line-height: 1.15; letter-spacing: -0.01em; }
+  .sommario { margin: 0 0 var(--s3); font-size: 19px; color: var(--muted); font-style: italic; }
   .fonte {
     display: grid;
     gap: 2px;
-    margin: 0 0 32px;
-    padding: 12px 14px;
+    margin: 0 0 var(--s1);
+    padding: var(--s2);
     border: 1px solid var(--line);
     border-left: 2px solid var(--accent);
     background: color-mix(in srgb, var(--bg) 70%, transparent);
   }
   .fonte span:first-child { color: var(--accent); }
   .fonte a { color: var(--fg); }
-  .fonte + .fonte { margin-top: -24px; }
-  .secondarie { margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--line); }
-  .secondarie h2 { margin: 0 0 8px; font-size: 15px; font-weight: 400; color: var(--accent); }
-  .secondarie h2::before { content: '// '; color: var(--muted); }
+  .fonte:last-of-type { margin-bottom: var(--s3); }
+  .secondarie { margin-top: var(--s4); }
+  .secondarie h2 { font-size: 15px; }
   .secondarie ol { margin: 0; padding-left: 20px; }
   .secondarie li span:first-child { color: var(--accent); }
   .secondarie a { color: var(--fg); }
-  .usato { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 32px; }
+  .usato { display: flex; gap: var(--s2); flex-wrap: wrap; margin: var(--s3) 0 0; }
 
-  .prosa :global(h2) { margin: 40px 0 8px; font-family: var(--serif); font-size: 26px; font-weight: 500; color: var(--accent); }
+  .prosa :global(h2) { margin: var(--s4) 0 var(--s1); font-family: var(--serif); font-size: 26px; font-weight: 500; color: var(--accent); }
   .prosa :global(h2)::before { content: '## '; font-weight: 400; color: var(--muted); }
-  .prosa :global(blockquote) { margin: 24px 0; padding-left: 18px; border-left: 2px solid var(--accent); color: var(--muted); }
+  .prosa :global(blockquote) { margin: var(--s3) 0; padding-left: 18px; border-left: 2px solid var(--accent); color: var(--muted); }
   .prosa :global(code) { font-family: var(--mono); font-size: 0.85em; padding: 1px 5px; background: var(--line); }
   .prosa :global(pre) { padding: 16px; overflow-x: auto; border: 1px solid var(--line); background: #070809; font-size: 11px; }
   .prosa :global(img) { max-width: 100%; }
-  .prosa :global(figure) { margin: 28px 0; }
+  .prosa :global(figure) { margin: var(--s3) 0; }
   .prosa :global(figure svg) { display: block; width: 100%; height: auto; overflow: visible; }
 
-  .vicini { display: flex; justify-content: space-between; gap: 24px; padding: 24px 0 40px; border-top: 1px solid var(--line); }
+  .vicini { display: flex; justify-content: space-between; gap: var(--s3); padding: var(--s3) 0 0; border-top: 1px solid var(--line); }
   .vicini a { text-decoration: none; max-width: 45%; }
 
   @media (max-width: 640px) { h1 { font-size: 30px; } }

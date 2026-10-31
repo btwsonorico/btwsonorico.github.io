@@ -16,7 +16,7 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
 <Base title="Riccardo Mondi" largo>
   <main class="affianca">
     <div class="a-testa">
-    <section class="intro">
+    <section class="intro testa-pagina">
       <h1>Riccardo Mondi</h1>
       <p class="ruoli mono">
         <span>AI Advisor & Developer</span>
@@ -48,7 +48,7 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
       </section>
 
       <section data-pannello="projects" data-tono="arancio" hidden>
-        <div class="commit"><Attivita /></div>
+        <section class="sezione"><h2 class="mono">Commits</h2><Attivita /></section>
         <Lista titolo="Key skills" righe={Object.entries(COMPETENZE).map(([id, c], i) => ({
           id: `skill:${id}`, data: String(i + 1).padStart(2, '0'), titolo: c.title, href: `/projects/#${id}`, nota: c.summary,
           etichetta: `${aree.filter(a => a.data.skill === id).length} areas`,
@@ -63,6 +63,11 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
   // Cambio di tab: dissolvenza con le View Transitions quando il browser le supporta
   const pannelli = document.querySelectorAll<HTMLElement>('[data-pannello]');
   let attuale = 'knowledge';
+  // /#projects apre subito Projects: il controllo dei tab può caricarsi prima di questo script e il suo evento andrebbe perso
+  if (location.hash === '#projects') {
+    attuale = 'projects';
+    pannelli.forEach(p => { p.hidden = p.dataset.pannello !== 'projects'; });
+  }
   window.addEventListener('home:tab', e => {
     const tab = (e as CustomEvent<string>).detail;
     if (tab === attuale) return;
@@ -75,21 +80,20 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
 </script>
 
 <style>
-  .intro { padding: 56px 0 28px; }
-  h1 { margin: 0 0 16px; font-size: 44px; font-weight: 400; line-height: 1.1; }
-  .intro p { margin: 0 0 16px; max-width: 560px; }
+  h1 { margin: 0 0 var(--s2); font-size: 44px; font-weight: 400; line-height: 1.1; }
+  .intro p { margin: 0 0 var(--s2); max-width: 560px; }
+  .intro p:last-child { margin-bottom: 0; }
   .ruoli { display: flex; flex-direction: column; gap: 2px; font-size: 22px; color: var(--fg); }
   .intro .ruoli { max-width: none; }
   .ente { font-size: 13px; color: var(--muted); }
   .link { display: flex; gap: 18px; flex-wrap: wrap; }
-  .tab { min-height: 40px; margin-bottom: 14px; font-family: var(--mono); }
+  .tab { min-height: 40px; margin-bottom: var(--s3); font-family: var(--mono); }
   .pannelli { view-transition-name: pannelli; }
   .grafi { view-transition-name: grafi; }
-  .commit { padding-bottom: 8px; }
-  .tutto { margin: 0 0 32px; }
+  .tutto { margin: 0; }
   .tutto a { text-decoration: none; }
   @media (max-width: 640px) {
-    .intro { padding-top: 16px; }
+    .intro { padding-top: var(--s3); }
     h1 { font-size: 33px; }
   }
 </style>

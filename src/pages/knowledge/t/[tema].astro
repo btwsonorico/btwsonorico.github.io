@@ -15,7 +15,7 @@ const data = (d: Date) => d.toISOString().slice(0, 10);
 ---
 <Base title={`#${tema} · Riccardo Mondi`} description={`All writing on #${tema}.`}>
   <main>
-    <header class="testa">
+    <header class="testa testa-pagina">
       <p class="mono"><a href="/knowledge/">knowledge</a> · topic</p>
       <h1>#{tema}</h1>
       <p class="conta mono">{n} {n === 1 ? 'note' : 'notes'}</p>
@@ -32,8 +32,8 @@ const data = (d: Date) => d.toISOString().slice(0, 10);
 </Base>
 
 <style>
-  .testa { padding: 40px 0 24px; }
+  .testa p { margin: 0; }
   .testa a { text-decoration: none; }
-  h1 { margin: 8px 0 4px; font-size: 33px; font-weight: 400; color: var(--accent); }
+  h1 { margin: var(--s1) 0; font-size: 33px; font-weight: 400; color: var(--accent); }
   .conta { margin: 0; }
 </style>

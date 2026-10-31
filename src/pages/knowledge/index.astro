@@ -18,7 +18,7 @@ const righe = (kind: string) => scritti.filter(s => s.data.kind === kind).map(s 
 ---
 <Base title="Knowledge · Riccardo Mondi" description="Essays, thoughts and notes on sources." largo>
   <main class="affianca">
-    <header class="testa a-testa">
+    <header class="testa testa-pagina a-testa">
       <h1>Knowledge</h1>
       <p>What I read, watch and think about. Each point is a piece of writing or a topic; the sources are inside each note.</p>
     </header>
@@ -33,7 +33,6 @@ const righe = (kind: string) => scritti.filter(s => s.data.kind === kind).map(s 
 
 
 <style>
-  .testa { padding: 40px 0 24px; }
-  h1 { margin: 0 0 8px; font-size: 33px; font-weight: 400; }
+  h1 { margin: 0 0 var(--s1); font-size: 33px; font-weight: 400; }
   .testa p { margin: 0; color: var(--muted); max-width: 560px; }
 </style>

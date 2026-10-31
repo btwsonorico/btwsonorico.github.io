@@ -36,34 +36,42 @@ const vuoti = giorni[0]?.weekday ?? 0;
 const max = Math.max(1, ...giorni.map(g => g.contributionCount));
 const livello = (c: number) => c === 0 ? 0 : Math.min(4, Math.ceil((c / max) * 4));
 const totale = giorni.reduce((s, g) => s + g.contributionCount, 0);
+// Su schermi stretti restano le ultime 26 settimane (6 mesi): le celle restano abbastanza grandi
+const RECENTI = 26;
+const settimane = Math.ceil((vuoti + giorni.length) / 7);
+const vecchia = (posizione: number) => Math.floor(posizione / 7) < settimane - RECENTI;
+const totaleRecente = giorni.reduce((s, g, i) => vecchia(vuoti + i) ? s : s + g.contributionCount, 0);
 const fmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 const ultimo = giorni.at(-1)?.date;
 ---
 <div class="attivita">
   {giorni.length ? <>
     <div class="griglia" role="img" aria-label={`${totale} contributions in the last 12 months`}>
-      {Array.from({ length: vuoti }, () => <i></i>)}
-      {giorni.map(g => <span class={`l${livello(g.contributionCount)}`} data-tip={`${g.contributionCount} ${g.contributionCount === 1 ? 'contribution' : 'contributions'} · ${fmt.format(new Date(g.date))}`}></span>)}
+      {Array.from({ length: vuoti }, () => <i class:list={{ vecchia: vecchia(0) }}></i>)}
+      {giorni.map((g, i) => <span class:list={[`l${livello(g.contributionCount)}`, { vecchia: vecchia(vuoti + i) }]} data-tip={`${g.contributionCount} ${g.contributionCount === 1 ? 'contribution' : 'contributions'} · ${fmt.format(new Date(g.date))}`}></span>)}
     </div>
-    <p class="mono">{totale} contributions in the last 12 months, public and private repositories · <a href={`https://github.com/${UTENTE}`}>github.com/{UTENTE}</a> · updated {ultimo && fmt.format(new Date(ultimo))}</p>
+    <p class="mono"><span class="anno">{totale} contributions in the last 12 months</span><span class="recenti">{totaleRecente} contributions in the last 6 months</span>, public and private repositories · <a href={`https://github.com/${UTENTE}`}>github.com/{UTENTE}</a> · updated {ultimo && fmt.format(new Date(ultimo))}</p>
   </> : <p class="mono">Activity on <a href={`https://github.com/${UTENTE}`}>github.com/{UTENTE}</a></p>}
 </div>
 
 <style>
-  .attivita { overflow-x: auto; padding-top: 28px; }
+  /* La griglia riempie la larghezza disponibile, con celle quadrate, fino a 700px */
   .griglia {
     display: grid;
-    grid-template-rows: repeat(7, 10px);
+    grid-template-rows: repeat(7, auto);
     grid-auto-flow: column;
-    grid-auto-columns: 10px;
-    gap: 3px;
-    width: max-content;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 2px;
+    width: 100%;
+    max-width: 700px;
   }
-  /* Schermi larghi: la griglia riempie la colonna, celle quadrate */
-  @media (min-width: 1080px) {
-    .attivita { overflow: visible; }
-    .griglia { width: 100%; max-width: 700px; grid-template-rows: repeat(7, auto); grid-auto-columns: minmax(0, 1fr); gap: 2px; }
-    .griglia > * { aspect-ratio: 1; }
+  .griglia > * { aspect-ratio: 1; }
+  .recenti { display: none; }
+  @media (max-width: 640px) {
+    .griglia .vecchia { display: none; }
+    .griglia { gap: 3px; }
+    .anno { display: none; }
+    .recenti { display: inline; }
   }
   span { position: relative; border-radius: 1px; background: var(--line); }
   .l1 { background: color-mix(in srgb, var(--accent) 25%, var(--line)); }
@@ -86,6 +94,6 @@ const ultimo = giorni.at(-1)?.date;
     background: var(--fg);
     pointer-events: none;
   }
-  p { margin: 12px 0 0; }
+  p { margin: var(--s1) 0 0; }
   p a { color: var(--accent); text-decoration: none; }
 </style>

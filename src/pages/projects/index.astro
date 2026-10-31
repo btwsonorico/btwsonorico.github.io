@@ -18,7 +18,7 @@ const dati = await grafoCompetenze();
 ---
 <Base title="Projects · Riccardo Mondi" description="Key programming skills, learned building tools." tono="arancio" largo>
   <main class="affianca">
-    <header class="testa a-testa">
+    <header class="testa testa-pagina a-testa">
       <h1>Projects</h1>
       <p>Four key skills, learned building tools for interview analysis, event reports and feedback collection. In the map, each orange point is a skill and each white point is an area of it. Open a skill below to see what it means in practice.</p>
     </header>
@@ -26,12 +26,12 @@ const dati = await grafoCompetenze();
     <div class="a-grafo"><Grafo dati={dati} legenda={['skill', 'area']} /></div>
 
     <div class="a-resto">
-    <section class="commit">
+    <section class="sezione">
       <h2 class="mono">Commits</h2>
       <Attivita />
     </section>
 
-    <section class="competenze">
+    <section class="sezione competenze">
       <h2 class="mono">Key skills</h2>
       {competenze.map((c, i) => <details class="competenza" id={c.id} open={i === 0}>
         <summary data-id={`skill:${c.id}`}>
@@ -84,21 +84,16 @@ const dati = await grafoCompetenze();
 </script>
 
 <style>
-  .testa { padding: 40px 0 24px; }
-  h1 { margin: 0 0 8px; font-size: 33px; font-weight: 400; }
+  h1 { margin: 0 0 var(--s1); font-size: 33px; font-weight: 400; }
   .testa p { margin: 0; color: var(--muted); max-width: 560px; }
-  .commit { padding: 8px 0 28px; }
-  .competenze { padding: 28px 0 48px; }
-  .competenza { scroll-margin-top: 16px; }
-  h2 { margin: 0 0 14px; font-weight: 400; color: var(--accent); }
-  h2::before { content: '// '; color: var(--muted); }
+  .competenza { scroll-margin-top: var(--s2); }
 
   details { border-top: 1px solid var(--line); }
   .competenza:last-child { border-bottom: 1px solid var(--line); }
-  summary { display: grid; gap: 16px; align-items: baseline; padding: 14px 0; cursor: pointer; list-style: none; }
+  summary { display: grid; gap: var(--s2); align-items: baseline; padding: var(--s2) 0; cursor: pointer; list-style: none; }
   summary::-webkit-details-marker { display: none; }
   .competenza > summary { grid-template-columns: 32px 1fr auto; }
-  .area > summary { grid-template-columns: 1fr auto; padding: 10px 0; }
+  .area > summary { grid-template-columns: 1fr auto; padding: var(--s1) 0; }
   .titolo { display: flex; flex-direction: column; }
   .competenza > summary .nome { font-size: 22px; line-height: 1.3; }
   summary:hover .nome { color: var(--accent); }
@@ -106,16 +101,16 @@ const dati = await grafoCompetenze();
   .segno { color: var(--accent); }
   .segno::before { content: '[+]'; }
   details[open] > summary .segno::before { content: '[−]'; }
-  .stack { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .stack { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: var(--s1); }
   .stack span { border: 1px solid var(--line); padding: 0 6px; color: var(--accent); }
 
-  .aree { list-style: none; margin: 0 0 16px 48px; padding: 0; }
+  .aree { list-style: none; margin: 0 0 var(--s2) 48px; padding: 0; }
   .area { border-top-style: dashed; }
   .prosa { font-size: 17px; }
   .prosa :global(strong) { font-weight: 500; }
   .prosa :global(ul) { margin: 0; padding-left: 18px; }
-  .prosa :global(li) { margin-bottom: 6px; }
-  .piede-area { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin: 8px 0 14px; }
+  .prosa :global(li) { margin-bottom: var(--s1); }
+  .piede-area { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--s1); margin: var(--s1) 0 var(--s2); }
   .piede-area a { color: var(--accent); text-decoration: none; }
   @media (max-width: 640px) {
     .competenza > summary { grid-template-columns: 1fr auto; gap: 4px 12px; }

@@ -22,7 +22,7 @@ const scritti = (await scrittiPubblici()).filter(s => a.data.related.includes(s.
       <p class="mono stack">{a.data.stack.map(t => <span>{t}</span>)}</p>
       <div class="prosa"><Content /></div>
       {a.data.contexts.length ? <p class="mono contesti">learned in {a.data.contexts.join(' · ')}</p> : null}
-      {scritti.length ? <section class="collegati">
+      {scritti.length ? <section class="collegati sezione">
         <h2 class="mono">Related writing</h2>
         <ul>{scritti.map(s => <li><a href={`/knowledge/${s.id}/`}>{s.data.title}</a></li>)}</ul>
       </section> : null}
@@ -31,17 +31,15 @@ const scritti = (await scrittiPubblici()).filter(s => a.data.related.includes(s.
 </Base>
 
 <style>
-  article { max-width: 640px; padding: 40px 0 48px; }
+  article { max-width: 640px; padding: var(--s4) 0 var(--s3); }
   .testa { margin: 0; }
   .testa a { text-decoration: none; }
-  h1 { margin: 8px 0 12px; font-size: 33px; font-weight: 400; line-height: 1.2; }
-  .sommario { margin: 0 0 16px; color: var(--muted); }
-  .stack { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 28px; }
+  h1 { margin: var(--s1) 0 var(--s2); font-size: 33px; font-weight: 400; line-height: 1.2; }
+  .sommario { margin: 0 0 var(--s2); color: var(--muted); }
+  .stack { display: flex; flex-wrap: wrap; gap: var(--s1); margin: 0 0 var(--s3); }
   .stack span { border: 1px solid var(--line); padding: 0 6px; color: var(--accent); }
-  .prosa :global(li) { margin-bottom: 8px; }
-  .contesti { margin-top: 24px; }
-  .collegati { margin-top: 36px; padding-top: 20px; border-top: 1px solid var(--line); }
-  h2 { margin: 0 0 10px; font-weight: 400; color: var(--accent); }
-  h2::before { content: '// '; color: var(--muted); }
+  .prosa :global(li) { margin-bottom: var(--s1); }
+  .contesti { margin-top: var(--s3); }
+  .collegati { margin-top: var(--s4); }
   ul { margin: 0; padding-left: 18px; }
 </style>

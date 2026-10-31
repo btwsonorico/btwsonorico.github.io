@@ -6,7 +6,7 @@ interface Riga { id: string; data: string; titolo: string; href: string; etichet
 interface Props { titolo: string; righe: Riga[]; hashtag?: boolean }
 const { titolo, righe, hashtag = false } = Astro.props;
 ---
-{righe.length ? <div class="gruppo">
+{righe.length ? <div class="gruppo sezione">
   <h2 class="mono">{titolo}</h2>
   <ul>
     {righe.map(r => <li data-id={r.id} data-temi={r.temi?.join(' ')}>
@@ -32,11 +32,8 @@ const { titolo, righe, hashtag = false } = Astro.props;
 </script>
 
 <style>
-  .gruppo { padding: 28px 0; border-top: 1px solid var(--line); }
-  h2 { margin: 0 0 14px; font-weight: 400; color: var(--accent); }
-  h2::before { content: '// '; color: var(--muted); }
   ul { list-style: none; margin: 0; padding: 0; }
-  li { display: grid; grid-template-columns: 96px 1fr auto; gap: 16px; align-items: baseline; padding: 5px 0; }
+  li { display: grid; grid-template-columns: 96px 1fr auto; gap: var(--s2); align-items: baseline; padding: var(--s1) 0; }
   li[hidden] { display: none; }
   li a { text-decoration: none; }
   li a:hover { text-decoration: underline; }

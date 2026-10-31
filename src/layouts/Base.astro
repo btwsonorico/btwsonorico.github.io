@@ -43,6 +43,11 @@ const build = new Date().toISOString().slice(0, 10);
     --accent: #5ef0c0;
     --mono: 'Departure Mono', ui-monospace, monospace;
     --serif: 'Newsreader', Georgia, serif;
+    /* Spaziature: s1 dentro un blocco, s2 sotto un titolo, s3 fra sezioni, s4 in testa alla pagina */
+    --s1: 8px;
+    --s2: 16px;
+    --s3: 24px;
+    --s4: 48px;
     color-scheme: dark;
   }
   /* I componenti Arc usano i colori del sito */
@@ -107,15 +112,20 @@ const build = new Date().toISOString().slice(0, 10);
   .cursore { color: var(--accent); animation: lampeggia 1.1s steps(1) infinite; }
   @keyframes lampeggia { 50% { opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .cursore { animation: none; } }
-  .piede { margin-top: auto; border-top: 1px solid var(--line); padding-top: 18px; padding-bottom: 28px; }
-  main { width: 100%; max-width: var(--larghezza); margin: 0 auto; padding: 0 16px; }
+  .piede { margin-top: auto; border-top: 1px solid var(--line); padding-top: var(--s2); padding-bottom: var(--s3); }
+  /* Sezione: linea sopra, titolo // in mono, stessa distanza ovunque */
+  .sezione { padding: var(--s3) 0; border-top: 1px solid var(--line); }
+  .sezione > h2 { margin: 0 0 var(--s2); font-weight: 400; color: var(--accent); }
+  .sezione > h2::before { content: '// '; color: var(--muted); }
+  .testa-pagina { padding: var(--s4) 0 var(--s3); }
+  main { width: 100%; max-width: var(--larghezza); margin: 0 auto; padding: 0 16px var(--s4); }
   body { --larghezza: 760px; }
   body.largo { --larghezza: 1320px; }
 
   /* Pagine con grafo: su schermi larghi il grafo sta a destra, fermo mentre la colonna sinistra scorre.
      Su schermi stretti l'ordine resta: testa, grafo, resto. */
   @media (min-width: 1080px) {
-    body.largo main { padding: 0 32px; }
+    body.largo main { padding: 0 32px var(--s4); }
     .affianca {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
