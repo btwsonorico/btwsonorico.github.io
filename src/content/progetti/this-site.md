@@ -4,5 +4,5 @@ summary: "The portfolio you are looking at: Astro, Three.js and a lot of iterati
 order: 5
 learned: []
 tools: ["astro", "three.js", "typescript"]
-growing: []
+growing: ["Knowledge graphs for a knowledge base"]
 ---
