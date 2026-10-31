@@ -5,7 +5,7 @@ import { colori, vista, type DatiCompetenze, type Punto } from './vista3d';
 // tipo di albero e la sua zona, segnata da un palo con il nome della competenza.
 // Altezza dell'albero: quante tecnologie usa l'area. Ricchezza della chioma: quanti punti ha.
 // Quando la scena appare, il bosco cresce da zero; poi arrivano gli uccelli, che volano da un albero all'altro.
-// Intorno: ciuffi d'erba e sassi, campanule e farfalle azzurre, fiori arancioni nell'erba.
+// Intorno: ciuffi d'erba e sassi, campanule e fiori azzurri nell'erba, lucciole arancioni fra gli alberi.
 // I due colori sono quelli di Advisory e Knowledge: nei progetti uso anche la consulenza e quello che studio.
 
 // Numeri casuali ripetibili: il bosco è uguale a ogni visita
@@ -209,7 +209,7 @@ export function monta(el: HTMLElement) {
 
   // Campanule azzurre nell'erba, nel colore di Advisory: un gambo piegato e un fiore a campana rivolto in basso
   // Colori delle altre sezioni smorzati (verso il grigio, semitrasparenti): il verde del bosco resta il protagonista
-  const SMORZA = 0.45, OPACITA_ALTRI = 0.45;
+  const SMORZA = 0.6, OPACITA_ALTRI = 0.35;
   const AZZURRO_ADVISORY = new THREE.Color('#58a6ff').lerp(c.muted, SMORZA), ARANCIO_KNOWLEDGE = new THREE.Color('#ffa45e').lerp(c.muted, SMORZA);
   const campanule = new THREE.Group();
   const matCampane = linea(AZZURRO_ADVISORY, OPACITA_ALTRI), matGambiAzzurri = linea(c.muted, 0.7);
@@ -227,29 +227,21 @@ export function monta(el: HTMLElement) {
   campanule.scale.y = 0.001;
   gruppo.add(campanule);
 
-  // Farfalle azzurre: quattro ali che battono, volo lento e ondulato a mezza altezza fra gli alberi
-  const farfalle = Array.from({ length: 4 }, (_, k) => {
-    const corpo = new THREE.Group();
-    const m = linea(AZZURRO_ADVISORY, OPACITA_ALTRI + 0.1);
-    const ala = (lato: number, dz: number, grande: number) => new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, 0, dz * 0.3), new THREE.Vector3(lato * grande, 0, dz + 0.02), new THREE.Vector3(lato * grande * 0.8, 0, dz - 0.03),
-    ]), m);
-    const sinistra = new THREE.Group(), destra = new THREE.Group();
-    sinistra.add(ala(-1, 0.02, 0.07), ala(-1, -0.03, 0.05));
-    destra.add(ala(1, 0.02, 0.07), ala(1, -0.03, 0.05));
-    corpo.add(sinistra, destra, new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.04), new THREE.Vector3(0, 0, -0.05)]), linea(c.fg, 0.9)));
-    corpo.visible = false;
-    gruppo.add(corpo);
-    return { corpo, sinistra, destra, fase: k * 1.9 + r(), raggio: 1.6 + r() * 2.6, alto: 0.35 + r() * 0.5, verso: k % 2 ? 1 : -1 };
+  // Lucciole arancioni, nel colore di Knowledge: punti che si accendono e si spengono piano fra gli alberi
+  const LUCCIOLE = 26;
+  const baseLucciole = Array.from({ length: LUCCIOLE }, () => {
+    const a = r() * Math.PI * 2, d = 0.8 + Math.sqrt(r()) * 4.6;
+    return { x: Math.cos(a) * d, y: 0.2 + r() * 1.1, z: Math.sin(a) * d, fase: r() * 10, vel: 0.6 + r() * 0.8 };
   });
-  const dove = new THREE.Vector3(), dopoF = new THREE.Vector3();
-  const voloFarfalla = (f: (typeof farfalle)[number], t: number, out: THREE.Vector3) => {
-    const u = f.fase + f.verso * t * 0.00012;
-    const raggio = f.raggio + Math.sin(t * 0.0004 + f.fase) * 0.5;
-    return out.set(Math.cos(u) * raggio, f.alto + Math.sin(t * 0.002 + f.fase) * 0.12, Math.sin(u) * raggio);
-  };
+  const geoLucciole = new THREE.BufferGeometry();
+  geoLucciole.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(LUCCIOLE * 3), 3));
+  geoLucciole.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(LUCCIOLE * 3), 3));
+  const lucciole = new THREE.Points(geoLucciole, new THREE.PointsMaterial({ size: 0.06, vertexColors: true, transparent: true, opacity: OPACITA_ALTRI + 0.25 }));
+  lucciole.visible = false;
+  gruppo.add(lucciole);
+  const luce = new THREE.Color();
 
-  // Fiori arancioni nell'erba, nel colore di Knowledge: un gambo e cinque petali a stella
+  // Fiori azzurri nell'erba, come le campanule: un gambo e cinque petali a stella
   const gambi: number[] = [], petali: number[] = [];
   for (let k = 0; k < 34; k++) {
     const a = r() * Math.PI * 2, d = 0.9 + Math.sqrt(r()) * 5.2;
@@ -265,7 +257,7 @@ export function monta(el: HTMLElement) {
   const geoPetali = new THREE.BufferGeometry();
   geoPetali.setAttribute('position', new THREE.Float32BufferAttribute(petali, 3));
   const fiori = new THREE.Group();
-  fiori.add(new THREE.LineSegments(geoGambi, linea(c.muted, 0.7)), new THREE.LineSegments(geoPetali, linea(ARANCIO_KNOWLEDGE, OPACITA_ALTRI)));
+  fiori.add(new THREE.LineSegments(geoGambi, linea(c.muted, 0.7)), new THREE.LineSegments(geoPetali, linea(AZZURRO_ADVISORY, OPACITA_ALTRI)));
   fiori.scale.y = 0.001;
   gruppo.add(fiori);
   gruppo.add(prato);
@@ -361,21 +353,23 @@ export function monta(el: HTMLElement) {
       // Con prefers-reduced-motion t resta 0: il bosco è già cresciuto e gli uccelli restano posati
       const tempo = t === 0 ? Infinity : t - inizio;
       prato.scale.y = Math.max(0.001, THREE.MathUtils.clamp(tempo / 1500, 0, 1));
-      // Campanule e fiori sbocciano insieme all'erba; le farfalle arrivano quando il bosco è cresciuto
+      // Campanule e fiori sbocciano insieme all'erba
       campanule.scale.y = Math.max(0.001, THREE.MathUtils.clamp((tempo - 400) / 1500, 0, 1));
       fiori.scale.y = Math.max(0.001, THREE.MathUtils.clamp((tempo - 600) / 1500, 0, 1));
-      farfalle.forEach(f => {
-        f.corpo.visible = tempo > 2000;
-        if (!f.corpo.visible) return;
-        voloFarfalla(f, t, dove);
-        voloFarfalla(f, t + 200, dopoF);
-        f.corpo.position.copy(dove);
-        if (dopoF.distanceToSquared(dove) > 1e-8) f.corpo.lookAt(gruppo.localToWorld(dopoF));
-        // Ali: si aprono e chiudono come un libro intorno al corpo
-        const battito = t === 0 ? 0.3 : Math.sin(t * 0.02 + f.fase) * 0.9;
-        f.sinistra.rotation.z = -battito;
-        f.destra.rotation.z = battito;
-      });
+      // Lucciole: arrivano quando il bosco è cresciuto, vagano piano e pulsano ognuna col suo ritmo
+      lucciole.visible = tempo > 2200;
+      if (lucciole.visible) {
+        const pos = geoLucciole.attributes.position!, col = geoLucciole.attributes.color!;
+        baseLucciole.forEach((l, n) => {
+          const u = t * 0.0004 * l.vel + l.fase;
+          pos.setXYZ(n, l.x + Math.sin(u) * 0.3, l.y + Math.sin(u * 1.7) * 0.15, l.z + Math.cos(u * 0.8) * 0.3);
+          const accesa = t === 0 ? 0.7 : Math.max(0, Math.sin(t * 0.0015 * l.vel + l.fase * 3));
+          luce.copy(ARANCIO_KNOWLEDGE).multiplyScalar(0.15 + accesa * 0.85);
+          col.setXYZ(n, luce.r, luce.g, luce.b);
+        });
+        pos.needsUpdate = true;
+        col.needsUpdate = true;
+      }
       const crescitaPali = ease(THREE.MathUtils.clamp((tempo - 900) / 700, 0, 1));
       gruppiAttivi.forEach(g => {
         const lg = acceso(g.id, g.id);

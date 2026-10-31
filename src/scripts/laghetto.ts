@@ -26,7 +26,7 @@ export function monta(el: HTMLElement) {
   // Il verde di Projects nei cespugli e nelle ninfee e l'arancio di Knowledge nelle libellule: nelle consulenze
   // uso le competenze tecniche e quello che studio. Stessi valori di --accent nelle due sezioni (Base.astro).
   // Smorzati (verso il grigio, semitrasparenti): l'azzurro del laghetto resta il protagonista
-  const SMORZA = 0.45;
+  const SMORZA = 0.6;
   const VERDE_PROJECTS = new THREE.Color('#3fb950').lerp(c.muted, SMORZA), ARANCIO_KNOWLEDGE = new THREE.Color('#ffa45e').lerp(c.muted, SMORZA);
   const gruppo = new THREE.Group();
   const punti: Punto[] = [];
