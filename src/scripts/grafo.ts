@@ -4,7 +4,7 @@ import * as THREE from 'three';
 // ruotare la scena trascinando lo spazio vuoto. La lista dei testi può evidenziare un nodo
 // con l'evento "grafo:evidenzia".
 
-type Tipo = 'testo' | 'tema' | 'fonte' | 'area' | 'tech' | 'skill';
+type Tipo = 'testo' | 'tema' | 'fonte' | 'area' | 'tech';
 interface Nodo { id: string; tipo: Tipo; label: string; href?: string; debole?: boolean }
 interface Stato extends Nodo { p: THREE.Vector3; v: THREE.Vector3; mesh: THREE.Mesh; etichetta: HTMLSpanElement; vicini: Set<number> }
 interface StellaGrezza { id: string; label: string; href: string; temi: string[] }
@@ -33,7 +33,6 @@ export function monta(el: HTMLElement) {
     fonte: { geo: new THREE.OctahedronGeometry(0.13), colore: colori.muted, wire: true, hub: false },
     area: { geo: new THREE.BoxGeometry(0.26, 0.26, 0.26), colore: colori.fg, wire: true, hub: true },
     tech: { geo: new THREE.BoxGeometry(0.15, 0.15, 0.15), colore: colori.accent, wire: false, hub: true },
-    skill: { geo: new THREE.IcosahedronGeometry(0.3), colore: colori.accent, wire: true, hub: true },
   };
 
   // Posizioni iniziali su una sfera, deterministiche

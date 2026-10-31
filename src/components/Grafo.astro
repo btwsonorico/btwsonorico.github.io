@@ -6,7 +6,7 @@ interface Vista { nome: string; dati: DatiGrafo; legenda: TipoNodo[] }
 type Props = { viste: Vista[] } | { dati: DatiGrafo; legenda: TipoNodo[] };
 const props = Astro.props;
 const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props.dati, legenda: props.legenda }];
-const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte: 'source', area: 'area', tech: 'technology', skill: 'key skill' };
+const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte: 'source', area: 'area', tech: 'technology' };
 ---
 <figure class="grafo">
   {viste.map((v, i) => <div class="scena" data-vista={i} data-grafo={JSON.stringify(v.dati)} hidden={i > 0} aria-hidden="true"></div>)}
@@ -53,7 +53,6 @@ const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte:
   .punto.fonte { border: 1px solid var(--muted); border-radius: 0; transform: rotate(45deg); }
   .punto.stella { width: 3px; height: 3px; margin: 0 8px 0 2px; background: var(--fg); opacity: .7; }
   .punto.area { border: 1px solid var(--fg); border-radius: 0; width: 8px; height: 8px; }
-  .punto.skill { border: 1px solid var(--accent); width: 10px; height: 10px; }
   .scena :global(.etichetta) {
     position: absolute;
     left: 0;
@@ -65,7 +64,7 @@ const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte:
     color: var(--muted);
     transition: opacity .15s;
   }
-  .scena :global(.etichetta.tema), .scena :global(.etichetta.tech), .scena :global(.etichetta.skill) { color: var(--accent); }
+  .scena :global(.etichetta.tema), .scena :global(.etichetta.tech) { color: var(--accent); }
   .scena :global(.etichetta.area) { color: var(--fg); }
   .scena :global(.anello) {
     position: absolute;
@@ -77,7 +76,7 @@ const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte:
     opacity: 0;
     pointer-events: none;
   }
-  .scena :global(.anello.tema), .scena :global(.anello.skill) { border-color: var(--accent); }
+  .scena :global(.anello.tema) { border-color: var(--accent); }
   .scena :global(.anello.via) { animation: anello 1.8s cubic-bezier(.2, .7, .3, 1) both; }
   @keyframes anello { from { transform: scale(.35); opacity: .7; } to { transform: scale(2.4); opacity: 0; } }
   .scena :global(.etichetta.attiva) { color: var(--bg); background: var(--fg); padding: 2px 7px; font-size: 11px; z-index: 2; }
