@@ -1,0 +1,37 @@
+---
+import Base from '../../layouts/Base.astro';
+import Grafo from '../../components/Grafo.astro';
+import Lista from '../../components/Lista.astro';
+import { grafoKnowledge, scrittiPubblici } from '../../lib/grafi';
+
+const scritti = await scrittiPubblici();
+const dati = await grafoKnowledge({ fonti: false });
+const data = (d: Date) => d.toISOString().slice(0, 10);
+const righe = (kind: string) => scritti.filter(s => s.data.kind === kind).map(s => ({
+  id: s.id,
+  data: data(s.data.date),
+  titolo: s.data.title,
+  href: `/knowledge/${s.id}/`,
+  etichetta: [s.data.sources.find(f => f.role === 'main')?.type, s.data.lang].filter(Boolean).join(' · '),
+  temi: s.data.topics,
+}));
+---
+<Base title="Knowledge · Riccardo Mondi" description="Essays, thoughts and notes on sources.">
+  <main>
+    <header class="testa">
+      <h1>Knowledge</h1>
+      <p>What I read, watch and think about. Each point is a piece of writing or a topic; the sources are inside each note.</p>
+    </header>
+    <Grafo dati={dati} legenda={['testo', 'tema']} />
+    <Lista titolo="Essays" righe={righe('essay')} />
+    <Lista titolo="Thoughts" righe={righe('thought')} />
+    <Lista titolo="Notes on sources" righe={righe('source')} />
+  </main>
+</Base>
+
+
+<style>
+  .testa { padding: 40px 0 24px; }
+  h1 { margin: 0 0 8px; font-size: 38px; font-weight: 400; }
+  .testa p { margin: 0; color: var(--muted); max-width: 560px; }
+</style>

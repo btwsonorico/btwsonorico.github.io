@@ -1,0 +1,93 @@
+---
+import Base from '../layouts/Base.astro';
+import Attivita from '../components/Attivita.astro';
+import Grafo from '../components/Grafo.astro';
+import Lista from '../components/Lista.astro';
+import TabHome from '../components/TabHome';
+import { areePubbliche, grafoAree, grafoKnowledge, scrittiPubblici } from '../lib/grafi';
+
+const scritti = (await scrittiPubblici()).slice(0, 5);
+const aree = await areePubbliche();
+const [knowledge, projects] = await Promise.all([grafoKnowledge({ fonti: false }), grafoAree()]);
+const data = (d: Date) => d.toISOString().slice(0, 10);
+const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role === 'main')?.type;
+---
+<Base title="Riccardo Mondi">
+  <main>
+    <section class="intro">
+      <h1>Riccardo Mondi</h1>
+      <p class="ruoli mono">
+        <span>Developer & AI consultant <span class="at">@</span> Politecnico di Milano</span>
+      </p>
+      <p class="link mono">
+        <a href="mailto:nome@esempio.it">email</a>
+        <a href="https://github.com/btwsonorico" rel="me">github</a>
+        <a href="#">linkedin</a>
+        <a href="/cv.pdf">cv.pdf</a>
+      </p>
+    </section>
+
+    <div class="tab"><TabHome client:only="react" /></div>
+
+    <div class="pannelli">
+      <section data-pannello="knowledge">
+        <Grafo dati={knowledge} legenda={['testo', 'tema']} />
+        <Lista titolo="Latest" righe={scritti.map(s => ({
+          id: s.id, data: data(s.data.date), titolo: s.data.title, href: `/knowledge/${s.id}/`,
+          etichetta: [tipo(s), s.data.lang].filter(Boolean).join(' · '),
+        }))} />
+        <p class="tutto mono"><a href="/knowledge/">all writing →</a></p>
+      </section>
+
+      <section data-pannello="projects" hidden>
+        <Grafo dati={projects} legenda={['area', 'tech', 'testo']} />
+        <div class="commit"><Attivita /></div>
+        <Lista titolo="What I build with" righe={aree.map(a => ({
+          id: `area:${a.id}`, data: String(a.data.order).padStart(2, '0'), titolo: a.data.title, href: `/projects/${a.id}/`, nota: a.data.summary,
+        }))} />
+        <p class="tutto mono"><a href="/projects/">all areas →</a></p>
+      </section>
+    </div>
+  </main>
+</Base>
+
+<script>
+  // Cambio di tab: dissolvenza con le View Transitions quando il browser le supporta
+  const pannelli = document.querySelectorAll<HTMLElement>('[data-pannello]');
+  let attuale = 'knowledge';
+  window.addEventListener('home:tab', e => {
+    const tab = (e as CustomEvent<string>).detail;
+    if (tab === attuale) return;
+    attuale = tab;
+    const applica = () => pannelli.forEach(p => { p.hidden = p.dataset.pannello !== tab; });
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+    if (doc.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) doc.startViewTransition(applica);
+    else applica();
+  });
+</script>
+
+<style>
+  .intro { padding: 56px 0 28px; }
+  h1 { margin: 0 0 16px; font-size: 44px; font-weight: 400; line-height: 1.1; letter-spacing: -0.01em; }
+  .intro p { margin: 0 0 16px; max-width: 560px; }
+  .ruoli { display: flex; flex-direction: column; gap: 2px; font-size: 22px; color: var(--fg); }
+  .intro .ruoli { max-width: none; }
+  .at { color: var(--accent); }
+  .link { display: flex; gap: 18px; flex-wrap: wrap; }
+  .tab { min-height: 40px; margin-bottom: 14px; font-family: var(--mono); }
+  .pannelli { view-transition-name: pannelli; }
+  .commit { padding-bottom: 8px; }
+  .tutto { margin: 0 0 32px; }
+  .tutto a { text-decoration: none; }
+  @media (max-width: 640px) {
+    .intro { padding-top: 16px; }
+    h1 { font-size: 34px; }
+  }
+</style>
+
+<style is:global>
+  ::view-transition-old(pannelli) { animation: 160ms ease-in both pannello-esce; }
+  ::view-transition-new(pannelli) { animation: 260ms cubic-bezier(.2, .8, .2, 1) both pannello-entra; }
+  @keyframes pannello-esce { to { opacity: 0; transform: translateY(-6px); filter: blur(2px); } }
+  @keyframes pannello-entra { from { opacity: 0; transform: translateY(8px); filter: blur(2px); } }
+</style>

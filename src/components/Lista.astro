@@ -1,0 +1,51 @@
+---
+// Elenco di righe "data · titolo · etichetta". Passare sopra una riga evidenzia il suo nodo nel grafo della pagina.
+// "temi" serve al filtro della pagina Knowledge; con hashtag: true gli hashtag compaiono anche sotto il titolo.
+import { hrefTema } from '../lib/grafi';
+interface Riga { id: string; data: string; titolo: string; href: string; etichetta?: string; nota?: string; temi?: string[] }
+interface Props { titolo: string; righe: Riga[]; hashtag?: boolean }
+const { titolo, righe, hashtag = false } = Astro.props;
+---
+{righe.length ? <div class="gruppo">
+  <h2 class="mono">{titolo}</h2>
+  <ul>
+    {righe.map(r => <li data-id={r.id} data-temi={r.temi?.join(' ')}>
+      <span class="mono">{r.data}</span>
+      <span class="testo">
+        <a href={r.href}>{r.titolo}</a>
+        {r.nota && <span class="nota">{r.nota}</span>}
+        {hashtag && r.temi?.length ? <span class="hashtag mono">{r.temi.map(t => <a href={hrefTema(t)}>#{t}</a>)}</span> : null}
+      </span>
+      {r.etichetta ? <span class="mono etichetta">{r.etichetta}</span> : <span></span>}
+    </li>)}
+  </ul>
+</div> : null}
+
+<script>
+  document.querySelectorAll<HTMLElement>('li[data-id]').forEach(li => {
+    const invia = (id: string | null) => window.dispatchEvent(new CustomEvent('grafo:evidenzia', { detail: id }));
+    li.addEventListener('mouseenter', () => invia(li.dataset.id!));
+    li.addEventListener('mouseleave', () => invia(null));
+    li.addEventListener('focusin', () => invia(li.dataset.id!));
+    li.addEventListener('focusout', () => invia(null));
+  });
+</script>
+
+<style>
+  .gruppo { padding: 28px 0; border-top: 1px solid var(--line); }
+  h2 { margin: 0 0 14px; font-weight: 400; color: var(--accent); }
+  h2::before { content: '// '; color: var(--muted); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: grid; grid-template-columns: 96px 1fr auto; gap: 16px; align-items: baseline; padding: 5px 0; }
+  li[hidden] { display: none; }
+  li a { text-decoration: none; }
+  li a:hover { text-decoration: underline; }
+  .nota { display: block; color: var(--muted); font-size: 16px; }
+  .hashtag { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; }
+  .hashtag a { color: var(--accent); }
+  .etichetta { font-size: 11px; border: 1px solid var(--line); padding: 0 5px; white-space: nowrap; }
+  @media (max-width: 640px) {
+    li { grid-template-columns: 1fr auto; gap: 2px 12px; }
+    li > .mono:first-child { grid-column: 1 / -1; }
+  }
+</style>

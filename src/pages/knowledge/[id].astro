@@ -1,0 +1,86 @@
+---
+import { render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { areePubbliche, scrittiPubblici } from '../../lib/grafi';
+
+export async function getStaticPaths() {
+  const scritti = await scrittiPubblici();
+  return scritti.map((s, i) => ({ params: { id: s.id }, props: { s, prima: scritti[i + 1], dopo: scritti[i - 1] } }));
+}
+
+const { s, prima, dopo } = Astro.props;
+const { Content } = await render(s);
+const minuti = Math.max(1, Math.round((s.body ?? '').split(/\s+/).length / 220));
+const tipo = { essay: 'essay', thought: 'thought', source: 'note on a source' }[s.data.kind];
+const aree = (await areePubbliche()).filter(p => p.data.related.includes(s.id));
+const principali = s.data.sources.filter(f => f.role === 'main');
+const secondarie = s.data.sources.filter(f => f.role === 'secondary');
+---
+<Base title={`${s.data.title} · Riccardo Mondi`} description={s.data.summary} lang={s.data.lang}>
+  <main>
+    <article>
+      <header>
+        <p class="mono testa"><a href="/knowledge/">knowledge</a> · {s.data.date.toISOString().slice(0, 10)} · {tipo} · {s.data.lang} · {minuti} min{s.data.topics.map(t => <span> #{t}</span>)}</p>
+        <h1>{s.data.title}</h1>
+        <p class="sommario">{s.data.summary}</p>
+        {principali.map(f => <p class="fonte mono">
+          <span>{f.type}</span>
+          <a href={f.url}>{f.title}</a>
+          {f.author && <span>{f.author}</span>}
+        </p>)}
+      </header>
+      <div class="prosa"><Content /></div>
+      {secondarie.length ? <section class="secondarie">
+        <h2 class="mono">Sources</h2>
+        <ol class="mono">{secondarie.map(f => <li><span>{f.type}</span> <a href={f.url}>{f.title}</a>{f.author && <span> · {f.author}</span>}</li>)}</ol>
+      </section> : null}
+      {aree.length ? <p class="mono usato">applied in {aree.map(p => <a href={`/projects/${p.id}/`}>{p.data.title}</a>)}</p> : null}
+    </article>
+    <nav class="vicini mono">
+      {prima ? <a href={`/knowledge/${prima.id}/`}>← {prima.data.title}</a> : <span></span>}
+      {dopo ? <a href={`/knowledge/${dopo.id}/`}>{dopo.data.title} →</a> : <span></span>}
+    </nav>
+  </main>
+</Base>
+
+<style>
+  article { max-width: 640px; padding: 40px 0 24px; }
+  .testa { margin: 0; }
+  .testa a { text-decoration: none; }
+  .testa span { color: var(--accent); }
+  h1 { margin: 8px 0 12px; font-size: 38px; font-weight: 400; line-height: 1.15; letter-spacing: -0.01em; }
+  .sommario { margin: 0 0 24px; color: var(--muted); font-style: italic; }
+  .fonte {
+    display: grid;
+    gap: 2px;
+    margin: 0 0 32px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--accent);
+    background: color-mix(in srgb, var(--bg) 70%, transparent);
+  }
+  .fonte span:first-child { color: var(--accent); }
+  .fonte a { color: var(--fg); }
+  .fonte + .fonte { margin-top: -24px; }
+  .secondarie { margin-top: 36px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .secondarie h2 { margin: 0 0 8px; font-size: 11px; font-weight: 400; color: var(--accent); }
+  .secondarie h2::before { content: '// '; color: var(--muted); }
+  .secondarie ol { margin: 0; padding-left: 20px; }
+  .secondarie li span:first-child { color: var(--accent); }
+  .secondarie a { color: var(--fg); }
+  .usato { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 32px; }
+
+  .prosa :global(h2) { margin: 40px 0 8px; font-family: var(--mono); font-size: 22px; font-weight: 400; color: var(--accent); }
+  .prosa :global(h2)::before { content: '## '; color: var(--muted); }
+  .prosa :global(blockquote) { margin: 24px 0; padding-left: 18px; border-left: 2px solid var(--accent); color: var(--muted); }
+  .prosa :global(code) { font-family: var(--mono); font-size: 0.85em; padding: 1px 5px; background: var(--line); }
+  .prosa :global(pre) { padding: 16px; overflow-x: auto; border: 1px solid var(--line); background: #070809; font-size: 11px; }
+  .prosa :global(img) { max-width: 100%; }
+  .prosa :global(figure) { margin: 28px 0; }
+  .prosa :global(figure svg) { display: block; width: 100%; height: auto; overflow: visible; }
+
+  .vicini { display: flex; justify-content: space-between; gap: 24px; padding: 24px 0 40px; border-top: 1px solid var(--line); }
+  .vicini a { text-decoration: none; max-width: 45%; }
+
+  @media (max-width: 640px) { h1 { font-size: 30px; } }
+</style>

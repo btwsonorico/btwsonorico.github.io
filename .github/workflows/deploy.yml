@@ -1,0 +1,33 @@
+# Pubblica il sito su GitHub Pages a ogni push su main, e ogni giorno per aggiornare la griglia dei commit.
+# La griglia legge il secret GH_CONTRIB_TOKEN (token personale con scope read:user).
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: withastro/action@v3
+        env:
+          GH_CONTRIB_TOKEN: ${{ secrets.GH_CONTRIB_TOKEN }}
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

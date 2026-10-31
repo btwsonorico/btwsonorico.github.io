@@ -1,0 +1,39 @@
+---
+import Base from '../../../layouts/Base.astro';
+import Lista from '../../../components/Lista.astro';
+import { contaTemi, scrittiPubblici } from '../../../lib/grafi';
+
+// Una pagina per tema: tutti i testi con quel tema, anche quelli che nel grafo sono stelle.
+export async function getStaticPaths() {
+  return (await contaTemi()).map(t => ({ params: { tema: t.nome }, props: { n: t.n } }));
+}
+
+const { tema } = Astro.params;
+const { n } = Astro.props;
+const scritti = (await scrittiPubblici()).filter(s => s.data.topics.includes(tema));
+const data = (d: Date) => d.toISOString().slice(0, 10);
+---
+<Base title={`#${tema} · Riccardo Mondi`} description={`All writing on #${tema}.`}>
+  <main>
+    <header class="testa">
+      <p class="mono"><a href="/knowledge/">knowledge</a> · topic</p>
+      <h1>#{tema}</h1>
+      <p class="conta mono">{n} {n === 1 ? 'note' : 'notes'}</p>
+    </header>
+    <Lista titolo="All notes" righe={scritti.map(s => ({
+      id: s.id,
+      data: data(s.data.date),
+      titolo: s.data.title,
+      href: `/knowledge/${s.id}/`,
+      nota: s.data.summary,
+      etichetta: s.data.topics.filter(t => t !== tema).map(t => `#${t}`).join(' '),
+    }))} />
+  </main>
+</Base>
+
+<style>
+  .testa { padding: 40px 0 24px; }
+  .testa a { text-decoration: none; }
+  h1 { margin: 8px 0 4px; font-size: 38px; font-weight: 400; color: var(--accent); }
+  .conta { margin: 0; }
+</style>

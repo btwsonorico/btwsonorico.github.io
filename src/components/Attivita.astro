@@ -1,0 +1,83 @@
+---
+import { execSync } from 'node:child_process';
+
+// Griglia dei contributi degli ultimi 12 mesi, dall'API GraphQL di GitHub durante la build.
+// Token: GH_CONTRIB_TOKEN (secret nel workflow) oppure, in locale, quello della gh CLI.
+// Serve il token dell'utente: solo così il conteggio include i repository privati.
+const UTENTE = 'btwsonorico';
+
+function token() {
+  if (process.env.GH_CONTRIB_TOKEN) return process.env.GH_CONTRIB_TOKEN;
+  try { return execSync(`gh auth token --user ${UTENTE}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
+  catch { return ''; }
+}
+
+interface Giorno { date: string; weekday: number; contributionCount: number }
+async function calendario(): Promise<Giorno[]> {
+  const t = token();
+  if (!t) { console.warn('[Attivita] Nessun token GitHub: la griglia dei commit resta vuota.'); return []; }
+  const query = `query($login: String!) { user(login: $login) { contributionsCollection { contributionCalendar {
+    weeks { contributionDays { date weekday contributionCount } } } } } }`;
+  const r = await fetch('https://api.github.com/graphql', {
+    method: 'POST',
+    headers: { Authorization: `bearer ${t}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, variables: { login: UTENTE } }),
+  });
+  const json = await r.json();
+  if (!r.ok || json.errors) { console.warn('[Attivita] Risposta GitHub non valida:', json.errors ?? r.status); return []; }
+  return json.data.user.contributionsCollection.contributionCalendar.weeks.flatMap((w: { contributionDays: Giorno[] }) => w.contributionDays);
+}
+
+const giorni = await calendario();
+// La prima settimana può iniziare a metà: celle vuote fino al suo giorno
+const vuoti = giorni[0]?.weekday ?? 0;
+const max = Math.max(1, ...giorni.map(g => g.contributionCount));
+const livello = (c: number) => c === 0 ? 0 : Math.min(4, Math.ceil((c / max) * 4));
+const totale = giorni.reduce((s, g) => s + g.contributionCount, 0);
+const fmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const ultimo = giorni.at(-1)?.date;
+---
+<div class="attivita">
+  {giorni.length ? <>
+    <div class="griglia" role="img" aria-label={`${totale} contributions in the last 12 months`}>
+      {Array.from({ length: vuoti }, () => <i></i>)}
+      {giorni.map(g => <span class={`l${livello(g.contributionCount)}`} data-tip={`${g.contributionCount} ${g.contributionCount === 1 ? 'contribution' : 'contributions'} · ${fmt.format(new Date(g.date))}`}></span>)}
+    </div>
+    <p class="mono">{totale} contributions in the last 12 months, public and private repositories · <a href={`https://github.com/${UTENTE}`}>github.com/{UTENTE}</a> · updated {ultimo && fmt.format(new Date(ultimo))}</p>
+  </> : <p class="mono">Activity on <a href={`https://github.com/${UTENTE}`}>github.com/{UTENTE}</a></p>}
+</div>
+
+<style>
+  .attivita { overflow-x: auto; padding-top: 28px; }
+  .griglia {
+    display: grid;
+    grid-template-rows: repeat(7, 10px);
+    grid-auto-flow: column;
+    grid-auto-columns: 10px;
+    gap: 3px;
+    width: max-content;
+  }
+  span { position: relative; border-radius: 1px; background: var(--line); }
+  .l1 { background: color-mix(in srgb, var(--accent) 25%, var(--line)); }
+  .l2 { background: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+  .l3 { background: color-mix(in srgb, var(--accent) 75%, var(--line)); }
+  .l4 { background: var(--accent); }
+  span:hover { outline: 1px solid var(--fg); }
+  span:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    padding: 3px 8px;
+    white-space: nowrap;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--bg);
+    background: var(--fg);
+    pointer-events: none;
+  }
+  p { margin: 12px 0 0; }
+  p a { color: var(--accent); text-decoration: none; }
+</style>
