@@ -39,7 +39,8 @@ export function monta(el: HTMLElement) {
   });
 
   // Riva: un anello irregolare. raggioRiva(a) serve anche per tenere dentro canne, ninfee e pesci.
-  const raggioRiva = (a: number) => 3.4 + 0.28 * Math.sin(3 * a) + 0.16 * Math.sin(5 * a + 1);
+  // Forma a fagiolo allungato, con due insenature e un promontorio: più interessante di un cerchio
+  const raggioRiva = (a: number) => 3.35 + 0.55 * Math.cos(2 * a) + 0.32 * Math.sin(3 * a + 0.9) - 0.22 * Math.max(0, Math.cos(a - 2.2)) ** 6 + 0.12 * Math.sin(7 * a + 2);
   const riva = Array.from({ length: 160 }, (_, i) => {
     const a = (i / 160) * Math.PI * 2, d = raggioRiva(a);
     return new THREE.Vector3(Math.cos(a) * d, 0, Math.sin(a) * d);
@@ -278,9 +279,10 @@ export function monta(el: HTMLElement) {
   let prima = -1;
 
   vista(el, gruppo, punti, {
-    camera: new THREE.Vector3(0, 5.6, 5.4),
-    mira: new THREE.Vector3(0, -0.2, 0),
-    inclinazione: [0.12, 0.5],
+    // Vista obliqua, meno dall'alto: il laghetto si legge come un paesaggio, non come una mappa
+    camera: new THREE.Vector3(0, 4.6, 7.4),
+    mira: new THREE.Vector3(0, -0.3, 0),
+    inclinazione: [0.08, 0.45],
     aggiorna: (t, acceso) => {
       // Passo di tempo in secondi, limitato: se la scheda torna visibile i pesci non saltano
       const dt = prima < 0 || t === 0 ? 0 : Math.min(0.05, (t - prima) / 1000);
