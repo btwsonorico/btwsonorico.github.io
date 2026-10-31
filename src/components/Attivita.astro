@@ -2,7 +2,7 @@
 import { execSync } from 'node:child_process';
 import salvati from '../data/contributi.json';
 
-// Griglia dei contributi degli ultimi 3 mesi, dall'API GraphQL di GitHub durante la build.
+// Griglia dei contributi degli ultimi 12 mesi, dall'API GraphQL di GitHub durante la build.
 // Token: GH_CONTRIB_TOKEN (secret nel workflow) oppure, in locale, quello della gh CLI.
 // Serve il token dell'utente: solo così il conteggio include i repository privati.
 // Senza token usa l'ultimo calendario salvato con "npm run contributi".
@@ -30,10 +30,7 @@ async function calendario(): Promise<Giorno[]> {
   return json.data.user.contributionsCollection.contributionCalendar.weeks.flatMap((w: { contributionDays: Giorno[] }) => w.contributionDays);
 }
 
-// Solo gli ultimi 3 mesi: 13 settimane intere più quella in corso
-const SETTIMANE = 13;
-const tutti = await calendario();
-const giorni = tutti.slice(-(SETTIMANE * 7 + (tutti.at(-1)?.weekday ?? 6) + 1));
+const giorni = await calendario();
 // La prima settimana può iniziare a metà: celle vuote fino al suo giorno
 const vuoti = giorni[0]?.weekday ?? 0;
 const max = Math.max(1, ...giorni.map(g => g.contributionCount));
@@ -44,11 +41,11 @@ const ultimo = giorni.at(-1)?.date;
 ---
 <div class="attivita">
   {giorni.length ? <>
-    <div class="griglia" role="img" aria-label={`${totale} contributions in the last 3 months`}>
+    <div class="griglia" role="img" aria-label={`${totale} contributions in the last 12 months`}>
       {Array.from({ length: vuoti }, () => <i></i>)}
       {giorni.map(g => <span class={`l${livello(g.contributionCount)}`} data-tip={`${g.contributionCount} ${g.contributionCount === 1 ? 'contribution' : 'contributions'} · ${fmt.format(new Date(g.date))}`}></span>)}
     </div>
-    <p class="mono">{totale} contributions in the last 3 months, public and private repositories · <a href={`https://github.com/${UTENTE}`}>github.com/{UTENTE}</a> · updated {ultimo && fmt.format(new Date(ultimo))}</p>
+    <p class="mono">{totale} contributions in the last 12 months, public and private repositories · <a href={`https://github.com/${UTENTE}`}>github.com/{UTENTE}</a> · updated {ultimo && fmt.format(new Date(ultimo))}</p>
   </> : <p class="mono">Activity on <a href={`https://github.com/${UTENTE}`}>github.com/{UTENTE}</a></p>}
 </div>
 
