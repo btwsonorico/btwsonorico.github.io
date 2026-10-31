@@ -33,7 +33,6 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   el.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(c.bg, 7, 18);
   scene.add(gruppo);
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 60);
 
@@ -99,6 +98,9 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     // In un riquadro stretto o alto la camera si allontana, così la scena entra tutta
     camera.position.copy(o.camera).multiplyScalar(Math.max(1, 1.3 / camera.aspect));
     camera.lookAt(o.mira);
+    // La nebbia segue la distanza della camera: sfuma solo il fondo della scena
+    const d = camera.position.distanceTo(o.mira);
+    scene.fog = new THREE.Fog(c.bg, d * 0.75, d * 1.7);
     camera.updateProjectionMatrix();
   }).observe(el);
 
