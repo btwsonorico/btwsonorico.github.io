@@ -209,7 +209,7 @@ export function monta(el: HTMLElement) {
 
   // Campanule azzurre nell'erba, nel colore di Advisory: un gambo piegato e un fiore a campana rivolto in basso
   // Colori delle altre sezioni smorzati (verso il grigio, semitrasparenti): il verde del bosco resta il protagonista
-  const SMORZA = 0.6, OPACITA_ALTRI = 0.35;
+  const SMORZA = 0.3, OPACITA_ALTRI = 0.65;
   const AZZURRO_ADVISORY = new THREE.Color('#58a6ff').lerp(c.muted, SMORZA), ARANCIO_KNOWLEDGE = new THREE.Color('#ffa45e').lerp(c.muted, SMORZA);
   const campanule = new THREE.Group();
   const matCampane = linea(AZZURRO_ADVISORY, OPACITA_ALTRI), matGambiAzzurri = linea(c.muted, 0.7);
