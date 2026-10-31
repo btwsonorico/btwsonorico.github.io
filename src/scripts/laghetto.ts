@@ -61,7 +61,7 @@ export function monta(el: HTMLElement) {
     g.setAttribute('position', new THREE.Float32BufferAttribute(xyz, 3));
     return new THREE.Points(g, new THREE.PointsMaterial({ color: colore, size, transparent: true, opacity: opacita }));
   };
-  gruppo.add(nuvola(acqua, c.accent, 0.022, 0.35), nuvola(prato, c.muted, 0.022, 0.45));
+  gruppo.add(nuvola(acqua, c.accent, 0.022, 0.35), nuvola(prato, VERDE_PROJECTS, 0.022, 0.4));
 
   // Canne lungo la riva: ciuffi di steli leggermente piegati, con la punta a spiga
   const canne: number[] = [];
@@ -75,7 +75,8 @@ export function monta(el: HTMLElement) {
   }
   const geoCanne = new THREE.BufferGeometry();
   geoCanne.setAttribute('position', new THREE.Float32BufferAttribute(canne, 3));
-  const matCanne = linea(c.muted, 0.8);
+  // Canne verdi, come l'erba del prato: ravvivano la riva senza rubare la scena all'acqua
+  const matCanne = linea(VERDE_PROJECTS, 0.6);
   gruppo.add(new THREE.LineSegments(geoCanne, matCanne));
 
   // Tife: canne più alte con la spiga scura a cilindro, a gruppi in tre punti della riva
@@ -93,6 +94,17 @@ export function monta(el: HTMLElement) {
   }
 
   // Sassi lungo la riva, a metà fra acqua e prato
+  // Ciuffi d'erba verdi sul prato intorno al lago
+  const erba: number[] = [];
+  for (let k = 0; k < 130; k++) {
+    const a = r() * Math.PI * 2, d = raggioRiva(a) + 0.3 + r() * 1.4;
+    const x = Math.cos(a) * d, z = Math.sin(a) * d, h = 0.06 + r() * 0.08;
+    for (const dx of [-0.04, 0, 0.04]) erba.push(x, 0, z, x + dx, h * (dx === 0 ? 1.3 : 1), z + dx * 0.5);
+  }
+  const geoErba = new THREE.BufferGeometry();
+  geoErba.setAttribute('position', new THREE.Float32BufferAttribute(erba, 3));
+  gruppo.add(new THREE.LineSegments(geoErba, linea(VERDE_PROJECTS, 0.5)));
+
   const matSassi = linea(c.muted, 0.7);
   for (let k = 0; k < 22; k++) {
     const a = r() * Math.PI * 2, d = raggioRiva(a) + (r() - 0.3) * 0.15;
