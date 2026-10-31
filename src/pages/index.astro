@@ -4,13 +4,11 @@ import Attivita from '../components/Attivita.astro';
 import Grafo from '../components/Grafo.astro';
 import Lista from '../components/Lista.astro';
 import TabHome from '../components/TabHome';
-import { advisoryPubbliche, areePubbliche, datiCompetenze, grafoKnowledge, scrittiPubblici } from '../lib/grafi';
+import { datiCompetenze, grafoKnowledge, scrittiPubblici } from '../lib/grafi';
 import { COMPETENZE, COMPETENZE_ADVISORY } from '../content.config';
 
 const scritti = (await scrittiPubblici()).slice(0, 5);
-const aree = await areePubbliche();
 const [knowledge, projects, advisory] = await Promise.all([grafoKnowledge({ fonti: false }), datiCompetenze('projects'), datiCompetenze('advisory')]);
-const consulenze = await advisoryPubbliche();
 const data = (d: Date) => d.toISOString().slice(0, 10);
 const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role === 'main')?.type;
 ---
@@ -53,7 +51,6 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
         <section class="sezione"><h2 class="mono">Commits</h2><Attivita /></section>
         <Lista titolo="Key skills" righe={Object.entries(COMPETENZE).map(([id, c], i) => ({
           id: `skill:${id}`, data: String(i + 1).padStart(2, '0'), titolo: c.title, href: `/projects/#${id}`, nota: c.summary,
-          etichetta: `${aree.filter(a => a.data.skill === id).length} areas`,
         }))} />
         <p class="tutto mono"><a href="/projects/">all skills and areas →</a></p>
       </section>
@@ -61,7 +58,6 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
       <section data-pannello="advisory" data-tono="azzurro" hidden>
         <Lista titolo="Key skills" righe={Object.entries(COMPETENZE_ADVISORY).map(([id, c], i) => ({
           id: `skill:${id}`, data: String(i + 1).padStart(2, '0'), titolo: c.title, href: `/advisory/#${id}`, nota: c.summary,
-          etichetta: `${consulenze.filter(a => a.data.skill === id).length} areas`,
         }))} />
         <p class="tutto mono"><a href="/advisory/">all skills and areas →</a></p>
       </section>
