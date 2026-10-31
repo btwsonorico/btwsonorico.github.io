@@ -53,9 +53,9 @@ export function monta(el: HTMLElement) {
   };
 
   // Una specie per competenza. Ogni funzione aggiunge la chioma all'albero e restituisce i suoi pezzi.
-  function chioma(albero: THREE.Group, specie: Specie, altezza: number, ricchezza: number, peso: number) {
+  function chioma(albero: THREE.Group, specie: Specie, altezza: number, ricchezza: number, peso: number, colore: THREE.Color) {
     const pezzi: THREE.Object3D[] = [];
-    const m = linea(c.accent);
+    const m = linea(colore);
     const add = (o: THREE.Object3D) => { albero.add(o); pezzi.push(o); };
     if (specie === 'palma') {
       // Tronco curvo a segmenti e foglie lunghe che ricadono
@@ -128,6 +128,9 @@ export function monta(el: HTMLElement) {
     return pezzi;
   }
 
+  // Sfumature dello stesso colore d'accento (in Projects il verde di GitHub): ogni albero ne prende una
+  const SFUMATURE = [-0.14, -0.07, 0, 0.07, 0.13].map((dl, k) => c.accent.clone().offsetHSL((k - 2) * 0.012, 0, dl));
+
   let ordine = 0;
   const zone = competenze.map((k, i) => {
     const settore = (Math.PI * 2) / competenze.length;
@@ -142,7 +145,7 @@ export function monta(el: HTMLElement) {
       const altezza = specie === 'palma' ? 0.5 + a.peso * 0.14 : 0.75 + a.peso * 0.28;
       const tronco = segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, altezza * Math.max(TRONCO[specie], 0.001), 0), linea(c.fg));
       albero.add(tronco);
-      const pezzi = chioma(albero, specie, altezza, a.punti, a.peso);
+      const pezzi = chioma(albero, specie, altezza, a.punti, a.peso, SFUMATURE[Math.floor(r() * SFUMATURE.length)]!);
       // Punto d'ancora in cima: lì compaiono etichetta e clic, e lì si posano gli uccelli
       const cima = new THREE.Object3D();
       cima.position.y = altezza * 1.15;

@@ -1,9 +1,9 @@
 ---
 import '@/components/arc/foundation.css';
 import Cursore from '@/components/Cursore.astro';
-// tono: colore d'accento della pagina. Senza tono resta l'acquamarina del sito.
+// tono: colore d'accento della pagina. Senza tono resta l'azzurro del sito (Knowledge).
 // largo: pagina a tutta larghezza su schermi grandi (home, Knowledge, Projects); i testi restano stretti.
-interface Props { title: string; description?: string; lang?: 'it' | 'en'; tono?: 'arancio' | 'lilla'; largo?: boolean }
+interface Props { title: string; description?: string; lang?: 'it' | 'en'; tono?: 'verde' | 'arancio'; largo?: boolean }
 const { title, description = 'Research, advisory, software.', lang = 'en', tono, largo = false } = Astro.props;
 const build = new Date().toISOString().slice(0, 10);
 ---
@@ -40,7 +40,7 @@ const build = new Date().toISOString().slice(0, 10);
     --fg: #d9dde3;
     --muted: #7a828d;
     --line: #1c2026;
-    --accent: #5ef0c0;
+    --accent: #58a6ff;
     --mono: 'Departure Mono', ui-monospace, monospace;
     /* Spaziature: s1 dentro un blocco, s2 sotto un titolo, s3 fra sezioni, s4 in testa alla pagina */
     --s1: 8px;
@@ -51,7 +51,7 @@ const build = new Date().toISOString().slice(0, 10);
   }
   /* I componenti Arc usano i colori del sito */
   :root[data-theme="dark"][data-cyber] {
-    --accent: #5ef0c0;
+    --accent: #58a6ff;
     --accent-foreground: var(--bg);
     --background: var(--bg);
     --surface: #15181d;
@@ -63,11 +63,10 @@ const build = new Date().toISOString().slice(0, 10);
     --shadow-resting: none;
     --radius-control: 2px;
   }
-  /* Arancio: complementare dell'acquamarina, con la stessa luminosità e saturazione */
+  /* Tre sezioni, tre colori: azzurro (Knowledge, il colore base), verde GitHub (Projects), arancio (Advisory) */
+  :root[data-theme="dark"][data-cyber][data-tono="verde"], [data-tono="verde"] { --accent: #3fb950; }
   /* Vale per una pagina intera (Base con tono) o per una sola sezione (data-tono sull'elemento) */
   :root[data-theme="dark"][data-cyber][data-tono="arancio"], [data-tono="arancio"] { --accent: #ffa45e; }
-  /* Lilla per Advisory: terzo colore della stessa famiglia, stessa luminosità di acquamarina e arancio */
-  :root[data-theme="dark"][data-cyber][data-tono="lilla"], [data-tono="lilla"] { --accent: #c4a7ff; }
   /* Departure Mono (SIL OFL, helenazhang.com): nitida a multipli di 11px */
   @font-face {
     font-family: 'Departure Mono';
