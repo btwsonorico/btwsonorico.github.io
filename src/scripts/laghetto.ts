@@ -3,7 +3,8 @@ import { colori, vista, type DatiCompetenze, type Punto } from './vista3d';
 
 // Advisory come laghetto visto dall'alto: ogni competenza chiave è un branco di pesci, ogni area è un pesce.
 // Ogni branco ha la sua specie e segue un capofila che vaga per il lago; i pesci nuotano in 3D, a profondità diverse.
-// Intorno: riva irregolare, canne, ninfee fiorite e, ogni tanto, un cerchio d'acqua. Tutto in wireframe.
+// Intorno: riva irregolare con canne, tife e sassi, un pontile, cespugli e fiori sul prato, libellule,
+// ninfee fiorite e, ogni tanto, un cerchio d'acqua. Tutto in wireframe.
 
 function casuale(seme: number) {
   return () => { seme = (seme * 16807) % 2147483647; return (seme - 1) / 2147483646; };
@@ -70,6 +71,71 @@ export function monta(el: HTMLElement) {
   geoCanne.setAttribute('position', new THREE.Float32BufferAttribute(canne, 3));
   const matCanne = linea(c.muted, 0.8);
   gruppo.add(new THREE.LineSegments(geoCanne, matCanne));
+
+  // Tife: canne più alte con la spiga scura a cilindro, a gruppi in tre punti della riva
+  // Colori naturali e spenti, fissi: non dipendono dal colore della pagina
+  const spighe = new THREE.LineBasicMaterial({ color: new THREE.Color().setHSL(0.07, 0.45, 0.42), transparent: true, opacity: 0.9 });
+  for (const a0 of [0.6, 2.4, 4.3]) {
+    for (let k = 0; k < 5; k++) {
+      const a = a0 + (r() - 0.5) * 0.3, d = raggioRiva(a) + 0.02 + r() * 0.15;
+      const x = Math.cos(a) * d, z = Math.sin(a) * d, h = 0.55 + r() * 0.3, piega = (r() - 0.5) * 0.06;
+      gruppo.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, 0, z), new THREE.Vector3(x + piega, h, z)]), matCanne));
+      const spiga = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.CylinderGeometry(0.022, 0.022, 0.12, 6)), spighe);
+      spiga.position.set(x + piega * 0.9, h - 0.08, z);
+      gruppo.add(spiga);
+    }
+  }
+
+  // Sassi lungo la riva, a metà fra acqua e prato
+  const matSassi = linea(c.muted, 0.7);
+  for (let k = 0; k < 22; k++) {
+    const a = r() * Math.PI * 2, d = raggioRiva(a) + (r() - 0.3) * 0.15;
+    const sasso = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.DodecahedronGeometry(0.05 + r() * 0.09, 0)), matSassi);
+    sasso.position.set(Math.cos(a) * d, 0.02, Math.sin(a) * d);
+    sasso.scale.y = 0.55;
+    sasso.rotation.y = r() * 3;
+    gruppo.add(sasso);
+  }
+
+  // Pontile di legno: assi trasversali su due travi, con quattro pali che escono dall'acqua
+  const pontile = new THREE.Group();
+  const matLegno = linea(c.fg, 0.7);
+  const assi: number[] = [];
+  for (let k = 0; k <= 9; k++) { const z = k * 0.1; assi.push(-0.16, 0.06, z, 0.16, 0.06, z); }
+  assi.push(-0.14, 0.06, 0, -0.14, 0.06, 0.9, 0.14, 0.06, 0, 0.14, 0.06, 0.9);
+  for (const [x, z] of [[-0.14, 0.3], [0.14, 0.3], [-0.14, 0.88], [0.14, 0.88]]) assi.push(x!, -0.12, z!, x!, 0.06, z!);
+  const geoAssi = new THREE.BufferGeometry();
+  geoAssi.setAttribute('position', new THREE.Float32BufferAttribute(assi, 3));
+  pontile.add(new THREE.LineSegments(geoAssi, matLegno));
+  const aPontile = 5.6;
+  pontile.position.set(Math.cos(aPontile) * (raggioRiva(aPontile) + 0.15), 0, Math.sin(aPontile) * (raggioRiva(aPontile) + 0.15));
+  pontile.lookAt(0, 0, 0);
+  gruppo.add(pontile);
+
+  // Cespugli sul prato: palle sfaccettate basse, in piccoli gruppi
+  const matCespi = linea(new THREE.Color().setHSL(0.33, 0.3, 0.42), 0.6);
+  for (let k = 0; k < 9; k++) {
+    const a = r() * Math.PI * 2, d = raggioRiva(a) + 0.45 + r() * 0.6;
+    for (let q = 0; q < 2 + Math.floor(r() * 2); q++) {
+      const cespo = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(0.1 + r() * 0.08, 0)), matCespi);
+      cespo.position.set(Math.cos(a) * d + (r() - 0.5) * 0.25, 0.06, Math.sin(a) * d + (r() - 0.5) * 0.25);
+      cespo.scale.y = 0.7;
+      gruppo.add(cespo);
+    }
+  }
+
+  // Fiori di prato: un gambo e un puntino chiaro in cima
+  const fioriPrato: number[] = [], gambi: number[] = [];
+  for (let k = 0; k < 40; k++) {
+    const a = r() * Math.PI * 2, d = raggioRiva(a) + 0.3 + r() * 1.1, h = 0.08 + r() * 0.08;
+    const x = Math.cos(a) * d, z = Math.sin(a) * d;
+    gambi.push(x, 0, z, x, h, z);
+    fioriPrato.push(x, h, z);
+  }
+  const geoGambi = new THREE.BufferGeometry();
+  geoGambi.setAttribute('position', new THREE.Float32BufferAttribute(gambi, 3));
+  gruppo.add(new THREE.LineSegments(geoGambi, linea(c.muted, 0.6)), nuvola(fioriPrato, c.fg, 0.045, 0.85));
+
 
   // Ninfee: foglie con lo spicchio tagliato e le nervature; quasi tutte hanno un fiore aperto,
   // con due giri di petali a punta rivolti verso l'alto e il cuore chiaro
@@ -159,7 +225,7 @@ export function monta(el: HTMLElement) {
       const p = pesce(sp, SFUMATURE[(i + j) % SFUMATURE.length]!);
       gruppo.add(p.corpo);
       punti.push({ id: `area:${a.id}`, label: a.label, href: a.href, hub: false, famiglia: k.id, ancora: p.corpo });
-      const pos = new THREE.Vector3(Math.cos(angolo) * 1.4 + (r() - 0.5) * 0.4, -0.15, Math.sin(angolo) * 1.4 + (r() - 0.5) * 0.4);
+      const pos = new THREE.Vector3(Math.cos(angolo) * 1.75 + (r() - 0.5) * 0.4, -0.15, Math.sin(angolo) * 1.75 + (r() - 0.5) * 0.4);
       return {
         a, ...p, pos, vel: new THREE.Vector3(),
         posto: new THREE.Vector3((r() - 0.5) * 0.35, 0, -0.1 - r() * 0.3),
@@ -168,18 +234,36 @@ export function monta(el: HTMLElement) {
     });
     // Rotta del capofila: somma di onde lente con frequenze diverse per branco, dentro un cerchio sicuro
     const f = [0.00011 + i * 0.000013, 0.00017 + i * 0.00001, 0.00007 + i * 0.000017];
-    return { k, sp, centro, pesci, f, fase: i * 2.1, capo: new THREE.Vector3(), rotta: new THREE.Vector3() };
+    // Casa del branco: un punto su un cerchio, in un settore tutto suo, così i branchi restano distanti
+    const casa = new THREE.Vector3(Math.cos(angolo) * 1.75, 0, Math.sin(angolo) * 1.75);
+    return { k, sp, centro, pesci, f, casa, fase: i * 2.1, capo: new THREE.Vector3(), rotta: new THREE.Vector3() };
   });
   const capofila = (b: (typeof branchi)[number], t: number, out: THREE.Vector3) => {
     const u = b.fase;
-    const x = Math.sin(t * b.f[0]! + u) * 1.5 + Math.sin(t * b.f[1]! * 1.7 + u * 2) * 0.6;
-    const z = Math.cos(t * b.f[2]! + u * 1.3) * 1.4 + Math.sin(t * b.f[1]! + u) * 0.5;
+    const x = b.casa.x + Math.sin(t * b.f[0]! + u) * 0.6 + Math.sin(t * b.f[1]! * 1.7 + u * 2) * 0.2;
+    const z = b.casa.z + Math.cos(t * b.f[2]! + u * 1.3) * 0.55 + Math.sin(t * b.f[1]! + u) * 0.2;
     out.set(x, -0.15, z);
     // Dentro la riva, con un margine
     const a = Math.atan2(z, x), max = raggioRiva(a) - 0.7, d = Math.hypot(x, z);
     if (d > max) out.multiplyScalar(max / d).setY(-0.15);
     return out;
   };
+  const libellule = Array.from({ length: 3 }, (_, k) => {
+    const corpo = new THREE.Group();
+    const m = linea(c.accent.clone().offsetHSL(0.45, 0, 0.1), 0.95);
+    corpo.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.06), new THREE.Vector3(0, 0, -0.1)]), m));
+    const ali = new THREE.Group();
+    for (const lato of [1, -1]) for (const dz of [0.025, -0.01])
+      ali.add(anello([new THREE.Vector3(0, 0, dz), new THREE.Vector3(lato * 0.09, 0, dz + 0.015), new THREE.Vector3(lato * 0.09, 0, dz - 0.01)], m));
+    corpo.add(ali);
+    gruppo.add(corpo);
+    return { corpo, ali, da: new THREE.Vector3(), a: new THREE.Vector3(), via: -1e9, durata: 900, sosta: 1500 + k * 700 };
+  });
+  const puntoInAria = (out: THREE.Vector3) => {
+    const a = r() * Math.PI * 2, d = Math.sqrt(r()) * raggioRiva(a) * 0.85;
+    return out.set(Math.cos(a) * d, 0.35 + r() * 0.35, Math.sin(a) * d);
+  };
+  libellule.forEach(l => { puntoInAria(l.a); l.corpo.position.copy(l.a); });
   const avanti = new THREE.Vector3(), vuole = new THREE.Vector3(), lontano = new THREE.Vector3(), mira = new THREE.Vector3(), dopo = new THREE.Vector3();
   let prima = -1;
 
@@ -192,6 +276,18 @@ export function monta(el: HTMLElement) {
       const dt = prima < 0 || t === 0 ? 0 : Math.min(0.05, (t - prima) / 1000);
       prima = t;
       ninfee.forEach(n => { n.foglia.rotation.y += n.giro * 16; });
+      // Libellule: scatto verso un nuovo punto, sosta in volo con le ali che vibrano
+      libellule.forEach(l => {
+        if (t === 0) return;
+        if (t > l.via + l.durata + l.sosta) {
+          l.da.copy(l.a); puntoInAria(l.a); l.via = t;
+          l.corpo.lookAt(gruppo.localToWorld(avanti.copy(l.a)));
+        }
+        const u = THREE.MathUtils.clamp((t - l.via) / l.durata, 0, 1);
+        l.corpo.position.lerpVectors(l.da, l.a, THREE.MathUtils.smootherstep(u, 0, 1));
+        l.corpo.position.y += Math.sin(t * 0.004) * 0.01;
+        l.ali.scale.x = 0.6 + Math.abs(Math.sin(t * 0.09)) * 0.4;
+      });
 
       // Un cerchio d'acqua ogni 3-6 secondi, mai con prefers-reduced-motion
       if (t > 0 && t > prossimaOnda) {
