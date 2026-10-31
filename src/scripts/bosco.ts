@@ -5,7 +5,8 @@ import { colori, vista, type DatiCompetenze, type Punto } from './vista3d';
 // tipo di albero e la sua zona, segnata da un palo con il nome della competenza.
 // Altezza dell'albero: quante tecnologie usa l'area. Ricchezza della chioma: quanti punti ha.
 // Quando la scena appare, il bosco cresce da zero; poi arrivano gli uccelli, che volano da un albero all'altro.
-// Intorno: ciuffi d'erba e sassi, campanule e fiori azzurri nell'erba, lucciole arancioni fra gli alberi.
+// Intorno: ciuffi d'erba e sassi, pochi fiori grandi azzurri e arancioni, lucciole bianche fra gli alberi.
+// Ogni competenza (o progetto) ha un albero guida, grande, con il nome in cima.
 // I due colori sono quelli di Advisory e Knowledge: nei progetti uso anche la consulenza e quello che studio.
 
 // Numeri casuali ripetibili: il bosco è uguale a ogni visita
@@ -162,20 +163,25 @@ export function monta(el: HTMLElement) {
   const alberelli = progetti.flatMap(p => p.crescita.map((testo, k) =>
     ({ progetto: p.id, ...nuovoAlbero(`cresce:${p.id}:${k}`, testo, '', SPECIE[(k + 3) % SPECIE.length]!, 0.32, 2, 0) })));
 
-  // Pali: uno per competenza e uno per progetto. Il palo è alto 1 e si scala all'altezza giusta.
-  const nuovoPalo = (id: string, label: string, href: string) => {
-    const palo = segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0), linea(c.accent, 0.5));
-    const insegna = new THREE.Object3D();
-    insegna.position.y = 1;
+  // Albero guida: uno per competenza e uno per progetto, molto più grande degli altri e nel verde pieno.
+  // Fa da insegna (il nome compare in cima) e rende il bosco più grande. Specie: quella della competenza.
+  const nuovoPalo = (id: string, label: string, href: string, specie: Specie) => {
     const base = new THREE.Group();
-    base.add(palo, insegna);
-    base.scale.set(1, 0.001, 1);
+    base.rotation.y = r() * Math.PI;
+    const altezza = specie === 'palma' ? 1.35 : 1.9;
+    const tronco = segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, altezza * Math.max(TRONCO[specie], 0.001), 0), linea(c.fg));
+    base.add(tronco);
+    const pezzi = chioma(base, specie, altezza, 5, 5, c.accent);
+    const insegna = new THREE.Object3D();
+    insegna.position.y = altezza * 1.15;
+    base.add(insegna);
+    base.scale.setScalar(0.001);
     gruppo.add(base);
     const punto: Punto = { id, label, href, hub: true, famiglia: id, ancora: insegna, base };
     punti.push(punto);
-    return { id, base, palo, punto, alto: 1 };
+    return { id, base, pezzi: [tronco, ...pezzi], punto, fase: r() * 10 };
   };
-  // Strumenti chiave di un progetto: piccoli cubi intorno al suo palo, con il nome al passaggio sul progetto
+  // Strumenti chiave di un progetto: piccoli cubi intorno al suo albero guida, con il nome al passaggio sul progetto
   const nuovoStrumento = (progetto: string, nome: string) => {
     const cubo = spigoli(new THREE.BoxGeometry(0.09, 0.09, 0.09), linea(c.fg, 0.85));
     cubo.scale.setScalar(0.001);
@@ -185,11 +191,11 @@ export function monta(el: HTMLElement) {
     return { cubo, punto };
   };
   type Strumento = ReturnType<typeof nuovoStrumento>;
-  const gruppiCompetenza = competenze.map(k => ({ ...nuovoPalo(`skill:${k.id}`, k.label, k.href), membri: k.aree.map(a => perArea.get(a.id)!), strumenti: [] as Strumento[] }));
+  const gruppiCompetenza = competenze.map((k, i) => ({ ...nuovoPalo(`skill:${k.id}`, k.label, k.href, SPECIE[i % SPECIE.length]!), membri: k.aree.map(a => perArea.get(a.id)!), strumenti: [] as Strumento[] }));
   const gruppiProgetto = progetti
     .filter(p => p.aree.length || p.crescita.length)
-    .map(p => ({
-      ...nuovoPalo(`progetto:${p.id}`, p.label, ''),
+    .map((p, i) => ({
+      ...nuovoPalo(`progetto:${p.id}`, p.label, '', SPECIE[(i + 1) % SPECIE.length]!),
       membri: [...p.aree.map(id => perArea.get(id)).filter((x): x is Albero => !!x), ...alberelli.filter(x => x.progetto === p.id)],
       strumenti: p.strumenti.map(nome => nuovoStrumento(p.id, nome)),
     }));
@@ -213,8 +219,8 @@ export function monta(el: HTMLElement) {
   const AZZURRO_ADVISORY = new THREE.Color('#58a6ff').lerp(c.muted, SMORZA), ARANCIO_KNOWLEDGE = new THREE.Color('#ffa45e').lerp(c.muted, SMORZA);
   const campanule = new THREE.Group();
   const matCampane = linea(AZZURRO_ADVISORY, OPACITA_ALTRI), matGambiAzzurri = linea(c.muted, 0.7);
-  const geoCampana = new THREE.EdgesGeometry(new THREE.ConeGeometry(0.035, 0.05, 5, 1, true));
-  for (let k = 0; k < 26; k++) {
+  const geoCampana = new THREE.EdgesGeometry(new THREE.ConeGeometry(0.06, 0.09, 6, 1, true));
+  for (let k = 0; k < 9; k++) {
     const a = r() * Math.PI * 2, d = 0.6 + Math.sqrt(r()) * 5.3;
     const x = Math.cos(a) * d, z = Math.sin(a) * d, h = 0.12 + r() * 0.08, piega = 0.03 + r() * 0.03;
     campanule.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
@@ -227,7 +233,7 @@ export function monta(el: HTMLElement) {
   campanule.scale.y = 0.001;
   gruppo.add(campanule);
 
-  // Lucciole arancioni, nel colore di Knowledge: punti che si accendono e si spengono piano fra gli alberi
+  // Lucciole bianche: punti che si accendono e si spengono piano fra gli alberi
   const LUCCIOLE = 26;
   const baseLucciole = Array.from({ length: LUCCIOLE }, () => {
     const a = r() * Math.PI * 2, d = 0.8 + Math.sqrt(r()) * 4.6;
@@ -241,11 +247,11 @@ export function monta(el: HTMLElement) {
   gruppo.add(lucciole);
   const luce = new THREE.Color();
 
-  // Fiori azzurri nell'erba, come le campanule: un gambo e cinque petali a stella
+  // Fiori arancioni nell'erba, nel colore di Knowledge: un gambo e cinque petali a stella. Pochi e grandi.
   const gambi: number[] = [], petali: number[] = [];
-  for (let k = 0; k < 34; k++) {
+  for (let k = 0; k < 14; k++) {
     const a = r() * Math.PI * 2, d = 0.9 + Math.sqrt(r()) * 5.2;
-    const x = Math.cos(a) * d, z = Math.sin(a) * d, h = 0.09 + r() * 0.08, raggio = 0.045 + r() * 0.025;
+    const x = Math.cos(a) * d, z = Math.sin(a) * d, h = 0.14 + r() * 0.1, raggio = 0.08 + r() * 0.035;
     gambi.push(x, 0, z, x, h, z);
     for (let q = 0; q < 5; q++) {
       const b = (q / 5) * Math.PI * 2 + a;
@@ -257,7 +263,7 @@ export function monta(el: HTMLElement) {
   const geoPetali = new THREE.BufferGeometry();
   geoPetali.setAttribute('position', new THREE.Float32BufferAttribute(petali, 3));
   const fiori = new THREE.Group();
-  fiori.add(new THREE.LineSegments(geoGambi, linea(c.muted, 0.7)), new THREE.LineSegments(geoPetali, linea(AZZURRO_ADVISORY, OPACITA_ALTRI)));
+  fiori.add(new THREE.LineSegments(geoGambi, linea(c.muted, 0.7)), new THREE.LineSegments(geoPetali, linea(ARANCIO_KNOWLEDGE, OPACITA_ALTRI)));
   fiori.scale.y = 0.001;
   gruppo.add(fiori);
   gruppo.add(prato);
@@ -303,6 +309,11 @@ export function monta(el: HTMLElement) {
     gruppiAttivi.forEach((g, i) => {
       const settore = (Math.PI * 2) / gruppiAttivi.length;
       const centro = i * settore + Math.PI / 4;
+      // L'albero guida prende per primo il suo posto, verso il mezzo del settore
+      const guida = posto(rr, occupati, centro, settore * 0.3);
+      g.base.position.set(guida.x, 0, guida.y);
+      // Spazio libero intorno alla chioma grande: gli altri alberi restano fuori
+      for (let q = 0; q < 6; q++) occupati.push(new THREE.Vector2(guida.x + Math.cos(q) * 0.45, guida.y + Math.sin(q) * 0.45));
       for (const x of g.membri) {
         const p = posto(rr, occupati, centro, settore * 0.85);
         x.albero.position.set(p.x, 0, p.y);
@@ -310,20 +321,16 @@ export function monta(el: HTMLElement) {
         x.ritardo = ordine++ * 140 + rr() * 120;
         visibili.add(x);
       }
-      // Palo nel mezzo dei suoi alberi, più alto del più alto
-      const medio = g.membri.reduce((acc, x) => acc.add(new THREE.Vector3(x.albero.position.x, 0, x.albero.position.z)), new THREE.Vector3()).divideScalar(Math.max(1, g.membri.length));
-      g.base.position.copy(medio);
-      g.alto = Math.max(0.6, ...g.membri.map(x => x.altezza * 1.15)) + 0.7;
       g.strumenti.forEach((st, n) => {
         const a = (n / g.strumenti.length) * Math.PI * 2;
-        st.cubo.position.set(medio.x + Math.cos(a) * 0.32, 0.05, medio.z + Math.sin(a) * 0.32);
+        st.cubo.position.set(guida.x + Math.cos(a) * 0.45, 0.05, guida.y + Math.sin(a) * 0.45);
       });
     });
     for (const g of [...gruppiCompetenza, ...gruppiProgetto]) {
       const attivo = gruppiAttivi.includes(g);
       g.base.visible = attivo;
       g.punto.spento = !attivo;
-      g.base.scale.y = 0.001;
+      g.base.scale.setScalar(0.001);
       g.strumenti.forEach(st => { st.cubo.visible = attivo; st.punto.spento = !attivo; st.cubo.scale.setScalar(0.001); });
     }
     for (const x of [...tutti, ...alberelli]) {
@@ -364,7 +371,7 @@ export function monta(el: HTMLElement) {
           const u = t * 0.0004 * l.vel + l.fase;
           pos.setXYZ(n, l.x + Math.sin(u) * 0.3, l.y + Math.sin(u * 1.7) * 0.15, l.z + Math.cos(u * 0.8) * 0.3);
           const accesa = t === 0 ? 0.7 : Math.max(0, Math.sin(t * 0.0015 * l.vel + l.fase * 3));
-          luce.copy(ARANCIO_KNOWLEDGE).multiplyScalar(0.15 + accesa * 0.85);
+          luce.copy(c.fg).multiplyScalar(0.12 + accesa * 0.88);
           col.setXYZ(n, luce.r, luce.g, luce.b);
         });
         pos.needsUpdate = true;
@@ -373,8 +380,9 @@ export function monta(el: HTMLElement) {
       const crescitaPali = ease(THREE.MathUtils.clamp((tempo - 900) / 700, 0, 1));
       gruppiAttivi.forEach(g => {
         const lg = acceso(g.id, g.id);
-        (g.palo.material as THREE.LineBasicMaterial).opacity = Math.min(1, lg * 1.6);
-        g.base.scale.y = Math.max(0.001, crescitaPali * g.alto);
+        g.pezzi.forEach(p => { ((p as THREE.Line).material as THREE.LineBasicMaterial).opacity = Math.min(1, lg * 2); });
+        g.base.scale.setScalar(Math.max(0.001, crescitaPali * (lg === 1 ? 1.08 : 1)));
+        g.base.rotation.z = Math.sin(t * 0.0009 + g.fase) * 0.015;
         g.strumenti.forEach(st => {
           const ls = acceso(g.id, st.punto.id);
           st.cubo.scale.setScalar(Math.max(0.001, crescitaPali * (ls === 1 ? 1.6 : 1)));
