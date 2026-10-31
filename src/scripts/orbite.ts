@@ -3,7 +3,8 @@ import { colori, vista, type DatiCompetenze, type Punto } from './vista3d';
 
 // Advisory come sistema solare minimale: al centro un mondo, intorno le competenze chiave come pianeti,
 // ognuno sulla sua orbita. Le aree sono lune che girano intorno al loro pianeta (orbite non disegnate).
-// Pianeti pieni e piccoli: la grandezza segue il numero di aree; solo il più grande ha un anello.
+// Pianeti pieni, con grandezze e distanze ispirate al sistema solare vero (Mercurio, Venere, Terra, Marte, Giove):
+// piccoli e vicini al sole, poi la fascia di asteroidi, poi un gigante con l'anello.
 // Intorno: una fascia di asteroidi, un cielo di stelle e, ogni tanto, una stella cadente. Solo decorazione.
 
 function casuale(seme: number) {
@@ -31,25 +32,33 @@ export function monta(el: HTMLElement) {
     return new THREE.Points(g, new THREE.PointsMaterial({ color: colore, size, transparent: true, opacity: opacita }));
   };
 
-  // Il mondo al centro: una sfera piena con un alone sottile
+  // Il sole al centro: una sfera piena
   const mondo = sfera(0.26, c.fg);
-  gruppo.add(mondo, cerchio(0.4, linea(c.muted, 0.5)));
+  gruppo.add(mondo);
 
-  // Orbite a distanze crescenti; più lontano, più lento (come Keplero, in piccolo)
-  const ORBITE = competenze.map((_, i) => 1.1 + i * 0.58);
-  const massimo = Math.max(...competenze.map(k => k.aree.length));
+  // Orbita e grandezza per posizione, come nel sistema solare: dopo il quarto pianeta c'è un salto per la fascia di asteroidi.
+  // Più lontano, più lento (come Keplero, in piccolo). Oltre il quinto pianeta la tabella continua con orbite larghe.
+  const MODELLO = [
+    { orbita: 0.75, raggio: 0.07 },
+    { orbita: 1.15, raggio: 0.12 },
+    { orbita: 1.6, raggio: 0.13 },
+    { orbita: 2.05, raggio: 0.095 },
+    { orbita: 3.0, raggio: 0.27 },
+  ];
+  const modello = (i: number) => MODELLO[i] ?? { orbita: 3.0 + (i - 4) * 0.7, raggio: 0.2 };
+  const ORBITE = competenze.map((_, i) => modello(i).orbita);
+  const massimo = Math.max(...competenze.map((_, i) => modello(i).raggio));
   let conAnello = false;
   const pianeti = competenze.map((k, i) => {
-    const raggio = 0.09 + k.aree.length * 0.028;
-    const orbita = ORBITE[i]!;
+    const { raggio, orbita } = modello(i);
     const matOrbita = linea(c.line, 1);
     gruppo.add(cerchio(orbita, matOrbita));
     const corpo = new THREE.Group();
     const pieno = sfera(raggio, c.accent);
     corpo.add(pieno);
-    // Solo il primo dei pianeti più grandi ha un anello: basta un dettaglio per riconoscerli
+    // Solo il gigante ha un anello: basta un dettaglio per riconoscerlo
     let anello: THREE.Line | null = null;
-    if (k.aree.length === massimo && !conAnello) {
+    if (raggio === massimo && !conAnello) {
       conAnello = true;
       anello = cerchio(raggio * 1.8, linea(c.accent, 0.8));
       anello.rotation.x = 0.45;
@@ -65,14 +74,14 @@ export function monta(el: HTMLElement) {
       piano.add(luna);
       corpo.add(piano);
       punti.push({ id: `area:${a.id}`, label: a.label, href: a.href, hub: false, famiglia: k.id, ancora: luna });
-      return { a, luna, raggio: raggio + 0.16 + j * 0.09, fase: j * 2.1 + i, velocita: 0.0007 / (1 + j * 0.3) };
+      return { a, luna, raggio: raggio + 0.12 + j * 0.07, fase: j * 2.1 + i, velocita: 0.0007 / (1 + j * 0.3) };
     });
     return { k, corpo, pieno, anello, matOrbita, lune, orbita, fase: i * 2.3, velocita: 0.00022 / Math.pow(orbita, 1.5) };
   });
 
-  // Fascia di asteroidi fra la seconda e la terza orbita, e stelle lontane
+  // Fascia di asteroidi fra il quarto e il quinto pianeta, come fra Marte e Giove, e stelle lontane
   const fascia: number[] = [];
-  const dentro = ORBITE[1] ?? 2.5, fuori = ORBITE[2] ?? 3.4;
+  const dentro = ORBITE[3] ?? 2.05, fuori = ORBITE[4] ?? 3.0;
   for (let k = 0; k < 260; k++) {
     const a = r() * Math.PI * 2, d = dentro + 0.3 + r() * (fuori - dentro - 0.6);
     fascia.push(Math.cos(a) * d, (r() - 0.5) * 0.12, Math.sin(a) * d);
@@ -119,7 +128,7 @@ export function monta(el: HTMLElement) {
   }
 
   vista(el, gruppo, punti, {
-    camera: new THREE.Vector3(0, 3.3, 6.2),
+    camera: new THREE.Vector3(0, 3.7, 7.3),
     mira: new THREE.Vector3(0, -0.2, 0),
     inclinazione: [0.12, 0.6],
     aggiorna: (t, acceso) => {
