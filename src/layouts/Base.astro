@@ -14,9 +14,6 @@ const build = new Date().toISOString().slice(0, 10);
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet" />
   </head>
   <body class:list={{ largo }}>
     <header class="barra">
@@ -42,7 +39,6 @@ const build = new Date().toISOString().slice(0, 10);
     --line: #1c2026;
     --accent: #5ef0c0;
     --mono: 'Departure Mono', ui-monospace, monospace;
-    --serif: 'Newsreader', Georgia, serif;
     /* Spaziature: s1 dentro un blocco, s2 sotto un titolo, s3 fra sezioni, s4 in testa alla pagina */
     --s1: 8px;
     --s2: 16px;
@@ -144,6 +140,8 @@ const build = new Date().toISOString().slice(0, 10);
     }
   }
   .mono { font-family: var(--mono); font-size: 11px; color: var(--muted); }
-  /* Tutto il sito è in Departure Mono; solo il testo da leggere (note e aree) è in Newsreader */
-  .prosa { font-family: var(--serif); font-size: 19px; line-height: 1.6; }
+  /* Tutto il sito è in Departure Mono. Il testo da leggere ha più interlinea. */
+  .prosa { line-height: 1.75; }
+  /* Departure Mono non ha il grassetto: l'enfasi è nel colore */
+  .prosa strong, .prosa b { font-weight: 400; color: var(--accent); }
 </style>

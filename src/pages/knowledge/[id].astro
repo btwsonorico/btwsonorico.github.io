@@ -44,15 +44,12 @@ const secondarie = s.data.sources.filter(f => f.role === 'secondary');
 </Base>
 
 <style>
-  /* Pagina di lettura: tutto in Newsreader, più leggibile del font pixel. Barra in alto e codice restano mono. */
-  article, .vicini { font-family: var(--serif); }
-  article .mono, .vicini { font-family: var(--serif); font-size: 15px; }
   article { max-width: 640px; padding: var(--s4) 0 var(--s3); }
   .testa { margin: 0; }
   .testa a { text-decoration: none; }
   .testa span { color: var(--accent); }
-  h1 { margin: var(--s1) 0 var(--s2); font-size: 38px; font-weight: 400; line-height: 1.15; letter-spacing: -0.01em; }
-  .sommario { margin: 0 0 var(--s3); font-size: 19px; color: var(--muted); font-style: italic; }
+  h1 { margin: var(--s1) 0 var(--s2); font-size: 33px; font-weight: 400; line-height: 1.2; }
+  .sommario { margin: 0 0 var(--s3); color: var(--muted); }
   .fonte {
     display: grid;
     gap: 2px;
@@ -66,13 +63,12 @@ const secondarie = s.data.sources.filter(f => f.role === 'secondary');
   .fonte a { color: var(--fg); }
   .fonte:last-of-type { margin-bottom: var(--s3); }
   .secondarie { margin-top: var(--s4); }
-  .secondarie h2 { font-size: 15px; }
   .secondarie ol { margin: 0; padding-left: 20px; }
   .secondarie li span:first-child { color: var(--accent); }
   .secondarie a { color: var(--fg); }
   .usato { display: flex; gap: var(--s2); flex-wrap: wrap; margin: var(--s3) 0 0; }
 
-  .prosa :global(h2) { margin: var(--s4) 0 var(--s1); font-family: var(--serif); font-size: 26px; font-weight: 500; color: var(--accent); }
+  .prosa :global(h2) { margin: var(--s4) 0 var(--s1); font-size: 22px; font-weight: 400; color: var(--accent); }
   .prosa :global(h2)::before { content: '## '; font-weight: 400; color: var(--muted); }
   .prosa :global(blockquote) { margin: var(--s3) 0; padding-left: 18px; border-left: 2px solid var(--accent); color: var(--muted); }
   .prosa :global(code) { font-family: var(--mono); font-size: 0.85em; padding: 1px 5px; background: var(--line); }
@@ -84,5 +80,5 @@ const secondarie = s.data.sources.filter(f => f.role === 'secondary');
   .vicini { display: flex; justify-content: space-between; gap: var(--s3); padding: var(--s3) 0 0; border-top: 1px solid var(--line); }
   .vicini a { text-decoration: none; max-width: 45%; }
 
-  @media (max-width: 640px) { h1 { font-size: 30px; } }
+  @media (max-width: 640px) { h1 { font-size: 26px; } }
 </style>
