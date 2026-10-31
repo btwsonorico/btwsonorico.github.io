@@ -25,7 +25,9 @@ export function monta(el: HTMLElement) {
   const c = colori(el);
   // Il verde di Projects nei cespugli e nelle ninfee e l'arancio di Knowledge nelle libellule: nelle consulenze
   // uso le competenze tecniche e quello che studio. Stessi valori di --accent nelle due sezioni (Base.astro).
-  const VERDE_PROJECTS = new THREE.Color('#3fb950'), ARANCIO_KNOWLEDGE = new THREE.Color('#ffa45e');
+  // Smorzati (verso il grigio, semitrasparenti): l'azzurro del laghetto resta il protagonista
+  const SMORZA = 0.45;
+  const VERDE_PROJECTS = new THREE.Color('#3fb950').lerp(c.muted, SMORZA), ARANCIO_KNOWLEDGE = new THREE.Color('#ffa45e').lerp(c.muted, SMORZA);
   const gruppo = new THREE.Group();
   const punti: Punto[] = [];
   const r = casuale(5);
@@ -116,7 +118,7 @@ export function monta(el: HTMLElement) {
   gruppo.add(pontile);
 
   // Cespugli sul prato: palle sfaccettate basse, in piccoli gruppi
-  const matCespi = linea(VERDE_PROJECTS, 0.6);
+  const matCespi = linea(VERDE_PROJECTS, 0.35);
   for (let k = 0; k < 9; k++) {
     const a = r() * Math.PI * 2, d = raggioRiva(a) + 0.45 + r() * 0.6;
     for (let q = 0; q < 2 + Math.floor(r() * 2); q++) {
@@ -154,7 +156,7 @@ export function monta(el: HTMLElement) {
       return new THREE.Vector3(Math.cos(a) * raggio, 0, Math.sin(a) * raggio);
     })];
     const foglia = new THREE.Group();
-    foglia.add(anello(bordo, linea(VERDE_PROJECTS, 0.75)));
+    foglia.add(anello(bordo, linea(VERDE_PROJECTS, 0.45)));
     const nervature: number[] = [];
     for (let i = 1; i < 5; i++) {
       const a = taglio / 2 + (i / 5) * (Math.PI * 2 - taglio);
@@ -162,7 +164,7 @@ export function monta(el: HTMLElement) {
     }
     const geoN = new THREE.BufferGeometry();
     geoN.setAttribute('position', new THREE.Float32BufferAttribute(nervature, 3));
-    foglia.add(new THREE.LineSegments(geoN, linea(VERDE_PROJECTS, 0.35)));
+    foglia.add(new THREE.LineSegments(geoN, linea(VERDE_PROJECTS, 0.2)));
     if (k % 4 !== 3) {
       const fiore = new THREE.Group();
       const matPetali = linea(c.fg, 0.9), matInterni = linea(c.fg, 0.6);
@@ -257,7 +259,7 @@ export function monta(el: HTMLElement) {
   };
   const libellule = Array.from({ length: 3 }, (_, k) => {
     const corpo = new THREE.Group();
-    const m = linea(ARANCIO_KNOWLEDGE, 0.95);
+    const m = linea(ARANCIO_KNOWLEDGE, 0.5);
     corpo.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.06), new THREE.Vector3(0, 0, -0.1)]), m));
     const ali = new THREE.Group();
     for (const lato of [1, -1]) for (const dz of [0.025, -0.01])
