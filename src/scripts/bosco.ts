@@ -12,8 +12,10 @@ function casuale(seme: number) {
   return () => { seme = (seme * 16807) % 2147483647; return (seme - 1) / 2147483646; };
 }
 
-type Specie = 'abete' | 'quercia' | 'cipresso' | 'betulla';
-const SPECIE: Specie[] = ['abete', 'quercia', 'cipresso', 'betulla'];
+type Specie = 'palma' | 'quercia' | 'acacia' | 'betulla';
+const SPECIE: Specie[] = ['palma', 'quercia', 'acacia', 'betulla'];
+// Quanto sale il tronco dritto, per specie (la palma disegna da sola il suo tronco curvo)
+const TRONCO: Record<Specie, number> = { palma: 0, quercia: 0.8, acacia: 0.45, betulla: 0.85 };
 
 export function monta(el: HTMLElement) {
   const { competenze } = JSON.parse(el.dataset.grafo!) as DatiCompetenze;
@@ -55,39 +57,63 @@ export function monta(el: HTMLElement) {
     const pezzi: THREE.Object3D[] = [];
     const m = linea(c.accent);
     const add = (o: THREE.Object3D) => { albero.add(o); pezzi.push(o); };
-    if (specie === 'abete') {
-      // Coni sovrapposti
-      const piani = THREE.MathUtils.clamp(ricchezza - 1, 2, 4);
-      for (let p = 0; p < piani; p++) {
-        const f = p / piani, h = (altezza * 0.75) / piani * 1.5;
-        const cono = spigoli(new THREE.ConeGeometry(0.32 * (1 - f * 0.45) * (0.8 + peso * 0.08), h, 7), m);
-        cono.position.y = altezza * 0.3 + f * altezza * 0.62 + h / 2;
-        add(cono);
+    if (specie === 'palma') {
+      // Tronco curvo a segmenti e foglie lunghe che ricadono
+      const piega = 0.18 + r() * 0.1;
+      const tronco = Array.from({ length: 7 }, (_, k) => {
+        const u = k / 6;
+        return new THREE.Vector3(Math.sin(u * 1.6) * piega, u * altezza * 0.95, 0);
+      });
+      add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(tronco), linea(c.fg)));
+      const cima = tronco.at(-1)!;
+      const foglie = THREE.MathUtils.clamp(ricchezza + 2, 5, 8);
+      const lungo = 0.42 + peso * 0.04;
+      for (let k = 0; k < foglie; k++) {
+        const a = (k / foglie) * Math.PI * 2 + r() * 0.3;
+        add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 7 }, (_, q) => {
+          const u = q / 6;
+          return new THREE.Vector3(cima.x + Math.cos(a) * u * lungo, cima.y + (u * 0.35 - u * u * 0.75) * lungo, Math.sin(a) * u * lungo);
+        })), m));
+      }
+      // Due noci di cocco sotto le foglie
+      for (const dx of [-0.04, 0.05]) {
+        const noce = spigoli(new THREE.IcosahedronGeometry(0.035, 0), m);
+        noce.position.set(cima.x + dx, cima.y - 0.05, 0.02);
+        add(noce);
       }
     } else if (specie === 'quercia') {
-      // Chioma tonda fatta di più palle sfaccettate
+      // Chioma a nuvola: una palla centrale sulla cima del tronco e altre intorno,
+      // ognuna legata al tronco da un ramo, così la chioma è tutta collegata
+      const attacco = new THREE.Vector3(0, altezza * 0.8, 0);
       const n = THREE.MathUtils.clamp(ricchezza - 1, 2, 5);
-      for (let k = 0; k < n; k++) {
-        const a = (k / n) * Math.PI * 2;
-        const raggio = 0.22 + peso * 0.025 + (k === 0 ? 0.06 : 0);
+      const centrale = 0.26 + peso * 0.025;
+      const palla0 = spigoli(new THREE.IcosahedronGeometry(centrale, 0), m);
+      palla0.position.set(0, attacco.y + centrale * 0.55, 0);
+      add(palla0);
+      for (let k = 1; k < n; k++) {
+        const a = (k / (n - 1)) * Math.PI * 2 + r() * 0.4;
+        const raggio = 0.17 + peso * 0.02;
+        const centro = new THREE.Vector3(Math.cos(a) * centrale * 0.95, attacco.y + 0.02 + r() * 0.12, Math.sin(a) * centrale * 0.95);
         const palla = spigoli(new THREE.IcosahedronGeometry(raggio, 0), m);
-        palla.position.set(k === 0 ? 0 : Math.cos(a) * 0.22, altezza * 0.78 + (k === 0 ? 0.12 : r() * 0.15), k === 0 ? 0 : Math.sin(a) * 0.22);
+        palla.position.copy(centro);
         palla.rotation.set(r() * 3, r() * 3, 0);
         add(palla);
+        add(segmento(new THREE.Vector3(0, altezza * 0.62, 0), centro, linea(c.fg)));
       }
-    } else if (specie === 'cipresso') {
-      // Alto e stretto: un fuso con anelli orizzontali
-      const fuso = spigoli(new THREE.OctahedronGeometry(1, 0), m);
-      fuso.scale.set(0.17 + peso * 0.012, altezza * 0.55, 0.17 + peso * 0.012);
-      fuso.position.y = altezza * 0.62;
-      add(fuso);
-      const anelli = THREE.MathUtils.clamp(ricchezza, 2, 5);
-      for (let k = 1; k <= anelli; k++) {
-        const y = altezza * 0.62 + (k / (anelli + 1) - 0.5) * altezza * 0.9;
-        const largo = (0.17 + peso * 0.012) * (1 - Math.abs(y - altezza * 0.62) / (altezza * 0.55));
-        const anello = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 4 }, (_, j) =>
-          new THREE.Vector3(Math.cos(j * Math.PI / 2) * largo, y, Math.sin(j * Math.PI / 2) * largo))), m);
-        add(anello);
+    } else if (specie === 'acacia') {
+      // Tronco che si biforca e una chioma larga e piatta, come nella savana
+      const forca = new THREE.Vector3(0, altezza * 0.45, 0);
+      const chiome = THREE.MathUtils.clamp(ricchezza - 2, 1, 2);
+      for (let k = 0; k < chiome; k++) {
+        const dx = chiome === 1 ? 0 : (k === 0 ? -0.2 : 0.22);
+        const y = altezza * (0.85 + k * 0.1);
+        const larga = (0.42 + peso * 0.03) * (k === 0 ? 1 : 0.75);
+        const piatta = spigoli(new THREE.IcosahedronGeometry(larga, 1), m);
+        piatta.scale.y = 0.26;
+        piatta.position.set(dx, y, 0);
+        add(piatta);
+        add(segmento(forca, new THREE.Vector3(dx * 0.8 - 0.08, y - larga * 0.2, 0.05), linea(c.fg)));
+        add(segmento(forca, new THREE.Vector3(dx * 0.8 + 0.1, y - larga * 0.2, -0.06), linea(c.fg)));
       }
     } else {
       // Betulla: rami a Y che finiscono in piccole foglie a rombo
@@ -115,8 +141,8 @@ export function monta(el: HTMLElement) {
       const albero = new THREE.Group();
       albero.position.set(pos.x, 0, pos.y);
       albero.rotation.y = r() * Math.PI;
-      const altezza = (specie === 'cipresso' ? 1 : 0.75) + a.peso * 0.28;
-      const tronco = segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, altezza * (specie === 'betulla' ? 0.85 : 0.4), 0), linea(c.fg));
+      const altezza = (specie === 'palma' ? 0.95 : 0.75) + a.peso * 0.28;
+      const tronco = segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, altezza * Math.max(TRONCO[specie], 0.001), 0), linea(c.fg));
       albero.add(tronco);
       const pezzi = chioma(albero, specie, altezza, a.punti, a.peso);
       // Punto d'ancora in cima: lì compaiono etichetta e clic, e lì si posano gli uccelli

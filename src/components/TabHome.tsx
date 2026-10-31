@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import SegmentedControl from "@/components/arc/segmented-control/segmented-control";
 
-// Tab della home. Comunica con la pagina con l'evento "home:tab" e tiene la tab nell'indirizzo (#projects, #knowledge).
-// Advisory è la prima tab e quella aperta all'avvio.
+// Tab della home. Comunica con la pagina con l'evento "home:tab" e tiene la tab nell'indirizzo (#knowledge, #advisory).
+// Projects è la prima tab e quella aperta all'avvio.
 const TAB = [
-  { value: "advisory", label: "Advisory" },
   { value: "projects", label: "Projects" },
   { value: "knowledge", label: "Knowledge" },
+  { value: "advisory", label: "Advisory" },
 ];
-const daIndirizzo = () => TAB.find(t => t.value !== "advisory" && window.location.hash === `#${t.value}`)?.value ?? "advisory";
+const daIndirizzo = () => TAB.find(t => t.value !== "projects" && window.location.hash === `#${t.value}`)?.value ?? "projects";
 
 export default function TabHome() {
   const [tab, setTab] = useState(daIndirizzo);
@@ -18,7 +18,7 @@ export default function TabHome() {
   }, [tab]);
 
   function cambia(v: string) {
-    history.replaceState(null, "", v === "advisory" ? window.location.pathname : `#${v}`);
+    history.replaceState(null, "", v === "projects" ? window.location.pathname : `#${v}`);
     setTab(v);
   }
 
