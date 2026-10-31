@@ -3,19 +3,23 @@ import type { DatiGrafo, TipoNodo } from '../lib/grafi';
 import type { DatiCompetenze } from '../scripts/vista3d';
 
 // Una o più viste dello stesso grafo. Con due viste compaiono i pulsanti per passare dall'una all'altra.
-// motore: "grafo" (rete a forze, Knowledge), "bosco" (Projects) o "orbite" (Advisory).
-type Motore = 'grafo' | 'bosco' | 'orbite';
+// motore: "grafo" (rete a forze, Knowledge), "bosco" (Projects) o "laghetto" (Advisory).
+type Motore = 'grafo' | 'bosco' | 'laghetto';
 interface Vista { nome: string; dati: DatiGrafo | DatiCompetenze; legenda: TipoNodo[] }
-type Comuni = { motore?: Motore; nomi?: Partial<Record<TipoNodo, string>>; aiuto?: string };
+// modi: viste della stessa scena (per esempio il bosco per competenza o per progetto). Il primo è quello iniziale.
+type Comuni = { motore?: Motore; nomi?: Partial<Record<TipoNodo, string>>; aiuto?: string; modi?: { id: string; nome: string }[] };
 type Props = Comuni & ({ viste: Vista[] } | { dati: DatiGrafo | DatiCompetenze; legenda: TipoNodo[] });
 const props = Astro.props;
-const { motore = 'grafo', aiuto = 'drag a node · click to open · drag the space to rotate' } = props;
+const { motore = 'grafo', aiuto = 'drag a node · click to open · drag the space to rotate', modi = [] } = props;
 const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props.dati, legenda: props.legenda }];
 const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte: 'source', area: 'area', tech: 'technology', skill: 'key skill', ...props.nomi };
 ---
 <figure class="grafo">
   {viste.map((v, i) => <div class="scena" data-vista={i} data-grafo={JSON.stringify(v.dati)} data-motore={motore} hidden={i > 0} aria-hidden="true"></div>)}
   <figcaption class="mono">
+    {modi.length > 1 && <span class="viste" role="group" aria-label="Group by">
+      {modi.map((m, i) => <button type="button" data-modo={m.id} aria-pressed={i === 0 ? 'true' : 'false'}>{m.nome}</button>)}
+    </span>}
     {viste.length > 1 && <span class="viste" role="group" aria-label="View">
       {viste.map((v, i) => <button type="button" data-mostra={i} aria-pressed={i === 0 ? 'true' : 'false'}>{v.nome}</button>)}
     </span>}
@@ -29,16 +33,21 @@ const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte:
 
 <script>
   import { monta } from '../scripts/grafo';
-  // Bosco e orbite si caricano solo nelle pagine che li usano
+  // Bosco e laghetto si caricano solo nelle pagine che li usano
   document.querySelectorAll<HTMLElement>('[data-grafo]').forEach(el => {
     if (el.dataset.motore === 'bosco') import('../scripts/bosco').then(m => m.monta(el));
-    else if (el.dataset.motore === 'orbite') import('../scripts/orbite').then(m => m.monta(el));
+    else if (el.dataset.motore === 'laghetto') import('../scripts/laghetto').then(m => m.monta(el));
     else monta(el);
   });
   document.querySelectorAll<HTMLElement>('.grafo').forEach(fig => {
     fig.querySelectorAll<HTMLButtonElement>('[data-mostra]').forEach(b => b.addEventListener('click', () => {
       fig.querySelectorAll<HTMLElement>('[data-vista]').forEach(el => { el.hidden = el.dataset.vista !== b.dataset.mostra; });
       fig.querySelectorAll('[data-mostra]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    }));
+    // Cambio di modo: la scena riceve "scena:modo" e si ridispone
+    fig.querySelectorAll<HTMLButtonElement>('[data-modo]').forEach(b => b.addEventListener('click', () => {
+      fig.querySelectorAll('[data-modo]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      fig.querySelector('.scena')?.dispatchEvent(new CustomEvent('scena:modo', { detail: b.dataset.modo }));
     }));
   });
 </script>

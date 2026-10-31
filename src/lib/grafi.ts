@@ -92,7 +92,7 @@ export async function grafoKnowledge({ fonti = true } = {}): Promise<DatiGrafo> 
   return { ...chiudi(nodi, archi), stelle };
 }
 
-// Dati per le scene 3D di Projects (bosco) e Advisory (orbite): competenze, aree, peso e numero di punti.
+// Dati per le scene 3D di Projects (bosco) e Advisory (laghetto): competenze, aree, peso e numero di punti.
 // peso: tecnologie (Projects) o metodi (Advisory) dell'area; punti: righe "- " del suo file.
 export async function datiCompetenze(sezione: Sezione) {
   const { competenze, aree: carica } = sezioni[sezione];
@@ -100,7 +100,18 @@ export async function datiCompetenze(sezione: Sezione) {
   const scritti = await scrittiPubblici();
   for (const a of aree) for (const r of a.data.related)
     if (!scritti.some(x => x.id === r)) throw new Error(`L'area "${a.id}" cita "${r}" in related, ma il testo non esiste.`);
+  // Solo Projects: i progetti dove ho imparato le aree
+  const progetti = sezione === 'projects'
+    ? (await getCollection('progetti', ({ data }) => !data.draft)).sort((a, b) => a.data.order - b.data.order)
+    : [];
+  const viste = new Set<string>();
+  for (const p of progetti) for (const id of p.data.learned) {
+    if (!aree.some(a => a.id === id)) throw new Error(`Il progetto "${p.id}" cita l'area "${id}" in learned, ma l'area non esiste.`);
+    if (viste.has(id)) throw new Error(`L'area "${id}" è in learned di più progetti: un'area si impara in un progetto solo.`);
+    viste.add(id);
+  }
   return {
+    progetti: progetti.map(p => ({ id: p.id, label: p.data.title, aree: p.data.learned, strumenti: p.data.tools, crescita: p.data.growing })),
     competenze: Object.entries(competenze)
       .filter(([id]) => aree.some(a => a.data.skill === id))
       .map(([id, c]) => ({

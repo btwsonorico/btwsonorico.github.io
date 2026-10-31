@@ -14,7 +14,7 @@ const consulenze = await advisoryPubbliche();
 const data = (d: Date) => d.toISOString().slice(0, 10);
 const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role === 'main')?.type;
 ---
-<Base title="Riccardo Mondi" largo>
+<Base title="Riccardo Mondi" tono="verde" largo>
   <main class="affianca">
     <div class="a-testa">
     <section class="intro testa-pagina">
@@ -36,8 +36,8 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
     <!-- Un grafo per tab: su schermi larghi stanno a destra, accanto al nome -->
     <div class="a-grafo grafi">
       <div data-pannello="knowledge" data-tono="arancio" hidden><Grafo dati={knowledge} legenda={['testo', 'tema']} /></div>
-      <div data-pannello="projects" data-tono="verde"><Grafo dati={projects} legenda={['skill', 'area']} motore="bosco" nomi={{ skill: 'signpost: key skill', area: 'tree: area' }} aiuto="taller tree, more technologies · click a tree to see its topic · drag to rotate" /></div>
-      <div data-pannello="advisory" data-tono="azzurro" hidden><Grafo dati={advisory} legenda={['skill', 'area']} motore="orbite" nomi={{ skill: 'planet: key skill', area: 'moon: area' }} aiuto="click a planet or a moon to see its topic · drag to rotate" /></div>
+      <div data-pannello="projects" data-tono="verde"><Grafo dati={projects} legenda={['skill', 'area']} motore="bosco" modi={[{ id: 'competenza', nome: 'by skill' }, { id: 'progetto', nome: 'by project' }]} nomi={{ skill: 'signpost: skill or project', area: 'tree: area' }} aiuto="taller tree, more technologies · click a tree to see its topic · drag to rotate" /></div>
+      <div data-pannello="advisory" data-tono="azzurro" hidden><Grafo dati={advisory} legenda={['skill', 'area']} motore="laghetto" nomi={{ skill: 'school: key skill', area: 'fish: area' }} aiuto="hover a fish or a school · click to see its topic · drag to rotate" /></div>
     </div>
 
     <div class="a-resto pannelli">
@@ -73,16 +73,21 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
   // Cambio di tab: dissolvenza con le View Transitions quando il browser le supporta
   const pannelli = document.querySelectorAll<HTMLElement>('[data-pannello]');
   let attuale = 'projects';
+  // Il colore della pagina (cursore dopo il nome, link, tab) segue il tab aperto
+  const TONI: Record<string, string> = { projects: 'verde', knowledge: 'arancio', advisory: 'azzurro' };
+  const tingi = (tab: string) => { document.documentElement.dataset.tono = TONI[tab] ?? 'verde'; };
   // /#knowledge e /#advisory aprono subito quel tab: il controllo dei tab può caricarsi prima di questo script e il suo evento andrebbe perso
   const daIndirizzo = location.hash.slice(1);
   if (daIndirizzo === 'knowledge' || daIndirizzo === 'advisory') {
     attuale = daIndirizzo;
+    tingi(daIndirizzo);
     pannelli.forEach(p => { p.hidden = p.dataset.pannello !== daIndirizzo; });
   }
   window.addEventListener('home:tab', e => {
     const tab = (e as CustomEvent<string>).detail;
     if (tab === attuale) return;
     attuale = tab;
+    tingi(tab);
     const applica = () => pannelli.forEach(p => { p.hidden = p.dataset.pannello !== tab; });
     const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
     if (doc.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) doc.startViewTransition(applica);

@@ -1,17 +1,20 @@
 import * as THREE from 'three';
 
-// Base comune per le scene 3D di Projects (bosco) e Advisory (orbite).
+// Base comune per le scene 3D di Projects (bosco) e Advisory (laghetto).
 // Gestisce renderer, camera, etichette, trascinamento per ruotare, clic per aprire
 // e l'evento "grafo:evidenzia" che arriva dalle liste della pagina.
 
 // Dati di una sezione: competenze chiave e le loro aree
 export interface Area { id: string; label: string; href: string; peso: number; punti: number }
 export interface Competenza { id: string; label: string; href: string; aree: Area[] }
-export interface DatiCompetenze { competenze: Competenza[] }
+// Progetto (solo Projects): le aree imparate lì, gli strumenti chiave, le cose che sto iniziando (alberelli)
+export interface Progetto { id: string; label: string; aree: string[]; strumenti: string[]; crescita: string[] }
+export interface DatiCompetenze { competenze: Competenza[]; progetti?: Progetto[] }
 
 // Un punto cliccabile della scena. famiglia: la competenza a cui appartiene.
 // base (facoltativa): con la base, il punto si tocca lungo tutto il segmento base-ancora (per esempio un albero intero).
-export interface Punto { id: string; label: string; href: string; hub: boolean; famiglia: string; ancora: THREE.Object3D; base?: THREE.Object3D }
+// spento: il punto non si vede e non si tocca (per esempio i pali dei progetti nella vista per competenza).
+export interface Punto { id: string; label: string; href: string; hub: boolean; famiglia: string; ancora: THREE.Object3D; base?: THREE.Object3D; spento?: boolean }
 
 interface Opzioni {
   camera: THREE.Vector3;
@@ -61,6 +64,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
   };
   // Distanza sullo schermo fra il puntatore e un punto, o il segmento base-ancora se il punto ha una base
   const distanza = (p: Punto, x: number, y: number) => {
+    if (p.spento) return Infinity;
     const a = proietta(p.ancora);
     if (a.z >= 1) return Infinity;
     if (!p.base) return Math.hypot(a.x - x, a.y - y);
@@ -148,7 +152,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     punti.forEach((p, i) => {
       const sc = schermo(i);
       const a = acceso(p.famiglia, p.id);
-      const mostra = i === fuoco || (p.hub && a > 0.15) || (!!f && f.hub && f.famiglia === p.famiglia);
+      const mostra = !p.spento && (i === fuoco || (p.hub && a > 0.15) || (!!f && f.hub && f.famiglia === p.famiglia));
       etichette[i]!.style.opacity = mostra && sc.z < 1 ? '1' : '0';
       etichette[i]!.classList.toggle('attiva', i === fuoco);
       // Vicino al bordo destro l'etichetta passa a sinistra del punto, così resta leggibile

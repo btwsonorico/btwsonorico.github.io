@@ -89,4 +89,20 @@ const advisory = defineCollection({
   }),
 });
 
-export const collections = { scritti, aree, advisory };
+// Progetti: dove ho imparato le aree di Projects. Nomi generici, mai clienti o nomi interni.
+// learned: aree imparate in questo progetto (nome del file in src/content/aree, senza .md); ogni area in un solo progetto.
+// tools: gli strumenti chiave usati nel progetto. growing: cose che sto iniziando a imparare qui, alberelli nel bosco.
+const progetti = defineCollection({
+  loader: glob({ pattern: '**/*.md', base: './src/content/progetti' }),
+  schema: z.object({
+    title: z.string(),
+    summary: z.string(),
+    order: z.number(),
+    learned: z.array(z.string()).default([]),
+    tools: z.array(z.enum(TECNOLOGIE, fuoriLista('Tecnologia', TECNOLOGIE))).default([]),
+    growing: z.array(z.string()).default([]),
+    draft: z.boolean().default(false),
+  }),
+});
+
+export const collections = { scritti, aree, advisory, progetti };

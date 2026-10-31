@@ -18,7 +18,7 @@ const SPECIE: Specie[] = ['palma', 'quercia', 'acacia', 'abete'];
 const TRONCO: Record<Specie, number> = { palma: 0, quercia: 0.8, acacia: 0.45, abete: 0.4 };
 
 export function monta(el: HTMLElement) {
-  const { competenze } = JSON.parse(el.dataset.grafo!) as DatiCompetenze;
+  const { competenze, progetti = [] } = JSON.parse(el.dataset.grafo!) as DatiCompetenze;
   const c = colori(el);
   const gruppo = new THREE.Group();
   const punti: Punto[] = [];
@@ -36,14 +36,13 @@ export function monta(el: HTMLElement) {
   geoTerreno.setAttribute('position', new THREE.Float32BufferAttribute(terreno, 3));
   gruppo.add(new THREE.Points(geoTerreno, new THREE.PointsMaterial({ color: c.muted, size: 0.025, transparent: true, opacity: 0.6 })));
 
-  // Posizioni: ogni competenza ha un settore del cerchio; gli alberi cadono a caso nel settore,
-  // lontani almeno DISTANZA l'uno dall'altro
+  // Posizioni: ogni gruppo (competenza o progetto) ha un settore del cerchio; gli alberi cadono a caso nel settore,
+  // lontani almeno DISTANZA l'uno dall'altro. Ogni vista ha il suo generatore, così le posizioni sono sempre le stesse.
   const DISTANZA = 0.85;
-  const occupati: THREE.Vector2[] = [];
-  const posto = (centro: number, ampiezza: number) => {
+  const posto = (rr: () => number, occupati: THREE.Vector2[], centro: number, ampiezza: number) => {
     for (let prova = 0; prova < 200; prova++) {
-      const a = centro + (r() - 0.5) * ampiezza;
-      const d = 1.2 + Math.sqrt(r()) * 3.5;
+      const a = centro + (rr() - 0.5) * ampiezza;
+      const d = 1.2 + Math.sqrt(rr()) * 3.5;
       const p = new THREE.Vector2(Math.cos(a) * d, Math.sin(a) * d);
       if (occupati.every(q => q.distanceTo(p) > DISTANZA)) { occupati.push(p); return p; }
     }
@@ -131,46 +130,69 @@ export function monta(el: HTMLElement) {
   // Sfumature dello stesso colore d'accento (in Projects il verde di GitHub): ogni albero ne prende una
   const SFUMATURE = [-0.14, -0.07, 0, 0.07, 0.13].map((dl, k) => c.accent.clone().offsetHSL((k - 2) * 0.012, 0, dl));
 
-  let ordine = 0;
-  const zone = competenze.map((k, i) => {
-    const settore = (Math.PI * 2) / competenze.length;
-    const centro = i * settore + Math.PI / 4;
+  // Alberi: uno per area, con la specie della sua competenza. Nella vista per progetto le specie si mescolano.
+  type Albero = { id: string; albero: THREE.Group; cima: THREE.Object3D; pezzi: THREE.Object3D[]; altezza: number; fase: number; ritardo: number; punto: Punto };
+  const nuovoAlbero = (id: string, label: string, href: string, specie: Specie, altezza: number, ricchezza: number, peso: number): Albero => {
+    const albero = new THREE.Group();
+    albero.rotation.y = r() * Math.PI;
+    const tronco = segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, altezza * Math.max(TRONCO[specie], 0.001), 0), linea(c.fg));
+    albero.add(tronco);
+    const pezzi = chioma(albero, specie, altezza, ricchezza, peso, SFUMATURE[Math.floor(r() * SFUMATURE.length)]!);
+    // Punto d'ancora in cima: lì compaiono etichetta e clic, e lì si posano gli uccelli
+    const cima = new THREE.Object3D();
+    cima.position.y = altezza * 1.15;
+    albero.add(cima);
+    albero.scale.setScalar(0.001);
+    gruppo.add(albero);
+    const punto: Punto = { id, label, href, hub: false, famiglia: '', ancora: cima, base: albero };
+    punti.push(punto);
+    return { id, albero, cima, pezzi: [tronco, ...pezzi], altezza, fase: r() * 10, ritardo: 0, punto };
+  };
+  const perArea = new Map<string, Albero>();
+  competenze.forEach((k, i) => {
     const specie = SPECIE[i % SPECIE.length]!;
-    const alberi = k.aree.map(a => {
-      const pos = posto(centro, settore * 0.85);
-      const albero = new THREE.Group();
-      albero.position.set(pos.x, 0, pos.y);
-      albero.rotation.y = r() * Math.PI;
+    for (const a of k.aree) {
       // Le palme restano più basse degli altri alberi
       const altezza = specie === 'palma' ? 0.5 + a.peso * 0.14 : 0.75 + a.peso * 0.28;
-      const tronco = segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, altezza * Math.max(TRONCO[specie], 0.001), 0), linea(c.fg));
-      albero.add(tronco);
-      const pezzi = chioma(albero, specie, altezza, a.punti, a.peso, SFUMATURE[Math.floor(r() * SFUMATURE.length)]!);
-      // Punto d'ancora in cima: lì compaiono etichetta e clic, e lì si posano gli uccelli
-      const cima = new THREE.Object3D();
-      cima.position.y = altezza * 1.15;
-      albero.add(cima);
-      albero.scale.setScalar(0.001);
-      gruppo.add(albero);
-      punti.push({ id: `area:${a.id}`, label: a.label, href: a.href, hub: false, famiglia: k.id, ancora: cima, base: albero });
-      return { a, albero, cima, pezzi: [tronco, ...pezzi], altezza, fase: r() * 10, ritardo: ordine++ * 140 + r() * 120 };
-    });
+      perArea.set(a.id, nuovoAlbero(`area:${a.id}`, a.label, a.href, specie, altezza, a.punti, a.peso));
+    }
+  });
+  // Alberelli: le cose che sto iniziando a imparare in un progetto. Piccoli, non cliccabili.
+  const alberelli = progetti.flatMap(p => p.crescita.map((testo, k) =>
+    ({ progetto: p.id, ...nuovoAlbero(`cresce:${p.id}:${k}`, testo, '', SPECIE[(k + 3) % SPECIE.length]!, 0.32, 2, 0) })));
 
-    // Palo della competenza, nel mezzo dei suoi alberi
-    const medio = alberi.reduce((s, x) => s.add(new THREE.Vector3(x.albero.position.x, 0, x.albero.position.z)), new THREE.Vector3()).divideScalar(alberi.length);
-    const alto = Math.max(...alberi.map(x => x.altezza * 1.15)) + 0.7;
-    const palo = segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, alto, 0), linea(c.accent, 0.5));
+  // Pali: uno per competenza e uno per progetto. Il palo è alto 1 e si scala all'altezza giusta.
+  const nuovoPalo = (id: string, label: string, href: string) => {
+    const palo = segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0), linea(c.accent, 0.5));
     const insegna = new THREE.Object3D();
-    insegna.position.y = alto;
+    insegna.position.y = 1;
     const base = new THREE.Group();
-    base.position.copy(medio);
     base.add(palo, insegna);
     base.scale.set(1, 0.001, 1);
     gruppo.add(base);
-    punti.push({ id: `skill:${k.id}`, label: k.label, href: k.href, hub: true, famiglia: k.id, ancora: insegna, base });
-    return { k, base, palo, alberi };
-  });
-  const tutti = zone.flatMap(z => z.alberi);
+    const punto: Punto = { id, label, href, hub: true, famiglia: id, ancora: insegna, base };
+    punti.push(punto);
+    return { id, base, palo, punto, alto: 1 };
+  };
+  // Strumenti chiave di un progetto: piccoli cubi intorno al suo palo, con il nome al passaggio sul progetto
+  const nuovoStrumento = (progetto: string, nome: string) => {
+    const cubo = spigoli(new THREE.BoxGeometry(0.09, 0.09, 0.09), linea(c.fg, 0.85));
+    cubo.scale.setScalar(0.001);
+    gruppo.add(cubo);
+    const punto: Punto = { id: `tool:${progetto}:${nome}`, label: nome, href: '', hub: false, famiglia: `progetto:${progetto}`, ancora: cubo };
+    punti.push(punto);
+    return { cubo, punto };
+  };
+  type Strumento = ReturnType<typeof nuovoStrumento>;
+  const gruppiCompetenza = competenze.map(k => ({ ...nuovoPalo(`skill:${k.id}`, k.label, k.href), membri: k.aree.map(a => perArea.get(a.id)!), strumenti: [] as Strumento[] }));
+  const gruppiProgetto = progetti
+    .filter(p => p.aree.length || p.crescita.length)
+    .map(p => ({
+      ...nuovoPalo(`progetto:${p.id}`, p.label, ''),
+      membri: [...p.aree.map(id => perArea.get(id)).filter((x): x is Albero => !!x), ...alberelli.filter(x => x.progetto === p.id)],
+      strumenti: p.strumenti.map(nome => nuovoStrumento(p.id, nome)),
+    }));
+  const tutti = [...perArea.values()];
 
   // Erba e sassi: ciuffi a tre fili e piccoli sassi sfaccettati, sparsi fra gli alberi
   const erba: number[] = [];
@@ -203,6 +225,8 @@ export function monta(el: HTMLElement) {
     gruppo.add(corpo);
     return { corpo, da: k * 2 % tutti.length, a: (k * 2 + 1) % tutti.length, partenza: 2600 + k * 900, durata: 2600 + r() * 1800, sosta: 800 + r() * 2200 };
   });
+  // Gli uccelli si posano solo sugli alberi visibili nella vista attuale
+  const posabili = () => tutti.map((x, i) => (x.albero.visible ? i : -1)).filter(i => i >= 0);
   const p0 = new THREE.Vector3(), p1 = new THREE.Vector3(), pc = new THREE.Vector3(), pos = new THREE.Vector3(), dopo = new THREE.Vector3();
   const arco = (u: number, out: THREE.Vector3) => {
     // Curva di Bézier quadratica, con il punto di controllo alto sopra il centro
@@ -210,9 +234,60 @@ export function monta(el: HTMLElement) {
     return out.copy(p0).multiplyScalar(v * v).addScaledVector(pc, 2 * v * u).addScaledVector(p1, u * u);
   };
 
+  // Vista: dispone alberi, pali e strumenti per competenza o per progetto, poi fa ricrescere tutto da zero
+  type Modo = 'competenza' | 'progetto';
+  let modo: Modo = 'competenza';
+  let gruppiAttivi = gruppiCompetenza;
+  function disponi(m: Modo) {
+    modo = m;
+    gruppiAttivi = m === 'competenza' ? gruppiCompetenza : gruppiProgetto;
+    const rr = casuale(m === 'competenza' ? 11 : 29);
+    const occupati: THREE.Vector2[] = [];
+    const visibili = new Set<Albero>();
+    let ordine = 0;
+    gruppiAttivi.forEach((g, i) => {
+      const settore = (Math.PI * 2) / gruppiAttivi.length;
+      const centro = i * settore + Math.PI / 4;
+      for (const x of g.membri) {
+        const p = posto(rr, occupati, centro, settore * 0.85);
+        x.albero.position.set(p.x, 0, p.y);
+        x.punto.famiglia = g.id;
+        x.ritardo = ordine++ * 140 + rr() * 120;
+        visibili.add(x);
+      }
+      // Palo nel mezzo dei suoi alberi, più alto del più alto
+      const medio = g.membri.reduce((acc, x) => acc.add(new THREE.Vector3(x.albero.position.x, 0, x.albero.position.z)), new THREE.Vector3()).divideScalar(Math.max(1, g.membri.length));
+      g.base.position.copy(medio);
+      g.alto = Math.max(0.6, ...g.membri.map(x => x.altezza * 1.15)) + 0.7;
+      g.strumenti.forEach((st, n) => {
+        const a = (n / g.strumenti.length) * Math.PI * 2;
+        st.cubo.position.set(medio.x + Math.cos(a) * 0.32, 0.05, medio.z + Math.sin(a) * 0.32);
+      });
+    });
+    for (const g of [...gruppiCompetenza, ...gruppiProgetto]) {
+      const attivo = gruppiAttivi.includes(g);
+      g.base.visible = attivo;
+      g.punto.spento = !attivo;
+      g.base.scale.y = 0.001;
+      g.strumenti.forEach(st => { st.cubo.visible = attivo; st.punto.spento = !attivo; st.cubo.scale.setScalar(0.001); });
+    }
+    for (const x of [...tutti, ...alberelli]) {
+      x.albero.visible = visibili.has(x);
+      x.punto.spento = !visibili.has(x);
+      x.albero.scale.setScalar(0.001);
+    }
+    inizio = -1;
+    uccelli.forEach((u, n) => { u.partenza = 2600 + n * 900; u.corpo.visible = false; });
+  }
+  el.addEventListener('scena:modo', e => {
+    const m: Modo = (e as CustomEvent<string>).detail === 'progetto' ? 'progetto' : 'competenza';
+    if (m !== modo) disponi(m);
+  });
+
   // Crescita: parte la prima volta che la scena è visibile. ease: veloce all'inizio, con un piccolo rimbalzo.
   let inizio = -1;
   const ease = (x: number) => { const s = 1.4; x -= 1; return x * x * ((s + 1) * x + s) + 1; };
+  disponi('competenza');
 
   vista(el, gruppo, punti, {
     camera: new THREE.Vector3(0, 5.6, 10),
@@ -223,17 +298,24 @@ export function monta(el: HTMLElement) {
       // Con prefers-reduced-motion t resta 0: il bosco è già cresciuto e gli uccelli restano posati
       const tempo = t === 0 ? Infinity : t - inizio;
       prato.scale.y = Math.max(0.001, THREE.MathUtils.clamp(tempo / 1500, 0, 1));
-      zone.forEach(z => {
-        const lz = acceso(z.k.id, `skill:${z.k.id}`);
-        (z.palo.material as THREE.LineBasicMaterial).opacity = Math.min(1, lz * 1.6);
-        z.base.scale.y = Math.max(0.001, ease(THREE.MathUtils.clamp((tempo - 900) / 700, 0, 1)));
-        z.alberi.forEach(x => {
-          const l = acceso(z.k.id, `area:${x.a.id}`);
-          const g = THREE.MathUtils.clamp((tempo - x.ritardo) / 900, 0, 1);
+      const crescitaPali = ease(THREE.MathUtils.clamp((tempo - 900) / 700, 0, 1));
+      gruppiAttivi.forEach(g => {
+        const lg = acceso(g.id, g.id);
+        (g.palo.material as THREE.LineBasicMaterial).opacity = Math.min(1, lg * 1.6);
+        g.base.scale.y = Math.max(0.001, crescitaPali * g.alto);
+        g.strumenti.forEach(st => {
+          const ls = acceso(g.id, st.punto.id);
+          st.cubo.scale.setScalar(Math.max(0.001, crescitaPali * (ls === 1 ? 1.6 : 1)));
+          st.cubo.rotation.y = t * 0.0008;
+          (st.cubo.material as THREE.LineBasicMaterial).opacity = Math.min(1, ls * 1.8);
+        });
+        g.membri.forEach(x => {
+          const l = acceso(g.id, x.punto.id);
+          const cresce = THREE.MathUtils.clamp((tempo - x.ritardo) / 900, 0, 1);
           // Il vento: le chiome oscillano appena; l'albero in primo piano cresce un po'
           x.albero.rotation.z = Math.sin(t * 0.0012 + x.fase) * 0.025;
-          const s = Math.max(0.001, (g < 1 ? ease(g) : 1) * (l === 1 ? 1.18 : 1));
-          x.albero.scale.lerp(new THREE.Vector3(s, s, s), g < 1 ? 1 : 0.15);
+          const sc = Math.max(0.001, (cresce < 1 ? ease(cresce) : 1) * (l === 1 ? 1.18 : 1));
+          x.albero.scale.lerp(new THREE.Vector3(sc, sc, sc), cresce < 1 ? 1 : 0.15);
           const o = Math.min(1, l * 2);
           x.pezzi.forEach(p => { ((p as THREE.Line).material as THREE.LineBasicMaterial).opacity = o; });
         });
@@ -248,7 +330,8 @@ export function monta(el: HTMLElement) {
         while (fase > u.durata + u.sosta) {
           fase -= u.durata + u.sosta;
           u.da = u.a;
-          u.a = (u.a + 1 + Math.floor(r() * (tutti.length - 1))) % tutti.length;
+          const scelta = posabili().filter(i => i !== u.da);
+          u.a = scelta.length ? scelta[Math.floor(r() * scelta.length)]! : u.da;
           u.partenza += u.durata + u.sosta;
         }
         p0.copy(cimaDi(u.da)); p1.copy(cimaDi(u.a));
