@@ -92,17 +92,24 @@ export async function grafoKnowledge({ fonti = true } = {}): Promise<DatiGrafo> 
   return { ...chiudi(nodi, archi), stelle };
 }
 
-// Projects e Advisory: le competenze chiave (palle grandi) e le loro aree (palle piccole), come temi e testi in Knowledge.
-// Una competenza apre la sua voce nella pagina della sezione; un'area apre la sua pagina.
-export async function grafoCompetenze(sezione: Sezione = 'projects'): Promise<DatiGrafo> {
+// Dati per le scene 3D di Projects (bosco) e Advisory (orbite): competenze, aree, peso e numero di punti.
+// peso: tecnologie (Projects) o metodi (Advisory) dell'area; punti: righe "- " del suo file.
+export async function datiCompetenze(sezione: Sezione) {
   const { competenze, aree: carica } = sezioni[sezione];
   const aree = await carica();
   const scritti = await scrittiPubblici();
   for (const a of aree) for (const r of a.data.related)
-    if (!scritti.some(s => s.id === r)) throw new Error(`L'area "${a.id}" cita "${r}" in related, ma il testo non esiste.`);
-  const nodi: Nodo[] = Object.entries(competenze)
-    .filter(([id]) => aree.some(a => a.data.skill === id))
-    .map(([id, c]) => ({ id: `skill:${id}`, tipo: 'skill', label: c.title, href: `/${sezione}/#${id}` }));
-  for (const a of aree) nodi.push({ id: `area:${a.id}`, tipo: 'area', label: a.data.title, href: `/${sezione}/${a.id}/` });
-  return chiudi(nodi, aree.map(a => [`skill:${a.data.skill}`, `area:${a.id}`]));
+    if (!scritti.some(x => x.id === r)) throw new Error(`L'area "${a.id}" cita "${r}" in related, ma il testo non esiste.`);
+  return {
+    competenze: Object.entries(competenze)
+      .filter(([id]) => aree.some(a => a.data.skill === id))
+      .map(([id, c]) => ({
+        id, label: c.title, href: `/${sezione}/#${id}`,
+        aree: aree.filter(a => a.data.skill === id).map(a => ({
+          id: a.id, label: a.data.title, href: `/${sezione}/${a.id}/`,
+          peso: ('stack' in a.data ? a.data.stack : a.data.methods).length,
+          punti: (a.body?.match(/^- /gm) ?? []).length,
+        })),
+      })),
+  };
 }

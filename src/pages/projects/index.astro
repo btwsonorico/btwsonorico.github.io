@@ -3,18 +3,18 @@ import Base from '../../layouts/Base.astro';
 import Attivita from '../../components/Attivita.astro';
 import Competenze from '../../components/Competenze.astro';
 import Grafo from '../../components/Grafo.astro';
-import { grafoCompetenze } from '../../lib/grafi';
+import { datiCompetenze } from '../../lib/grafi';
 
-const dati = await grafoCompetenze('projects');
+const dati = await datiCompetenze('projects');
 ---
 <Base title="Projects · Riccardo Mondi" description="Key programming skills, learned building tools." tono="arancio" largo>
   <main class="affianca">
     <header class="testa testa-pagina a-testa">
       <h1>Projects</h1>
-      <p>Four key skills, learned building tools for interview analysis, event reports and feedback collection. In the map, each orange point is a skill and each white point is an area of it. Open a skill below to see what it means in practice.</p>
+      <p>Four key skills, learned building tools for interview analysis, event reports and feedback collection. In the forest, each clearing is a skill and each tree is an area of it: the taller the tree, the more technologies it uses. Open a skill below to see what it means in practice.</p>
     </header>
 
-    <div class="a-grafo"><Grafo dati={dati} legenda={['skill', 'area']} /></div>
+    <div class="a-grafo"><Grafo dati={dati} legenda={['skill', 'area']} motore="bosco" nomi={{ skill: 'clearing: key skill', area: 'tree: area' }} aiuto="taller tree, more technologies · click a tree to open · drag to rotate" /></div>
 
     <div class="a-resto">
       <section class="sezione">

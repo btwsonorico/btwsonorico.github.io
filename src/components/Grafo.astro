@@ -1,30 +1,40 @@
 ---
 import type { DatiGrafo, TipoNodo } from '../lib/grafi';
+import type { DatiCompetenze } from '../scripts/vista3d';
 
 // Una o più viste dello stesso grafo. Con due viste compaiono i pulsanti per passare dall'una all'altra.
-interface Vista { nome: string; dati: DatiGrafo; legenda: TipoNodo[] }
-type Props = { viste: Vista[] } | { dati: DatiGrafo; legenda: TipoNodo[] };
+// motore: "grafo" (rete a forze, Knowledge), "bosco" (Projects) o "orbite" (Advisory).
+type Motore = 'grafo' | 'bosco' | 'orbite';
+interface Vista { nome: string; dati: DatiGrafo | DatiCompetenze; legenda: TipoNodo[] }
+type Comuni = { motore?: Motore; nomi?: Partial<Record<TipoNodo, string>>; aiuto?: string };
+type Props = Comuni & ({ viste: Vista[] } | { dati: DatiGrafo | DatiCompetenze; legenda: TipoNodo[] });
 const props = Astro.props;
+const { motore = 'grafo', aiuto = 'drag a node · click to open · drag the space to rotate' } = props;
 const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props.dati, legenda: props.legenda }];
-const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte: 'source', area: 'area', tech: 'technology', skill: 'key skill' };
+const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte: 'source', area: 'area', tech: 'technology', skill: 'key skill', ...props.nomi };
 ---
 <figure class="grafo">
-  {viste.map((v, i) => <div class="scena" data-vista={i} data-grafo={JSON.stringify(v.dati)} hidden={i > 0} aria-hidden="true"></div>)}
+  {viste.map((v, i) => <div class="scena" data-vista={i} data-grafo={JSON.stringify(v.dati)} data-motore={motore} hidden={i > 0} aria-hidden="true"></div>)}
   <figcaption class="mono">
     {viste.length > 1 && <span class="viste" role="group" aria-label="View">
       {viste.map((v, i) => <button type="button" data-mostra={i} aria-pressed={i === 0 ? 'true' : 'false'}>{v.nome}</button>)}
     </span>}
     {viste.map((v, i) => <span class="legenda" data-vista={i} hidden={i > 0}>
       {v.legenda.map(t => <span><i class={`punto ${t}`}></i>{NOMI[t]}</span>)}
-      {v.dati.stelle?.length ? <span><i class="punto stella"></i>older writing</span> : null}
+      {'stelle' in v.dati && v.dati.stelle?.length ? <span><i class="punto stella"></i>older writing</span> : null}
     </span>)}
-    <span class="aiuto">drag a node · click to open · drag the space to rotate</span>
+    <span class="aiuto">{aiuto}</span>
   </figcaption>
 </figure>
 
 <script>
   import { monta } from '../scripts/grafo';
-  document.querySelectorAll<HTMLElement>('[data-grafo]').forEach(monta);
+  // Bosco e orbite si caricano solo nelle pagine che li usano
+  document.querySelectorAll<HTMLElement>('[data-grafo]').forEach(el => {
+    if (el.dataset.motore === 'bosco') import('../scripts/bosco').then(m => m.monta(el));
+    else if (el.dataset.motore === 'orbite') import('../scripts/orbite').then(m => m.monta(el));
+    else monta(el);
+  });
   document.querySelectorAll<HTMLElement>('.grafo').forEach(fig => {
     fig.querySelectorAll<HTMLButtonElement>('[data-mostra]').forEach(b => b.addEventListener('click', () => {
       fig.querySelectorAll<HTMLElement>('[data-vista]').forEach(el => { el.hidden = el.dataset.vista !== b.dataset.mostra; });

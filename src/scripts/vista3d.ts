@@ -1,0 +1,132 @@
+import * as THREE from 'three';
+
+// Base comune per le scene 3D di Projects (bosco) e Advisory (orbite).
+// Gestisce renderer, camera, etichette, trascinamento per ruotare, clic per aprire
+// e l'evento "grafo:evidenzia" che arriva dalle liste della pagina.
+
+// Dati di una sezione: competenze chiave e le loro aree
+export interface Area { id: string; label: string; href: string; peso: number; punti: number }
+export interface Competenza { id: string; label: string; href: string; aree: Area[] }
+export interface DatiCompetenze { competenze: Competenza[] }
+
+// Un punto cliccabile della scena. famiglia: la competenza a cui appartiene.
+export interface Punto { id: string; label: string; href: string; hub: boolean; famiglia: string; ancora: THREE.Object3D }
+
+interface Opzioni {
+  camera: THREE.Vector3;
+  mira: THREE.Vector3;
+  inclinazione: [number, number];
+  // Chiamata a ogni fotogramma: muove gli oggetti e li accende o spegne
+  aggiorna: (t: number, acceso: (famiglia: string, id: string) => number) => void;
+}
+
+const css = (el: HTMLElement, nome: string) => new THREE.Color(getComputedStyle(el).getPropertyValue(nome).trim());
+
+export function colori(el: HTMLElement) {
+  return { fg: css(el, '--fg'), accent: css(el, '--accent'), muted: css(el, '--muted'), line: css(el, '--line'), bg: css(el, '--bg') };
+}
+
+export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: Opzioni) {
+  const ridotto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const c = colori(el);
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  el.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(c.bg, 7, 18);
+  scene.add(gruppo);
+  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 60);
+
+  const etichette = punti.map(p => {
+    const s = document.createElement('span');
+    s.className = `etichetta ${p.hub ? 'skill' : 'area'}`;
+    s.textContent = p.label;
+    el.appendChild(s);
+    return s;
+  });
+
+  let w = 1, h = 1, rotY = 0.4, rotX = o.inclinazione[0], fermo = 0;
+  let sopra = -1, esterno = -1, ruota = false, mosso = 0;
+  const giu = new THREE.Vector2(), ultimo = new THREE.Vector2();
+  const vettore = new THREE.Vector3();
+
+  const schermo = (i: number) => {
+    const v = punti[i]!.ancora.getWorldPosition(vettore).project(camera);
+    return { x: (v.x * 0.5 + 0.5) * w, y: (-v.y * 0.5 + 0.5) * h, z: v.z };
+  };
+  const piuVicino = (x: number, y: number) => {
+    let best = -1, dist = 22;
+    punti.forEach((_, i) => { const s = schermo(i); const d = Math.hypot(s.x - x, s.y - y); if (s.z < 1 && d < dist) { dist = d; best = i; } });
+    return best;
+  };
+  const locale = (e: PointerEvent) => { const b = el.getBoundingClientRect(); return new THREE.Vector2(e.clientX - b.left, e.clientY - b.top); };
+
+  el.addEventListener('pointerdown', e => {
+    const m = locale(e);
+    giu.copy(m); ultimo.copy(m); mosso = 0; ruota = true; fermo = 240;
+    el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener('pointermove', e => {
+    const m = locale(e);
+    mosso = Math.max(mosso, m.distanceTo(giu));
+    if (ruota) {
+      rotY += (m.x - ultimo.x) * 0.006;
+      rotX = THREE.MathUtils.clamp(rotX + (m.y - ultimo.y) * 0.004, o.inclinazione[0] - 0.25, o.inclinazione[1]);
+    } else {
+      sopra = piuVicino(m.x, m.y);
+      el.style.cursor = sopra >= 0 && punti[sopra]!.href ? 'pointer' : '';
+    }
+    ultimo.copy(m);
+  });
+  el.addEventListener('pointerup', e => {
+    ruota = false;
+    if (mosso < 4) {
+      const m = locale(e);
+      const i = piuVicino(m.x, m.y);
+      if (i >= 0 && punti[i]!.href) window.location.href = punti[i]!.href;
+    }
+  });
+  el.addEventListener('pointerleave', () => { sopra = -1; });
+  window.addEventListener('grafo:evidenzia', e => {
+    const id = (e as CustomEvent<string | null>).detail ?? '';
+    esterno = punti.findIndex(p => p.id === id);
+  });
+
+  new ResizeObserver(() => {
+    w = el.clientWidth; h = el.clientHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    // In un riquadro stretto o alto la camera si allontana, così la scena entra tutta
+    camera.position.copy(o.camera).multiplyScalar(Math.max(1, 1.3 / camera.aspect));
+    camera.lookAt(o.mira);
+    camera.updateProjectionMatrix();
+  }).observe(el);
+
+  function disegna() {
+    // Una scena in una tab nascosta non consuma risorse
+    if (el.offsetParent === null) { requestAnimationFrame(disegna); return; }
+    const t = ridotto ? 0 : performance.now();
+    if (fermo > 0) fermo--; else if (!ruota && !ridotto) rotY += 0.0012;
+    gruppo.rotation.set(rotX, rotY, 0);
+
+    const fuoco = sopra >= 0 ? sopra : esterno;
+    const f = fuoco >= 0 ? punti[fuoco]! : null;
+    // 1: in primo piano; 0.5: stessa competenza; 0.15: spento. Senza fuoco tutto a 0.5.
+    const acceso = (famiglia: string, id: string) => !f ? 0.5 : id === f.id ? 1 : famiglia === f.famiglia ? 0.5 : 0.15;
+    o.aggiorna(t, acceso);
+    gruppo.updateMatrixWorld();
+
+    punti.forEach((p, i) => {
+      const sc = schermo(i);
+      const a = acceso(p.famiglia, p.id);
+      const mostra = i === fuoco || (p.hub && a > 0.15) || (!!f && f.hub && f.famiglia === p.famiglia);
+      etichette[i]!.style.opacity = mostra && sc.z < 1 ? '1' : '0';
+      etichette[i]!.classList.toggle('attiva', i === fuoco);
+      etichette[i]!.style.transform = `translate(${Math.round(sc.x + 12)}px, ${Math.round(sc.y - 8)}px)`;
+    });
+    renderer.render(scene, camera);
+    requestAnimationFrame(disegna);
+  }
+  requestAnimationFrame(disegna);
+  return { colori: c };
+}
