@@ -5,7 +5,8 @@ import { colori, vista, type DatiCompetenze, type Punto } from './vista3d';
 // tipo di albero e la sua zona, segnata da un palo con il nome della competenza.
 // Altezza dell'albero: quante tecnologie usa l'area. Ricchezza della chioma: quanti punti ha.
 // Quando la scena appare, il bosco cresce da zero; poi arrivano gli uccelli, che volano da un albero all'altro.
-// Intorno: ciuffi d'erba e sassi, solo decorazione.
+// Intorno: ciuffi d'erba e sassi, uno stagno azzurro al centro e fiori arancioni nell'erba.
+// I due colori sono quelli di Advisory e Knowledge: nei progetti uso anche la consulenza e quello che studio.
 
 // Numeri casuali ripetibili: il bosco è uguale a ogni visita
 function casuale(seme: number) {
@@ -205,6 +206,54 @@ export function monta(el: HTMLElement) {
   geoErba.setAttribute('position', new THREE.Float32BufferAttribute(erba, 3));
   const prato = new THREE.LineSegments(geoErba, linea(c.muted, 0.7));
   prato.scale.y = 0.001;
+
+  // Stagno al centro del bosco, nel colore di Advisory: riva irregolare, acqua a puntini, una ninfea e un cerchio d'acqua
+  const AZZURRO_ADVISORY = new THREE.Color('#58a6ff'), ARANCIO_KNOWLEDGE = new THREE.Color('#ffa45e');
+  const rivaStagno = (a: number) => 0.62 + 0.08 * Math.sin(3 * a + 0.5) + 0.05 * Math.sin(5 * a);
+  const stagno = new THREE.Group();
+  stagno.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 64 }, (_, i) => {
+    const a = (i / 64) * Math.PI * 2, d = rivaStagno(a);
+    return new THREE.Vector3(Math.cos(a) * d, 0.01, Math.sin(a) * d);
+  })), linea(AZZURRO_ADVISORY, 0.8)));
+  const goccie: number[] = [];
+  for (let x = -0.7; x <= 0.7; x += 0.12) for (let z = -0.7; z <= 0.7; z += 0.12)
+    if (Math.hypot(x, z) < rivaStagno(Math.atan2(z, x)) - 0.08) goccie.push(x, 0.005, z);
+  const geoGoccie = new THREE.BufferGeometry();
+  geoGoccie.setAttribute('position', new THREE.Float32BufferAttribute(goccie, 3));
+  stagno.add(new THREE.Points(geoGoccie, new THREE.PointsMaterial({ color: AZZURRO_ADVISORY, size: 0.025, transparent: true, opacity: 0.5 })));
+  const ninfea = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), ...Array.from({ length: 17 }, (_, i) => {
+    const a = 0.25 + (i / 16) * (Math.PI * 2 - 0.5);
+    return new THREE.Vector3(Math.cos(a) * 0.12, 0, Math.sin(a) * 0.12);
+  })]), linea(c.accent, 0.8));
+  ninfea.position.set(0.18, 0.012, -0.1);
+  stagno.add(ninfea);
+  const onda = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 32 }, (_, i) => {
+    const a = (i / 32) * Math.PI * 2;
+    return new THREE.Vector3(Math.cos(a), 0.012, Math.sin(a));
+  })), linea(AZZURRO_ADVISORY, 0));
+  stagno.add(onda);
+  stagno.scale.setScalar(0.001);
+  gruppo.add(stagno);
+
+  // Fiori arancioni nell'erba, nel colore di Knowledge: un gambo e cinque petali a stella
+  const gambi: number[] = [], petali: number[] = [];
+  for (let k = 0; k < 34; k++) {
+    const a = r() * Math.PI * 2, d = 0.9 + Math.sqrt(r()) * 5.2;
+    const x = Math.cos(a) * d, z = Math.sin(a) * d, h = 0.09 + r() * 0.08, raggio = 0.045 + r() * 0.025;
+    gambi.push(x, 0, z, x, h, z);
+    for (let q = 0; q < 5; q++) {
+      const b = (q / 5) * Math.PI * 2 + a;
+      petali.push(x, h, z, x + Math.cos(b) * raggio, h + 0.01, z + Math.sin(b) * raggio);
+    }
+  }
+  const geoGambi = new THREE.BufferGeometry();
+  geoGambi.setAttribute('position', new THREE.Float32BufferAttribute(gambi, 3));
+  const geoPetali = new THREE.BufferGeometry();
+  geoPetali.setAttribute('position', new THREE.Float32BufferAttribute(petali, 3));
+  const fiori = new THREE.Group();
+  fiori.add(new THREE.LineSegments(geoGambi, linea(c.muted, 0.7)), new THREE.LineSegments(geoPetali, linea(ARANCIO_KNOWLEDGE, 0.95)));
+  fiori.scale.y = 0.001;
+  gruppo.add(fiori);
   gruppo.add(prato);
   const matSassi = linea(c.muted, 0.6);
   for (let k = 0; k < 14; k++) {
@@ -298,6 +347,12 @@ export function monta(el: HTMLElement) {
       // Con prefers-reduced-motion t resta 0: il bosco è già cresciuto e gli uccelli restano posati
       const tempo = t === 0 ? Infinity : t - inizio;
       prato.scale.y = Math.max(0.001, THREE.MathUtils.clamp(tempo / 1500, 0, 1));
+      // Lo stagno si allarga e i fiori sbocciano insieme all'erba; ogni 4 secondi un cerchio d'acqua nello stagno
+      stagno.scale.setScalar(Math.max(0.001, ease(THREE.MathUtils.clamp(tempo / 1200, 0, 1))));
+      fiori.scale.y = Math.max(0.001, THREE.MathUtils.clamp((tempo - 600) / 1500, 0, 1));
+      const u = t === 0 ? 1 : (t % 4000) / 2200;
+      onda.scale.setScalar(0.05 + Math.min(u, 1) * 0.45);
+      (onda.material as THREE.LineBasicMaterial).opacity = u < 1 ? (1 - u) * 0.6 : 0;
       const crescitaPali = ease(THREE.MathUtils.clamp((tempo - 900) / 700, 0, 1));
       gruppiAttivi.forEach(g => {
         const lg = acceso(g.id, g.id);
