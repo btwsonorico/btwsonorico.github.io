@@ -113,7 +113,10 @@ export function monta(el: HTMLElement) {
   gruppo.add(pontile);
 
   // Cespugli sul prato: palle sfaccettate basse, in piccoli gruppi
-  const matCespi = linea(new THREE.Color().setHSL(0.33, 0.3, 0.42), 0.6);
+  // Il verde di Projects intorno al lago e l'arancio di Knowledge nelle libellule: nelle consulenze
+  // uso le competenze tecniche e quello che studio. Stessi valori di --accent nelle due sezioni (Base.astro).
+  const VERDE_PROJECTS = new THREE.Color('#3fb950'), ARANCIO_KNOWLEDGE = new THREE.Color('#ffa45e');
+  const matCespi = linea(VERDE_PROJECTS, 0.6);
   for (let k = 0; k < 9; k++) {
     const a = r() * Math.PI * 2, d = raggioRiva(a) + 0.45 + r() * 0.6;
     for (let q = 0; q < 2 + Math.floor(r() * 2); q++) {
@@ -250,7 +253,7 @@ export function monta(el: HTMLElement) {
   };
   const libellule = Array.from({ length: 3 }, (_, k) => {
     const corpo = new THREE.Group();
-    const m = linea(c.accent.clone().offsetHSL(0.45, 0, 0.1), 0.95);
+    const m = linea(ARANCIO_KNOWLEDGE, 0.95);
     corpo.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.06), new THREE.Vector3(0, 0, -0.1)]), m));
     const ali = new THREE.Group();
     for (const lato of [1, -1]) for (const dz of [0.025, -0.01])

@@ -18,7 +18,7 @@ const build = new Date().toISOString().slice(0, 10);
   </head>
   <body class:list={{ largo }}>
     <header class="barra">
-      <a href="/" class="io">~/riccardomondi<span class="cursore" aria-hidden="true">_</span></a>
+      <span class="nome"><a href="/" class="io">~/riccardomondi<span class="cursore" aria-hidden="true">_</span></a><span class="wip" title="Work in progress: the site is still being built">wip</span></span>
       <nav>
         <a href="/projects/">projects</a>
         <a href="/advisory/">advisory</a>
@@ -110,6 +110,9 @@ const build = new Date().toISOString().slice(0, 10);
   .barra a { text-decoration: none; }
   .barra nav { display: flex; gap: 18px; }
   .io { color: var(--fg); }
+  /* Sito in costruzione: un'etichetta piccola accanto al nome */
+  .nome { display: inline-flex; align-items: center; gap: 10px; }
+  .wip { padding: 0 5px; border: 1px solid var(--accent); color: var(--accent); font-size: 10px; line-height: 15px; text-transform: uppercase; letter-spacing: 0.06em; }
   .cursore { color: var(--accent); animation: lampeggia 1.1s steps(1) infinite; }
   @keyframes lampeggia { 50% { opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .cursore { animation: none; } }
