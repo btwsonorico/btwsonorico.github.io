@@ -21,8 +21,7 @@ export const COMPETENZE_ADVISORY = {
   opportunities: { title: 'Opportunity mapping', summary: 'Which processes and use cases are worth doing with AI.' },
   design: { title: 'Business design', summary: 'How the process changes with AI, and what it is worth.' },
   adoption: { title: 'People and adoption', summary: 'From AI used on single tasks to AI that changes the whole process.' },
-  stakeholders: { title: 'Stakeholder management', summary: 'Clear goals at the start, clear outputs at the end.' },
-  research: { title: 'Research and translation', summary: 'Evidence from research, in a language both business and engineering understand.' },
+  engagement: { title: 'Engagement management', summary: 'Running an advisory project: clear goals, evidence, and outputs both business and engineering understand.' },
 } as const;
 const CHIAVI_ADVISORY = Object.keys(COMPETENZE_ADVISORY) as [keyof typeof COMPETENZE_ADVISORY, ...(keyof typeof COMPETENZE_ADVISORY)[]];
 export const METODI = ['interviews', 'benchmarking', 'literature review', 'process mapping', 'prioritisation matrix', 'business case', 'survey', 'field experiment', 'kpi design'] as const;

@@ -12,10 +12,10 @@ function casuale(seme: number) {
   return () => { seme = (seme * 16807) % 2147483647; return (seme - 1) / 2147483646; };
 }
 
-type Specie = 'palma' | 'quercia' | 'acacia' | 'betulla';
-const SPECIE: Specie[] = ['palma', 'quercia', 'acacia', 'betulla'];
+type Specie = 'palma' | 'quercia' | 'acacia' | 'abete';
+const SPECIE: Specie[] = ['palma', 'quercia', 'acacia', 'abete'];
 // Quanto sale il tronco dritto, per specie (la palma disegna da sola il suo tronco curvo)
-const TRONCO: Record<Specie, number> = { palma: 0, quercia: 0.8, acacia: 0.45, betulla: 0.85 };
+const TRONCO: Record<Specie, number> = { palma: 0, quercia: 0.8, acacia: 0.45, abete: 0.4 };
 
 export function monta(el: HTMLElement) {
   const { competenze } = JSON.parse(el.dataset.grafo!) as DatiCompetenze;
@@ -67,7 +67,7 @@ export function monta(el: HTMLElement) {
       add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(tronco), linea(c.fg)));
       const cima = tronco.at(-1)!;
       const foglie = THREE.MathUtils.clamp(ricchezza + 2, 5, 8);
-      const lungo = 0.42 + peso * 0.04;
+      const lungo = 0.3 + peso * 0.02;
       for (let k = 0; k < foglie; k++) {
         const a = (k / foglie) * Math.PI * 2 + r() * 0.3;
         add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 7 }, (_, q) => {
@@ -116,16 +116,13 @@ export function monta(el: HTMLElement) {
         add(segmento(forca, new THREE.Vector3(dx * 0.8 + 0.1, y - larga * 0.2, -0.06), linea(c.fg)));
       }
     } else {
-      // Betulla: rami a Y che finiscono in piccole foglie a rombo
-      const rami = THREE.MathUtils.clamp(ricchezza, 3, 6);
-      for (let k = 0; k < rami; k++) {
-        const a = (k / rami) * Math.PI * 2 + r();
-        const da = new THREE.Vector3(0, altezza * (0.45 + (k % 3) * 0.12), 0);
-        const a2 = new THREE.Vector3(Math.cos(a) * 0.32, da.y + 0.3 + r() * 0.2, Math.sin(a) * 0.32);
-        add(segmento(da, a2, linea(c.fg)));
-        const foglia = spigoli(new THREE.OctahedronGeometry(0.08 + peso * 0.008, 0), m);
-        foglia.position.copy(a2);
-        add(foglia);
+      // Abete: coni sovrapposti, più stretti verso la cima
+      const piani = THREE.MathUtils.clamp(ricchezza - 1, 2, 4);
+      for (let p = 0; p < piani; p++) {
+        const f = p / piani, h = (altezza * 0.75) / piani * 1.5;
+        const cono = spigoli(new THREE.ConeGeometry(0.32 * (1 - f * 0.45) * (0.8 + peso * 0.08), h, 7), m);
+        cono.position.y = altezza * 0.3 + f * altezza * 0.62 + h / 2;
+        add(cono);
       }
     }
     return pezzi;
@@ -141,7 +138,8 @@ export function monta(el: HTMLElement) {
       const albero = new THREE.Group();
       albero.position.set(pos.x, 0, pos.y);
       albero.rotation.y = r() * Math.PI;
-      const altezza = (specie === 'palma' ? 0.95 : 0.75) + a.peso * 0.28;
+      // Le palme restano più basse degli altri alberi
+      const altezza = specie === 'palma' ? 0.5 + a.peso * 0.14 : 0.75 + a.peso * 0.28;
       const tronco = segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, altezza * Math.max(TRONCO[specie], 0.001), 0), linea(c.fg));
       albero.add(tronco);
       const pezzi = chioma(albero, specie, altezza, a.punti, a.peso);

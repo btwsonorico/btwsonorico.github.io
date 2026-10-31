@@ -2,7 +2,7 @@
 title: Stakeholder discovery
 summary: "Interviews that turn vague expectations into clear goals and requirements."
 order: 11
-skill: "stakeholders"
+skill: "engagement"
 methods: ["interviews"]
 related: []
 ---

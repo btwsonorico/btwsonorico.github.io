@@ -36,7 +36,7 @@ export function monta(el: HTMLElement) {
   gruppo.add(mondo, cerchio(0.4, linea(c.muted, 0.5)));
 
   // Orbite a distanze crescenti; più lontano, più lento (come Keplero, in piccolo)
-  const ORBITE = competenze.map((_, i) => 1.3 + i * 0.62);
+  const ORBITE = competenze.map((_, i) => 1.35 + i * 0.72);
   const massimo = Math.max(...competenze.map(k => k.aree.length));
   let conAnello = false;
   const pianeti = competenze.map((k, i) => {

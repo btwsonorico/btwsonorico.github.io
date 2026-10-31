@@ -2,7 +2,7 @@
 title: Technical translation
 summary: "The bridge between business questions and what technology can really do."
 order: 13
-skill: "research"
+skill: "engagement"
 methods: ["process mapping"]
 related: ["reading-harness2"]
 ---
