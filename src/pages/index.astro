@@ -13,8 +13,9 @@ const [knowledge, projects] = await Promise.all([grafoKnowledge({ fonti: false }
 const data = (d: Date) => d.toISOString().slice(0, 10);
 const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role === 'main')?.type;
 ---
-<Base title="Riccardo Mondi">
-  <main>
+<Base title="Riccardo Mondi" largo>
+  <main class="affianca">
+    <div class="a-testa">
     <section class="intro">
       <h1>Riccardo Mondi</h1>
       <p class="ruoli mono">
@@ -29,10 +30,16 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
     </section>
 
     <div class="tab"><TabHome client:only="react" /></div>
+    </div>
 
-    <div class="pannelli">
+    <!-- Un grafo per tab: su schermi larghi stanno a destra, accanto al nome -->
+    <div class="a-grafo grafi">
+      <div data-pannello="knowledge"><Grafo dati={knowledge} legenda={['testo', 'tema']} /></div>
+      <div data-pannello="projects" data-tono="arancio" hidden><Grafo dati={projects} legenda={['skill', 'area']} /></div>
+    </div>
+
+    <div class="a-resto pannelli">
       <section data-pannello="knowledge">
-        <Grafo dati={knowledge} legenda={['testo', 'tema']} />
         <Lista titolo="Latest" righe={scritti.map(s => ({
           id: s.id, data: data(s.data.date), titolo: s.data.title, href: `/knowledge/${s.id}/`,
           etichetta: [tipo(s), s.data.lang].filter(Boolean).join(' · '),
@@ -41,7 +48,6 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
       </section>
 
       <section data-pannello="projects" data-tono="arancio" hidden>
-        <Grafo dati={projects} legenda={['skill', 'area']} />
         <div class="commit"><Attivita /></div>
         <Lista titolo="Key skills" righe={Object.entries(COMPETENZE).map(([id, c], i) => ({
           id: `skill:${id}`, data: String(i + 1).padStart(2, '0'), titolo: c.title, href: `/projects/#${id}`, nota: c.summary,
@@ -70,20 +76,21 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
 
 <style>
   .intro { padding: 56px 0 28px; }
-  h1 { margin: 0 0 16px; font-size: 44px; font-weight: 400; line-height: 1.1; letter-spacing: -0.01em; }
+  h1 { margin: 0 0 16px; font-size: 44px; font-weight: 400; line-height: 1.1; }
   .intro p { margin: 0 0 16px; max-width: 560px; }
   .ruoli { display: flex; flex-direction: column; gap: 2px; font-size: 22px; color: var(--fg); }
   .intro .ruoli { max-width: none; }
-  .ente { font-size: 14px; color: var(--muted); }
+  .ente { font-size: 13px; color: var(--muted); }
   .link { display: flex; gap: 18px; flex-wrap: wrap; }
   .tab { min-height: 40px; margin-bottom: 14px; font-family: var(--mono); }
   .pannelli { view-transition-name: pannelli; }
+  .grafi { view-transition-name: grafi; }
   .commit { padding-bottom: 8px; }
   .tutto { margin: 0 0 32px; }
   .tutto a { text-decoration: none; }
   @media (max-width: 640px) {
     .intro { padding-top: 16px; }
-    h1 { font-size: 34px; }
+    h1 { font-size: 33px; }
   }
 </style>
 

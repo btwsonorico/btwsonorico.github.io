@@ -16,19 +16,20 @@ const competenze = Object.entries(COMPETENZE)
   .filter(c => c.aree.length);
 const dati = await grafoCompetenze();
 ---
-<Base title="Projects · Riccardo Mondi" description="Key programming skills, learned building tools." tono="arancio">
-  <main>
-    <header class="testa">
+<Base title="Projects · Riccardo Mondi" description="Key programming skills, learned building tools." tono="arancio" largo>
+  <main class="affianca">
+    <header class="testa a-testa">
       <h1>Projects</h1>
       <p>Four key skills, learned building tools for interview analysis, event reports and feedback collection. In the map, each orange point is a skill and each white point is an area of it. Open a skill below to see what it means in practice.</p>
     </header>
 
+    <div class="a-grafo"><Grafo dati={dati} legenda={['skill', 'area']} /></div>
+
+    <div class="a-resto">
     <section class="commit">
       <h2 class="mono">Commits</h2>
       <Attivita />
     </section>
-
-    <Grafo dati={dati} legenda={['skill', 'area']} />
 
     <section class="competenze">
       <h2 class="mono">Key skills</h2>
@@ -62,6 +63,7 @@ const dati = await grafoCompetenze();
         </ul>
       </details>)}
     </section>
+    </div>
   </main>
 </Base>
 
@@ -83,7 +85,7 @@ const dati = await grafoCompetenze();
 
 <style>
   .testa { padding: 40px 0 24px; }
-  h1 { margin: 0 0 8px; font-size: 38px; font-weight: 400; }
+  h1 { margin: 0 0 8px; font-size: 33px; font-weight: 400; }
   .testa p { margin: 0; color: var(--muted); max-width: 560px; }
   .commit { padding: 8px 0 28px; }
   .competenze { padding: 28px 0 48px; }
@@ -98,9 +100,9 @@ const dati = await grafoCompetenze();
   .competenza > summary { grid-template-columns: 32px 1fr auto; }
   .area > summary { grid-template-columns: 1fr auto; padding: 10px 0; }
   .titolo { display: flex; flex-direction: column; }
-  .competenza > summary .nome { font-size: 24px; line-height: 1.3; }
+  .competenza > summary .nome { font-size: 22px; line-height: 1.3; }
   summary:hover .nome { color: var(--accent); }
-  .nota { color: var(--muted); font-size: 16px; }
+  .nota { color: var(--muted); font-size: 13px; }
   .segno { color: var(--accent); }
   .segno::before { content: '[+]'; }
   details[open] > summary .segno::before { content: '[−]'; }
@@ -110,6 +112,7 @@ const dati = await grafoCompetenze();
   .aree { list-style: none; margin: 0 0 16px 48px; padding: 0; }
   .area { border-top-style: dashed; }
   .prosa { font-size: 17px; }
+  .prosa :global(strong) { font-weight: 500; }
   .prosa :global(ul) { margin: 0; padding-left: 18px; }
   .prosa :global(li) { margin-bottom: 6px; }
   .piede-area { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin: 8px 0 14px; }

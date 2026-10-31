@@ -16,22 +16,24 @@ const righe = (kind: string) => scritti.filter(s => s.data.kind === kind).map(s 
   temi: s.data.topics,
 }));
 ---
-<Base title="Knowledge · Riccardo Mondi" description="Essays, thoughts and notes on sources.">
-  <main>
-    <header class="testa">
+<Base title="Knowledge · Riccardo Mondi" description="Essays, thoughts and notes on sources." largo>
+  <main class="affianca">
+    <header class="testa a-testa">
       <h1>Knowledge</h1>
       <p>What I read, watch and think about. Each point is a piece of writing or a topic; the sources are inside each note.</p>
     </header>
-    <Grafo dati={dati} legenda={['testo', 'tema']} />
-    <Lista titolo="Essays" righe={righe('essay')} />
-    <Lista titolo="Thoughts" righe={righe('thought')} />
-    <Lista titolo="Notes on sources" righe={righe('source')} />
+    <div class="a-grafo"><Grafo dati={dati} legenda={['testo', 'tema']} /></div>
+    <div class="a-resto">
+      <Lista titolo="Essays" righe={righe('essay')} />
+      <Lista titolo="Thoughts" righe={righe('thought')} />
+      <Lista titolo="Notes on sources" righe={righe('source')} />
+    </div>
   </main>
 </Base>
 
 
 <style>
   .testa { padding: 40px 0 24px; }
-  h1 { margin: 0 0 8px; font-size: 38px; font-weight: 400; }
+  h1 { margin: 0 0 8px; font-size: 33px; font-weight: 400; }
   .testa p { margin: 0; color: var(--muted); max-width: 560px; }
 </style>

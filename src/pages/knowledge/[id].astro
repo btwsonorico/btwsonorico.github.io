@@ -48,8 +48,8 @@ const secondarie = s.data.sources.filter(f => f.role === 'secondary');
   .testa { margin: 0; }
   .testa a { text-decoration: none; }
   .testa span { color: var(--accent); }
-  h1 { margin: 8px 0 12px; font-size: 38px; font-weight: 400; line-height: 1.15; letter-spacing: -0.01em; }
-  .sommario { margin: 0 0 24px; color: var(--muted); font-style: italic; }
+  h1 { margin: 8px 0 12px; font-size: 33px; font-weight: 400; line-height: 1.2; }
+  .sommario { margin: 0 0 24px; color: var(--muted); }
   .fonte {
     display: grid;
     gap: 2px;
@@ -70,8 +70,8 @@ const secondarie = s.data.sources.filter(f => f.role === 'secondary');
   .secondarie a { color: var(--fg); }
   .usato { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 32px; }
 
-  .prosa :global(h2) { margin: 40px 0 8px; font-family: var(--mono); font-size: 22px; font-weight: 400; color: var(--accent); }
-  .prosa :global(h2)::before { content: '## '; color: var(--muted); }
+  .prosa :global(h2) { margin: 40px 0 8px; font-family: var(--serif); font-size: 26px; font-weight: 500; color: var(--accent); }
+  .prosa :global(h2)::before { content: '## '; font-family: var(--mono); font-weight: 400; color: var(--muted); }
   .prosa :global(blockquote) { margin: 24px 0; padding-left: 18px; border-left: 2px solid var(--accent); color: var(--muted); }
   .prosa :global(code) { font-family: var(--mono); font-size: 0.85em; padding: 1px 5px; background: var(--line); }
   .prosa :global(pre) { padding: 16px; overflow-x: auto; border: 1px solid var(--line); background: #070809; font-size: 11px; }
@@ -82,5 +82,5 @@ const secondarie = s.data.sources.filter(f => f.role === 'secondary');
   .vicini { display: flex; justify-content: space-between; gap: 24px; padding: 24px 0 40px; border-top: 1px solid var(--line); }
   .vicini a { text-decoration: none; max-width: 45%; }
 
-  @media (max-width: 640px) { h1 { font-size: 30px; } }
+  @media (max-width: 640px) { h1 { font-size: 26px; } }
 </style>

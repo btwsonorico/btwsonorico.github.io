@@ -1,8 +1,9 @@
 ---
 import '@/components/arc/foundation.css';
 // tono: colore d'accento della pagina. Senza tono resta l'acquamarina del sito.
-interface Props { title: string; description?: string; lang?: 'it' | 'en'; tono?: 'arancio' }
-const { title, description = 'Research, advisory, software.', lang = 'en', tono } = Astro.props;
+// largo: pagina a tutta larghezza su schermi grandi (home, Knowledge, Projects); i testi restano stretti.
+interface Props { title: string; description?: string; lang?: 'it' | 'en'; tono?: 'arancio'; largo?: boolean }
+const { title, description = 'Research, advisory, software.', lang = 'en', tono, largo = false } = Astro.props;
 const build = new Date().toISOString().slice(0, 10);
 ---
 <!doctype html>
@@ -17,7 +18,7 @@ const build = new Date().toISOString().slice(0, 10);
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet" />
   </head>
-  <body>
+  <body class:list={{ largo }}>
     <header class="barra">
       <a href="/" class="io">~/riccardomondi<span class="cursore" aria-hidden="true">_</span></a>
       <nav>
@@ -76,8 +77,8 @@ const build = new Date().toISOString().slice(0, 10);
     display: flex;
     flex-direction: column;
     color: var(--fg);
-    font-family: var(--serif);
-    font-size: 19px;
+    font-family: var(--mono);
+    font-size: 15px;
     line-height: 1.6;
     /* Griglia di punti appena visibile */
     background-image: radial-gradient(color-mix(in srgb, var(--fg) 7%, transparent) 1px, transparent 1px);
@@ -93,7 +94,7 @@ const build = new Date().toISOString().slice(0, 10);
     justify-content: space-between;
     gap: 16px;
     width: 100%;
-    max-width: 760px;
+    max-width: var(--larghezza);
     margin: 0 auto;
     padding: 20px 16px;
     font-family: var(--mono);
@@ -107,6 +108,32 @@ const build = new Date().toISOString().slice(0, 10);
   @keyframes lampeggia { 50% { opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .cursore { animation: none; } }
   .piede { margin-top: auto; border-top: 1px solid var(--line); padding-top: 18px; padding-bottom: 28px; }
-  main { width: 100%; max-width: 760px; margin: 0 auto; padding: 0 16px; }
+  main { width: 100%; max-width: var(--larghezza); margin: 0 auto; padding: 0 16px; }
+  body { --larghezza: 760px; }
+  body.largo { --larghezza: 1320px; }
+
+  /* Pagine con grafo: su schermi larghi il grafo sta a destra, fermo mentre la colonna sinistra scorre.
+     Su schermi stretti l'ordine resta: testa, grafo, resto. */
+  @media (min-width: 1080px) {
+    body.largo main { padding: 0 32px; }
+    .affianca {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+      grid-template-rows: auto 1fr;
+      grid-template-areas: "testa grafo" "resto grafo";
+      column-gap: 56px;
+    }
+    .a-testa { grid-area: testa; }
+    .a-resto { grid-area: resto; }
+    .a-grafo {
+      grid-area: grafo;
+      align-self: start;
+      position: sticky;
+      top: 16px;
+      --altezza-grafo: min(calc(100vh - 120px), 820px);
+    }
+  }
   .mono { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  /* Tutto il sito è in Departure Mono; solo il testo da leggere (note e aree) è in Newsreader */
+  .prosa { font-family: var(--serif); font-size: 19px; line-height: 1.6; }
 </style>

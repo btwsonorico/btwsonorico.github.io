@@ -35,7 +35,7 @@ const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte:
 
 <style>
   .grafo { margin: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-  .scena { position: relative; height: 440px; touch-action: none; cursor: grab; overflow: hidden; }
+  .scena { position: relative; height: var(--altezza-grafo, 440px); touch-action: none; cursor: grab; overflow: hidden; }
   .scena[hidden] { display: none; }
   .scena:active { cursor: grabbing; }
   figcaption { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 10px 0; }
