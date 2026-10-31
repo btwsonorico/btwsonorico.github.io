@@ -83,6 +83,9 @@ const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte:
     transition: opacity .15s;
   }
   .scena :global(.etichetta.tema), .scena :global(.etichetta.tech), .scena :global(.etichetta.skill) { color: var(--accent); }
+  /* Bosco e laghetto: nomi delle aree chiari e su un fondo scuro, leggibili sopra linee e acqua */
+  .scena :global(.etichetta.area), .scena :global(.etichetta.skill) { padding: 1px 5px; background: color-mix(in srgb, var(--bg) 78%, transparent); }
+  .scena :global(.etichetta.area) { color: var(--fg); }
   .scena :global(.anello) {
     position: absolute;
     width: 26px;

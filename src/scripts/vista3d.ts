@@ -74,7 +74,8 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     return Math.hypot(b.x + u * dx - x, b.y + u * dy - y);
   };
   const piuVicino = (x: number, y: number) => {
-    let best = -1, dist = 22;
+    // Raggio di presa largo: pesci e alberi piccoli si prendono facilmente
+    let best = -1, dist = 28;
     punti.forEach((p, i) => { const d = distanza(p, x, y); if (d < dist) { dist = d; best = i; } });
     return best;
   };
@@ -149,18 +150,29 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     o.aggiorna(t, acceso);
     gruppo.updateMatrixWorld();
 
-    punti.forEach((p, i) => {
+    const posti = punti.map((p, i) => {
       const sc = schermo(i);
       const a = acceso(p.famiglia, p.id);
-      const mostra = !p.spento && (i === fuoco || (p.hub && a > 0.15) || (!!f && f.hub && f.famiglia === p.famiglia));
-      etichette[i]!.style.opacity = mostra && sc.z < 1 ? '1' : '0';
+      const mostra = !p.spento && sc.z < 1 && (i === fuoco || (p.hub && a > 0.15) || (!!f && f.hub && f.famiglia === p.famiglia));
+      etichette[i]!.style.opacity = mostra ? '1' : '0';
       etichette[i]!.classList.toggle('attiva', i === fuoco);
       // Vicino al bordo destro l'etichetta passa a sinistra del punto, così resta leggibile
       // Larghezza letta una volta sola (rileggerla a ogni fotogramma rallenta la pagina); +14 per l'etichetta attiva
       const largo = (larghezze[i] ||= etichette[i]!.offsetWidth) + (i === fuoco ? 14 : 0);
-      const x = sc.x + 12 + largo > w - 4 ? sc.x - 12 - largo : sc.x + 12;
-      etichette[i]!.style.transform = `translate(${Math.round(Math.max(4, x))}px, ${Math.round(sc.y - 8)}px)`;
+      const x = Math.max(4, sc.x + 12 + largo > w - 4 ? sc.x - 12 - largo : sc.x + 12);
+      return { i, x, y: sc.y - 8, largo, mostra };
     });
+    // Etichette visibili che si toccano (per esempio i pesci di un branco, vicini fra loro):
+    // dall'alto in basso, ognuna scende quanto basta per non coprire quella sopra
+    const ALTO = 18;
+    const visibili = posti.filter(q => q.mostra).sort((p, q) => p.y - q.y);
+    visibili.forEach((q, k) => {
+      for (let j = 0; j < k; j++) {
+        const sopra = visibili[j]!;
+        if (q.x < sopra.x + sopra.largo && sopra.x < q.x + q.largo && q.y < sopra.y + ALTO) q.y = sopra.y + ALTO;
+      }
+    });
+    posti.forEach(q => { etichette[q.i]!.style.transform = `translate(${Math.round(q.x)}px, ${Math.round(q.y)}px)`; });
     renderer.render(scene, camera);
     requestAnimationFrame(disegna);
   }

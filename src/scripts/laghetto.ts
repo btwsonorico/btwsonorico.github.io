@@ -23,6 +23,9 @@ const SPECIE: Specie[] = [
 export function monta(el: HTMLElement) {
   const { competenze } = JSON.parse(el.dataset.grafo!) as DatiCompetenze;
   const c = colori(el);
+  // Il verde di Projects nei cespugli e nelle ninfee e l'arancio di Knowledge nelle libellule: nelle consulenze
+  // uso le competenze tecniche e quello che studio. Stessi valori di --accent nelle due sezioni (Base.astro).
+  const VERDE_PROJECTS = new THREE.Color('#3fb950'), ARANCIO_KNOWLEDGE = new THREE.Color('#ffa45e');
   const gruppo = new THREE.Group();
   const punti: Punto[] = [];
   const r = casuale(5);
@@ -113,9 +116,6 @@ export function monta(el: HTMLElement) {
   gruppo.add(pontile);
 
   // Cespugli sul prato: palle sfaccettate basse, in piccoli gruppi
-  // Il verde di Projects intorno al lago e l'arancio di Knowledge nelle libellule: nelle consulenze
-  // uso le competenze tecniche e quello che studio. Stessi valori di --accent nelle due sezioni (Base.astro).
-  const VERDE_PROJECTS = new THREE.Color('#3fb950'), ARANCIO_KNOWLEDGE = new THREE.Color('#ffa45e');
   const matCespi = linea(VERDE_PROJECTS, 0.6);
   for (let k = 0; k < 9; k++) {
     const a = r() * Math.PI * 2, d = raggioRiva(a) + 0.45 + r() * 0.6;
@@ -154,7 +154,7 @@ export function monta(el: HTMLElement) {
       return new THREE.Vector3(Math.cos(a) * raggio, 0, Math.sin(a) * raggio);
     })];
     const foglia = new THREE.Group();
-    foglia.add(anello(bordo, linea(c.accent, 0.6)));
+    foglia.add(anello(bordo, linea(VERDE_PROJECTS, 0.75)));
     const nervature: number[] = [];
     for (let i = 1; i < 5; i++) {
       const a = taglio / 2 + (i / 5) * (Math.PI * 2 - taglio);
@@ -162,7 +162,7 @@ export function monta(el: HTMLElement) {
     }
     const geoN = new THREE.BufferGeometry();
     geoN.setAttribute('position', new THREE.Float32BufferAttribute(nervature, 3));
-    foglia.add(new THREE.LineSegments(geoN, linea(c.accent, 0.3)));
+    foglia.add(new THREE.LineSegments(geoN, linea(VERDE_PROJECTS, 0.35)));
     if (k % 4 !== 3) {
       const fiore = new THREE.Group();
       const matPetali = linea(c.fg, 0.9), matInterni = linea(c.fg, 0.6);
@@ -225,12 +225,16 @@ export function monta(el: HTMLElement) {
     punti.push({ id: `skill:${k.id}`, label: k.label, href: k.href, hub: true, famiglia: k.id, ancora: centro });
     const angolo = (i / competenze.length) * Math.PI * 2;
     const pesci = k.aree.map((a, j) => {
-      const p = pesce(sp, SFUMATURE[(i + j) % SFUMATURE.length]!);
+      const colore = SFUMATURE[(i + j) % SFUMATURE.length]!;
+      const p = pesce(sp, colore);
       gruppo.add(p.corpo);
+      // Alone sull'acqua sopra il pesce: si vede dove nuota anche quando è in profondità
+      const alone = anello(cerchio(0.07, 18), linea(colore, 0.4));
+      gruppo.add(alone);
       punti.push({ id: `area:${a.id}`, label: a.label, href: a.href, hub: false, famiglia: k.id, ancora: p.corpo });
       const pos = new THREE.Vector3(Math.cos(angolo) * 1.75 + (r() - 0.5) * 0.4, -0.15, Math.sin(angolo) * 1.75 + (r() - 0.5) * 0.4);
       return {
-        a, ...p, pos, vel: new THREE.Vector3(),
+        a, ...p, alone, pos, vel: new THREE.Vector3(),
         posto: new THREE.Vector3((r() - 0.5) * 0.35, 0, -0.1 - r() * 0.3),
         fase: r() * 10, profondo: 0.1 + r() * 0.25, colpo: 0,
       };
@@ -260,10 +264,11 @@ export function monta(el: HTMLElement) {
       ali.add(anello([new THREE.Vector3(0, 0, dz), new THREE.Vector3(lato * 0.09, 0, dz + 0.015), new THREE.Vector3(lato * 0.09, 0, dz - 0.01)], m));
     corpo.add(ali);
     gruppo.add(corpo);
-    return { corpo, ali, da: new THREE.Vector3(), a: new THREE.Vector3(), via: -1e9, durata: 900, sosta: 1500 + k * 700 };
+    return { corpo, ali, da: new THREE.Vector3(), a: new THREE.Vector3(), via: -1e9, durata: 1100, sosta: 3500 + k * 1500 };
   });
   const puntoInAria = (out: THREE.Vector3) => {
-    const a = r() * Math.PI * 2, d = Math.sqrt(r()) * raggioRiva(a) * 0.85;
+    // Quasi sempre lungo la riva, fra canne e ninfee; solo una volta su sei passano sopra il centro del lago
+    const a = r() * Math.PI * 2, d = raggioRiva(a) * (r() < 0.17 ? Math.sqrt(r()) * 0.6 : 0.78 + r() * 0.2);
     return out.set(Math.cos(a) * d, 0.35 + r() * 0.35, Math.sin(a) * d);
   };
   libellule.forEach(l => { puntoInAria(l.a); l.corpo.position.copy(l.a); });
@@ -339,6 +344,7 @@ export function monta(el: HTMLElement) {
           if (p.vel.length() > max) p.vel.setLength(max);
           p.pos.addScaledVector(p.vel, dt);
           p.corpo.position.copy(p.pos);
+          p.alone.position.set(p.pos.x, 0.005, p.pos.z);
           // Orientamento: il muso segue la velocità, con un po' di inclinazione in curva
           if (p.vel.lengthSq() > 1e-5) {
             avanti.copy(p.vel).normalize();
@@ -352,8 +358,10 @@ export function monta(el: HTMLElement) {
           const l = acceso(b.k.id, `area:${p.a.id}`);
           const s = l === 1 ? 1.8 : lb === 1 ? 1.3 : 1;
           p.corpo.scale.lerp(new THREE.Vector3(s, s, s), 0.15);
-          const acqua = THREE.MathUtils.clamp(1.15 - p.profondo * 1.6, 0.45, 1);
+          const acqua = THREE.MathUtils.clamp(1.15 - p.profondo * 1.2, 0.75, 1);
           p.mats.forEach(m => { m.opacity = Math.min(1, l * 2) * (m.userData.base ??= m.opacity) * (l === 1 ? 1 : acqua); });
+          (p.alone.material as THREE.LineBasicMaterial).opacity = l === 1 ? 0.9 : Math.min(1, l * 2) * 0.4;
+          p.alone.scale.setScalar(l === 1 ? 1.6 : 1);
         });
       });
     },
