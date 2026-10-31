@@ -10,7 +10,8 @@ export interface Competenza { id: string; label: string; href: string; aree: Are
 export interface DatiCompetenze { competenze: Competenza[] }
 
 // Un punto cliccabile della scena. famiglia: la competenza a cui appartiene.
-export interface Punto { id: string; label: string; href: string; hub: boolean; famiglia: string; ancora: THREE.Object3D }
+// base (facoltativa): con la base, il punto si tocca lungo tutto il segmento base-ancora (per esempio un albero intero).
+export interface Punto { id: string; label: string; href: string; hub: boolean; famiglia: string; ancora: THREE.Object3D; base?: THREE.Object3D }
 
 interface Opzioni {
   camera: THREE.Vector3;
@@ -44,6 +45,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     return s;
   });
 
+  const larghezze: number[] = [];
   let w = 1, h = 1, rotY = 0.4, rotX = o.inclinazione[0], fermo = 0;
   let sopra = -1, esterno = -1, ruota = false, mosso = 0;
   const giu = new THREE.Vector2(), ultimo = new THREE.Vector2();
@@ -53,9 +55,23 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     const v = punti[i]!.ancora.getWorldPosition(vettore).project(camera);
     return { x: (v.x * 0.5 + 0.5) * w, y: (-v.y * 0.5 + 0.5) * h, z: v.z };
   };
+  const proietta = (o: THREE.Object3D) => {
+    const v = o.getWorldPosition(vettore).project(camera);
+    return { x: (v.x * 0.5 + 0.5) * w, y: (-v.y * 0.5 + 0.5) * h, z: v.z };
+  };
+  // Distanza sullo schermo fra il puntatore e un punto, o il segmento base-ancora se il punto ha una base
+  const distanza = (p: Punto, x: number, y: number) => {
+    const a = proietta(p.ancora);
+    if (a.z >= 1) return Infinity;
+    if (!p.base) return Math.hypot(a.x - x, a.y - y);
+    const b = proietta(p.base);
+    const dx = a.x - b.x, dy = a.y - b.y, l2 = dx * dx + dy * dy || 1;
+    const u = THREE.MathUtils.clamp(((x - b.x) * dx + (y - b.y) * dy) / l2, 0, 1);
+    return Math.hypot(b.x + u * dx - x, b.y + u * dy - y);
+  };
   const piuVicino = (x: number, y: number) => {
     let best = -1, dist = 22;
-    punti.forEach((_, i) => { const s = schermo(i); const d = Math.hypot(s.x - x, s.y - y); if (s.z < 1 && d < dist) { dist = d; best = i; } });
+    punti.forEach((p, i) => { const d = distanza(p, x, y); if (d < dist) { dist = d; best = i; } });
     return best;
   };
   const locale = (e: PointerEvent) => { const b = el.getBoundingClientRect(); return new THREE.Vector2(e.clientX - b.left, e.clientY - b.top); };
@@ -135,7 +151,11 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
       const mostra = i === fuoco || (p.hub && a > 0.15) || (!!f && f.hub && f.famiglia === p.famiglia);
       etichette[i]!.style.opacity = mostra && sc.z < 1 ? '1' : '0';
       etichette[i]!.classList.toggle('attiva', i === fuoco);
-      etichette[i]!.style.transform = `translate(${Math.round(sc.x + 12)}px, ${Math.round(sc.y - 8)}px)`;
+      // Vicino al bordo destro l'etichetta passa a sinistra del punto, così resta leggibile
+      // Larghezza letta una volta sola (rileggerla a ogni fotogramma rallenta la pagina); +14 per l'etichetta attiva
+      const largo = (larghezze[i] ||= etichette[i]!.offsetWidth) + (i === fuoco ? 14 : 0);
+      const x = sc.x + 12 + largo > w - 4 ? sc.x - 12 - largo : sc.x + 12;
+      etichette[i]!.style.transform = `translate(${Math.round(Math.max(4, x))}px, ${Math.round(sc.y - 8)}px)`;
     });
     renderer.render(scene, camera);
     requestAnimationFrame(disegna);

@@ -152,7 +152,7 @@ export function monta(el: HTMLElement) {
       albero.add(cima);
       albero.scale.setScalar(0.001);
       gruppo.add(albero);
-      punti.push({ id: `area:${a.id}`, label: a.label, href: a.href, hub: false, famiglia: k.id, ancora: cima });
+      punti.push({ id: `area:${a.id}`, label: a.label, href: a.href, hub: false, famiglia: k.id, ancora: cima, base: albero });
       return { a, albero, cima, pezzi: [tronco, ...pezzi], altezza, fase: r() * 10, ritardo: ordine++ * 140 + r() * 120 };
     });
 
@@ -167,7 +167,7 @@ export function monta(el: HTMLElement) {
     base.add(palo, insegna);
     base.scale.set(1, 0.001, 1);
     gruppo.add(base);
-    punti.push({ id: `skill:${k.id}`, label: k.label, href: k.href, hub: true, famiglia: k.id, ancora: insegna });
+    punti.push({ id: `skill:${k.id}`, label: k.label, href: k.href, hub: true, famiglia: k.id, ancora: insegna, base });
     return { k, base, palo, alberi };
   });
   const tutti = zone.flatMap(z => z.alberi);

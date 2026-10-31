@@ -4,7 +4,7 @@ import { colori, vista, type DatiCompetenze, type Punto } from './vista3d';
 // Advisory come sistema solare minimale: al centro un mondo, intorno le competenze chiave come pianeti,
 // ognuno sulla sua orbita. Le aree sono lune che girano intorno al loro pianeta (orbite non disegnate).
 // Pianeti pieni e piccoli: la grandezza segue il numero di aree; solo il più grande ha un anello.
-// Intorno: una fascia di asteroidi e un cielo di stelle, solo decorazione.
+// Intorno: una fascia di asteroidi, un cielo di stelle e, ogni tanto, una stella cadente. Solo decorazione.
 
 function casuale(seme: number) {
   return () => { seme = (seme * 16807) % 2147483647; return (seme - 1) / 2147483646; };
@@ -36,7 +36,7 @@ export function monta(el: HTMLElement) {
   gruppo.add(mondo, cerchio(0.4, linea(c.muted, 0.5)));
 
   // Orbite a distanze crescenti; più lontano, più lento (come Keplero, in piccolo)
-  const ORBITE = competenze.map((_, i) => 1.35 + i * 0.72);
+  const ORBITE = competenze.map((_, i) => 1.1 + i * 0.58);
   const massimo = Math.max(...competenze.map(k => k.aree.length));
   let conAnello = false;
   const pianeti = competenze.map((k, i) => {
@@ -85,12 +85,46 @@ export function monta(el: HTMLElement) {
   }
   gruppo.add(asteroidi, nuvola(cielo, c.fg, 0.035, 0.5));
 
+  // Stella cadente: una scia che sfuma dalla testa (chiara) alla coda (colore di fondo).
+  // Ne passa una ogni 8-16 secondi, mai con prefers-reduced-motion.
+  const scia = new THREE.BufferGeometry();
+  scia.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(6), 3));
+  scia.setAttribute('color', new THREE.Float32BufferAttribute([...c.fg.toArray(), ...c.bg.toArray()], 3));
+  const cadente = new THREE.Line(scia, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true }));
+  cadente.visible = false;
+  gruppo.add(cadente);
+  const DURATA = 1100;
+  let prossima = -1, via = 0;
+  const da = new THREE.Vector3(), verso = new THREE.Vector3(), testa = new THREE.Vector3(), coda = new THREE.Vector3();
+  function stellaCadente(t: number) {
+    if (t === 0) return;
+    if (prossima < 0) prossima = t + 3000 + r() * 4000;
+    if (!cadente.visible && t > prossima) {
+      // Parte in alto, da un punto a caso del cielo, e scende di traverso
+      const a = r() * Math.PI * 2;
+      da.set(Math.cos(a) * 6, 3 + r() * 2, Math.sin(a) * 6);
+      verso.set(-Math.cos(a) + (r() - 0.5), -0.45, -Math.sin(a) + (r() - 0.5)).normalize();
+      via = t;
+      cadente.visible = true;
+    }
+    if (!cadente.visible) return;
+    const u = (t - via) / DURATA;
+    if (u >= 1) { cadente.visible = false; prossima = t + 8000 + r() * 8000; return; }
+    testa.copy(da).addScaledVector(verso, u * 7);
+    coda.copy(testa).addScaledVector(verso, -Math.min(u * 7, 1.4));
+    scia.attributes.position!.setXYZ(0, testa.x, testa.y, testa.z);
+    scia.attributes.position!.setXYZ(1, coda.x, coda.y, coda.z);
+    scia.attributes.position!.needsUpdate = true;
+    (cadente.material as THREE.LineBasicMaterial).opacity = Math.sin(u * Math.PI);
+  }
+
   vista(el, gruppo, punti, {
-    camera: new THREE.Vector3(0, 4.6, 8.4),
-    mira: new THREE.Vector3(0, -0.3, 0),
+    camera: new THREE.Vector3(0, 3.3, 6.2),
+    mira: new THREE.Vector3(0, -0.2, 0),
     inclinazione: [0.12, 0.6],
     aggiorna: (t, acceso) => {
       asteroidi.rotation.y = t * 0.00003;
+      stellaCadente(t);
       pianeti.forEach(p => {
         const ang = p.fase + t * p.velocita;
         p.corpo.position.set(Math.cos(ang) * p.orbita, 0, Math.sin(ang) * p.orbita);
