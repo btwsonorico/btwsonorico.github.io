@@ -1,0 +1,43 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="About · Riccardo Mondi" description="Riccardo Mondi: AI advisor and developer at Politecnico di Milano." largo>
+  <canvas class="acquario" aria-hidden="true"></canvas>
+  <main class="about">
+    <p class="mono">~/about</p>
+    <h1>Riccardo Mondi</h1>
+    <p class="ruolo">AI Advisor & Developer</p>
+    <p class="mono ente">Politecnico di Milano - Osservatorio Artificial Intelligence + R&amp;D Osservatori</p>
+    <p class="bio">I help organisations adopt AI, and I build the tools that make it work: from research to code.</p>
+    <p class="mono link">
+      <a href="mailto:riccardo.mondi@polimi.it">email</a>
+      <a href="https://github.com/btwsonorico" rel="me">github</a>
+      <a href="https://www.linkedin.com/in/riccardo-mondi-7717181aa/" rel="me">linkedin</a>
+    </p>
+    <p class="mono aiuto">move the mouse: the fish swim away</p>
+  </main>
+</Base>
+
+<script>
+  import { monta } from '../../scripts/pesciPixel';
+  const tela = document.querySelector<HTMLCanvasElement>('.acquario');
+  if (tela) monta(tela);
+</script>
+
+<style>
+  /* I pesci nuotano su tutto lo schermo, dietro al testo; il testo resta selezionabile */
+  .acquario { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; }
+  .about { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: flex-end; min-height: calc(100vh - 160px); padding-bottom: var(--s4); }
+  .about > * { max-width: 520px; margin: 0 0 var(--s2); }
+  h1 { margin-bottom: var(--s1); font-size: 44px; font-weight: 400; line-height: 1.1; }
+  .ruolo { font-size: 22px; margin-bottom: var(--s1); }
+  .ente { font-size: 13px; }
+  .bio { color: var(--fg); }
+  .link { display: flex; gap: var(--s2); }
+  .link a { color: var(--accent); }
+  .aiuto { margin-top: var(--s3); }
+  /* Testo leggibile anche quando un pesce ci passa sotto */
+  .about > * { text-shadow: 0 0 6px var(--bg), 0 0 12px var(--bg); }
+  :global(.barra), :global(.piede) { position: relative; z-index: 1; }
+  @media (max-width: 640px) { h1 { font-size: 33px; } }
+</style>

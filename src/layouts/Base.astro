@@ -23,6 +23,7 @@ const build = new Date().toISOString().slice(0, 10);
         <a href="/projects/">projects</a>
         <a href="/advisory/">advisory</a>
         <a href="/knowledge/">knowledge</a>
+        <a href="/about/">about</a>
       </nav>
     </header>
     <slot />
@@ -109,6 +110,8 @@ const build = new Date().toISOString().slice(0, 10);
   }
   .barra a { text-decoration: none; }
   .barra nav { display: flex; gap: 18px; }
+  /* Su schermi stretti nome e link vanno su due righe, così nessun link esce dallo schermo */
+  @media (max-width: 640px) { .barra { flex-wrap: wrap; row-gap: 10px; } .barra nav { gap: 14px; } }
   .io { color: var(--fg); }
   /* Sito in costruzione: un'etichetta piccola accanto al nome */
   .nome { display: inline-flex; align-items: center; gap: 10px; }
