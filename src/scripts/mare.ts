@@ -247,8 +247,8 @@ export function monta(el: HTMLElement, sezioni: Sezione[]) {
     mats.forEach(m => { m.opacity = Math.min(1, (m.userData.base ??= m.opacity) * k); });
   };
 
-  // Diorama spostato a destra: a sinistra c'è spazio per il testo della pagina
-  gruppo.position.x = 1.9;
+  // Su schermi larghi il diorama sta a destra, così a sinistra c'è spazio per il testo; sul telefono sta al centro della sua fascia
+  gruppo.position.x = el.clientWidth > 700 ? 1.9 : 0;
   let prima = -1;
   vista(el, gruppo, punti, {
     // Vista obliqua come il laghetto, un po' più lontana: il diorama sta tutto nello schermo

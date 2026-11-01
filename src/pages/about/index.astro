@@ -1,6 +1,5 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { COMPETENZE, COMPETENZE_ADVISORY } from '../../content.config';
 
 // Tutte le pagine del sito, con una riga che dice cosa c'è
 const PAGINE = [
@@ -17,20 +16,12 @@ const SEZIONI = [
   { id: 'knowledge', label: 'Knowledge', href: '/knowledge/', tono: 'arancio' },
 ];
 const BIO = 'I help organisations adopt AI, and I build the tools that make it work: from research to code.';
-// Frasi per i token che cadono: la bio, poi le competenze chiave nel colore della loro sezione.
-// Il colore è il nome della variabile CSS: il browser lo legge secondo il tema.
-const FRASI = [
-  { testo: BIO, colore: '--fg' },
-  ...Object.values(COMPETENZE).map(c => ({ testo: `${c.title}: ${c.summary}`, colore: '--verde' })),
-  ...Object.values(COMPETENZE_ADVISORY).map(c => ({ testo: `${c.title}: ${c.summary}`, colore: '--azzurro' })),
-];
 ---
 <Base title="About · Riccardo Mondi" description="Riccardo Mondi: AI advisor and developer at Politecnico di Milano." largo>
-  <canvas class="scena" aria-hidden="true" data-frasi={JSON.stringify(FRASI)}></canvas>
+  <canvas class="scena" aria-hidden="true"></canvas>
   <!-- Scene 3D: il contenitore fisso copre lo schermo; la scena sta dentro, così la vista 3D sa quando è visibile -->
   <div class="fondo3d" data-fondo="mare" hidden><div class="scena3d" aria-hidden="true"></div></div>
-  <div class="fondo3d" data-fondo="biglietto" hidden><div class="scena3d" aria-hidden="true"></div></div>
-  <script type="application/json" id="dati-3d" set:html={JSON.stringify({ sezioni: SEZIONI, testi: { nome: 'Riccardo Mondi', ruolo: 'AI Advisor & Developer', ente: 'Politecnico di Milano - Osservatorio Artificial Intelligence + R&D Osservatori', email: 'riccardo.mondi@polimi.it' } })}></script>
+  <script type="application/json" id="dati-3d" set:html={JSON.stringify({ sezioni: SEZIONI })}></script>
   <main class="about">
     <p class="mono">~/about</p>
     <h1>Riccardo Mondi</h1>
@@ -54,8 +45,6 @@ const FRASI = [
         <button type="button" data-scena="vita">life</button>
         <button type="button" data-scena="onde">waves</button>
         <button type="button" data-scena="mare">beach</button>
-        <button type="button" data-scena="biglietto">card</button>
-        <button type="button" data-scena="token">tokens</button>
       </p>
       <p class="spiega"></p>
     </div>
@@ -64,13 +53,8 @@ const FRASI = [
 
 <script>
   import type { Scena } from '../../scripts/pixel';
-  import type { Frase } from '../../scripts/token';
 
   const tela = document.querySelector<HTMLCanvasElement>('.scena')!;
-  // I colori arrivano come nomi di variabili CSS: qui diventano i colori del tema attuale
-  const radice = getComputedStyle(document.documentElement);
-  const tinta = <T extends { colore: string }>(x: T) => ({ ...x, colore: radice.getPropertyValue(x.colore).trim() });
-  const frasi: Frase[] = JSON.parse(tela.dataset.frasi!).map(tinta);
   const spiega = document.querySelector<HTMLElement>('.spiega')!;
   const bottoni = document.querySelectorAll<HTMLButtonElement>('[data-scena]');
 
@@ -85,15 +69,12 @@ const FRASI = [
     return { ferma() { fondo.hidden = true; tela.hidden = false; } };
   };
   const montaMare = scena3d('mare', async el => (await import('../../scripts/mare')).monta(el, dati3d.sezioni));
-  const montaBiglietto = scena3d('biglietto', async el => (await import('../../scripts/biglietto')).monta(el, dati3d.sezioni, dati3d.testi));
 
   // Ogni scena si carica solo quando serve
   const SCENE: Record<string, { aiuto: string; monta: () => Promise<Scena> }> = {
     vita: { aiuto: "Conway's game of life · move the mouse to seed cells · click for a burst", monta: async () => (await import('../../scripts/vita')).monta(tela) },
     onde: { aiuto: 'the shore seen from above · move the mouse to make ripples · click for a splash', monta: async () => (await import('../../scripts/onde')).monta(tela) },
     mare: { aiuto: 'a small beach: a hermit crab, a starfish and a shell · click one to open its section · drag to rotate', monta: montaMare },
-    biglietto: { aiuto: 'my business card · drag to flip it · click a stamp on the back to open its section', monta: montaBiglietto },
-    token: { aiuto: 'a sentence writes itself, token by token · move the mouse to push the tokens', monta: async () => (await import('../../scripts/token')).monta(tela, frasi) },
   };
 
   let attuale: Scena | null = null, richiesta = 0;
@@ -151,5 +132,12 @@ const FRASI = [
     background: color-mix(in srgb, var(--bg) 78%, transparent); transition: opacity .15s;
   }
   .scena3d :global(.etichetta.attiva) { color: var(--bg); background: var(--accent); padding: 2px 7px; z-index: 2; }
-  @media (max-width: 640px) { h1 { font-size: 33px; } }
+  @media (max-width: 640px) {
+    h1 { font-size: 33px; }
+    /* Sul telefono la scena non sta dietro al testo: occupa una fascia in alto, che scorre via con la pagina.
+       Così il testo resta leggibile, i link si toccano e la pagina scorre anche dove c'è la scena 3D */
+    .scena, .fondo3d { position: absolute; top: 0; left: 0; right: 0; bottom: auto; width: 100%; height: 46vh; }
+    .about { padding-top: 40vh; min-height: 0; justify-content: flex-start; }
+    .about > * { text-shadow: none; }
+  }
 </style>

@@ -1,9 +1,8 @@
-// Base comune delle scene a celle della pagina About (gioco della vita, token che cadono).
+// Base comune delle scene a celle della pagina About (gioco della vita, onde).
 // Prepara il canvas a tutto schermo, il ciclo di disegno e gli ascoltatori; ferma() spegne tutto,
 // così la pagina può passare da una scena all'altra.
 
 export const CELLA = 8;
-export const FONT = '11px "Departure Mono", ui-monospace, monospace';
 
 export type Scena = { ferma(): void };
 

@@ -8,6 +8,8 @@ import { colori, tonoSezione, vista, type DatiCompetenze, type Punto } from './v
 // Intorno: ciuffi d'erba, pochi fiori grandi azzurri e arancioni, lucciole bianche fra gli alberi.
 // Ogni competenza (o progetto) ha un albero guida, grande, con il nome in cima.
 // I due colori sono quelli di Advisory e Knowledge: nei progetti uso anche la consulenza e quello che studio.
+// Le chiome hanno un riempimento tenue sotto i fili, così il colore del bosco è più pieno.
+// Tre cervi bianchi camminano piano fra gli alberi e ogni tanto si fermano a brucare.
 
 // Numeri casuali ripetibili: il bosco è uguale a ogni visita
 function casuale(seme: number) {
@@ -28,6 +30,22 @@ export function monta(el: HTMLElement) {
   const linea = (colore: THREE.Color, opacita = 1) => new THREE.LineBasicMaterial({ color: colore, transparent: true, opacity: opacita });
   const spigoli = (geo: THREE.BufferGeometry, mat: THREE.LineBasicMaterial) => new THREE.LineSegments(new THREE.EdgesGeometry(geo), mat);
   const segmento = (a: THREE.Vector3, b: THREE.Vector3, mat: THREE.LineBasicMaterial) => new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), mat);
+  // Chioma piena: i fili della forma più un riempimento tenue dello stesso colore.
+  // userData.pieno: opacità del riempimento rispetto ai fili, usata quando la scena accende e spegne gli alberi
+  const chiaro = document.documentElement.dataset.theme === 'light';
+  const PIENO = chiaro ? 0.24 : 0.2;
+  const solido = (geo: THREE.BufferGeometry, m: THREE.LineBasicMaterial, colore: THREE.Color) => {
+    const g = new THREE.Group();
+    const riempimento = new THREE.MeshBasicMaterial({ color: colore, transparent: true, opacity: PIENO, depthWrite: false });
+    riempimento.userData.pieno = PIENO;
+    g.add(new THREE.Mesh(geo, riempimento), new THREE.LineSegments(new THREE.EdgesGeometry(geo), m));
+    return g;
+  };
+  // Opacità di un pezzo d'albero: i riempimenti restano tenui anche quando l'albero è acceso
+  const opacita = (o: THREE.Object3D, valore: number) => {
+    const m = (o as THREE.Mesh).material as THREE.Material;
+    m.opacity = valore * (m.userData.pieno ?? 1);
+  };
 
   // Terreno: una griglia di punti, come lo sfondo del sito
   const passo = 0.4, lato = 7.2;
@@ -57,7 +75,8 @@ export function monta(el: HTMLElement) {
   function chioma(albero: THREE.Group, specie: Specie, altezza: number, ricchezza: number, peso: number, colore: THREE.Color) {
     const pezzi: THREE.Object3D[] = [];
     const m = linea(colore);
-    const add = (o: THREE.Object3D) => { albero.add(o); pezzi.push(o); };
+    // Ogni pezzo con un materiale entra nella lista: anche i fili e il riempimento dentro una chioma piena
+    const add = (o: THREE.Object3D) => { albero.add(o); o.traverse(x => { if ((x as THREE.Mesh).material) pezzi.push(x); }); };
     if (specie === 'palma') {
       // Tronco curvo a segmenti e foglie lunghe che ricadono
       const piega = 0.18 + r() * 0.1;
@@ -88,14 +107,14 @@ export function monta(el: HTMLElement) {
       const attacco = new THREE.Vector3(0, altezza * 0.8, 0);
       const n = THREE.MathUtils.clamp(ricchezza - 1, 2, 5);
       const centrale = 0.26 + peso * 0.025;
-      const palla0 = spigoli(new THREE.IcosahedronGeometry(centrale, 0), m);
+      const palla0 = solido(new THREE.IcosahedronGeometry(centrale, 0), m, colore);
       palla0.position.set(0, attacco.y + centrale * 0.55, 0);
       add(palla0);
       for (let k = 1; k < n; k++) {
         const a = (k / (n - 1)) * Math.PI * 2 + r() * 0.4;
         const raggio = 0.17 + peso * 0.02;
         const centro = new THREE.Vector3(Math.cos(a) * centrale * 0.95, attacco.y + 0.02 + r() * 0.12, Math.sin(a) * centrale * 0.95);
-        const palla = spigoli(new THREE.IcosahedronGeometry(raggio, 0), m);
+        const palla = solido(new THREE.IcosahedronGeometry(raggio, 0), m, colore);
         palla.position.copy(centro);
         palla.rotation.set(r() * 3, r() * 3, 0);
         add(palla);
@@ -109,7 +128,7 @@ export function monta(el: HTMLElement) {
         const dx = chiome === 1 ? 0 : (k === 0 ? -0.2 : 0.22);
         const y = altezza * (0.85 + k * 0.1);
         const larga = (0.42 + peso * 0.03) * (k === 0 ? 1 : 0.75);
-        const piatta = spigoli(new THREE.IcosahedronGeometry(larga, 1), m);
+        const piatta = solido(new THREE.IcosahedronGeometry(larga, 1), m, colore);
         piatta.scale.y = 0.26;
         piatta.position.set(dx, y, 0);
         add(piatta);
@@ -121,7 +140,7 @@ export function monta(el: HTMLElement) {
       const piani = THREE.MathUtils.clamp(ricchezza - 1, 2, 4);
       for (let p = 0; p < piani; p++) {
         const f = p / piani, h = (altezza * 0.75) / piani * 1.5;
-        const cono = spigoli(new THREE.ConeGeometry(0.32 * (1 - f * 0.45) * (0.8 + peso * 0.08), h, 7), m);
+        const cono = solido(new THREE.ConeGeometry(0.32 * (1 - f * 0.45) * (0.8 + peso * 0.08), h, 7), m, colore);
         cono.position.y = altezza * 0.3 + f * altezza * 0.62 + h / 2;
         add(cono);
       }
@@ -276,6 +295,65 @@ export function monta(el: HTMLElement) {
     return out.copy(p0).multiplyScalar(v * v).addScaledVector(pc, 2 * v * u).addScaledVector(p1, u * u);
   };
 
+  // Cervi: corpo pieno bianco con i bordi a fili, zampe che si muovono, corna a rami.
+  // Camminano verso un punto a caso del bosco, si girano piano, e ogni tanto si fermano a brucare.
+  const BIANCO = new THREE.Color(chiaro ? '#ffffff' : '#eef1f5');
+  const matCervo = new THREE.MeshBasicMaterial({ color: BIANCO, transparent: true, opacity: chiaro ? 1 : 0.92 });
+  // Sul fondo chiaro i bordi sono scuri, così il cervo bianco si stacca dallo sfondo
+  const matBordiCervo = linea(c.fg, chiaro ? 0.6 : 0.55), matCorna = linea(c.fg, chiaro ? 0.75 : 0.85);
+  const pezzoCervo = (geo: THREE.BufferGeometry) => {
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(geo, matCervo), new THREE.LineSegments(new THREE.EdgesGeometry(geo), matBordiCervo));
+    return g;
+  };
+  const nuovoCervo = (k: number) => {
+    const cervo = new THREE.Group();
+    const corpo = pezzoCervo(new THREE.BoxGeometry(0.36, 0.14, 0.13));
+    corpo.position.y = 0.3;
+    // Collo e testa: girano insieme quando il cervo bruca
+    const collo = new THREE.Group();
+    collo.position.set(0.15, 0.34, 0);
+    const pezzoCollo = pezzoCervo(new THREE.BoxGeometry(0.07, 0.2, 0.07));
+    pezzoCollo.position.set(0.03, 0.09, 0);
+    pezzoCollo.rotation.z = -0.35;
+    const testa = pezzoCervo(new THREE.BoxGeometry(0.13, 0.07, 0.07));
+    testa.position.set(0.1, 0.19, 0);
+    const corna: number[] = [];
+    for (const lato of [1, -1]) corna.push(
+      0.07, 0.22, lato * 0.02, 0.05, 0.36, lato * 0.07, 0.06, 0.29, lato * 0.04, 0.12, 0.34, lato * 0.06,
+      0.05, 0.36, lato * 0.07, 0.0, 0.42, lato * 0.09, 0.05, 0.36, lato * 0.07, 0.09, 0.43, lato * 0.08,
+    );
+    const geoCorna = new THREE.BufferGeometry();
+    geoCorna.setAttribute('position', new THREE.Float32BufferAttribute(corna, 3));
+    // Un cervo su tre è una femmina, senza corna
+    if (k !== 1) collo.add(new THREE.LineSegments(geoCorna, matCorna));
+    collo.add(pezzoCollo, testa);
+    const coda = pezzoCervo(new THREE.BoxGeometry(0.04, 0.05, 0.04));
+    coda.position.set(-0.19, 0.34, 0);
+    // Zampe: ognuna ruota intorno all'anca
+    const geoZampa = new THREE.BoxGeometry(0.035, 0.24, 0.035);
+    geoZampa.translate(0, -0.12, 0);
+    const zampe = [[0.13, 0.04], [0.13, -0.04], [-0.13, 0.04], [-0.13, -0.04]].map(([x, z]) => {
+      const zampa = pezzoCervo(geoZampa);
+      zampa.position.set(x!, 0.25, z!);
+      cervo.add(zampa);
+      return zampa;
+    });
+    cervo.add(corpo, collo, coda);
+    cervo.scale.setScalar(k === 1 ? 1.05 : 1.2);
+    cervo.visible = false;
+    gruppo.add(cervo);
+    const a = r() * Math.PI * 2, d = 2 + r() * 2.5;
+    return { cervo, collo, zampe, x: Math.cos(a) * d, z: Math.sin(a) * d, verso: r() * Math.PI * 2, meta: new THREE.Vector2(), passo: r() * 10, bruca: 0, finoA: 0 };
+  };
+  const cervi = [0, 1, 2].map(nuovoCervo);
+  const nuovaMeta = (v: (typeof cervi)[number]) => {
+    const a = r() * Math.PI * 2, d = 1.2 + Math.sqrt(r()) * 4.4;
+    v.meta.set(Math.cos(a) * d, Math.sin(a) * d);
+  };
+  cervi.forEach(nuovaMeta);
+  let primaCervi = -1;
+
   // Vista: dispone alberi e alberi guida per competenza o per progetto, poi fa ricrescere tutto da zero
   type Modo = 'competenza' | 'progetto';
   let modo: Modo = 'competenza';
@@ -356,7 +434,7 @@ export function monta(el: HTMLElement) {
       const crescitaPali = ease(THREE.MathUtils.clamp((tempo - 900) / 700, 0, 1));
       gruppiAttivi.forEach(g => {
         const lg = acceso(g.id, g.id);
-        g.pezzi.forEach(p => { ((p as THREE.Line).material as THREE.LineBasicMaterial).opacity = Math.min(1, lg * 2); });
+        g.pezzi.forEach(p => opacita(p, Math.min(1, lg * 2)));
         g.base.scale.setScalar(Math.max(0.001, crescitaPali * (lg === 1 ? 1.08 : 1)));
         g.base.rotation.z = Math.sin(t * 0.0009 + g.fase) * 0.015;
         g.membri.forEach(x => {
@@ -367,8 +445,39 @@ export function monta(el: HTMLElement) {
           const sc = Math.max(0.001, (cresce < 1 ? ease(cresce) : 1) * (l === 1 ? 1.18 : 1));
           x.albero.scale.lerp(new THREE.Vector3(sc, sc, sc), cresce < 1 ? 1 : 0.15);
           const o = Math.min(1, l * 2);
-          x.pezzi.forEach(p => { ((p as THREE.Line).material as THREE.LineBasicMaterial).opacity = o; });
+          x.pezzi.forEach(p => opacita(p, o));
         });
+      });
+
+      // Cervi: arrivano quando il bosco è cresciuto
+      const dtCervi = primaCervi < 0 || t === 0 ? 0 : Math.min(0.05, (t - primaCervi) / 1000);
+      primaCervi = t;
+      cervi.forEach(v => {
+        v.cervo.visible = tempo > 2400;
+        if (dtCervi > 0) {
+          if (v.bruca > 0) {
+            // Fermo a brucare: la testa scende, poi riparte verso una nuova meta
+            v.bruca -= dtCervi;
+            if (v.bruca <= 0) nuovaMeta(v);
+          } else {
+            const dx = v.meta.x - v.x, dz = v.meta.y - v.z, d = Math.hypot(dx, dz);
+            if (d < 0.15) v.bruca = 3 + r() * 4;
+            else {
+              // Gira piano verso la meta e cammina in avanti
+              const voluto = Math.atan2(-dz, dx);
+              v.verso += Math.atan2(Math.sin(voluto - v.verso), Math.cos(voluto - v.verso)) * Math.min(1, dtCervi * 1.5);
+              v.x += Math.cos(v.verso) * 0.28 * dtCervi;
+              v.z -= Math.sin(v.verso) * 0.28 * dtCervi;
+              v.passo += dtCervi * 7;
+            }
+          }
+        }
+        const cammina = v.bruca > 0 ? 0 : 1;
+        v.cervo.position.set(v.x, Math.abs(Math.sin(v.passo)) * 0.012 * cammina, v.z);
+        v.cervo.rotation.y = v.verso;
+        v.zampe.forEach((z, i) => { z.rotation.z = Math.sin(v.passo + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.4 * cammina; });
+        // Collo: giù quando bruca, su e appena oscillante quando cammina
+        v.collo.rotation.z += ((v.bruca > 0 ? -1.15 : Math.sin(v.passo * 0.5) * 0.05) - v.collo.rotation.z) * Math.min(1, dtCervi * 3);
       });
 
       gruppo.updateMatrixWorld();
