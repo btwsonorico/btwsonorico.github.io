@@ -6,9 +6,9 @@
 
 import { avvia, type Scena } from './pixel';
 
-const PASSI_AL_SECONDO = 9;
-// Celle piccole e poche: la vita resta uno sfondo, non copre la pagina
-const CELLA = 5;
+const PASSI_AL_SECONDO = 5;
+// Celle grandi e poche: la vita si vede da vicino e resta uno sfondo tranquillo
+const CELLA = 16;
 // R-pentomino: cinque celle che crescono per più di mille generazioni
 const R_PENTOMINO = [[1, 0], [2, 0], [0, 1], [1, 1], [1, 2]];
 
@@ -31,7 +31,7 @@ export function monta(canvas: HTMLCanvasElement): Scena {
     colonne = Math.ceil(dim.w / CELLA); righe = Math.ceil(dim.h / CELLA);
     const n = colonne * righe;
     vivo = new Uint8Array(n); dopo = new Uint8Array(n); eta = new Uint8Array(n); luce = new Float32Array(n);
-    semina(0, 0, Math.max(colonne, righe), 0.05);
+    semina(0, 0, Math.max(colonne, righe), 0.12);
   };
   prepara();
   s.ridimensiona(prepara);
@@ -52,7 +52,7 @@ export function monta(canvas: HTMLCanvasElement): Scena {
     }
     [vivo, dopo] = [dopo, vivo];
     // Quando la vita si spegne quasi del tutto, una nuova macchia di celle riparte in un punto a caso
-    if (vive < vivo.length * 0.004) semina(Math.floor(r() * C), Math.floor(r() * R), 18, 0.3);
+    if (vive < vivo.length * 0.01) semina(Math.floor(r() * C), Math.floor(r() * R), 8, 0.35);
   };
 
   const cella = (e: PointerEvent) => { const [x, y] = s.posizione(e); return [Math.floor(x / CELLA), Math.floor(y / CELLA)] as const; };

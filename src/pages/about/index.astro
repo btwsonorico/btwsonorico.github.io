@@ -10,6 +10,12 @@ const PAGINE = [
   { nome: 'knowledge', href: '/knowledge/', nota: 'notes on papers, talks and books' },
   { nome: 'rss', href: '/rss.xml', nota: 'feed of the knowledge notes' },
 ];
+// Le tre sezioni, per gli oggetti del mare 3D (il tono è il colore della sezione)
+const SEZIONI = [
+  { id: 'software', label: 'SW engineering', href: '/software/', tono: 'verde' },
+  { id: 'advisory', label: 'Advisory', href: '/advisory/', tono: 'azzurro' },
+  { id: 'knowledge', label: 'Knowledge', href: '/knowledge/', tono: 'arancio' },
+];
 const BIO = 'I help organisations adopt AI, and I build the tools that make it work: from research to code.';
 // Frasi per i token che cadono: la bio, poi le competenze chiave nel colore della loro sezione.
 // Il colore è il nome della variabile CSS: il browser lo legge secondo il tema.
@@ -21,6 +27,8 @@ const FRASI = [
 ---
 <Base title="About · Riccardo Mondi" description="Riccardo Mondi: AI advisor and developer at Politecnico di Milano." largo>
   <canvas class="scena" aria-hidden="true" data-frasi={JSON.stringify(FRASI)}></canvas>
+  <!-- Mare 3D: il contenitore fisso copre lo schermo; la scena sta dentro, così la vista 3D sa quando è visibile -->
+  <div class="mare" hidden><div class="mare-scena" aria-hidden="true" data-sezioni={JSON.stringify(SEZIONI)}></div></div>
   <main class="about">
     <p class="mono">~/about</p>
     <h1>Riccardo Mondi</h1>
@@ -42,6 +50,8 @@ const FRASI = [
       <p class="scelte" role="group" aria-label="Background">
         <span>background</span>
         <button type="button" data-scena="vita">life</button>
+        <button type="button" data-scena="onde">waves</button>
+        <button type="button" data-scena="mare">sea</button>
         <button type="button" data-scena="token">tokens</button>
       </p>
       <p class="spiega"></p>
@@ -61,9 +71,25 @@ const FRASI = [
   const spiega = document.querySelector<HTMLElement>('.spiega')!;
   const bottoni = document.querySelectorAll<HTMLButtonElement>('[data-scena]');
 
+  // Mare 3D: si monta una volta sola; fermarlo vuol dire nasconderlo (la vista 3D non disegna quando è nascosta)
+  const mare = document.querySelector<HTMLElement>('.mare')!, mareScena = document.querySelector<HTMLElement>('.mare-scena')!;
+  let mareMontato = false;
+  const montaMare = async (): Promise<Scena> => {
+    tela.hidden = true;
+    mare.hidden = false;
+    if (!mareMontato) {
+      mareMontato = true;
+      const sezioni = JSON.parse(mareScena.dataset.sezioni!);
+      (await import('../../scripts/mare')).monta(mareScena, sezioni);
+    }
+    return { ferma() { mare.hidden = true; tela.hidden = false; } };
+  };
+
   // Ogni scena si carica solo quando serve
   const SCENE: Record<string, { aiuto: string; monta: () => Promise<Scena> }> = {
     vita: { aiuto: "Conway's game of life · move the mouse to seed cells · click for a burst", monta: async () => (await import('../../scripts/vita')).monta(tela) },
+    onde: { aiuto: 'the shore seen from above · move the mouse to make ripples · click for a splash', monta: async () => (await import('../../scripts/onde')).monta(tela) },
+    mare: { aiuto: 'a paper boat, a buoy and a shell: click one to open its section · drag to look around', monta: montaMare },
     token: { aiuto: 'a sentence writes itself, token by token · move the mouse to push the tokens', monta: async () => (await import('../../scripts/token')).monta(tela, frasi) },
   };
 
@@ -111,5 +137,16 @@ const FRASI = [
   /* Testo leggibile anche quando la scena ci passa sotto */
   .about > * { text-shadow: 0 0 6px var(--bg), 0 0 12px var(--bg); }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
+  .scena[hidden], .mare[hidden] { display: none; }
+  .mare { position: fixed; inset: 0; z-index: 0; }
+  .mare-scena { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; }
+  .mare-scena:active { cursor: grabbing; }
+  /* Etichette degli oggetti del mare: come nelle scene di bosco e laghetto, nel colore della loro sezione */
+  .mare-scena :global(.etichetta) {
+    position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;
+    padding: 1px 5px; font-family: var(--mono); font-size: 11px; color: var(--accent);
+    background: color-mix(in srgb, var(--bg) 78%, transparent); transition: opacity .15s;
+  }
+  .mare-scena :global(.etichetta.attiva) { color: var(--bg); background: var(--accent); padding: 2px 7px; z-index: 2; }
   @media (max-width: 640px) { h1 { font-size: 33px; } }
 </style>

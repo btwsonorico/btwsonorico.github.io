@@ -23,6 +23,9 @@ interface Opzioni {
   inclinazione: [number, number];
   // Chiamata a ogni fotogramma: muove gli oggetti e li accende o spegne
   aggiorna: (t: number, acceso: (famiglia: string, id: string) => number) => void;
+  // Rotazione iniziale intorno all'asse verticale (0.4 se manca) e rotazione lenta automatica (sì se manca)
+  giro?: number;
+  ruotaDaSola?: boolean;
   // Clic che non prende nessun punto (per esempio un sasso lanciato nello stagno): riceve il raggio dalla camera
   clicVuoto?: (raggio: THREE.Raycaster) => void;
 }
@@ -55,7 +58,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
   });
 
   const larghezze: number[] = [];
-  let w = 1, h = 1, rotY = 0.4, rotX = o.inclinazione[0], fermo = 0;
+  let w = 1, h = 1, rotY = o.giro ?? 0.4, rotX = o.inclinazione[0], fermo = 0;
   let sopra = -1, esterno = -1, ruota = false, mosso = 0;
   const giu = new THREE.Vector2(), ultimo = new THREE.Vector2();
   const vettore = new THREE.Vector3();
@@ -151,7 +154,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     // Una scena in una tab nascosta non consuma risorse
     if (el.offsetParent === null) { requestAnimationFrame(disegna); return; }
     const t = ridotto ? 0 : performance.now();
-    if (fermo > 0) fermo--; else if (!ruota && !ridotto) rotY += 0.0012;
+    if (fermo > 0) fermo--; else if (!ruota && !ridotto && o.ruotaDaSola !== false) rotY += 0.0012;
     gruppo.rotation.set(rotX, rotY, 0);
 
     const fuoco = sopra >= 0 ? sopra : esterno;

@@ -1,15 +1,14 @@
 ---
 import type { DatiGrafo, TipoNodo } from '../lib/grafi';
 import type { DatiCompetenze } from '../scripts/vista3d';
-import type { DatiPanorama } from '../scripts/panorama';
 
 // Una o più viste dello stesso grafo. Con due viste compaiono i pulsanti per passare dall'una all'altra.
-// motore: "grafo" (rete a forze, Knowledge), "bosco" (SW engineering), "laghetto" (Advisory) o "panorama" (tutte e tre le sezioni).
-type Motore = 'grafo' | 'bosco' | 'laghetto' | 'panorama';
-interface Vista { nome: string; dati: DatiGrafo | DatiCompetenze | DatiPanorama; legenda: TipoNodo[] }
+// motore: "grafo" (rete a forze, Knowledge), "bosco" (SW engineering) o "laghetto" (Advisory).
+type Motore = 'grafo' | 'bosco' | 'laghetto';
+interface Vista { nome: string; dati: DatiGrafo | DatiCompetenze; legenda: TipoNodo[] }
 // modi: viste della stessa scena (per esempio il bosco per competenza o per progetto). Il primo è quello iniziale.
 type Comuni = { motore?: Motore; nomi?: Partial<Record<TipoNodo, string>>; aiuto?: string; modi?: { id: string; nome: string }[] };
-type Props = Comuni & ({ viste: Vista[] } | { dati: DatiGrafo | DatiCompetenze | DatiPanorama; legenda: TipoNodo[] });
+type Props = Comuni & ({ viste: Vista[] } | { dati: DatiGrafo | DatiCompetenze; legenda: TipoNodo[] });
 const props = Astro.props;
 const { motore = 'grafo', aiuto = 'drag a node · click to open · drag the space to rotate', modi = [] } = props;
 const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props.dati, legenda: props.legenda }];
@@ -38,7 +37,6 @@ const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte:
   document.querySelectorAll<HTMLElement>('[data-grafo]').forEach(el => {
     if (el.dataset.motore === 'bosco') import('../scripts/bosco').then(m => m.monta(el));
     else if (el.dataset.motore === 'laghetto') import('../scripts/laghetto').then(m => m.monta(el));
-    else if (el.dataset.motore === 'panorama') import('../scripts/panorama').then(m => m.monta(el));
     else monta(el);
   });
   document.querySelectorAll<HTMLElement>('.grafo').forEach(fig => {
