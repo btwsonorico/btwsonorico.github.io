@@ -14,7 +14,7 @@ const dati = await datiCompetenze('projects');
       <p>What I build, grouped by skill or by the project where I learned it.</p>
     </header>
 
-    <div class="a-grafo"><Grafo dati={dati} legenda={['skill', 'area']} motore="bosco" modi={[{ id: 'competenza', nome: 'by skill' }, { id: 'progetto', nome: 'by project' }]} nomi={{ skill: 'big tree: skill or project', area: 'tree: area' }} aiuto="taller tree, more technologies · click a tree to see its topic · drag to rotate" /></div>
+    <div class="a-grafo"><Grafo dati={dati} legenda={['skill', 'area']} motore="bosco" modi={[{ id: 'competenza', nome: 'by skill' }, { id: 'progetto', nome: 'by project' }]} nomi={{ skill: 'big tree: skill or project', area: 'tree: area' }} aiuto="taller tree, more technologies · click a tree to see its topic · click the grass to drop an apple · drag to rotate" /></div>
 
     <div class="a-resto">
       <section class="sezione">

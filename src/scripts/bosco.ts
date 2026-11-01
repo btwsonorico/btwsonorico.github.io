@@ -16,10 +16,10 @@ function casuale(seme: number) {
   return () => { seme = (seme * 16807) % 2147483647; return (seme - 1) / 2147483646; };
 }
 
-type Specie = 'palma' | 'quercia' | 'acacia' | 'abete';
-const SPECIE: Specie[] = ['palma', 'quercia', 'acacia', 'abete'];
-// Quanto sale il tronco dritto, per specie (la palma disegna da sola il suo tronco curvo)
-const TRONCO: Record<Specie, number> = { palma: 0, quercia: 0.8, acacia: 0.45, abete: 0.4 };
+type Specie = 'salice' | 'quercia' | 'acacia' | 'abete';
+const SPECIE: Specie[] = ['salice', 'quercia', 'acacia', 'abete'];
+// Quanto sale il tronco dritto, per specie
+const TRONCO: Record<Specie, number> = { salice: 0.6, quercia: 0.8, acacia: 0.45, abete: 0.4 };
 
 export function monta(el: HTMLElement) {
   const { competenze, progetti = [] } = JSON.parse(el.dataset.grafo!) as DatiCompetenze;
@@ -77,29 +77,22 @@ export function monta(el: HTMLElement) {
     const m = linea(colore);
     // Ogni pezzo con un materiale entra nella lista: anche i fili e il riempimento dentro una chioma piena
     const add = (o: THREE.Object3D) => { albero.add(o); o.traverse(x => { if ((x as THREE.Mesh).material) pezzi.push(x); }); };
-    if (specie === 'palma') {
-      // Tronco curvo a segmenti e foglie lunghe che ricadono
-      const piega = 0.18 + r() * 0.1;
-      const tronco = Array.from({ length: 7 }, (_, k) => {
-        const u = k / 6;
-        return new THREE.Vector3(Math.sin(u * 1.6) * piega, u * altezza * 0.95, 0);
-      });
-      add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(tronco), linea(c.fg)));
-      const cima = tronco.at(-1)!;
-      const foglie = THREE.MathUtils.clamp(ricchezza + 2, 5, 8);
-      const lungo = 0.3 + peso * 0.02;
-      for (let k = 0; k < foglie; k++) {
-        const a = (k / foglie) * Math.PI * 2 + r() * 0.3;
+    if (specie === 'salice') {
+      // Salice piangente: una chioma bassa e larga e tanti rami sottili che ricadono quasi fino a terra
+      const cima = altezza * 0.62, larga = 0.3 + peso * 0.025;
+      const chioma0 = solido(new THREE.IcosahedronGeometry(larga, 1), m, colore);
+      chioma0.scale.set(1, 0.55, 1);
+      chioma0.position.y = cima + larga * 0.3;
+      add(chioma0);
+      const rami = THREE.MathUtils.clamp(ricchezza * 3 + 6, 10, 20);
+      const mr = linea(colore, 0.8);
+      for (let k = 0; k < rami; k++) {
+        const a = (k / rami) * Math.PI * 2 + r() * 0.3, fuori = larga * (0.75 + r() * 0.3), giu = cima * (0.55 + r() * 0.3);
         add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 7 }, (_, q) => {
           const u = q / 6;
-          return new THREE.Vector3(cima.x + Math.cos(a) * u * lungo, cima.y + (u * 0.35 - u * u * 0.75) * lungo, Math.sin(a) * u * lungo);
-        })), m));
-      }
-      // Due noci di cocco sotto le foglie
-      for (const dx of [-0.04, 0.05]) {
-        const noce = spigoli(new THREE.IcosahedronGeometry(0.035, 0), m);
-        noce.position.set(cima.x + dx, cima.y - 0.05, 0.02);
-        add(noce);
+          // Il ramo esce dal bordo della chioma, si allarga appena e poi cade dritto
+          return new THREE.Vector3(Math.cos(a) * fuori * (1 + Math.sin(u * 1.6) * 0.25), cima + larga * 0.25 - u * u * giu, Math.sin(a) * fuori * (1 + Math.sin(u * 1.6) * 0.25));
+        })), mr));
       }
     } else if (specie === 'quercia') {
       // Chioma a nuvola: una palla centrale sulla cima del tronco e altre intorno,
@@ -173,8 +166,8 @@ export function monta(el: HTMLElement) {
   competenze.forEach((k, i) => {
     const specie = SPECIE[i % SPECIE.length]!;
     for (const a of k.aree) {
-      // Le palme restano più basse degli altri alberi
-      const altezza = specie === 'palma' ? 0.5 + a.peso * 0.14 : 0.75 + a.peso * 0.28;
+      // I salici restano più bassi e larghi degli altri alberi
+      const altezza = specie === 'salice' ? 0.65 + a.peso * 0.18 : 0.75 + a.peso * 0.28;
       perArea.set(a.id, nuovoAlbero(`area:${a.id}`, a.label, a.href, specie, altezza, a.punti, a.peso));
     }
   });
@@ -187,7 +180,7 @@ export function monta(el: HTMLElement) {
   const nuovoPalo = (id: string, label: string, href: string, specie: Specie) => {
     const base = new THREE.Group();
     base.rotation.y = r() * Math.PI;
-    const altezza = specie === 'palma' ? 1.35 : 1.9;
+    const altezza = specie === 'salice' ? 1.55 : 1.9;
     const tronco = segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, altezza * Math.max(TRONCO[specie], 0.001), 0), linea(c.fg));
     base.add(tronco);
     const pezzi = chioma(base, specie, altezza, 5, 5, c.accent);
@@ -391,18 +384,53 @@ export function monta(el: HTMLElement) {
       tipo, alto, cervo, corpo, collo, testa, orecchie, coda, zampe,
       x: Math.cos(a) * d, z: Math.sin(a) * d, verso: r() * Math.PI * 2, giro: 0, vel: 0, passo: r(),
       meta: new THREE.Vector2(), stato: 'cammina' as 'cammina' | 'bruca' | 'guarda', timer: 0, sguardo: 0,
-      lato: 0, orecchio: 0, scodinzolo: 0,
+      lato: 0, orecchio: 0, scodinzolo: 0, mela: null as Mela | null,
     };
   };
-  const cervi = (['cervo', 'cerva', 'cerbiatto', 'cerbiatto'] as const).map(nuovoCervo);
-  const mamma = cervi[1]!;
+  const cervi = (['cervo', 'cervo', 'cerva', 'cerbiatto', 'cerbiatto'] as const).map(nuovoCervo);
+  // Il secondo cervo è più giovane: un po' più piccolo
+  cervi[1]!.cervo.scale.multiplyScalar(0.9);
+  const mamma = cervi[2]!;
   const nuovaMeta = (v: (typeof cervi)[number]) => {
     const a = r() * Math.PI * 2, d = 1.2 + Math.sqrt(r()) * 4.4;
     v.meta.set(Math.cos(a) * d, Math.sin(a) * d);
   };
   cervi.forEach(nuovaMeta);
   // I cerbiatti partono vicino alla mamma, uno per lato
-  cervi.slice(2).forEach((v, i) => { v.lato = i ? -1 : 1; v.x = mamma.x - 0.25; v.z = mamma.z + v.lato * 0.25; v.verso = mamma.verso; });
+  cervi.slice(3).forEach((v, i) => { v.lato = i ? -1 : 1; v.x = mamma.x - 0.25; v.z = mamma.z + v.lato * 0.25; v.verso = mamma.verso; });
+  // Mele: un clic sul prato ne fa cadere una dall'alto; rimbalza, poi il cervo più vicino va a mangiarla
+  type Mela = { g: THREE.Group; x: number; z: number; y: number; vy: number; aTerra: boolean; mangiata: number };
+  const mele: Mela[] = [];
+  const matMela = linea(new THREE.Color(chiaro ? '#cf222e' : '#f85149'), 0.95);
+  const geoMela = new THREE.IcosahedronGeometry(0.055, 1);
+  const nuovaMela = (x: number, z: number) => {
+    const g = new THREE.Group();
+    const corpoMela = solido(geoMela, matMela, matMela.color);
+    corpoMela.scale.y = 0.9;
+    g.add(corpoMela, segmento(new THREE.Vector3(0, 0.045, 0), new THREE.Vector3(0.01, 0.085, 0), linea(c.fg, 0.8)));
+    const foglia = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0.01, 0.075, 0), new THREE.Vector3(0.045, 0.09, 0.01), new THREE.Vector3(0.06, 0.075, 0), new THREE.Vector3(0.035, 0.07, -0.01)]), linea(c.accent, 0.9));
+    g.add(foglia);
+    gruppo.add(g);
+    const mela: Mela = { g, x, z, y: 2.2, vy: 0, aTerra: false, mangiata: 0 };
+    mele.push(mela);
+    if (mele.length > 6) togliMela(mele[0]!);
+  };
+  const togliMela = (m: Mela) => {
+    gruppo.remove(m.g);
+    mele.splice(mele.indexOf(m), 1);
+    cervi.forEach(v => { if (v.mela === m) { v.mela = null; v.stato = 'cammina'; nuovaMeta(v); } });
+  };
+  // Il cervo libero più vicino va verso la mela; i cerbiatti solo se sono loro i più vicini
+  const chiamaCervo = (m: Mela) => {
+    let migliore: (typeof cervi)[number] | null = null, dist = Infinity;
+    for (const v of cervi) {
+      if (v.mela) continue;
+      const d = Math.hypot(v.x - m.x, v.z - m.z);
+      if (d < dist) { dist = d; migliore = v; }
+    }
+    if (migliore) { migliore.mela = m; migliore.stato = 'cammina'; }
+  };
+  const inversa = new THREE.Matrix4(), piano = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), colpito = new THREE.Vector3();
   const morbido = (da: number, a: number, k: number) => da + (a - da) * Math.min(1, k);
   const angolo = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
   let primaCervi = -1;
@@ -462,6 +490,13 @@ export function monta(el: HTMLElement) {
     camera: new THREE.Vector3(0, 5.6, 10),
     mira: new THREE.Vector3(0, 0.4, 0),
     inclinazione: [0.05, 0.35],
+    // Clic sul prato (non su un albero): cade una mela in quel punto
+    clicVuoto: raggio => {
+      gruppo.updateMatrixWorld();
+      const locale = raggio.ray.clone().applyMatrix4(inversa.copy(gruppo.matrixWorld).invert());
+      if (!locale.intersectPlane(piano, colpito) || Math.hypot(colpito.x, colpito.z) > 6.2) return;
+      nuovaMela(colpito.x, colpito.z);
+    },
     aggiorna: (t, acceso) => {
       if (inizio < 0) inizio = t;
       // Con prefers-reduced-motion t resta 0: il bosco è già cresciuto e gli uccelli restano posati
@@ -502,6 +537,21 @@ export function monta(el: HTMLElement) {
         });
       });
 
+      // Mele: cadono con la gravità, rimbalzano due volte e chiamano un cervo
+      for (const m of mele) {
+        if (!m.aTerra && t > 0) {
+          const passo = primaCervi < 0 ? 0 : Math.min(0.05, (t - primaCervi) / 1000);
+          m.vy -= 9 * passo;
+          m.y += m.vy * passo;
+          if (m.y <= 0.05) {
+            m.y = 0.05;
+            m.vy = -m.vy * 0.35;
+            if (Math.abs(m.vy) < 0.4) { m.aTerra = true; m.vy = 0; chiamaCervo(m); }
+          }
+        }
+        m.g.position.set(m.x, t === 0 ? 0.05 : m.y, m.z);
+        m.g.scale.setScalar(Math.max(0.001, 1 - m.mangiata));
+      }
       // Cervi: arrivano quando il bosco è cresciuto
       const dtc = primaCervi < 0 || t === 0 ? 0 : Math.min(0.05, (t - primaCervi) / 1000);
       primaCervi = t;
@@ -510,15 +560,26 @@ export function monta(el: HTMLElement) {
       cervi.forEach(v => {
         v.cervo.visible = tempo > 2400;
         const cucciolo = v.tipo === 'cerbiatto';
-        // I cerbiatti seguono la mamma: la meta è un punto al suo fianco, un po' dietro
-        if (cucciolo) {
+        // Chi ha una mela va lì; i cerbiatti, altrimenti, seguono la mamma: un punto al suo fianco, un po' dietro
+        if (v.mela) v.meta.set(v.mela.x, v.mela.z);
+        else if (cucciolo) {
           const dietro = mamma.verso + Math.PI + v.lato * 0.8;
           v.meta.set(mamma.x + Math.cos(dietro) * 0.28, mamma.z - Math.sin(dietro) * 0.28);
         }
         const dx = v.meta.x - v.x, dz = v.meta.y - v.z, d = Math.hypot(dx, dz);
         if (dtc > 0) {
           // Stato: cammina verso la meta; arrivato, bruca o si guarda intorno; poi sceglie una nuova meta
-          if (v.stato === 'cammina' && d < (cucciolo ? 0.1 : 0.2)) {
+          // Con la mela il cervo si ferma quando la bocca ci arriva, e la mangia a testa bassa
+          if (v.mela && v.mela.aTerra && v.stato === 'cammina' && d < 0.3 * MISURA[v.tipo]) {
+            v.stato = 'bruca';
+            v.timer = 2.5;
+          } else if (v.mela) {
+            if (v.stato === 'bruca') {
+              v.timer -= dtc;
+              v.mela.mangiata = 1 - Math.max(0, v.timer) / 2.5;
+              if (v.timer <= 0) togliMela(v.mela);
+            }
+          } else if (v.stato === 'cammina' && d < (cucciolo ? 0.1 : 0.2)) {
             v.stato = r() < 0.6 ? 'bruca' : 'guarda';
             v.timer = cucciolo ? 1 + r() * 1.5 : 3 + r() * 4;
             v.sguardo = (r() - 0.5) * 1.6;
@@ -531,7 +592,8 @@ export function monta(el: HTMLElement) {
             }
           }
           // Velocità: cresce e cala piano; i cerbiatti trottano quando restano indietro
-          const voluta = v.stato !== 'cammina' ? 0 : cucciolo ? THREE.MathUtils.clamp(0.12 + d * 0.6, 0.12, 0.5) : v.tipo === 'cervo' ? 0.24 : 0.2;
+          // Verso una mela vanno di buon passo
+          const voluta = v.stato !== 'cammina' ? 0 : v.mela ? 0.3 : cucciolo ? THREE.MathUtils.clamp(0.12 + d * 0.6, 0.12, 0.5) : v.tipo === 'cervo' ? 0.24 : 0.2;
           v.vel = morbido(v.vel, voluta, dtc * 1.4);
           // Direzione: verso la meta, lontano dagli alberi vicini; la virata accelera e rallenta piano
           let hx = dx / (d || 1), hz = dz / (d || 1);
