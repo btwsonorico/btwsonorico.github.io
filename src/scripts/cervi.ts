@@ -37,10 +37,10 @@ const angolo = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 export function famigliaCervi(gruppo: THREE.Group, o: Opzioni) {
   const { colori: c, chiaro } = o, r = o.casuale;
   const linea = (colore: THREE.Color, opacita: number) => new THREE.LineBasicMaterial({ color: colore, transparent: true, opacity: opacita });
-  // Corpo pieno: bianco di notte; di giorno un grigio caldo, perché il bianco sul fondo chiaro sparirebbe
-  const matCervo = new THREE.MeshBasicMaterial({ color: new THREE.Color(chiaro ? '#cdc7b8' : '#eef1f5'), transparent: true, opacity: chiaro ? 1 : 0.92 });
+  // Corpo pieno: bianco di notte; di giorno un bruno caldo, ben visibile sul fondo chiaro
+  const matCervo = new THREE.MeshBasicMaterial({ color: new THREE.Color(chiaro ? '#a39a86' : '#eef1f5'), transparent: true, opacity: chiaro ? 1 : 0.92 });
   // Sul fondo chiaro i bordi sono scuri, così il cervo bianco si stacca dallo sfondo
-  const matBordi = linea(c.fg, chiaro ? 0.5 : 0.4), matCorna = linea(c.fg, chiaro ? 0.75 : 0.85);
+  const matBordi = linea(c.fg, chiaro ? 0.7 : 0.4), matCorna = linea(c.fg, chiaro ? 0.75 : 0.85);
   const geoOvale = new THREE.SphereGeometry(1, 8, 6), bordiOvale = new THREE.EdgesGeometry(geoOvale, 25);
   // Ellissoide pieno con i bordi delle facce: il mattone di tutto il corpo
   const ovale = (rx: number, ry: number, rz: number, x = 0, y = 0, z = 0) => {
