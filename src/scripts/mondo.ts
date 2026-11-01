@@ -217,13 +217,17 @@ export function monta(el: HTMLElement) {
   // Lo stormo resta sempre sopra la scena: sotto una certa quota gli uccelli risalgono.
   // L'etichetta sta di lato allo stormo e lo segue con un po' di ritardo, così si clicca anche quando scappano.
   const UCCELLI = 500, CENTRO_STORMO = new THREE.Vector3(0.2, 2.9, -0.6);
-  const VICINI = 0.38, SEPARA = 0.08, VEL_MIN = 0.5, VEL_MAX = 1, QUOTA_MIN = 2.5, QUOTA_MAX = 3.4, LARGO_STORMO = 2.5;
+  const VICINI = 0.42, SEPARA = 0.14, VEL_MIN = 0.5, VEL_MAX = 1, QUOTA_MIN = 2.5, QUOTA_MAX = 3.5, LARGO_STORMO = 3;
   const pos = new Float32Array(UCCELLI * 3), vel = new Float32Array(UCCELLI * 3), fase = new Float32Array(UCCELLI), paura = new Float32Array(UCCELLI);
+  // Posto di ogni uccello intorno alla guida, sparso in un volume largo e basso: lo stormo occupa un'area, non una fila
+  const posto = new Float32Array(UCCELLI * 3);
   for (let i = 0; i < UCCELLI; i++) {
     const a = r() * Math.PI * 2, d = Math.sqrt(r());
     pos.set([CENTRO_STORMO.x + Math.cos(a) * d * 2.2, CENTRO_STORMO.y + (r() - 0.5) * 0.9, CENTRO_STORMO.z + Math.sin(a) * d * 1.2], i * 3);
     vel.set([-1, (r() - 0.5) * 0.1, 0.4], i * 3);
     fase[i] = r() * 6;
+    const b = r() * Math.PI * 2, e = Math.cbrt(r());
+    posto.set([Math.cos(b) * e * 1.8, (r() - 0.5) * 0.6, Math.sin(b) * e * 1.1], i * 3);
   }
   // Ogni uccello è una V: due segmenti che partono dal corpo; tutti in un'unica geometria, aggiornata a ogni fotogramma
   const geoStormo = new THREE.BufferGeometry();
@@ -279,14 +283,16 @@ export function monta(el: HTMLElement) {
       let cx = 0, cy = 0, cz = 0;
       for (let i = 0; i < UCCELLI; i++) {
         const x = pos[i * 3]!, y = pos[i * 3 + 1]!, z = pos[i * 3 + 2]!;
-        // Richiamo debole verso la guida: lo stormo resta largo e libero di cambiare forma
-        let fx = (verso.x - x) * 0.07, fy = (verso.y - y) * 0.1, fz = (verso.z - z) * 0.07;
+        // Richiamo debole verso il proprio posto intorno alla guida (il volume ruota piano): lo stormo resta largo
+        const giroPosto = t * 0.05, cg = Math.cos(giroPosto), sg = Math.sin(giroPosto);
+        const px = posto[i * 3]! * cg - posto[i * 3 + 2]! * sg, pz = posto[i * 3]! * sg + posto[i * 3 + 2]! * cg;
+        let fx = (verso.x + px - x) * 0.09, fy = (verso.y + posto[i * 3 + 1]! - y) * 0.12, fz = (verso.z + pz - z) * 0.09;
         // Vortice intorno alla guida: spinge di lato rispetto all'asse, e lo stormo si avvolge su se stesso
         const rx = x - verso.x, ry = y - verso.y, rz = z - verso.z;
         fx += (asse.y * rz - asse.z * ry) * vortice; fy += (asse.z * rx - asse.x * rz) * vortice; fz += (asse.x * ry - asse.y * rx) * vortice;
         // Gruppi staccati: chi è lontano dal centro dello stormo viene richiamato piano, così i pezzi si riuniscono
         const gx0 = centroPrima.x - x, gy0 = centroPrima.y - y, gz0 = centroPrima.z - z, lontano = Math.hypot(gx0, gy0, gz0);
-        if (lontano > 1.1) { const f = (lontano - 1.1) * 0.45 / lontano; fx += gx0 * f; fy += gy0 * f; fz += gz0 * f; }
+        if (lontano > 1.9) { const f = (lontano - 1.9) * 0.35 / lontano; fx += gx0 * f; fy += gy0 * f; fz += gz0 * f; }
         // Sempre sopra la scena e non troppo lontano: sotto la quota minima risale, fuori dal cerchio rientra
         if (y < QUOTA_MIN) fy += (QUOTA_MIN - y) * 6;
         if (y > QUOTA_MAX) fy -= (y - QUOTA_MAX) * 6;
@@ -304,14 +310,14 @@ export function monta(el: HTMLElement) {
             n++;
             mx += vel[j * 3]!; my += vel[j * 3 + 1]!; mz += vel[j * 3 + 2]!;
             lx += dx; ly += dy; lz += dz;
-            if (d2 < SEPARA * SEPARA) { const d = Math.sqrt(d2) || 1e-3, f = (SEPARA - d) * 60 / d; fx -= dx * f; fy -= dy * f; fz -= dz * f; }
+            if (d2 < SEPARA * SEPARA) { const d = Math.sqrt(d2) || 1e-3, f = (SEPARA - d) * 45 / d; fx -= dx * f; fy -= dy * f; fz -= dz * f; }
           }
         }
         if (n) {
           // Allineamento forte, coesione locale leggera: nascono i nastri e le pieghe
-          fx += (mx / n - vel[i * 3]!) * 1.5 + (lx / n) * 0.55;
-          fy += (my / n - vel[i * 3 + 1]!) * 1.5 + (ly / n) * 0.55;
-          fz += (mz / n - vel[i * 3 + 2]!) * 1.5 + (lz / n) * 0.55;
+          fx += (mx / n - vel[i * 3]!) * 1 + (lx / n) * 0.2;
+          fy += (my / n - vel[i * 3 + 1]!) * 1 + (ly / n) * 0.2;
+          fz += (mz / n - vel[i * 3 + 2]!) * 1 + (lz / n) * 0.2;
         }
         // Paura: dal falco e dal puntatore, più forte quanto più sono vicini
         const scappa = (sx: number, sy: number, sz: number, raggio: number, forza: number) => {
