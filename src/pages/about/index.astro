@@ -91,7 +91,7 @@ const FRASI = [
   const SCENE: Record<string, { aiuto: string; monta: () => Promise<Scena> }> = {
     vita: { aiuto: "Conway's game of life · move the mouse to seed cells · click for a burst", monta: async () => (await import('../../scripts/vita')).monta(tela) },
     onde: { aiuto: 'the shore seen from above · move the mouse to make ripples · click for a splash', monta: async () => (await import('../../scripts/onde')).monta(tela) },
-    mare: { aiuto: 'the beach from above: a hermit crab, a starfish and a shell · click one to open its section', monta: montaMare },
+    mare: { aiuto: 'a small beach: a hermit crab, a starfish and a shell · click one to open its section · drag to rotate', monta: montaMare },
     biglietto: { aiuto: 'my business card · drag to flip it · click a stamp on the back to open its section', monta: montaBiglietto },
     token: { aiuto: 'a sentence writes itself, token by token · move the mouse to push the tokens', monta: async () => (await import('../../scripts/token')).monta(tela, frasi) },
   };

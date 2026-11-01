@@ -256,13 +256,10 @@ export function monta(el: HTMLElement) {
       const colore = SFUMATURE[(i + j) % SFUMATURE.length]!;
       const p = pesce(sp, colore);
       gruppo.add(p.corpo);
-      // Alone sull'acqua sopra il pesce: si vede dove nuota anche quando è in profondità
-      const alone = anello(cerchio(0.07, 18), linea(colore, 0.4));
-      gruppo.add(alone);
       punti.push({ id: `area:${a.id}`, label: a.label, href: a.href, hub: false, famiglia: k.id, ancora: p.corpo });
       const pos = new THREE.Vector3(Math.cos(angolo) * 1.75 + (r() - 0.5) * 0.4, -0.15, Math.sin(angolo) * 1.75 + (r() - 0.5) * 0.4);
       return {
-        a, ...p, alone, pos, vel: new THREE.Vector3(),
+        a, ...p, pos, vel: new THREE.Vector3(),
         posto: new THREE.Vector3((r() - 0.5) * 0.35, 0, -0.1 - r() * 0.3),
         fase: r() * 10, profondo: 0.1 + r() * 0.25,
         // muso: direzione in cui guarda, che gira piano; slancio: spinta breve della coda; paura: dopo un sasso vicino
@@ -473,7 +470,6 @@ export function monta(el: HTMLElement) {
           const ap = Math.atan2(p.pos.z, p.pos.x), dp = Math.hypot(p.pos.x, p.pos.z), dmax = raggioRiva(ap) - 0.3;
           if (dp > dmax) { p.pos.x *= dmax / dp; p.pos.z *= dmax / dp; }
           p.corpo.position.copy(p.pos);
-          p.alone.position.set(p.pos.x, 0.005, p.pos.z);
           // Orientamento: il muso gira piano verso la direzione di nuoto, e il pesce si inclina in curva
           let giro = 0;
           if (p.vel.lengthSq() > 1e-5) {
@@ -495,8 +491,6 @@ export function monta(el: HTMLElement) {
           p.corpo.scale.lerp(new THREE.Vector3(s, s, s), 0.15);
           const acqua = THREE.MathUtils.clamp(1.15 - p.profondo * 1.2, 0.75, 1);
           p.mats.forEach(m => { m.opacity = Math.min(1, l * 2) * (m.userData.base ??= m.opacity) * (l === 1 ? 1 : acqua); });
-          (p.alone.material as THREE.LineBasicMaterial).opacity = l === 1 ? 0.9 : Math.min(1, l * 2) * 0.4;
-          p.alone.scale.setScalar(l === 1 ? 1.6 : 1);
         });
       });
     },
