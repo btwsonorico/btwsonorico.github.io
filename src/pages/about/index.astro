@@ -2,22 +2,26 @@
 import Base from '../../layouts/Base.astro';
 import { COMPETENZE, COMPETENZE_ADVISORY } from '../../content.config';
 
-// Una zona per ogni sezione del sito, con il suo colore: il nome della variabile CSS, letta nel browser secondo il tema
-const ZONE = [
-  { nome: 'projects', href: '/projects/', colore: '--verde' },
-  { nome: 'advisory', href: '/advisory/', colore: '--azzurro' },
-  { nome: 'knowledge', href: '/knowledge/', colore: '--arancio' },
+// Tutte le pagine del sito, con una riga che dice cosa c'è
+const PAGINE = [
+  { nome: 'home', href: '/', nota: 'overview: forest, pond and latest writing' },
+  { nome: 'projects', href: '/projects/', nota: 'what I build: skills, areas, commits' },
+  { nome: 'advisory', href: '/advisory/', nota: 'how I help organisations adopt AI' },
+  { nome: 'knowledge', href: '/knowledge/', nota: 'notes on papers, talks and books' },
+  { nome: 'aquarium', href: '/aquarium/', nota: 'pixel fish: click to feed them' },
+  { nome: 'rss', href: '/rss.xml', nota: 'feed of the knowledge notes' },
 ];
 const BIO = 'I help organisations adopt AI, and I build the tools that make it work: from research to code.';
-// Frasi per i token che cadono: la bio, poi le competenze chiave nel colore della loro sezione
+// Frasi per i token che cadono: la bio, poi le competenze chiave nel colore della loro sezione.
+// Il colore è il nome della variabile CSS: il browser lo legge secondo il tema.
 const FRASI = [
   { testo: BIO, colore: '--fg' },
-  ...Object.values(COMPETENZE).map(c => ({ testo: `${c.title}: ${c.summary}`, colore: ZONE[0]!.colore })),
-  ...Object.values(COMPETENZE_ADVISORY).map(c => ({ testo: `${c.title}: ${c.summary}`, colore: ZONE[1]!.colore })),
+  ...Object.values(COMPETENZE).map(c => ({ testo: `${c.title}: ${c.summary}`, colore: '--verde' })),
+  ...Object.values(COMPETENZE_ADVISORY).map(c => ({ testo: `${c.title}: ${c.summary}`, colore: '--azzurro' })),
 ];
 ---
 <Base title="About · Riccardo Mondi" description="Riccardo Mondi: AI advisor and developer at Politecnico di Milano." largo>
-  <canvas class="scena" aria-hidden="true" data-zone={JSON.stringify(ZONE)} data-frasi={JSON.stringify(FRASI)}></canvas>
+  <canvas class="scena" aria-hidden="true" data-frasi={JSON.stringify(FRASI)}></canvas>
   <main class="about">
     <p class="mono">~/about</p>
     <h1>Riccardo Mondi</h1>
@@ -29,12 +33,17 @@ const FRASI = [
       <a href="https://github.com/btwsonorico" rel="me">github</a>
       <a href="https://www.linkedin.com/in/riccardo-mondi-7717181aa/" rel="me">linkedin</a>
     </p>
+    <nav class="pagine" aria-label="All pages">
+      <p class="mono titoletto">pages</p>
+      <ul>
+        {PAGINE.map(p => <li><a href={p.href}>{p.nome}</a><span class="mono">{p.nota}</span></li>)}
+      </ul>
+    </nav>
     <div class="mono aiuto">
       <p class="scelte" role="group" aria-label="Background">
-        <button type="button" data-scena="formiche">ants</button>
+        <span>background</span>
         <button type="button" data-scena="vita">life</button>
         <button type="button" data-scena="token">tokens</button>
-        <a href="/aquarium/">aquarium →</a>
       </p>
       <p class="spiega"></p>
     </div>
@@ -42,28 +51,26 @@ const FRASI = [
 </Base>
 
 <script>
-  import type { Scena, Zona } from '../../scripts/pixel';
+  import type { Scena } from '../../scripts/pixel';
   import type { Frase } from '../../scripts/token';
 
   const tela = document.querySelector<HTMLCanvasElement>('.scena')!;
   // I colori arrivano come nomi di variabili CSS: qui diventano i colori del tema attuale
   const radice = getComputedStyle(document.documentElement);
   const tinta = <T extends { colore: string }>(x: T) => ({ ...x, colore: radice.getPropertyValue(x.colore).trim() });
-  const zone: Zona[] = JSON.parse(tela.dataset.zone!).map(tinta);
   const frasi: Frase[] = JSON.parse(tela.dataset.frasi!).map(tinta);
   const spiega = document.querySelector<HTMLElement>('.spiega')!;
   const bottoni = document.querySelectorAll<HTMLButtonElement>('[data-scena]');
 
   // Ogni scena si carica solo quando serve
   const SCENE: Record<string, { aiuto: string; monta: () => Promise<Scena> }> = {
-    formiche: { aiuto: 'click to drop food · click an anthill to open its section', monta: async () => (await import('../../scripts/formiche')).monta(tela, zone) },
-    vita: { aiuto: "Conway's game of life · move the mouse to seed cells · click for a burst", monta: async () => (await import('../../scripts/vita')).monta(tela, zone) },
+    vita: { aiuto: "Conway's game of life · move the mouse to seed cells · click for a burst", monta: async () => (await import('../../scripts/vita')).monta(tela) },
     token: { aiuto: 'a sentence writes itself, token by token · move the mouse to push the tokens', monta: async () => (await import('../../scripts/token')).monta(tela, frasi) },
   };
 
   let attuale: Scena | null = null, richiesta = 0;
   const mostra = async (nome: string) => {
-    if (!SCENE[nome]) nome = 'formiche';
+    if (!SCENE[nome]) nome = 'vita';
     const mia = ++richiesta;
     attuale?.ferma();
     attuale = null;
@@ -75,8 +82,8 @@ const FRASI = [
     if (mia !== richiesta) scena.ferma(); else attuale = scena;
   };
   bottoni.forEach(b => b.addEventListener('click', () => mostra(b.dataset.scena!)));
-  let ricordata = 'formiche';
-  try { ricordata = localStorage.getItem('about-scena') ?? 'formiche'; } catch {}
+  let ricordata = 'vita';
+  try { ricordata = localStorage.getItem('about-scena') ?? 'vita'; } catch {}
   mostra(ricordata);
 </script>
 
@@ -92,7 +99,11 @@ const FRASI = [
   .bio { color: var(--fg); }
   .link { display: flex; gap: var(--s2); }
   .link a, .aiuto a { color: var(--accent); }
-  .aiuto { margin-top: var(--s3); }
+  .aiuto { margin-top: var(--s2); }
+  .pagine ul { margin: 0; padding: 0; list-style: none; }
+  .pagine li { display: flex; gap: var(--s2); align-items: baseline; font-size: 13px; line-height: 1.7; }
+  .pagine li a { min-width: 80px; color: var(--accent); }
+  .titoletto { margin: 0 0 4px; }
   .aiuto p { margin: 0 0 6px; }
   .scelte { display: flex; flex-wrap: wrap; gap: 6px var(--s2); align-items: center; }
   .scelte button { padding: 0 6px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
