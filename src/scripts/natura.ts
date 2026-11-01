@@ -95,9 +95,9 @@ export const sasso = (raggio: number, r: () => number, dettaglio = 0) => scuoti(
 
 // Terreno come nelle altre scene: dischi del tono a strati, più intensi verso il centro, e una griglia di punti
 // che segue l'altezza del suolo
-export function terreno(gruppo: THREE.Group, colore: THREE.Color, raggio: number, altezza: (x: number, z: number) => number = () => 0) {
+export function terreno(gruppo: THREE.Group, colore: THREE.Color, raggio: number, altezza: (x: number, z: number) => number = () => 0, dischi = true) {
   const chiaro = tema();
-  for (const [rr, op] of [[raggio, 0.07], [raggio * 0.75, 0.045], [raggio * 0.5, 0.045]] as const) {
+  if (dischi) for (const [rr, op] of [[raggio, 0.07], [raggio * 0.75, 0.045], [raggio * 0.5, 0.045]] as const) {
     const disco = new THREE.Mesh(new THREE.CircleGeometry(rr, 64), new THREE.MeshBasicMaterial({ color: colore, transparent: true, opacity: op * (chiaro ? 1 : 0.45), depthWrite: false }));
     disco.rotation.x = -Math.PI / 2;
     disco.position.y = -0.01;
@@ -218,6 +218,9 @@ export interface OpzioniPalco {
   zoom?: [number, number];
   aggiorna: (s: number, dt: number, p: Palco) => void;
   clic?: (raggio: THREE.Raycaster, p: Palco) => void;
+  // Presa: la scena può tenere il trascinamento per sé (per esempio per tirare una nuvola) invece di girare la vista.
+  // afferra risponde true se ha preso qualcosa; trascina arriva a ogni movimento, rilascia quando si lascia.
+  afferra?: (raggio: THREE.Raycaster) => boolean; trascina?: (raggio: THREE.Raycaster) => void; rilascia?: () => void;
   // Nome della scena e i suoi tre toni chiave di partenza. famiglie: false quando i toni non sono il verde,
   // l'azzurro e l'arancio della scena (per esempio i colori delle colonie di formiche): allora il resto resta del sito
   scena: string; toni: THREE.ColorRepresentation[]; famiglie?: boolean;
@@ -278,19 +281,25 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
   const ndc = new THREE.Vector2(), raggio = new THREE.Raycaster();
   const cv = renderer.domElement;
   cv.style.touchAction = 'pan-y';
+  let presa = false;
+  const aNdc = (e: PointerEvent) => { const b = cv.getBoundingClientRect(); ndc.set(((e.clientX - b.left) / b.width) * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1); };
   cv.addEventListener('pointerdown', e => {
+    aNdc(e);
+    raggio.setFromCamera(ndc, camera);
+    if (o.afferra?.(raggio)) { presa = true; cv.setPointerCapture(e.pointerId); return; }
     dita.set(e.pointerId, { x: e.clientX, y: e.clientY });
     premuto = true; mosso = 0; px = e.clientX; py = e.clientY; velGiro = 0;
     if (dita.size === 2) { const [a, b] = [...dita.values()]; pinza = Math.hypot(a!.x - b!.x, a!.y - b!.y); }
   });
   cv.addEventListener('pointerup', e => { dita.delete(e.pointerId); });
   cv.addEventListener('pointercancel', e => { dita.delete(e.pointerId); });
-  const lascia = () => { premuto = false; };
+  const lascia = () => { premuto = false; if (presa) { presa = false; o.rilascia?.(); } };
   window.addEventListener('pointerup', lascia);
   cv.addEventListener('pointermove', e => {
     const b = cv.getBoundingClientRect();
     ndc.set(((e.clientX - b.left) / b.width) * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1);
     dentro = true;
+    if (presa) { raggio.setFromCamera(ndc, camera); o.trascina?.(raggio); return; }
     if (dita.has(e.pointerId)) dita.set(e.pointerId, { x: e.clientX, y: e.clientY });
     // Due dita: allargarle avvicina, stringerle allontana
     if (o.zoom && dita.size === 2) {
