@@ -27,6 +27,10 @@ import Base from '../../layouts/Base.astro';
       <label><input type="color" data-tono="2" /><span></span></label>
       <button type="button" class="ripristina">reset</button>
     </p>
+    <!-- Durata di un giorno intero nella scena delle nuvole, in minuti -->
+    <p class="mono giorno" hidden>
+      <label>day <input type="range" min="1" max="20" step="1" value="3" /> <span>3 min</span></label>
+    </p>
   </main>
 </Base>
 
@@ -41,12 +45,22 @@ import Base from '../../layouts/Base.astro';
   const montate = new Map<string, Palco>();
   const montatori: Record<string, (el: HTMLElement) => Promise<Palco>> = {};
   // Nomi dei tre toni chiave di ogni scena, per il color editor
-  const NOMI: Record<string, string[]> = { barriera: ['water', 'earth', 'coral'], formicaio: ['meadow', 'water', 'ants'], nuvole: ['meadow', 'water', 'accent'] };
+  const NOMI: Record<string, string[]> = { barriera: ['water', 'earth', 'coral'], formicaio: ['red', document.documentElement.dataset.theme === 'light' ? 'black' : 'white', 'green'], nuvole: ['meadow', 'water', 'accent'] };
   const editor = document.querySelector<HTMLElement>('.toni')!;
   const selettori = editor.querySelectorAll<HTMLInputElement>('input[type="color"]');
+  const giorno = document.querySelector<HTMLElement>('.giorno')!, cursore = giorno.querySelector<HTMLInputElement>('input')!;
+  try { cursore.value = localStorage.getItem('misc-giorno') ?? '3'; } catch { /* niente */ }
+  const scriviGiorno = () => { giorno.querySelector('span')!.textContent = `${cursore.value} min`; };
+  scriviGiorno();
+  cursore.addEventListener('input', () => {
+    scriviGiorno();
+    try { localStorage.setItem('misc-giorno', cursore.value); } catch { /* niente */ }
+    window.dispatchEvent(new CustomEvent('misc:giorno', { detail: Number(cursore.value) }));
+  });
   const mostraEditor = (nome: string | null) => {
     const palco = nome ? montate.get(nome) : undefined;
     editor.hidden = !palco;
+    giorno.hidden = nome !== 'nuvole' || !palco;
     if (!palco || !nome) return;
     selettori.forEach((s, i) => { s.value = `#${palco.toni[i]!.getHexString()}`; s.nextElementSibling!.textContent = NOMI[nome]![i]!; });
   };
@@ -57,7 +71,7 @@ import Base from '../../layouts/Base.astro';
     fondo.hidden = false;
     if (!montate.has(nome)) montate.set(nome, await monta(fondo.querySelector<HTMLElement>('.scena3d')!));
     mostraEditor(nome);
-    return { ferma() { fondo.hidden = true; tela.hidden = false; editor.hidden = true; } };
+    return { ferma() { fondo.hidden = true; tela.hidden = false; editor.hidden = true; giorno.hidden = true; } };
   };
   // Nuovi toni: la scena si smonta e si ridisegna con i colori scelti
   const ridisegna = async (toni: string[] | null) => {
@@ -121,7 +135,10 @@ import Base from '../../layouts/Base.astro';
   .scelte button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
   /* Color editor: tre quadratini di colore col loro nome, e il bottone per tornare ai colori di partenza */
   .toni { display: flex; flex-wrap: wrap; gap: 6px var(--s2); align-items: center; color: var(--muted); }
-  .toni[hidden] { display: none; }
+  .toni[hidden], .giorno[hidden] { display: none; }
+  .giorno { color: var(--muted); }
+  .giorno label { display: inline-flex; align-items: center; gap: 8px; pointer-events: auto; }
+  .giorno input { width: 140px; accent-color: var(--fg); cursor: pointer; }
   .toni label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; pointer-events: auto; }
   .toni input { width: 18px; height: 18px; padding: 0; border: 1px solid var(--line); background: none; cursor: pointer; }
   .toni input::-webkit-color-swatch-wrapper { padding: 0; }

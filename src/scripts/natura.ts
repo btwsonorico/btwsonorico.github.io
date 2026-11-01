@@ -216,8 +216,9 @@ export interface OpzioniPalco {
   nebbia?: [number, number];
   aggiorna: (s: number, dt: number, p: Palco) => void;
   clic?: (raggio: THREE.Raycaster, p: Palco) => void;
-  // Nome della scena e i suoi tre toni chiave di partenza
-  scena: string; toni: THREE.ColorRepresentation[];
+  // Nome della scena e i suoi tre toni chiave di partenza. famiglie: false quando i toni non sono il verde,
+  // l'azzurro e l'arancio della scena (per esempio i colori delle colonie di formiche): allora il resto resta del sito
+  scena: string; toni: THREE.ColorRepresentation[]; famiglie?: boolean;
 }
 
 // Palco: renderer, camera e ciclo. Trascinando si gira la scena; quando è fuori schermo, nascosta o la scheda
@@ -233,10 +234,11 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
   scena.add(gruppo);
   const camera = new THREE.PerspectiveCamera(o.fov ?? 40, 1, 0.1, 80);
   const toni = toniSalvati(o.scena, o.toni);
-  attivi = toni;
+  const famiglie = o.famiglie !== false;
+  attivi = famiglie ? toni : null;
   const p: Palco = {
     scena, gruppo, camera, raggio: null, chiaro: tema(), ridotto, telefono, scalaPunti: 500,
-    colori: { ...T(), verde: toni[0]!, azzurro: toni[1]!, arancio: toni[2]! }, toni, distruggi: () => {},
+    colori: famiglie ? { ...T(), verde: toni[0]!, azzurro: toni[1]!, arancio: toni[2]! } : T(), toni, distruggi: () => {},
   };
 
   let inVista = true, vivo = true;
