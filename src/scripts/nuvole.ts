@@ -2,15 +2,14 @@ import * as THREE from 'three';
 import { casuale, mat, pezzo, sasso, linea, tono, terreno, puntiMorbidi, palco, SITO, type Palco } from './natura';
 
 // Una valle di colline vista da un drone, nello stile del sito: le colline sono curve di livello, fra le curve la
-// griglia di punti. Un fiume scende fra le colline, si allarga in un laghetto davanti al mulino ad acqua (la ruota
-// gira con la corrente) ed esce dall'altra parte; un ponticello di legno lo attraversa. Accanto al mulino un campo
-// di grano ondeggia col vento; sulle colline girano le pale eoliche, sui pendii boschetti e cespugli.
-// Un gregge di pecore minuscole pascola e si muove come una massa; un clic manda il cane in quel punto e il gregge
-// si sposta insieme, gira intorno a ostacoli, fiume e campo e passa sul ponte. Quando smetti, il pastore fischia e il
-// cane torna. Sopra passano nuvole fatte di migliaia di punti, con le ombre che scorrono sulle colline; il puntatore
-// le spinge piano via, poi tornano sulla loro strada. Il giorno gira: alba e tramonto lunghi, di notte la valle si
-// scurisce e si accendono le luci; abbassando lo sguardo verso l'orizzonte si vedono poche stelle, le costellazioni,
-// qualche stella cadente e la luna.
+// griglia di punti. Sulle colline girano le pale eoliche, sui pendii boschetti e cespugli, qua e là mucche al pascolo.
+// Un gregge di pecore minuscole pascola e si muove come una massa; il cane segue il puntatore sul prato e il gregge
+// scappa insieme, gira intorno agli ostacoli e si richiude. Quando il puntatore esce, il pastore fischia e il cane
+// torna da lui. Sopra passano nuvole fatte di migliaia di punti, a sbuffi, con le ombre che scorrono sulle colline.
+// Le nuvole sembrano vive: se il puntatore si avvicina piano sono curiose e si allungano verso di lui; se passa
+// veloce soffrono il solletico, si schiacciano, ridono con un'onda che le attraversa e scappano un po'.
+// Il giorno gira: alba e tramonto lunghi, di notte la valle si scurisce e lampeggiano le luci delle pale; abbassando
+// lo sguardo verso l'orizzonte si vedono poche stelle, le costellazioni, qualche stella cadente e la luna.
 
 const GIORNO = 'misc-giorno';
 const L = 8;
@@ -18,39 +17,18 @@ const L = 8;
 export function monta(el: HTMLElement) {
   const r = casuale(23);
   const p = palco(el, {
-    camera: new THREE.Vector3(0, 13.4, 11.2), mira: new THREE.Vector3(0, 0.4, 0.3), giro: 0.006, inclina: [-0.62, 0.3], nebbia: [1.0, 2.1], zoom: [0.3, 1.2], aggiorna, clic,
+    camera: new THREE.Vector3(0, 15.6, 13), mira: new THREE.Vector3(0, 0.4, 0.3), giro: 0.006, inclina: [-0.62, 0.3], nebbia: [1.0, 2.0], zoom: [0.3, 1.15], aggiorna,
     scena: 'nuvole', toni: SITO,
   });
   const g = p.gruppo, c = p.colori;
   const morbido = (da: number, a: number, k: number) => da + (a - da) * Math.min(1, k);
   const angolo = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 
-  // --- Fiume: una curva dolce dal bordo nord-ovest al laghetto del mulino, poi fuori verso sud-est
-  const LAGO = new THREE.Vector2(-0.6, 2.3);
-  const fiume = new THREE.CatmullRomCurve3([[-8.2, -3.8], [-6.2, -2.2], [-4.3, -1.6], [-2.6, -0.4], [-1.6, 1.0], [LAGO.x, LAGO.y], [0.6, 3.4], [2.4, 4.2], [4.4, 4.0], [6.2, 5.0], [8.4, 5.6]].map(([x, z]) => new THREE.Vector3(x, 0, z)));
-  const lungoFiume = fiume.getSpacedPoints(160);
-  // Distanza di un punto dal fiume (sul piano), cercata fra i punti della curva
-  const dalFiume = (x: number, z: number) => {
-    let d = 99;
-    for (let i = 0; i < lungoFiume.length; i += 2) { const q = lungoFiume[i]!; d = Math.min(d, (q.x - x) ** 2 + (q.z - z) ** 2); }
-    return Math.sqrt(d);
-  };
-  const rivaLago = (a: number) => 0.85 * (1 + 0.18 * Math.sin(a * 2 + 1) + 0.1 * Math.sin(a * 5 + 2));
-  const nelLago = (x: number, z: number, margine = 0) => {
-    const ex = (x - LAGO.x) / 1.25, ez = (z - LAGO.y) / 0.9;
-    return Math.hypot(ex, ez) < rivaLago(Math.atan2(ez, ex)) + margine;
-  };
-
-  // --- Colline: somma di colli dolci più un'ondulazione leggera; il fiume scava il suo letto
+  // --- Colline: somma di colli dolci più un'ondulazione leggera
   const COLLI = [[-4, -3.6, 1.9, 2.1], [3.3, -4, 2.2, 2.3], [5.2, 1.4, 1.5, 1.9], [-4.9, 3.6, 1.6, 2.0], [0.3, -6.4, 1.4, 2.0], [1.4, 6.4, 1.1, 1.6], [6.6, -1.6, 1.1, 1.6], [-7, 0.4, 1.2, 1.6]] as const;
-  const altezza = (x: number, z: number, conFiume = true) => {
+  const altezza = (x: number, z: number) => {
     let h = 0.08 * Math.sin(x * 0.9 + 1) * Math.cos(z * 0.75) + 0.04 * Math.sin(x * 2 - z * 1.6) + 0.15;
     for (const [cx, cz, alto, largo] of COLLI) h += alto * Math.exp(-((x - cx) ** 2 + (z - cz) ** 2) / (2 * largo * largo));
-    if (conFiume) {
-      const d = dalFiume(x, z);
-      h -= 0.22 * Math.exp(-(d * d) / 0.18) * Math.min(1, h / 0.3 + 0.3);
-      if (nelLago(x, z, 0.3)) h = Math.min(h, 0.12);
-    }
     return h;
   };
   terreno(g, c.verde, L + 0.5, altezza);
@@ -91,119 +69,8 @@ export function monta(el: HTMLElement) {
     return o;
   };
 
-  // --- Acqua: il fiume è un nastro azzurro con le due rive a filo; trattini chiari scorrono con la corrente
-  const azzurro = tono('#5fb6d9');
-  const LARGO_FIUME = 0.3;
-  const acquaY = (q: THREE.Vector3) => Math.max(0.1, altezza(q.x, q.z)) + 0.02;
-  {
-    const pos: number[] = [], A: THREE.Vector3[] = [], B: THREE.Vector3[] = [];
-    lungoFiume.forEach((q, i) => {
-      const t = fiume.getTangentAt(i / (lungoFiume.length - 1)), nx = -t.z, nz = t.x, y = acquaY(q);
-      A.push(new THREE.Vector3(q.x + nx * LARGO_FIUME / 2, y, q.z + nz * LARGO_FIUME / 2));
-      B.push(new THREE.Vector3(q.x - nx * LARGO_FIUME / 2, y, q.z - nz * LARGO_FIUME / 2));
-    });
-    // Il nastro: due triangoli per ogni tratto fra le due rive
-    for (let i = 0; i + 1 < A.length; i++) pos.push(...A[i]!.toArray(), ...B[i]!.toArray(), ...A[i + 1]!.toArray(), ...B[i]!.toArray(), ...B[i + 1]!.toArray(), ...A[i + 1]!.toArray());
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: azzurro, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide })));
-    // Le rive si interrompono dove entrano nel laghetto
-    const rivaA = A.filter(q => !nelLago(q.x, q.z)), rivaB = B.filter(q => !nelLago(q.x, q.z));
-    for (const riva of [rivaA, rivaB]) {
-      // Le rive si interrompono dove entrano nel laghetto: due pezzi per riva
-      let pezzoRiva: THREE.Vector3[] = [];
-      riva.forEach((q, i) => {
-        if (i && q.distanceTo(riva[i - 1]!) > 0.3) { g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pezzoRiva), linea('#5fb6d9', 0.85))); pezzoRiva = []; }
-        pezzoRiva.push(q);
-      });
-      g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pezzoRiva), linea('#5fb6d9', 0.85)));
-    }
-  }
-  // Laghetto davanti al mulino
-  const geoLago = new THREE.CircleGeometry(1, 40).rotateX(-Math.PI / 2);
-  const pl = geoLago.attributes.position as THREE.BufferAttribute, riva: THREE.Vector3[] = [];
-  for (let i = 1; i < pl.count; i++) {
-    const a = Math.atan2(-pl.getZ(i), pl.getX(i)), d = rivaLago(a);
-    pl.setXYZ(i, Math.cos(a) * d * 1.25, 0, -Math.sin(a) * d * 0.9);
-    riva.push(new THREE.Vector3(pl.getX(i), 0.002, pl.getZ(i)));
-  }
-  const lago = new THREE.Mesh(geoLago, new THREE.MeshBasicMaterial({ color: azzurro, transparent: true, opacity: 0.22, depthWrite: false }));
-  lago.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(riva), linea('#5fb6d9', 0.85)));
-  lago.position.set(LAGO.x, 0.13, LAGO.y);
-  g.add(lago);
-  // Trattini della corrente: corrono lungo il fiume e rallentano nel laghetto
-  const TRATTI = 60, tratti = Array.from({ length: TRATTI }, () => ({ t: r(), lato: (r() - 0.5) * 0.7, vel: 0.012 + r() * 0.008 }));
-  const posTratti = new Float32Array(TRATTI * 6), geoTratti = new THREE.BufferGeometry();
-  geoTratti.setAttribute('position', new THREE.BufferAttribute(posTratti, 3));
-  const segnoTratti = new THREE.LineSegments(geoTratti, new THREE.LineBasicMaterial({ color: azzurro.clone().lerp(c.fg, 0.5), transparent: true, opacity: 0.7 }));
-  segnoTratti.frustumCulled = false;
-  g.add(segnoTratti);
-
-  // --- Ponticello di legno sul fiume: assi e corrimano; il gregge lo usa per passare
-  const PONTE = 0.32, puntoPonte = fiume.getPointAt(PONTE), versoPonte = fiume.getTangentAt(PONTE);
-  const ponte = new THREE.Group(), legno = mat('#a07a50', { opacity: 0.5 });
-  ponte.add(pezzo(new THREE.BoxGeometry(0.7, 0.03, 0.26), legno, 0, 0.05, 0));
-  for (const z of [-0.12, 0.12]) ponte.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.35, 0.05, z), new THREE.Vector3(-0.3, 0.13, z), new THREE.Vector3(0.3, 0.13, z), new THREE.Vector3(0.35, 0.05, z)]), linea('#a07a50', 0.9)));
-  ponte.position.set(puntoPonte.x, acquaY(puntoPonte), puntoPonte.z);
-  ponte.rotation.y = -Math.atan2(versoPonte.x, versoPonte.z);
-  g.add(ponte);
-
-  // --- Mulino ad acqua sulla riva ovest del laghetto: casa in pietra, tetto a due falde, ruota a pale che gira
-  const mulino = new THREE.Group();
-  mulino.add(pezzo(new THREE.BoxGeometry(0.55, 0.42, 0.45), mat('#d8cfba'), 0, 0.21, 0));
-  mulino.add(pezzo(new THREE.CylinderGeometry(0.34, 0.34, 0.6, 3, 1).rotateX(Math.PI / 2).rotateZ(Math.PI / 2).scale(1, 0.55, 1), mat('#e08a3a'), 0, 0.5, 0));
-  const finestre = [[-0.12, 0.25], [0.12, 0.25]].map(([x, y]) => pezzo(new THREE.BoxGeometry(0.08, 0.1, 0.02), mat('#f2b62f', { opacity: 0.2 }), x!, y!, 0.23));
-  finestre.forEach(f => { f.renderOrder = 12; mulino.add(f); });
-  const ruota = new THREE.Group();
-  ruota.position.set(0.36, 0.22, 0);
-  const raggi: THREE.Vector3[] = [], cerchi2: THREE.Vector3[][] = [[], []];
-  for (let k = 0; k < 10; k++) {
-    const a = (k / 10) * Math.PI * 2, x = Math.cos(a) * 0.25, y = Math.sin(a) * 0.25;
-    raggi.push(new THREE.Vector3(0, 0, -0.06), new THREE.Vector3(x, y, -0.06), new THREE.Vector3(0, 0, 0.06), new THREE.Vector3(x, y, 0.06));
-    raggi.push(new THREE.Vector3(x, y, -0.07), new THREE.Vector3(x, y, 0.07), new THREE.Vector3(x * 1.2, y * 1.2, -0.07), new THREE.Vector3(x * 1.2, y * 1.2, 0.07), new THREE.Vector3(x, y, 0.07), new THREE.Vector3(x * 1.2, y * 1.2, 0.07));
-  }
-  for (let k = 0; k <= 32; k++) { const a = (k / 32) * Math.PI * 2; cerchi2[0]!.push(new THREE.Vector3(Math.cos(a) * 0.25, Math.sin(a) * 0.25, -0.06)); cerchi2[1]!.push(new THREE.Vector3(Math.cos(a) * 0.25, Math.sin(a) * 0.25, 0.06)); }
-  ruota.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(raggi), linea('#a07a50', 0.95)));
-  cerchi2.forEach(q => ruota.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(q), linea('#a07a50', 0.95))));
-  ruota.rotation.y = Math.PI / 2;
-  const perno = new THREE.Group();
-  perno.position.copy(ruota.position);
-  ruota.position.set(0, 0, 0);
-  perno.add(ruota);
-  mulino.add(perno);
-  mulino.scale.setScalar(1.3);
-  posa(mulino, LAGO.x - 1.6, LAGO.y + 0.15, 0.5);
-  mulino.position.y = Math.max(mulino.position.y, 0.14);
-
-  // --- Campo di grano accanto al mulino: tante spighe che si piegano a onde col vento
-  const CAMPO = { x: -2.9, z: 4.4, largo: 2.0, alto: 1.2, giro: 0.35 };
-  const nelCampo = (x: number, z: number, margine = 0) => {
-    const dx = x - CAMPO.x, dz = z - CAMPO.z, c2 = Math.cos(CAMPO.giro), s2 = Math.sin(CAMPO.giro);
-    const u = dx * c2 - dz * s2, v = dx * s2 + dz * c2;
-    return Math.abs(u) < CAMPO.largo / 2 + margine && Math.abs(v) < CAMPO.alto / 2 + margine;
-  };
-  const SPIGHE = p.telefono ? 700 : 1400, spighe: { x: number; z: number; y: number; h: number }[] = [];
-  for (let k = 0; k < SPIGHE; k++) {
-    const u = (r() - 0.5) * CAMPO.largo, v = (r() - 0.5) * CAMPO.alto, c2 = Math.cos(CAMPO.giro), s2 = Math.sin(CAMPO.giro);
-    const x = CAMPO.x + u * c2 + v * s2, z = CAMPO.z - u * s2 + v * c2;
-    spighe.push({ x, z, y: altezza(x, z), h: 0.1 + r() * 0.05 });
-  }
-  const posSpighe = new Float32Array(SPIGHE * 6), geoSpighe = new THREE.BufferGeometry();
-  geoSpighe.setAttribute('position', new THREE.BufferAttribute(posSpighe, 3));
-  const grano = new THREE.LineSegments(geoSpighe, linea('#e6c26a', 0.75));
-  grano.frustumCulled = false;
-  g.add(grano);
-  {
-    const c2 = Math.cos(CAMPO.giro), s2 = Math.sin(CAMPO.giro), bordo: THREE.Vector3[] = [];
-    for (const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1], [-1, -1]]) {
-      const uu = u! * CAMPO.largo / 2, vv = v! * CAMPO.alto / 2, x = CAMPO.x + uu * c2 + vv * s2, z = CAMPO.z - uu * s2 + vv * c2;
-      bordo.push(new THREE.Vector3(x, altezza(x, z) + 0.06, z));
-    }
-    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(bordo), linea('#a07a50', 0.7)));
-  }
-
   // --- Pale eoliche sulle colline: torre sottile, gondola, tre pale lunghe; di notte una luce rossa in cima
-  const eoliche = ([[3.3, -4], [5.2, 1.4], [-4.9, 3.6], [6.6, -1.6], [2.4, -5.3]] as const).map(([x, z], k) => {
+  const eoliche = ([[3.3, -4], [5.2, 1.4], [-4.9, 3.6], [6.6, -1.6], [2.4, -5.3], [-4, -3.6]] as const).map(([x, z], k) => {
     const o = new THREE.Group(), bianco = mat('#e8e6e0', { opacity: 0.25 });
     o.add(pezzo(new THREE.CylinderGeometry(0.02, 0.045, 1.4, 6), bianco, 0, 0.7, 0));
     o.add(pezzo(new THREE.BoxGeometry(0.12, 0.06, 0.06), bianco, 0, 1.42, 0));
@@ -231,12 +98,11 @@ export function monta(el: HTMLElement) {
   luciEoliche.punti.renderOrder = 12;
   g.add(luciEoliche.punti);
 
-  // --- Boschetti sui pendii e cespugli sparsi: il gregge ci gira intorno
+  // --- Boschetti sui pendii e cespugli sparsi: gregge e mucche ci girano intorno
   const chiome = [mat('#6fa646'), mat('#5f9c45'), mat('#4f8a3c')], tronco = mat('#7a5230');
-  ([[2.3, -1.6, 8], [-2.6, -3.0, 9], [5.6, -3.2, 6], [-3, -6, 6], [3.6, 2.6, 6], [-6.2, 2.2, 6], [4.4, 5.8, 5]] as const).forEach(([cx, cz, n]) => {
+  ([[2.3, -1.6, 8], [-2.6, -3.0, 9], [5.6, -3.2, 6], [-3, -6, 6], [3.6, 2.6, 6], [-6.2, 2.2, 6], [4.4, 5.8, 5], [-2.2, 4.6, 6]] as const).forEach(([cx, cz, n]) => {
     for (let k = 0; k < n; k++) {
       const a = r() * 6, d = Math.sqrt(r()) * 0.9, x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d, h = 0.26 + r() * 0.18;
-      if (dalFiume(x, z) < 0.4) continue;
       const o = new THREE.Group();
       o.add(pezzo(new THREE.CylinderGeometry(0.014, 0.022, h * 0.5, 4), tronco, 0, h * 0.25, 0));
       if (r() < 0.5) o.add(pezzo(new THREE.ConeGeometry(h * 0.33, h * 0.8, 6), chiome[k % 3]!, 0, h * 0.75, 0));
@@ -244,14 +110,13 @@ export function monta(el: HTMLElement) {
       posa(o, x, z, 0.14);
     }
   });
-  for (let k = 0; k < 30; k++) {
+  for (let k = 0; k < 34; k++) {
     const a = r() * 6, d = 1.5 + r() * 5.5, x = Math.cos(a) * d, z = Math.sin(a) * d, rr = 0.05 + r() * 0.06;
-    if (dalFiume(x, z) < 0.4 || nelCampo(x, z, 0.2) || nelLago(x, z, 0.3)) continue;
     posa(pezzo(sasso(rr, r), chiome[k % 3]!), x, z, rr + 0.04).scale.y = 0.7;
   }
 
-  // --- Pastore vicino al mulino; il fischio sono tre archi che si allargano
-  const PASTORE = new THREE.Vector2(-2.6, 1.9);
+  // --- Pastore su un poggio; il fischio sono tre archi che si allargano
+  const PASTORE = new THREE.Vector2(-1.6, 1.4);
   const pastore = new THREE.Group();
   pastore.add(pezzo(new THREE.CapsuleGeometry(0.04, 0.12, 3, 6), mat('#6f9c4a', { opacity: 0.5 }), 0, 0.1, 0));
   pastore.add(pezzo(new THREE.IcosahedronGeometry(0.035, 0), mat('#d8cfba'), 0, 0.23, 0));
@@ -264,69 +129,93 @@ export function monta(el: HTMLElement) {
     return l;
   });
 
+  // --- Mucche al pascolo: più grandi delle pecore, bianche a macchie scure; camminano piano e brucano a lungo
+  const mucche = Array.from({ length: 10 }, () => {
+    const o = new THREE.Group(), pelo = mat(p.chiaro ? '#fbf9f4' : '#f2efe8', { grezzo: true, opacity: p.chiaro ? 1 : 0.85, fili: 0 }), scuro = mat('#2a2622', { grezzo: true, opacity: 0.9, fili: 0 });
+    o.add(pezzo(new THREE.CapsuleGeometry(0.055, 0.13, 3, 6).rotateZ(Math.PI / 2), pelo, 0, 0.11, 0));
+    for (let q = 0; q < 3; q++) o.add(pezzo(new THREE.CircleGeometry(0.03 + r() * 0.02, 7).rotateX(-Math.PI / 2), scuro, (r() - 0.5) * 0.16, 0.168, (r() - 0.5) * 0.06));
+    const testa = pezzo(new THREE.BoxGeometry(0.06, 0.05, 0.05), scuro, 0.14, 0.12, 0);
+    o.add(testa);
+    const zampe: THREE.Vector3[] = [];
+    for (const [x, z] of [[-0.07, -0.035], [-0.07, 0.035], [0.07, -0.035], [0.07, 0.035]]) zampe.push(new THREE.Vector3(x!, 0.07, z!), new THREE.Vector3(x!, 0, z!));
+    o.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(zampe), linea('#5a5048', 0.9)));
+    g.add(o);
+    let x = 0, z = 0;
+    do { const a = r() * 6, d = 1.5 + r() * 5; x = Math.cos(a) * d; z = Math.sin(a) * d; } while (ostacoli.some(q => Math.hypot(x - q.x, z - q.z) < q.r + 0.3));
+    return { o, testa, x, z, verso: r() * 6, vel: 0, timer: r() * 8, cammina: false, fase: r() * 6 };
+  });
+
   // --- Gregge: tante pecore minuscole (corpo chiaro, testa scura), tutte in due forme sole
-  const PECORE = p.telefono ? 70 : 110;
-  const corpi = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 4).scale(0.075, 0.045, 0.05), mat(p.chiaro ? '#fbf9f4' : '#f2efe8', { grezzo: true, opacity: p.chiaro ? 1 : 0.9, fili: 0 }), PECORE);
-  const teste = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 5, 3).scale(0.03, 0.025, 0.025), mat('#3a332c', { grezzo: true, opacity: 0.9, fili: 0 }), PECORE);
+  const PECORE = p.telefono ? 110 : 180;
+  const corpi = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 4).scale(0.07, 0.042, 0.047), mat(p.chiaro ? '#fbf9f4' : '#f2efe8', { grezzo: true, opacity: p.chiaro ? 1 : 0.9, fili: 0 }), PECORE);
+  const teste = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 5, 3).scale(0.028, 0.023, 0.023), mat('#3a332c', { grezzo: true, opacity: 0.9, fili: 0 }), PECORE);
   corpi.frustumCulled = teste.frustumCulled = false;
   g.add(corpi, teste);
   type Pecora = { x: number; z: number; vx: number; vz: number; verso: number; calma: number; timer: number; voglia: number; testa: number; fase: number };
   const pecore: Pecora[] = Array.from({ length: PECORE }, () => {
-    const a = r() * 6, d = Math.sqrt(r()) * 1.1;
-    return { x: 1.6 + Math.cos(a) * d, z: 0.6 + Math.sin(a) * d * 0.8, vx: 0, vz: 0, verso: r() * 6, calma: 1, timer: r() * 6, voglia: 0, testa: 1, fase: r() * 6 };
+    const a = r() * 6, d = Math.sqrt(r()) * 1.3;
+    return { x: 1.4 + Math.cos(a) * d, z: 0.8 + Math.sin(a) * d * 0.8, vx: 0, vz: 0, verso: r() * 6, calma: 1, timer: r() * 6, voglia: 0, testa: 1, fase: r() * 6 };
   });
 
-  // --- Cane: piccolo e arancio, corre dove clicchi; dopo 8 secondi senza clic torna dal pastore
+  // --- Cane: piccolo e arancio, segue il puntatore sul prato; se il puntatore esce, il pastore lo richiama
   const cane = new THREE.Group();
   cane.add(pezzo(new THREE.CapsuleGeometry(0.03, 0.09, 2, 5).rotateZ(Math.PI / 2), mat('#e08a3a', { opacity: 0.8 }), 0, 0.05, 0));
   cane.add(pezzo(new THREE.IcosahedronGeometry(0.028, 0), mat('#e08a3a', { opacity: 0.8 }), 0.085, 0.075, 0));
   g.add(cane);
   const statoCane = { x: PASTORE.x + 0.3, z: PASTORE.y + 0.2, verso: 0, vel: 0, passo: 0 };
   const metaCane = new THREE.Vector2(statoCane.x, statoCane.z);
-  let ultimoClic = -99, fischio = -99, richiamato = true, ora = 0;
+  let ultimoPuntatore = -99, fischio = -99, richiamato = true;
   const punto = new THREE.Vector3();
-  // Il clic cade sul terreno: cerco il punto del raggio che tocca le colline, a piccoli passi
+  // Dove il raggio del puntatore tocca le colline: lo cerco a passi, prima larghi poi fini
   const sulTerreno = (raggio: THREE.Raycaster) => {
     const o = raggio.ray.origin, d = raggio.ray.direction;
-    for (let t = 0; t < 60; t += 0.04) {
+    for (let t = 0; t < 60; t += 0.25) {
       punto.copy(o).addScaledVector(d, t);
-      if (punto.y <= altezza(punto.x, punto.z)) return true;
+      if (punto.y <= altezza(punto.x, punto.z)) {
+        for (let k = t - 0.25; k <= t; k += 0.02) { punto.copy(o).addScaledVector(d, k); if (punto.y <= altezza(punto.x, punto.z)) return true; }
+        return true;
+      }
     }
     return false;
   };
-  function clic(raggio: THREE.Raycaster) {
-    if (!sulTerreno(raggio) || Math.hypot(punto.x, punto.z) > L - 1) return;
-    metaCane.set(punto.x, punto.z);
-    ultimoClic = ora;
-    richiamato = false;
-  }
 
-  // --- Nuvole: point cloud densa sopra la valle. Ogni nuvola resta intera: il puntatore la spinge piano via,
-  // poi lei torna sulla sua strada.
-  type Nuvola = { x: number; y: number; z: number; vel: number; da: number; n: number; largo: number; ox: number; oz: number; vx: number; vz: number };
+  // --- Nuvole: point cloud densa, a sbuffi grandi e piccoli (un cavolfiore), pancia piatta, bordi sfilacciati.
+  type Nuvola = {
+    x: number; y: number; z: number; vel: number; da: number; n: number; largo: number; ox: number; oz: number; vx: number; vz: number;
+    curiosa: number; solletico: number; risata: number; px: number; pz: number; prima: THREE.Vector2 | null;
+  };
   const nuvole: Nuvola[] = [];
-  const QUANTE = 6, PER = p.telefono ? 1200 : 2600, N = QUANTE * PER;
-  const base = new Float32Array(N * 3), posNuvole = new Float32Array(N * 3), colNuvole = new Float32Array(N * 3), luceNuvole = new Float32Array(N);
+  const QUANTE = 6, PER = p.telefono ? 1500 : 3200, N = QUANTE * PER;
+  const base = new Float32Array(N * 3), posNuvole = new Float32Array(N * 3), colNuvole = new Float32Array(N * 3), luceNuvole = new Float32Array(N), fasi = new Float32Array(N);
   for (let k = 0; k < QUANTE; k++) {
-    const largo = 1.4 + r() * 1.2;
-    const nv: Nuvola = { x: -11 + k * 3.8 + r() * 1.2, y: 4.2 + r() * 1.1, z: -3.5 + r() * 8, vel: 0.1 + r() * 0.08, da: k * PER, n: PER, largo, ox: 0, oz: 0, vx: 0, vz: 0 };
-    nuvole.push(nv);
-    const quante = 5 + Math.floor(r() * 3);
-    const sfere = Array.from({ length: quante }, (_, q) => {
-      const t = q / (quante - 1) - 0.5;
-      return { x: t * largo * 2 + (r() - 0.5) * 0.4, y: (0.5 - Math.abs(t)) * 0.5 * largo, z: (r() - 0.5) * largo * 0.6, raggio: (0.5 + (0.5 - Math.abs(t)) * 0.9) * (0.45 + largo * 0.3) };
-    });
-    const volume = sfere.reduce((a, s) => a + s.raggio ** 3, 0), pancia = -0.25 * (0.45 + largo * 0.3);
+    const largo = 1.3 + r() * 1.2;
+    nuvole.push({ x: -12 + k * 4.2 + r() * 1.2, y: 4.3 + r() * 1, z: -3.5 + r() * 8, vel: 0.1 + r() * 0.08, da: k * PER, n: PER, largo, ox: 0, oz: 0, vx: 0, vz: 0, curiosa: 0, solletico: 0, risata: 99, px: 0, pz: 0, prima: null });
+    const pancia = -0.2 * largo;
+    // Sbuffi: una fila di grandi lungo la nuvola, poi sbuffi più piccoli appoggiati sopra quelli grandi
+    const sfere: { x: number; y: number; z: number; raggio: number }[] = [];
+    const grandi = 4 + Math.floor(r() * 3);
+    for (let q = 0; q < grandi; q++) {
+      const t = q / (grandi - 1) - 0.5;
+      sfere.push({ x: t * largo * 1.9 + (r() - 0.5) * 0.3, y: (0.5 - Math.abs(t)) * 0.4 * largo, z: (r() - 0.5) * largo * 0.5, raggio: (0.45 + (0.5 - Math.abs(t)) * 0.8) * largo * 0.42 });
+    }
+    for (let q = 0; q < 9; q++) {
+      const m = sfere[Math.floor(r() * grandi)]!, a = r() * Math.PI * 2, su = 0.3 + r() * 0.6;
+      sfere.push({ x: m.x + Math.cos(a) * m.raggio * 0.7, y: m.y + su * m.raggio * 0.8, z: m.z + Math.sin(a) * m.raggio * 0.6, raggio: m.raggio * (0.35 + r() * 0.25) });
+    }
+    const volume = sfere.reduce((a, s) => a + s.raggio ** 3, 0);
     for (let i = 0; i < PER; i++) {
+      const j = k * PER + i;
       let u = r() * volume, s = sfere[0]!;
       for (const q of sfere) { u -= q.raggio ** 3; if (u <= 0) { s = q; break; } }
-      const a = r() * Math.PI * 2, v = Math.acos(2 * r() - 1), d = s.raggio * (0.55 + 0.45 * Math.cbrt(r()));
-      const x = s.x + Math.sin(v) * Math.cos(a) * d, z = s.z + Math.sin(v) * Math.sin(a) * d;
-      let y = s.y + Math.cos(v) * d * 0.7;
-      if (y < pancia) y = pancia - r() * 0.05;
-      const j = nv.da + i;
+      // Più fitti verso il bordo dello sbuffo; un punto su dodici esce un po' fuori: il bordo è sfilacciato
+      const a = r() * Math.PI * 2, v = Math.acos(2 * r() - 1), fuori = r() < 0.08 ? 1 + r() * 0.35 : 0.5 + 0.5 * Math.cbrt(r());
+      const d = s.raggio * fuori;
+      const x = s.x + Math.sin(v) * Math.cos(a) * d, z = s.z + Math.sin(v) * Math.sin(a) * d * 0.85;
+      let y = s.y + Math.cos(v) * d * 0.75;
+      if (y < pancia) y = pancia - r() * r() * 0.12;
       base.set([x, y, z], j * 3);
-      luceNuvole[j] = THREE.MathUtils.clamp((y - pancia) / (largo * 0.9), 0, 1);
+      luceNuvole[j] = THREE.MathUtils.clamp((y - pancia) / (largo * 0.8), 0, 1);
+      fasi[j] = r() * 6;
     }
   }
   const geoNuvole = new THREE.BufferGeometry();
@@ -339,7 +228,7 @@ export function monta(el: HTMLElement) {
   const ombre = Array.from({ length: QUANTE }, () => new THREE.Vector4());
   const geoOmbra = new THREE.PlaneGeometry(L * 2.2, L * 2.2, 70, 70).rotateX(-Math.PI / 2);
   const po = geoOmbra.attributes.position as THREE.BufferAttribute;
-  for (let i = 0; i < po.count; i++) po.setY(i, Math.max(0.14, altezza(po.getX(i), po.getZ(i))) + 0.03);
+  for (let i = 0; i < po.count; i++) po.setY(i, altezza(po.getX(i), po.getZ(i)) + 0.03);
   const matOmbra = new THREE.ShaderMaterial({
     uniforms: { ombre: { value: ombre }, colore: { value: p.chiaro ? new THREE.Color('#3a3530') : c.bg.clone() }, forza: { value: 0 } },
     transparent: true, depthWrite: false,
@@ -379,7 +268,7 @@ export function monta(el: HTMLElement) {
     o.add(fiamma);
     o.scale.setScalar(0.85);
     g.add(o);
-    const y = [3.2, 3.9, 2.8][k]!;
+    const y = [3.2, 3.8, 2.8][k]!;
     return { o, fiamma, cx: [-2.6, 3.2, 0.6][k]!, cz: [1.2, -1.4, -4][k]!, y, fase: k * 2.1, quota: y };
   });
 
@@ -446,7 +335,7 @@ export function monta(el: HTMLElement) {
   };
   let notteLuna = -1;
 
-  // --- Notte e tramonto: un velo davanti alla camera scurisce la valle (o la scalda); finestre, luci e cielo restano sopra
+  // --- Notte e tramonto: un velo davanti alla camera scurisce la valle (o la scalda); luci e cielo restano sopra
   p.scena.add(p.camera);
   const matVelo = new THREE.MeshBasicMaterial({ color: c.bg.clone(), transparent: true, opacity: 0, depthTest: false, depthWrite: false, fog: false });
   const velo = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), matVelo);
@@ -467,16 +356,13 @@ export function monta(el: HTMLElement) {
   let u = 0.05, notti = 0;
 
   // --- Ciclo
-  const tmp = new THREE.Vector3(), via = new THREE.Vector3(), dummy = new THREE.Object3D();
+  const tmp = new THREE.Vector3(), dummy = new THREE.Object3D(), piano = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   const nuvolaColore = new THREE.Color(), chiaroNuvola = new THREE.Color(), scuroNuvola = new THREE.Color();
   const biancoGiorno = new THREE.Color(p.chiaro ? '#fbf9f4' : '#e8e6e0'), ombraGiorno = new THREE.Color(p.chiaro ? '#b9b2a4' : '#8d8a84');
   const notteChiaro = new THREE.Color(p.chiaro ? '#8a90a0' : '#5b6476'), notteScuro = new THREE.Color(p.chiaro ? '#6a7080' : '#2e3442');
   const griglia = new Map<number, number[]>();
   const cella = (x: number, z: number) => Math.floor((x + L) / 0.5) * 100 + Math.floor((z + L) / 0.5);
-  // Acqua per le pecore: fiume e laghetto sono vietati, tranne sul ponte
-  const sulPonte = (x: number, z: number) => Math.hypot(x - puntoPonte.x, z - puntoPonte.z) < 0.4;
   function aggiorna(s: number, dt: number, p: Palco) {
-    ora = s;
     const prima = u;
     u = (u + dt / (minuti * 60)) % 1;
     if (u < prima) notti++;
@@ -514,52 +400,65 @@ export function monta(el: HTMLElement) {
       cadente.geometry.setFromPoints([scia.da.clone().addScaledVector(scia.dir, Math.max(0, scia.t * 9 - 3)), scia.da.clone().addScaledVector(scia.dir, scia.t * 9)]);
       matCadente.opacity = Math.sin(scia.t * Math.PI) * 0.8;
     }
-    // Ruota del mulino e pale eoliche; di notte finestre accese e luci rosse che lampeggiano in cima alle pale
-    ruota.rotation.z -= dt * 0.8;
-    eoliche.forEach(e => { e.rotore.rotation.z -= dt * e.vel; });
-    finestre.forEach(f => { (f.material as THREE.MeshBasicMaterial).opacity = 0.15 + buio * 0.75; });
-    eoliche.forEach((e, k) => { luciEoliche.alfa[k] = buio * (Math.sin(s * 2.2 + e.fase) > 0.3 ? 0.95 : 0.15); });
+    // Pale eoliche; di notte luci rosse che lampeggiano in cima
+    eoliche.forEach((e, k) => { e.rotore.rotation.z -= dt * e.vel; luciEoliche.alfa[k] = buio * (Math.sin(s * 2.2 + e.fase) > 0.3 ? 0.95 : 0.15); });
     luciEoliche.aggiorna();
-    // Fiume: i trattini corrono lungo la corrente
-    tratti.forEach((q, k) => {
-      const lento = nelLago(fiume.getPointAt(q.t).x, fiume.getPointAt(q.t).z) ? 0.35 : 1;
-      q.t = (q.t + q.vel * lento * dt) % 1;
-      const a = fiume.getPointAt(q.t), t = fiume.getTangentAt(q.t), lato = q.lato * LARGO_FIUME * (lento < 1 ? 3 : 1);
-      const x = a.x - t.z * lato, z = a.z + t.x * lato, y = Math.max(0.1, altezza(a.x, a.z)) + 0.035;
-      posTratti.set([x, y, z, x - t.x * 0.12, y, z - t.z * 0.12], k * 6);
-    });
-    geoTratti.attributes.position!.needsUpdate = true;
-    // Grano: onde di vento che attraversano il campo
-    spighe.forEach((q, k) => {
-      const onda = Math.sin(s * 1.6 - q.x * 2.2 - q.z * 1.4) * 0.5 + Math.sin(s * 0.7 + q.x) * 0.3;
-      posSpighe.set([q.x, q.y, q.z, q.x + onda * 0.035, q.y + q.h, q.z + onda * 0.02], k * 6);
-    });
-    geoSpighe.attributes.position!.needsUpdate = true;
 
-    // Nuvole: il colore segue l'ora; i punti ondeggiano piano; il puntatore spinge via tutta la nuvola, che poi torna
+    // Nuvole: il colore segue l'ora; dentro, i punti ondeggiano piano come vapore. Col puntatore si comportano come
+    // creature: curiose se ti avvicini piano (si allungano verso di te), solleticate se passi veloce (si schiacciano,
+    // un'onda le attraversa come una risata e scappano un po'); poi si calmano e tornano sulla loro strada.
     chiaroNuvola.copy(biancoGiorno).lerp(notteChiaro, buio).lerp(c.arancio, calore * 0.45);
     scuroNuvola.copy(ombraGiorno).lerp(notteScuro, buio).lerp(c.arancio, calore * 0.25);
     const raggio = p.raggio;
     nuvole.forEach((nv, q) => {
       nv.x += nv.vel * dt;
-      if (nv.x > 12) nv.x -= 24;
-      if (raggio) {
-        tmp.set(nv.x + nv.ox, nv.y, nv.z + nv.oz);
-        raggio.ray.closestPointToPoint(tmp, via);
-        const dx = tmp.x - via.x, dz = tmp.z - via.z, d = Math.hypot(dx, dz);
-        if (d < nv.largo * 1.1 && d > 1e-3) { const k = (1 - d / (nv.largo * 1.1)) * dt * 1.2; nv.vx += (dx / d) * k; nv.vz += (dz / d) * k; }
-      }
-      nv.vx += -nv.ox * dt * 0.15; nv.vz += -nv.oz * dt * 0.15;
-      nv.vx *= 1 - dt * 0.8; nv.vz *= 1 - dt * 0.8;
-      nv.ox += nv.vx * dt; nv.oz += nv.vz * dt;
+      if (nv.x > 12) { nv.x -= 24; nv.ox = nv.oz = nv.vx = nv.vz = 0; }
       const cx = nv.x + nv.ox, cz = nv.z + nv.oz;
-      ombre[q]!.set(cx + 0.8, cz + 0.6, nv.largo * 1.2, nv.largo * 0.75);
+      // Il puntatore all'altezza della nuvola, in coordinate della nuvola, e quanto veloce si muove
+      let vicino = 99, veloce = 0;
+      piano.constant = -nv.y;
+      if (raggio && raggio.ray.intersectPlane(piano, tmp)) {
+        nv.px = tmp.x - cx; nv.pz = tmp.z - cz;
+        vicino = Math.hypot(nv.px, nv.pz) / nv.largo;
+        if (nv.prima && dt > 0) veloce = Math.hypot(tmp.x - nv.prima.x, tmp.z - nv.prima.y) / dt;
+        (nv.prima ??= new THREE.Vector2()).set(tmp.x, tmp.z);
+      } else nv.prima = null;
+      const curiosa = vicino < 2.2 && veloce < 2.5 ? 1 - vicino / 2.2 : 0;
+      nv.curiosa = morbido(nv.curiosa, curiosa, dt * (curiosa > nv.curiosa ? 1.2 : 0.6));
+      if (vicino < 1.3 && veloce > 4 && nv.solletico < 0.4) {
+        nv.solletico = 1; nv.risata = 0;
+        const d = Math.hypot(nv.px, nv.pz) || 1;
+        nv.vx -= (nv.px / d) * 0.9; nv.vz -= (nv.pz / d) * 0.9;
+      }
+      nv.solletico = Math.max(0, nv.solletico - dt * 0.45);
+      nv.risata += dt;
+      nv.vx += -nv.ox * dt * 0.12; nv.vz += -nv.oz * dt * 0.12;
+      nv.vx *= 1 - dt * 0.7; nv.vz *= 1 - dt * 0.7;
+      nv.ox += nv.vx * dt; nv.oz += nv.vz * dt;
+      const x0 = nv.x + nv.ox, z0 = nv.z + nv.oz;
+      ombre[q]!.set(x0 + 0.8, z0 + 0.6, nv.largo * 1.2, nv.largo * 0.75);
       const respiro = 1 + Math.sin(s * 0.11 + nv.da) * 0.04;
+      const sq = nv.solletico, schiaccia = 1 - sq * 0.22, allarga = 1 + sq * 0.12;
+      const raggioRisata = nv.risata * 2.2, forzaRisata = Math.max(0, 1 - nv.risata / 2.5) * 0.22;
+      const portata = nv.largo * nv.largo * 0.8;
       for (let i = 0; i < nv.n; i++) {
-        const j = nv.da + i, k = j * 3, bx = base[k]!, by = base[k + 1]!, bz = base[k + 2]!;
-        posNuvole[k] = cx + bx * respiro + Math.sin(by * 1.5 + s * 0.2 + bz * 0.6) * 0.08;
-        posNuvole[k + 1] = nv.y + by * respiro + Math.sin(bx * 1.1 + s * 0.17) * 0.05;
-        posNuvole[k + 2] = cz + bz * respiro + Math.cos(bx * 1 + by * 1.3 + s * 0.19) * 0.08;
+        const j = nv.da + i, k = j * 3, f = fasi[j]!;
+        let bx = base[k]! * respiro * allarga, by = base[k + 1]! * respiro * schiaccia, bz = base[k + 2]! * respiro * allarga;
+        // Vapore: tre onde lente a scale diverse
+        bx += Math.sin(by * 1.5 + s * 0.2 + bz * 0.6) * 0.07 + Math.sin(s * 0.5 + f) * 0.015;
+        by += Math.sin(bx * 1.1 + s * 0.17) * 0.05 + Math.sin(s * 0.6 + f * 1.3) * 0.012;
+        bz += Math.cos(bx * 1 + by * 1.3 + s * 0.19) * 0.07;
+        // Curiosità: i punti vicini al puntatore si allungano verso di lui, come una mano
+        if (nv.curiosa > 0.01) {
+          const dx = nv.px - bx, dz = nv.pz - bz, d2 = dx * dx + dz * dz, presa = nv.curiosa * Math.exp(-d2 / portata) * 0.35;
+          bx += dx * presa; bz += dz * presa; by -= presa * 0.4;
+        }
+        // Risata: un'onda che parte dal centro e attraversa la nuvola
+        if (forzaRisata > 0) {
+          const d = Math.hypot(bx, bz), onda = Math.sin((d - raggioRisata) * 6) * Math.exp(-((d - raggioRisata) ** 2) * 2) * forzaRisata;
+          by += onda; bx += (bx / (d || 1)) * onda * 0.5; bz += (bz / (d || 1)) * onda * 0.5;
+        }
+        posNuvole[k] = x0 + bx; posNuvole[k + 1] = nv.y + by; posNuvole[k + 2] = z0 + bz;
         nuvolaColore.copy(scuroNuvola).lerp(chiaroNuvola, luceNuvole[j]!);
         colNuvole[k] = nuvolaColore.r; colNuvole[k + 1] = nuvolaColore.g; colNuvole[k + 2] = nuvolaColore.b;
       }
@@ -579,8 +478,9 @@ export function monta(el: HTMLElement) {
       fm.opacity = morbido(fm.opacity, m.quota - prima2 > 0.0003 ? 0.9 : 0, dt * 4);
     });
 
-    // Cane: corre dove hai cliccato; dopo 8 secondi senza clic il pastore fischia e il cane torna
-    if (!richiamato && s - ultimoClic > 8) { richiamato = true; fischio = s; metaCane.set(PASTORE.x + 0.3, PASTORE.y + 0.2); }
+    // Cane: segue il puntatore sul prato; 3 secondi dopo che il puntatore è uscito, il pastore fischia e il cane torna
+    if (raggio && sulTerreno(raggio) && Math.hypot(punto.x, punto.z) < L - 0.8) { metaCane.set(punto.x, punto.z); ultimoPuntatore = s; richiamato = false; }
+    if (!richiamato && s - ultimoPuntatore > 3) { richiamato = true; fischio = s; metaCane.set(PASTORE.x + 0.3, PASTORE.y + 0.2); }
     fischi.forEach((l, k) => {
       const t = s - fischio - k * 0.25;
       (l.material as THREE.LineBasicMaterial).opacity = t > 0 && t < 1.2 ? (1 - t / 1.2) * 0.8 : 0;
@@ -589,16 +489,30 @@ export function monta(el: HTMLElement) {
     });
     {
       const k = statoCane, dx = metaCane.x - k.x, dz = metaCane.y - k.z, d = Math.hypot(dx, dz);
-      k.vel = morbido(k.vel, d < 0.08 ? 0 : Math.min(2, 0.3 + d * 1.5), dt * 3);
-      if (d > 0.05) k.verso += angolo(Math.atan2(-dz, dx) - k.verso) * Math.min(1, dt * 6);
+      k.vel = morbido(k.vel, d < 0.06 ? 0 : Math.min(2.4, 0.2 + d * 2), dt * 4);
+      if (d > 0.04) k.verso += angolo(Math.atan2(-dz, dx) - k.verso) * Math.min(1, dt * 7);
       k.x += Math.cos(k.verso) * k.vel * dt; k.z -= Math.sin(k.verso) * k.vel * dt;
       k.passo += k.vel * dt;
-      cane.position.set(k.x, Math.max(0.14, altezza(k.x, k.z)) + Math.abs(Math.sin(k.passo * 25)) * 0.012, k.z);
+      cane.position.set(k.x, altezza(k.x, k.z) + Math.abs(Math.sin(k.passo * 25)) * 0.012, k.z);
       cane.rotation.y = k.verso;
     }
+    // Mucche: brucano a lungo, poi fanno qualche passo lento; si spostano con calma se il cane è vicino
+    mucche.forEach(m => {
+      const dc = Math.hypot(m.x - statoCane.x, m.z - statoCane.z);
+      m.timer -= dt;
+      if (m.timer <= 0) { m.cammina = !m.cammina; m.timer = m.cammina ? 2 + r() * 3 : 6 + r() * 12; if (m.cammina) m.verso += (r() - 0.5) * 1.6; }
+      let voluta = m.cammina ? 0.06 : 0;
+      if (dc < 0.9) { voluta = 0.25; m.verso += angolo(Math.atan2(-(m.z - statoCane.z), m.x - statoCane.x) - m.verso) * Math.min(1, dt * 2); }
+      m.vel = morbido(m.vel, voluta, dt * 1.5);
+      const nx = m.x + Math.cos(m.verso) * m.vel * dt, nz = m.z - Math.sin(m.verso) * m.vel * dt;
+      if (Math.hypot(nx, nz) > L - 1.6 || ostacoli.some(o => Math.hypot(nx - o.x, nz - o.z) < o.r + 0.12)) m.verso += dt * 2; else { m.x = nx; m.z = nz; }
+      m.o.position.set(m.x, altezza(m.x, m.z), m.z);
+      m.o.rotation.y = m.verso;
+      m.testa.position.y = m.vel < 0.02 ? 0.06 + Math.abs(Math.sin(s * 1.5 + m.fase)) * 0.01 : 0.12;
+    });
 
     // Gregge: ogni pecora si tiene a distanza dalle vicine, resta col gruppo, scappa dal cane; quando è calma bruca
-    // e fa due passi. Acqua e campo sono vietati (sul ponte si passa); il gregge ci gira intorno come una massa.
+    // e fa due passi. Chi scappa trascina le vicine: il gregge si muove come una massa e gira intorno agli ostacoli.
     griglia.clear();
     pecore.forEach((q, i) => { const k = cella(q.x, q.z); (griglia.get(k) ?? griglia.set(k, []).get(k)!).push(i); });
     pecore.forEach((q, i) => {
@@ -607,13 +521,13 @@ export function monta(el: HTMLElement) {
       for (const k of [k0, k0 + 1, k0 - 1, k0 + 100, k0 - 100, k0 + 101, k0 - 101, k0 + 99, k0 - 99]) for (const j of griglia.get(k) ?? []) {
         if (j === i) continue;
         const o = pecore[j]!, dx = q.x - o.x, dz = q.z - o.z, d = Math.hypot(dx, dz);
-        if (d > 0.8 || d < 1e-4) continue;
+        if (d > 0.7 || d < 1e-4) continue;
         n++; mx += o.vx; mz += o.vz; cx += o.x; cz += o.z;
-        if (d < 0.16) { ax += (dx / d) * (0.16 - d) * 22; az += (dz / d) * (0.16 - d) * 22; }
-        paura = Math.max(paura, (1 - o.calma) * (1 - d / 0.8));
+        if (d < 0.15) { ax += (dx / d) * (0.15 - d) * 22; az += (dz / d) * (0.15 - d) * 22; }
+        paura = Math.max(paura, (1 - o.calma) * (1 - d / 0.7));
       }
       const dc = Math.hypot(q.x - statoCane.x, q.z - statoCane.z) || 1e-3;
-      if (dc < 2) { ax += ((q.x - statoCane.x) / dc) * (2 - dc) * 2.8; az += ((q.z - statoCane.z) / dc) * (2 - dc) * 2.8; paura = Math.max(paura, 1 - dc / 2); }
+      if (dc < 1.8) { ax += ((q.x - statoCane.x) / dc) * (1.8 - dc) * 3; az += ((q.z - statoCane.z) / dc) * (1.8 - dc) * 3; paura = Math.max(paura, 1 - dc / 1.8); }
       q.calma = morbido(q.calma, 1 - Math.min(1, paura * 1.6), dt * (paura > 1 - q.calma ? 4 : 0.35));
       const agitata = 1 - q.calma;
       if (n) {
@@ -626,13 +540,13 @@ export function monta(el: HTMLElement) {
       if (q.timer <= 0) { q.voglia = q.voglia ? 0 : 1; q.timer = q.voglia ? 1 + r() * 2 : 4 + r() * 9; if (q.voglia) q.verso += (r() - 0.5) * 2; }
       if (q.voglia && agitata < 0.3) { ax += Math.cos(q.verso) * 0.5; az -= Math.sin(q.verso) * 0.5; }
       for (const o of ostacoli) {
-        const dx = q.x - o.x, dz = q.z - o.z, d = Math.hypot(dx, dz), raggio2 = o.r + 0.07;
-        if (d < raggio2 && d > 1e-4) { ax += (dx / d) * (raggio2 - d) * 30; az += (dz / d) * (raggio2 - d) * 30; }
+        const dx = q.x - o.x, dz = q.z - o.z, d = Math.hypot(dx, dz), giro = o.r + 0.07;
+        if (d < giro && d > 1e-4) { ax += (dx / d) * (giro - d) * 30; az += (dz / d) * (giro - d) * 30; }
       }
-      // Fiume, laghetto e campo: spinta verso fuori, guardando un passo avanti
-      const avanti = 0.12, fx = q.x + Math.cos(q.verso) * avanti, fz = q.z - Math.sin(q.verso) * avanti;
-      if (!sulPonte(fx, fz) && (dalFiume(fx, fz) < LARGO_FIUME * 0.9 || nelLago(fx, fz, 0.1))) { ax -= Math.cos(q.verso) * 6; az += Math.sin(q.verso) * 6; }
-      if (nelCampo(fx, fz, 0.05)) { const dx = q.x - CAMPO.x, dz = q.z - CAMPO.z, d = Math.hypot(dx, dz) || 1; ax += (dx / d) * 5; az += (dz / d) * 5; }
+      for (const m of mucche) {
+        const dx = q.x - m.x, dz = q.z - m.z, d = Math.hypot(dx, dz);
+        if (d < 0.2 && d > 1e-4) { ax += (dx / d) * (0.2 - d) * 30; az += (dz / d) * (0.2 - d) * 30; }
+      }
       const dr = Math.hypot(q.x, q.z);
       if (dr > L - 1.8) { ax -= (q.x / dr) * (dr - L + 1.8) * 4; az -= (q.z / dr) * (dr - L + 1.8) * 4; }
       q.vx += ax * dt; q.vz += az * dt;
@@ -643,14 +557,14 @@ export function monta(el: HTMLElement) {
       q.x += q.vx * dt; q.z += q.vz * dt;
       if (v > 0.03) q.verso += angolo(Math.atan2(-q.vz, q.vx) - q.verso) * Math.min(1, dt * 4);
       q.testa = morbido(q.testa, v < 0.04 ? 1 : 0, dt * 2);
-      const y = sulPonte(q.x, q.z) && dalFiume(q.x, q.z) < LARGO_FIUME ? ponte.position.y + 0.04 : altezza(q.x, q.z), passo = v > 0.03 ? Math.abs(Math.sin(s * 14 + q.fase)) * 0.01 : 0;
-      dummy.position.set(q.x, y + 0.045 + passo, q.z);
+      const y = altezza(q.x, q.z), passo = v > 0.03 ? Math.abs(Math.sin(s * 14 + q.fase)) * 0.01 : 0;
+      dummy.position.set(q.x, y + 0.042 + passo, q.z);
       dummy.rotation.set(0, q.verso, 0);
       dummy.scale.setScalar(1);
       dummy.updateMatrix();
       corpi.setMatrixAt(i, dummy.matrix);
       const giu = q.testa * (0.025 + Math.abs(Math.sin(s * 3 + q.fase)) * 0.008);
-      dummy.position.set(q.x + Math.cos(q.verso) * 0.085, y + 0.06 - giu, q.z - Math.sin(q.verso) * 0.085);
+      dummy.position.set(q.x + Math.cos(q.verso) * 0.08, y + 0.056 - giu, q.z - Math.sin(q.verso) * 0.08);
       dummy.updateMatrix();
       teste.setMatrixAt(i, dummy.matrix);
     });
