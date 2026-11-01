@@ -6,7 +6,7 @@ import { famigliaCervi } from './cervi';
 // A terra, su un prato verde: un piccolo bosco (Software) e uno stagno con i pesci (Advisory).
 // Sopra, Knowledge: un grande stormo di uccelli arancioni che gira sul diorama, di giorno e di notte.
 // Le tre sezioni hanno lo stesso peso; un anello pulsa sotto ognuna e un clic la apre.
-// Sul prato cammina una famiglia di cervi. Di notte: luna con il riflesso nello stagno e lucciole nel bosco.
+// Sul prato cammina una famiglia di cervi. Di notte: lucciole nel bosco.
 // Di giorno: nuvole. Il cielo resta fermo dietro al diorama, che ruota piano.
 
 function casuale(seme: number) {
@@ -193,25 +193,8 @@ export function monta(el: HTMLElement) {
   const cielo = new THREE.Group();
   gruppo.add(cielo);
   const RAGGIO = 7;
-  let riflesso: THREE.Group | null = null;
   const nuvole: { g: THREE.Group; vel: number }[] = [];
-  if (!chiaro) {
-    // Notte: una luna sottile dietro al diorama, con il suo riflesso che trema nello stagno
-    const luna = new THREE.Group();
-    const arco = (raggio: number, cx: number, da: number, a: number) => curva(Array.from({ length: 24 }, (_, i) => {
-      const t = da + (i / 23) * (a - da);
-      return new THREE.Vector3(cx + Math.cos(t) * raggio, Math.sin(t) * raggio, 0);
-    }), linea(c.fg, 0.8));
-    luna.add(arco(0.36, 0, -Math.PI / 2, Math.PI / 2), arco(0.3, -0.12, -1.2, 1.2));
-    luna.position.copy(volta(5.6, 0.3, RAGGIO * 0.95));
-    cielo.add(luna);
-    riflesso = new THREE.Group();
-    const trattini: number[] = [];
-    for (let k = 0; k < 9; k++) { const z = 0.5 - k * 0.11, l = 0.05 + (1 - Math.abs(k - 4) / 4) * 0.12; trattini.push(-l, 0, z, l, 0, z); }
-    riflesso.add(segmenti(trattini, linea(c.fg, 0.55)));
-    riflesso.position.set(STAGNO.x, 0.01, STAGNO.y);
-    gruppo.add(riflesso);
-  } else {
+  if (chiaro) {
     // Giorno: nuvole a grappoli di palle a fili, bianche e piene appena, che attraversano piano il cielo
     for (let k = 0; k < 4; k++) {
       const g = new THREE.Group();
@@ -368,11 +351,6 @@ export function monta(el: HTMLElement) {
         });
         pos.needsUpdate = true;
         col.needsUpdate = true;
-      }
-      // Riflesso della luna: sempre verso chi guarda, con i trattini che tremano
-      if (riflesso) {
-        riflesso.rotation.y = -gruppo.rotation.y;
-        riflesso.scale.x = 1 + Math.sin(s * 3) * 0.15;
       }
       alberi.forEach((a, k) => { a.rotation.z = Math.sin(s * 1.1 + k) * 0.02; });
       for (const sezione of ['software', 'advisory', 'knowledge']) accendi(materiali[sezione]!, acceso(sezione, `sezione:${sezione}`));
