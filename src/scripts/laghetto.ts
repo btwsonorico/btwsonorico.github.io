@@ -264,7 +264,9 @@ export function monta(el: HTMLElement) {
       return {
         a, ...p, alone, pos, vel: new THREE.Vector3(),
         posto: new THREE.Vector3((r() - 0.5) * 0.35, 0, -0.1 - r() * 0.3),
-        fase: r() * 10, profondo: 0.1 + r() * 0.25, colpo: 0,
+        fase: r() * 10, profondo: 0.1 + r() * 0.25,
+        // muso: direzione in cui guarda, che gira piano; slancio: spinta breve della coda; paura: dopo un sasso vicino
+        muso: new THREE.Vector3(0, 0, 1), rollio: 0, slancio: 0, prossimoSlancio: r() * 4000, paura: 0, fuga: new THREE.Vector3(),
       };
     });
     // Rotta del capofila: somma di onde lente con frequenze diverse per branco, dentro un cerchio sicuro
@@ -300,6 +302,86 @@ export function monta(el: HTMLElement) {
     return out.set(Math.cos(a) * d, 0.35 + r() * 0.35, Math.sin(a) * d);
   };
   libellule.forEach(l => { puntoInAria(l.a); l.corpo.position.copy(l.a); });
+  // Sasso: un clic sull'acqua, lontano dai pesci, lancia un sasso. Cade e fa "pluf": una colonna d'acqua
+  // sale e ricade, le gocce schizzano a corona, tre cerchi si allargano. I pesci vicini scappano e vanno a fondo.
+  const CADUTA = 420, GRAVITA = 5.5;
+  type Tonfo = {
+    punto: THREE.Vector3; nato: number; toccato: boolean; oggetti: THREE.Object3D[];
+    sasso: THREE.LineSegments; gocce: THREE.Points; velGocce: number[]; colonna: THREE.Group; anelli: THREE.LineLoop[];
+  };
+  const tonfi: Tonfo[] = [];
+  function lancia(punto: THREE.Vector3, t: number) {
+    const sasso = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(0.06, 0)), linea(c.fg, 0.9));
+    const gocce = nuvola(Array.from({ length: 18 * 3 }, () => 0), c.accent, 0.045, 0);
+    const colonna = new THREE.Group();
+    for (const dx of [-0.02, 0, 0.02]) colonna.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(dx, 0, 0), new THREE.Vector3(dx * 0.4, 1, 0)]), linea(c.accent, 0)));
+    colonna.position.copy(punto).setY(0);
+    colonna.scale.y = 0.001;
+    const anelli = [0, 1, 2].map(() => { const o = anello(cerchio(1, 40), linea(c.accent, 0)); o.position.copy(punto).setY(0.01); return o; });
+    // Gocce: partono dal punto d'impatto, in cerchio, verso l'alto e verso fuori
+    const velGocce = Array.from({ length: 18 }, (_, k) => {
+      const a = (k / 18) * Math.PI * 2 + r() * 0.3, v = 0.45 + r() * 0.5;
+      return [Math.cos(a) * v, 1.1 + r() * 0.9, Math.sin(a) * v];
+    }).flat();
+    const oggetti = [sasso, gocce, colonna, ...anelli];
+    gruppo.add(...oggetti);
+    tonfi.push({ punto, nato: t, toccato: false, oggetti, sasso, gocce, velGocce, colonna, anelli });
+  }
+  function aggiornaTonfi(t: number) {
+    for (let k = tonfi.length - 1; k >= 0; k--) {
+      const f = tonfi[k]!, u = t - f.nato;
+      // Il sasso cade accelerando, poi affonda e sparisce
+      if (u < CADUTA) f.sasso.position.copy(f.punto).setY(1.8 * (1 - (u / CADUTA) ** 2));
+      else {
+        const v = (u - CADUTA) / 700;
+        f.sasso.position.copy(f.punto).setY(-v * 0.4);
+        (f.sasso.material as THREE.LineBasicMaterial).opacity = Math.max(0, 0.9 - v);
+      }
+      f.sasso.rotation.set(u * 0.006, u * 0.004, 0);
+      if (!f.toccato && u >= CADUTA) {
+        f.toccato = true;
+        // I pesci entro 1.5 dal tonfo si spaventano: più sono vicini, più scappano
+        branchi.forEach(b => b.pesci.forEach(p => {
+          lontano.copy(p.pos).sub(f.punto).setY(0);
+          const d = lontano.length();
+          if (d > 1.5) return;
+          if (d < 1e-3) lontano.set(r() - 0.5, 0, r() - 0.5);
+          p.fuga.copy(lontano.normalize());
+          p.paura = Math.max(p.paura, Math.min(1, 1.3 - d / 1.5));
+        }));
+      }
+      if (u >= CADUTA) {
+        const s = (u - CADUTA) / 1000;
+        // Gocce: moto a parabola; restano a pelo d'acqua e svaniscono
+        const pos = f.gocce.geometry.getAttribute('position') as THREE.BufferAttribute;
+        for (let g = 0; g < 18; g++) {
+          const vx = f.velGocce[g * 3]!, vy = f.velGocce[g * 3 + 1]!, vz = f.velGocce[g * 3 + 2]!;
+          pos.setXYZ(g, f.punto.x + vx * s, Math.max(-0.05, vy * s - GRAVITA * s * s / 2), f.punto.z + vz * s);
+        }
+        pos.needsUpdate = true;
+        (f.gocce.material as THREE.PointsMaterial).opacity = s < 0.5 ? 0.9 : Math.max(0, 0.9 - (s - 0.5) * 3);
+        // Colonna d'acqua: sale poco dopo l'impatto e ricade
+        const c2 = THREE.MathUtils.clamp((u - CADUTA - 120) / 700, 0, 1);
+        f.colonna.scale.y = Math.max(0.001, Math.sin(c2 * Math.PI) * 0.45);
+        f.colonna.children.forEach(l => { ((l as THREE.Line).material as THREE.LineBasicMaterial).opacity = c2 > 0 && c2 < 1 ? 0.8 : 0; });
+        // Tre cerchi, uno dopo l'altro
+        f.anelli.forEach((o, i) => {
+          const a = (u - CADUTA - i * 220) / 1800;
+          (o.material as THREE.LineBasicMaterial).opacity = a > 0 && a < 1 ? (1 - a) * 0.75 : 0;
+          o.scale.setScalar(0.05 + Math.max(0, a) * 0.75);
+        });
+      }
+      if (u > CADUTA + 2600) {
+        f.oggetti.forEach(o => {
+          gruppo.remove(o);
+          o.traverse(x => { const m = x as THREE.Line; m.geometry?.dispose(); (m.material as THREE.Material | undefined)?.dispose(); });
+        });
+        tonfi.splice(k, 1);
+      }
+    }
+  }
+  const inversa = new THREE.Matrix4(), piano = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), colpito = new THREE.Vector3();
+
   const avanti = new THREE.Vector3(), vuole = new THREE.Vector3(), lontano = new THREE.Vector3(), mira = new THREE.Vector3(), dopo = new THREE.Vector3();
   let prima = -1;
 
@@ -308,6 +390,16 @@ export function monta(el: HTMLElement) {
     camera: new THREE.Vector3(0, 4.6, 7.4),
     mira: new THREE.Vector3(0, -0.3, 0),
     inclinazione: [0.08, 0.45],
+    // Clic sull'acqua: il raggio dalla camera tocca il piano dell'acqua dentro la riva, e lì cade il sasso
+    clicVuoto: raggio => {
+      // prima === 0: movimento ridotto, niente sasso
+      if (prima === 0 || tonfi.length > 4) return;
+      gruppo.updateMatrixWorld();
+      const raggioLocale = raggio.ray.clone().applyMatrix4(inversa.copy(gruppo.matrixWorld).invert());
+      if (!raggioLocale.intersectPlane(piano, colpito)) return;
+      if (Math.hypot(colpito.x, colpito.z) > raggioRiva(Math.atan2(colpito.z, colpito.x)) - 0.12) return;
+      lancia(colpito.clone(), performance.now());
+    },
     aggiorna: (t, acceso) => {
       // Passo di tempo in secondi, limitato: se la scheda torna visibile i pesci non saltano
       const dt = prima < 0 || t === 0 ? 0 : Math.min(0.05, (t - prima) / 1000);
@@ -326,6 +418,7 @@ export function monta(el: HTMLElement) {
         l.ali.scale.x = 0.6 + Math.abs(Math.sin(t * 0.09)) * 0.4;
       });
 
+      aggiornaTonfi(t);
       // Un cerchio d'acqua ogni 3-6 secondi, mai con prefers-reduced-motion
       if (t > 0 && t > prossimaOnda) {
         const o = onde[quale++ % onde.length]!;
@@ -353,10 +446,10 @@ export function monta(el: HTMLElement) {
         // Base del capofila per mettere i pesci "dietro" e "di lato" rispetto alla rotta
         const destra = new THREE.Vector3(b.rotta.z, 0, -b.rotta.x);
         b.pesci.forEach((p, n) => {
-          // 1) Raggiungere il proprio posto nel branco, a una profondità che cambia piano
+          // 1) Raggiungere il proprio posto nel branco, a una profondità che cambia piano; con la paura va più a fondo
           mira.copy(b.capo).addScaledVector(destra, p.posto.x).addScaledVector(b.rotta, p.posto.z);
-          mira.y = -p.profondo - Math.sin(t * 0.0006 + p.fase) * 0.08;
-          vuole.copy(mira).sub(p.pos).multiplyScalar(2.2);
+          mira.y = -p.profondo - Math.sin(t * 0.0006 + p.fase) * 0.08 - p.paura * 0.2;
+          vuole.copy(mira).sub(p.pos).multiplyScalar(1.5);
           // 2) Non urtarsi con gli altri del branco
           b.pesci.forEach((q, m) => {
             if (m === n) return;
@@ -364,25 +457,38 @@ export function monta(el: HTMLElement) {
             const d = lontano.length();
             if (d < 0.12 && d > 1e-4) vuole.addScaledVector(lontano, (0.12 - d) * 25 / d);
           });
-          // 3) Andare nella direzione del branco, con un guizzo ogni tanto
+          // 3) Andare nella direzione del branco. Il nuoto è a scatti, come nei pesci veri:
+          // una spinta breve della coda ogni 2-5 secondi, poi il pesce scivola
           vuole.addScaledVector(b.rotta, 0.4);
-          if (Math.sin(t * 0.0013 + p.fase * 7) > 0.995) p.colpo = 1;
-          p.colpo = Math.max(0, p.colpo - dt * 1.5);
-          p.vel.lerp(vuole, Math.min(1, dt * 2.5));
-          const max = b.sp.velocita * (1 + p.colpo * 0.8);
+          if (t > p.prossimoSlancio) { p.slancio = 1; p.prossimoSlancio = t + 2000 + r() * 3000; }
+          p.slancio = Math.max(0, p.slancio - dt * 1.6);
+          vuole.addScaledVector(p.muso, p.slancio * 0.45);
+          // 4) Paura: scappa lontano dal sasso, poi si calma piano
+          if (p.paura > 0) { vuole.addScaledVector(p.fuga, 3 * p.paura); p.paura = Math.max(0, p.paura - dt * 0.4); }
+          p.vel.lerp(vuole, Math.min(1, dt * (1.6 + p.paura * 4)));
+          const max = b.sp.velocita * (1 + p.slancio * 0.5 + p.paura * 2.5);
           if (p.vel.length() > max) p.vel.setLength(max);
           p.pos.addScaledVector(p.vel, dt);
+          // Dentro la riva anche quando scappa
+          const ap = Math.atan2(p.pos.z, p.pos.x), dp = Math.hypot(p.pos.x, p.pos.z), dmax = raggioRiva(ap) - 0.3;
+          if (dp > dmax) { p.pos.x *= dmax / dp; p.pos.z *= dmax / dp; }
           p.corpo.position.copy(p.pos);
           p.alone.position.set(p.pos.x, 0.005, p.pos.z);
-          // Orientamento: il muso segue la velocità, con un po' di inclinazione in curva
+          // Orientamento: il muso gira piano verso la direzione di nuoto, e il pesce si inclina in curva
+          let giro = 0;
           if (p.vel.lengthSq() > 1e-5) {
             avanti.copy(p.vel).normalize();
-            p.corpo.lookAt(gruppo.localToWorld(dopo.copy(p.pos).add(avanti)));
+            giro = p.muso.x * avanti.z - p.muso.z * avanti.x;
+            p.muso.lerp(avanti, Math.min(1, dt * (2.5 + p.paura * 6))).normalize();
           }
-          // La coda batte più forte quando il pesce va veloce
+          p.rollio += (THREE.MathUtils.clamp(giro * 6, -0.45, 0.45) - p.rollio) * Math.min(1, dt * 3);
+          p.corpo.lookAt(gruppo.localToWorld(dopo.copy(p.pos).add(p.muso)));
+          p.corpo.rotateZ(p.rollio);
+          // Coda e corpo ondeggiano insieme: più forte durante lo slancio e la fuga, appena durante la scivolata
           const velocita = p.vel.length();
-          p.fase += dt * (6 + velocita * 18);
-          p.coda.rotation.y = Math.sin(p.fase) * (0.35 + velocita * 0.4);
+          p.fase += dt * (4 + velocita * 12 + p.slancio * 8 + p.paura * 12);
+          p.corpo.rotateY(Math.sin(p.fase + 1.3) * (0.04 + p.slancio * 0.05 + p.paura * 0.05));
+          p.coda.rotation.y = Math.sin(p.fase) * (0.25 + velocita * 0.35 + p.slancio * 0.25);
           // Più in profondità, più tenue: l'acqua dà profondità alla scena
           const l = acceso(b.k.id, `area:${p.a.id}`);
           const s = l === 1 ? 1.8 : lb === 1 ? 1.3 : 1;

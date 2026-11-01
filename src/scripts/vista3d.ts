@@ -23,6 +23,8 @@ interface Opzioni {
   inclinazione: [number, number];
   // Chiamata a ogni fotogramma: muove gli oggetti e li accende o spegne
   aggiorna: (t: number, acceso: (famiglia: string, id: string) => number) => void;
+  // Clic che non prende nessun punto (per esempio un sasso lanciato nello stagno): riceve il raggio dalla camera
+  clicVuoto?: (raggio: THREE.Raycaster) => void;
 }
 
 const css = (el: HTMLElement, nome: string) => new THREE.Color(getComputedStyle(el).getPropertyValue(nome).trim());
@@ -57,6 +59,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
   let sopra = -1, esterno = -1, ruota = false, mosso = 0;
   const giu = new THREE.Vector2(), ultimo = new THREE.Vector2();
   const vettore = new THREE.Vector3();
+  const raggio = new THREE.Raycaster();
 
   const schermo = (i: number) => {
     const v = punti[i]!.ancora.getWorldPosition(vettore).project(camera);
@@ -108,6 +111,10 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
       const m = locale(e);
       const i = piuVicino(m.x, m.y);
       if (i >= 0 && punti[i]!.href) apri(punti[i]!);
+      else if (o.clicVuoto) {
+        raggio.setFromCamera(new THREE.Vector2((m.x / w) * 2 - 1, -(m.y / h) * 2 + 1), camera);
+        o.clicVuoto(raggio);
+      }
     }
   });
   // Un clic mostra l'argomento: se la pagina ha la lista delle competenze, apre lì la sua voce;
