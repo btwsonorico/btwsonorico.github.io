@@ -7,7 +7,7 @@ import { famigliaCervi } from './cervi';
 // Sopra, Knowledge: un grande stormo di uccelli arancioni che gira sul diorama, di giorno e di notte.
 // Le tre sezioni hanno lo stesso peso; un anello pulsa sotto ognuna e un clic la apre.
 // Sul prato cammina una famiglia di cervi. Di notte: lucciole nel bosco.
-// Di giorno: nuvole. Il cielo resta fermo dietro al diorama, che ruota piano.
+// Il diorama ruota piano.
 
 function casuale(seme: number) {
   return () => { seme = (seme * 16807) % 2147483647; return (seme - 1) / 2147483646; };
@@ -35,8 +35,6 @@ const nelloStagno = (x: number, z: number, margine = 0) => {
   return Math.hypot(dx, dz) < raggioStagno(Math.atan2(dz, dx)) - margine;
 };
 const sullIsola = (x: number, z: number, margine = 0) => Math.hypot(x, z) < raggioIsola(Math.atan2(z, x)) - margine;
-// Punto sulla volta del cielo: azimut e altezza sull'orizzonte
-const volta = (az: number, alt: number, raggio: number) => new THREE.Vector3(Math.cos(alt) * Math.cos(az) * raggio, Math.sin(alt) * raggio + 0.3, Math.cos(alt) * Math.sin(az) * raggio);
 
 export function monta(el: HTMLElement) {
   const c = colori(el);
@@ -210,28 +208,6 @@ export function monta(el: HTMLElement) {
   gLucciole.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(LUCCIOLE * 3), 3));
   gruppo.add(new THREE.Points(gLucciole, new THREE.PointsMaterial({ size: 0.07, vertexColors: true, transparent: true, opacity: 0.95 })));
   const coloreLucciola = new THREE.Color('#e6ffb3'), lucciola = new THREE.Color();
-  // --- Cielo: un gruppo che annulla la rotazione del diorama, così resta sempre dietro
-  const cielo = new THREE.Group();
-  gruppo.add(cielo);
-  const RAGGIO = 7;
-  const nuvole: { g: THREE.Group; vel: number }[] = [];
-  if (chiaro) {
-    // Giorno: nuvole a grappoli di palle a fili, bianche e piene appena, che attraversano piano il cielo
-    for (let k = 0; k < 4; k++) {
-      const g = new THREE.Group();
-      for (let q = 0; q < 4; q++) {
-        const geo = new THREE.IcosahedronGeometry(0.35 + r() * 0.25, 1);
-        const palla = new THREE.Group();
-        palla.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.55, depthWrite: false })), new THREE.LineSegments(new THREE.EdgesGeometry(geo), linea(c.muted, 0.25)));
-        palla.position.set(q * 0.45 - 0.7, Math.sin(q * 1.7) * 0.15, (r() - 0.5) * 0.2);
-        palla.scale.y = 0.6;
-        g.add(palla);
-      }
-      g.position.copy(volta(3.6 + k * 0.75, 0.35 + (k % 2) * 0.2, RAGGIO * 0.92));
-      cielo.add(g);
-      nuvole.push({ g, vel: 0.12 + r() * 0.1 });
-    }
-  }
 
   // --- Stormo (Knowledge): una murmuration di storni arancioni, come quella della pagina a pixel.
   // Conta soprattutto andare nella stessa direzione dei vicini; il richiamo verso il punto che guida è debole.
@@ -241,7 +217,7 @@ export function monta(el: HTMLElement) {
   // Lo stormo resta sempre sopra la scena: sotto una certa quota gli uccelli risalgono.
   // L'etichetta sta di lato allo stormo e lo segue con un po' di ritardo, così si clicca anche quando scappano.
   const UCCELLI = 500, CENTRO_STORMO = new THREE.Vector3(0.3, 3.2, -0.9);
-  const VICINI = 0.38, SEPARA = 0.08, VEL_MIN = 0.9, VEL_MAX = 1.8, QUOTA_MIN = 2.4, QUOTA_MAX = 4.4, LARGO_STORMO = 3.4;
+  const VICINI = 0.38, SEPARA = 0.08, VEL_MIN = 0.5, VEL_MAX = 1, QUOTA_MIN = 2.4, QUOTA_MAX = 4.4, LARGO_STORMO = 3.4;
   const pos = new Float32Array(UCCELLI * 3), vel = new Float32Array(UCCELLI * 3), fase = new Float32Array(UCCELLI), paura = new Float32Array(UCCELLI);
   for (let i = 0; i < UCCELLI; i++) {
     const a = r() * Math.PI * 2, d = Math.sqrt(r());
@@ -258,7 +234,7 @@ export function monta(el: HTMLElement) {
   centroStormo.position.copy(CENTRO_STORMO).add(new THREE.Vector3(0, 0.8, 0));
   gruppo.add(centroStormo);
   punti.push({ id: 'sezione:knowledge', label: 'Knowledge', href: '/knowledge/', hub: true, famiglia: 'knowledge', ancora: centroStormo, tono: 'arancio' });
-  // Il punto che guida: va verso una tappa a caso nel cielo sopra la scena e ogni 3-6 secondi ne sceglie un'altra
+  // Il punto che guida: va verso una tappa a caso nel cielo sopra la scena e ogni 5-9 secondi ne sceglie un'altra
   const verso = CENTRO_STORMO.clone(), tappa = CENTRO_STORMO.clone();
   let prossimaTappa = 0;
   // Vortice: un asse che gira piano e una forza che cambia segno, così lo stormo si arrotola ora da una parte ora dall'altra
@@ -266,22 +242,23 @@ export function monta(el: HTMLElement) {
   const posizioneGuida = (t: number, dt = 0) => {
     if (t > prossimaTappa) {
       tappa.set(CENTRO_STORMO.x + (r() - 0.5) * 5.2, QUOTA_MIN + 0.5 + r() * (QUOTA_MAX - QUOTA_MIN - 0.9), CENTRO_STORMO.z + (r() - 0.5) * 2.8);
-      prossimaTappa = t + 3 + r() * 3;
+      prossimaTappa = t + 5 + r() * 4;
     }
-    verso.lerp(tappa, Math.min(1, dt * 0.7));
+    verso.lerp(tappa, Math.min(1, dt * 0.35));
     asse.set(Math.sin(t * 0.17), 0.6 + Math.sin(t * 0.11) * 0.4, Math.cos(t * 0.13)).normalize();
   };
   // Falco: ogni 7-12 secondi attraversa lo stormo in linea retta, veloce
-  const falco = { da: new THREE.Vector3(), a: new THREE.Vector3(), nato: -99, durata: 1.6 }, falcoOra = new THREE.Vector3();
+  const falco = { da: new THREE.Vector3(), a: new THREE.Vector3(), nato: -99, durata: 2.6 }, falcoOra = new THREE.Vector3();
   let prossimoFalco = 5;
   let raggioPuntatore: THREE.Ray | null = null;
   const inversaStormo = new THREE.Matrix4(), vicino = new THREE.Vector3(), punto = new THREE.Vector3();
   const griglia = new Map<number, number[]>();
   const chiave = (x: number, y: number, z: number) => ((Math.floor(x / VICINI) + 512) * 1024 + (Math.floor(y / VICINI) + 512)) * 1024 + (Math.floor(z / VICINI) + 512);
-  const centroLento = CENTRO_STORMO.clone(), destra = new THREE.Vector3(), rotazioneInversa = new THREE.Quaternion();
+  const centroPrima = CENTRO_STORMO.clone(), centroLento = CENTRO_STORMO.clone(), destra = new THREE.Vector3(), rotazioneInversa = new THREE.Quaternion();
   const muoviStormo = (t: number, dt: number) => {
     posizioneGuida(t, dt);
-    const vortice = Math.sin(t * 0.21) * 1.1;
+    // Vortice leggero, che cambia verso piano: arrotola lo stormo senza chiuderlo in un tubo
+    const vortice = Math.sin(t * 0.09) * 0.45;
     if (dt > 0) {
       // Il falco parte da un lato dello stormo e passa dall'altro, attraverso il centro
       if (t > prossimoFalco) {
@@ -289,7 +266,7 @@ export function monta(el: HTMLElement) {
         falco.da.set(Math.cos(a), (r() - 0.5) * 0.6, Math.sin(a)).multiplyScalar(2.2).add(centroLento);
         falco.a.copy(centroLento).multiplyScalar(2).sub(falco.da);
         falco.nato = t;
-        prossimoFalco = t + 7 + r() * 5;
+        prossimoFalco = t + 10 + r() * 6;
       }
       const uf = (t - falco.nato) / falco.durata, falcoAttivo = uf >= 0 && uf <= 1;
       if (falcoAttivo) falcoOra.lerpVectors(falco.da, falco.a, uf);
@@ -307,6 +284,9 @@ export function monta(el: HTMLElement) {
         // Vortice intorno alla guida: spinge di lato rispetto all'asse, e lo stormo si avvolge su se stesso
         const rx = x - verso.x, ry = y - verso.y, rz = z - verso.z;
         fx += (asse.y * rz - asse.z * ry) * vortice; fy += (asse.z * rx - asse.x * rz) * vortice; fz += (asse.x * ry - asse.y * rx) * vortice;
+        // Gruppi staccati: chi è lontano dal centro dello stormo viene richiamato piano, così i pezzi si riuniscono
+        const gx0 = centroPrima.x - x, gy0 = centroPrima.y - y, gz0 = centroPrima.z - z, lontano = Math.hypot(gx0, gy0, gz0);
+        if (lontano > 1.1) { const f = (lontano - 1.1) * 0.45 / lontano; fx += gx0 * f; fy += gy0 * f; fz += gz0 * f; }
         // Sempre sopra la scena e non troppo lontano: sotto la quota minima risale, fuori dal cerchio rientra
         if (y < QUOTA_MIN) fy += (QUOTA_MIN - y) * 6;
         if (y > QUOTA_MAX) fy -= (y - QUOTA_MAX) * 4;
@@ -329,19 +309,19 @@ export function monta(el: HTMLElement) {
         }
         if (n) {
           // Allineamento forte, coesione locale leggera: nascono i nastri e le pieghe
-          fx += (mx / n - vel[i * 3]!) * 2.6 + (lx / n) * 0.35;
-          fy += (my / n - vel[i * 3 + 1]!) * 2.6 + (ly / n) * 0.35;
-          fz += (mz / n - vel[i * 3 + 2]!) * 2.6 + (lz / n) * 0.35;
+          fx += (mx / n - vel[i * 3]!) * 1.5 + (lx / n) * 0.55;
+          fy += (my / n - vel[i * 3 + 1]!) * 1.5 + (ly / n) * 0.55;
+          fz += (mz / n - vel[i * 3 + 2]!) * 1.5 + (lz / n) * 0.55;
         }
         // Paura: dal falco e dal puntatore, più forte quanto più sono vicini
         const scappa = (sx: number, sy: number, sz: number, raggio: number, forza: number) => {
           const dx = x - sx, dy = y - sy, dz = z - sz, d = Math.hypot(dx, dy, dz);
           if (d < raggio && d > 1e-4) { const f = (1 - d / raggio) * forza / d; fx += dx * f; fy += dy * f; fz += dz * f; paura[i] = 1; }
         };
-        if (falcoAttivo) scappa(falcoOra.x, falcoOra.y, falcoOra.z, 0.8, 14);
+        if (falcoAttivo) scappa(falcoOra.x, falcoOra.y, falcoOra.z, 0.8, 8);
         if (raggioPuntatore) {
           raggioPuntatore.closestPointToPoint(punto.set(x, y, z), vicino);
-          scappa(vicino.x, vicino.y, vicino.z, 0.7, 16);
+          scappa(vicino.x, vicino.y, vicino.z, 0.7, 10);
         }
         paura[i] = Math.max(0, paura[i]! - dt * 0.7);
         let vx = vel[i * 3]! + fx * dt, vy = vel[i * 3 + 1]! + fy * dt, vz = vel[i * 3 + 2]! + fz * dt;
@@ -352,6 +332,7 @@ export function monta(el: HTMLElement) {
         pos.set([x + vx * dt, y + vy * dt, z + vz * dt], i * 3);
         cx += x; cy += y; cz += z;
       }
+      centroPrima.set(cx / UCCELLI, cy / UCCELLI, cz / UCCELLI);
       // L'etichetta segue il centro dello stormo con un po' di ritardo e sta di lato, a destra di chi guarda
       centroLento.lerp(punto.set(cx / UCCELLI, cy / UCCELLI, cz / UCCELLI), Math.min(1, dt * 1.2));
       destra.set(1, 0, 0).applyQuaternion(rotazioneInversa.copy(gruppo.quaternion).invert());
@@ -361,7 +342,7 @@ export function monta(el: HTMLElement) {
     for (let i = 0; i < UCCELLI; i++) {
       const x = pos[i * 3]!, y = pos[i * 3 + 1]!, z = pos[i * 3 + 2]!;
       const vx = vel[i * 3]!, vz = vel[i * 3 + 2]!, l = Math.hypot(vx, vz) || 1;
-      const sx = -vz / l * 0.045, sz = vx / l * 0.045, alza = Math.sin(t * (13 + paura[i]! * 8) + fase[i]!) * 0.03;
+      const sx = -vz / l * 0.045, sz = vx / l * 0.045, alza = Math.sin(t * (9 + paura[i]! * 6) + fase[i]!) * 0.03;
       const o = i * 12;
       vertici[o] = x - sx; vertici[o + 1] = y + alza; vertici[o + 2] = z - sz;
       vertici[o + 3] = x; vertici[o + 4] = y; vertici[o + 5] = z;
@@ -401,12 +382,9 @@ export function monta(el: HTMLElement) {
     aggiorna: (t, acceso) => {
       const s = t / 1000, dt = prima < 0 || t === 0 ? 0 : Math.min(0.05, (t - prima) / 1000);
       prima = t;
-      cielo.rotation.set(-gruppo.rotation.x, -gruppo.rotation.y, 0, 'YXZ');
       gruppo.updateMatrixWorld();
       muoviStormo(s, dt);
       famiglia.aggiorna(t, true);
-      // Le nuvole scorrono da sinistra a destra e rientrano dall'altra parte
-      for (const n of nuvole) { n.g.position.x += n.vel * dt; if (n.g.position.x > 7) n.g.position.x = -7; }
       // Salto: un pesce esce dall'acqua con un arco e rientra poco più avanti
       if (s > 0 && s > prossimoSalto) {
         salto = { pesce: Math.floor(r() * pesci.length), nato: s };
