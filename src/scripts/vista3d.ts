@@ -23,6 +23,11 @@ interface Opzioni {
   inclinazione: [number, number];
   // Chiamata a ogni fotogramma: muove gli oggetti e li accende o spegne
   aggiorna: (t: number, acceso: (famiglia: string, id: string) => number) => void;
+  // Rotazione iniziale intorno all'asse verticale (0.4 se manca), rotazione lenta automatica (sì se manca)
+  // e quanto si può girare la scena a destra e a sinistra della rotazione iniziale (senza limite se manca)
+  giro?: number;
+  ruotaDaSola?: boolean;
+  giroMax?: number;
   // Quanto si può inclinare la vista verso il basso, oltre l'inclinazione minima (0.25 se manca; 0: mai più in basso)
   giuMax?: number;
   // Zone cliccabili grandi (per esempio tutto lo stagno): dal raggio della camera restituisce l'id di un punto, o null.
@@ -67,7 +72,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
   });
 
   const larghezze: number[] = [];
-  let w = 1, h = 1, rotY = 0.4, rotX = o.inclinazione[0], fermo = 0;
+  let w = 1, h = 1, rotY = o.giro ?? 0.4, rotX = o.inclinazione[0], fermo = 0;
   let sopra = -1, esterno = -1, ruota = false, mosso = 0;
   const giu = new THREE.Vector2(), ultimo = new THREE.Vector2();
   const vettore = new THREE.Vector3();
@@ -116,6 +121,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     mosso = Math.max(mosso, m.distanceTo(giu));
     if (ruota) {
       rotY += (m.x - ultimo.x) * 0.006;
+      if (o.giroMax !== undefined) rotY = THREE.MathUtils.clamp(rotY, (o.giro ?? 0.4) - o.giroMax, (o.giro ?? 0.4) + o.giroMax);
       rotX = THREE.MathUtils.clamp(rotX + (m.y - ultimo.y) * 0.004, o.inclinazione[0] - (o.giuMax ?? 0.25), o.inclinazione[1]);
     } else {
       sopra = piuVicino(m.x, m.y);
@@ -191,7 +197,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     // Una scena in una tab nascosta non consuma risorse
     if (el.offsetParent === null || !inVista || document.hidden) { requestAnimationFrame(disegna); return; }
     const t = ridotto ? 0 : performance.now();
-    if (fermo > 0) fermo--; else if (!ruota && !ridotto) rotY += 0.0012;
+    if (fermo > 0) fermo--; else if (!ruota && !ridotto && o.ruotaDaSola !== false) rotY += 0.0012;
     gruppo.rotation.set(rotX, rotY, 0);
     // Zoom morbido: la mira scivola verso il punto scelto e la camera si avvicina, con la stessa direzione di sempre
     const pz = zoomId ? punti.find(p => p.id === zoomId) : null;
