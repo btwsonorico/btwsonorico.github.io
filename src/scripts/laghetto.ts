@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { colori, tonoSezione, vista, type DatiCompetenze, type Punto } from './vista3d';
+import { foglia as nuovaFoglia, frutto, FRUTTI } from './frutti';
 
 // Advisory come laghetto visto dall'alto: ogni competenza chiave è un branco di pesci, ogni area è un pesce.
 // Ogni branco ha la sua specie e segue un capofila che vaga per il lago; i pesci nuotano in 3D, a profondità diverse.
@@ -318,43 +319,72 @@ export function monta(el: HTMLElement) {
     return out.set(Math.cos(a) * d, 0.35 + r() * 0.35, Math.sin(a) * d);
   };
   libellule.forEach(l => { puntoInAria(l.a); l.corpo.position.copy(l.a); });
-  // Sasso: un clic sull'acqua, lontano dai pesci, lancia un sasso. Cade e fa "pluf": una colonna d'acqua
-  // sale e ricade, le gocce schizzano a corona, tre cerchi si allargano. I pesci vicini scappano e vanno a fondo.
-  const CADUTA = 420, GRAVITA = 5.5;
+  // Un clic sull'acqua, lontano dai pesci, fa cadere qualcosa: quasi sempre un sasso o una foglia, raramente un frutto (5%).
+  // Sasso e frutto fanno "pluf": una colonna d'acqua sale e ricade, le gocce schizzano a corona, tre cerchi si allargano,
+  // i pesci vicini scappano e vanno a fondo. Il sasso poi affonda; il frutto galleggia un po' e sparisce.
+  // La foglia invece scende piano oscillando, si posa sull'acqua senza schizzi, galleggia e poi svanisce.
+  const CADUTA = 420, CADUTA_FOGLIA = 2200, GALLEGGIA = 5500, GRAVITA = 5.5;
+  type Tipo = 'sasso' | 'frutto' | 'foglia';
   type Tonfo = {
-    punto: THREE.Vector3; nato: number; toccato: boolean; oggetti: THREE.Object3D[];
-    sasso: THREE.LineSegments; gocce: THREE.Points; velGocce: number[]; colonna: THREE.Group; anelli: THREE.LineLoop[];
+    tipo: Tipo; punto: THREE.Vector3; nato: number; toccato: boolean; oggetti: THREE.Object3D[]; oggetto: THREE.Object3D;
+    gocce?: THREE.Points; velGocce: number[]; colonna?: THREE.Group; anelli: THREE.LineLoop[]; giro: number;
   };
   const tonfi: Tonfo[] = [];
+  const coloriFrutti = { arancio: tonoSezione('--arancio'), verde: VERDE_PROJECTS, fg: c.fg };
   function lancia(punto: THREE.Vector3, t: number) {
-    const sasso = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(0.06, 0)), linea(c.fg, 0.9));
-    const gocce = nuvola(Array.from({ length: 18 * 3 }, () => 0), c.accent, 0.045, 0);
-    const colonna = new THREE.Group();
-    for (const dx of [-0.02, 0, 0.02]) colonna.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(dx, 0, 0), new THREE.Vector3(dx * 0.4, 1, 0)]), linea(c.accent, 0)));
-    colonna.position.copy(punto).setY(0);
-    colonna.scale.y = 0.001;
-    const anelli = [0, 1, 2].map(() => { const o = anello(cerchio(1, 40), linea(c.accent, 0)); o.position.copy(punto).setY(0.01); return o; });
-    // Gocce: partono dal punto d'impatto, in cerchio, verso l'alto e verso fuori
-    const velGocce = Array.from({ length: 18 }, (_, k) => {
-      const a = (k / 18) * Math.PI * 2 + r() * 0.3, v = 0.45 + r() * 0.5;
-      return [Math.cos(a) * v, 1.1 + r() * 0.9, Math.sin(a) * v];
-    }).flat();
-    const oggetti = [sasso, gocce, colonna, ...anelli];
+    const caso = Math.random();
+    const tipo: Tipo = caso < 0.05 ? 'frutto' : caso < 0.525 ? 'sasso' : 'foglia';
+    const oggetto = tipo === 'sasso' ? new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(0.06, 0)), linea(c.fg, 0.9))
+      : tipo === 'frutto' ? frutto(FRUTTI[Math.floor(Math.random() * FRUTTI.length)]!, coloriFrutti)
+      : nuovaFoglia(coloriFrutti);
+    const oggetti: THREE.Object3D[] = [oggetto];
+    const tonfo: Tonfo = { tipo, punto, nato: t, toccato: false, oggetti, oggetto, velGocce: [], anelli: [], giro: Math.random() * Math.PI * 2 };
+    if (tipo !== 'foglia') {
+      const gocce = nuvola(Array.from({ length: 18 * 3 }, () => 0), c.accent, 0.045, 0);
+      const colonna = new THREE.Group();
+      for (const dx of [-0.02, 0, 0.02]) colonna.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(dx, 0, 0), new THREE.Vector3(dx * 0.4, 1, 0)]), linea(c.accent, 0)));
+      colonna.position.copy(punto).setY(0);
+      colonna.scale.y = 0.001;
+      const anelli = [0, 1, 2].map(() => { const o = anello(cerchio(1, 40), linea(c.accent, 0)); o.position.copy(punto).setY(0.01); return o; });
+      // Gocce: partono dal punto d'impatto, in cerchio, verso l'alto e verso fuori
+      tonfo.velGocce = Array.from({ length: 18 }, (_, k) => {
+        const a = (k / 18) * Math.PI * 2 + r() * 0.3, v = 0.45 + r() * 0.5;
+        return [Math.cos(a) * v, 1.1 + r() * 0.9, Math.sin(a) * v];
+      }).flat();
+      Object.assign(tonfo, { gocce, colonna, anelli });
+      oggetti.push(gocce, colonna, ...anelli);
+    }
     gruppo.add(...oggetti);
-    tonfi.push({ punto, nato: t, toccato: false, oggetti, sasso, gocce, velGocce, colonna, anelli });
+    tonfi.push(tonfo);
   }
   function aggiornaTonfi(t: number) {
     for (let k = tonfi.length - 1; k >= 0; k--) {
-      const f = tonfi[k]!, u = t - f.nato;
-      // Il sasso cade accelerando, poi affonda e sparisce
-      if (u < CADUTA) f.sasso.position.copy(f.punto).setY(1.8 * (1 - (u / CADUTA) ** 2));
-      else {
-        const v = (u - CADUTA) / 700;
-        f.sasso.position.copy(f.punto).setY(-v * 0.4);
-        (f.sasso.material as THREE.LineBasicMaterial).opacity = Math.max(0, 0.9 - v);
+      const f = tonfi[k]!, u = t - f.nato, o = f.oggetto;
+      const caduta = f.tipo === 'foglia' ? CADUTA_FOGLIA : CADUTA, dopo = u - caduta;
+      if (u < caduta) {
+        const v = u / caduta;
+        if (f.tipo === 'foglia') {
+          // La foglia scende piano, ondeggiando da una parte all'altra e girando su se stessa
+          o.position.set(f.punto.x + Math.sin(v * Math.PI * 3) * 0.25 * (1 - v), 1.6 * (1 - v), f.punto.z + Math.cos(v * Math.PI * 2) * 0.12 * (1 - v));
+          o.rotation.set(Math.sin(v * Math.PI * 3) * 0.6, f.giro + v * 2, 0);
+        } else {
+          o.position.copy(f.punto).setY(1.8 * (1 - v * v));
+          o.rotation.set(u * 0.006, u * 0.004, 0);
+        }
+      } else if (f.tipo === 'sasso') {
+        // Il sasso affonda e sparisce
+        const v = dopo / 700;
+        o.position.copy(f.punto).setY(-v * 0.4);
+        ((o as THREE.LineSegments).material as THREE.LineBasicMaterial).opacity = Math.max(0, 0.9 - v);
+      } else {
+        // Frutto e foglia galleggiano: dondolano sull'acqua e vanno piano alla deriva, poi spariscono
+        const deriva = dopo / 1000;
+        o.position.set(f.punto.x + deriva * 0.04, (f.tipo === 'foglia' ? 0.008 : 0.02) + Math.sin(dopo * 0.004) * 0.008, f.punto.z + deriva * 0.03);
+        o.rotation.set(Math.sin(dopo * 0.003) * 0.08, f.giro + deriva * 0.2, Math.cos(dopo * 0.0035) * 0.08);
+        const fine = Math.max(0, (dopo - GALLEGGIA) / 800);
+        o.scale.setScalar(Math.max(0.001, 1 - fine));
       }
-      f.sasso.rotation.set(u * 0.006, u * 0.004, 0);
-      if (!f.toccato && u >= CADUTA) {
+      if (!f.toccato && u >= caduta && f.tipo !== 'foglia') {
         f.toccato = true;
         // I pesci entro 1.5 dal tonfo si spaventano: più sono vicini, più scappano
         branchi.forEach(b => b.pesci.forEach(p => {
@@ -366,31 +396,31 @@ export function monta(el: HTMLElement) {
           p.paura = Math.max(p.paura, Math.min(1, 1.3 - d / 1.5));
         }));
       }
-      if (u >= CADUTA) {
-        const s = (u - CADUTA) / 1000;
+      if (u >= caduta && f.gocce && f.colonna) {
+        const sg = dopo / 1000;
         // Gocce: moto a parabola; restano a pelo d'acqua e svaniscono
         const pos = f.gocce.geometry.getAttribute('position') as THREE.BufferAttribute;
         for (let g = 0; g < 18; g++) {
           const vx = f.velGocce[g * 3]!, vy = f.velGocce[g * 3 + 1]!, vz = f.velGocce[g * 3 + 2]!;
-          pos.setXYZ(g, f.punto.x + vx * s, Math.max(-0.05, vy * s - GRAVITA * s * s / 2), f.punto.z + vz * s);
+          pos.setXYZ(g, f.punto.x + vx * sg, Math.max(-0.05, vy * sg - GRAVITA * sg * sg / 2), f.punto.z + vz * sg);
         }
         pos.needsUpdate = true;
-        (f.gocce.material as THREE.PointsMaterial).opacity = s < 0.5 ? 0.9 : Math.max(0, 0.9 - (s - 0.5) * 3);
+        (f.gocce.material as THREE.PointsMaterial).opacity = sg < 0.5 ? 0.9 : Math.max(0, 0.9 - (sg - 0.5) * 3);
         // Colonna d'acqua: sale poco dopo l'impatto e ricade
-        const c2 = THREE.MathUtils.clamp((u - CADUTA - 120) / 700, 0, 1);
+        const c2 = THREE.MathUtils.clamp((dopo - 120) / 700, 0, 1);
         f.colonna.scale.y = Math.max(0.001, Math.sin(c2 * Math.PI) * 0.45);
         f.colonna.children.forEach(l => { ((l as THREE.Line).material as THREE.LineBasicMaterial).opacity = c2 > 0 && c2 < 1 ? 0.8 : 0; });
         // Tre cerchi, uno dopo l'altro
-        f.anelli.forEach((o, i) => {
-          const a = (u - CADUTA - i * 220) / 1800;
-          (o.material as THREE.LineBasicMaterial).opacity = a > 0 && a < 1 ? (1 - a) * 0.75 : 0;
-          o.scale.setScalar(0.05 + Math.max(0, a) * 0.75);
+        f.anelli.forEach((a, i) => {
+          const v = (dopo - i * 220) / 1800;
+          (a.material as THREE.LineBasicMaterial).opacity = v > 0 && v < 1 ? (1 - v) * 0.75 : 0;
+          a.scale.setScalar(0.05 + Math.max(0, v) * 0.75);
         });
       }
-      if (u > CADUTA + 2600) {
-        f.oggetti.forEach(o => {
-          gruppo.remove(o);
-          o.traverse(x => { const m = x as THREE.Line; m.geometry?.dispose(); (m.material as THREE.Material | undefined)?.dispose(); });
+      if (dopo > (f.tipo === 'sasso' ? 2600 : GALLEGGIA + 900)) {
+        f.oggetti.forEach(x => {
+          gruppo.remove(x);
+          x.traverse(y => { const m = y as THREE.Line; m.geometry?.dispose(); (m.material as THREE.Material | undefined)?.dispose(); });
         });
         tonfi.splice(k, 1);
       }
