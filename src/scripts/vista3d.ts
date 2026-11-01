@@ -173,6 +173,12 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     camera.aspect = w / h;
     // In un riquadro stretto o alto la camera si allontana, così la scena entra tutta
     base.copy(o.camera).multiplyScalar(Math.max(1, 1.3 / camera.aspect));
+    // Scena a tutto schermo dietro alla pagina (pagine delle sezioni su schermi larghi): il centro della scena
+    // si sposta a destra, nello spazio libero accanto alla colonna di testo, e la camera si allontana un po'
+    if (el.closest('.a-grafo') && window.innerWidth >= 1080) {
+      camera.setViewOffset(w, h, -w * 0.17, 0, w, h);
+      base.multiplyScalar(1.25);
+    } else camera.clearViewOffset();
     camera.position.copy(base);
     camera.lookAt(miraOra);
     // La nebbia segue la distanza della camera: sfuma solo il fondo della scena

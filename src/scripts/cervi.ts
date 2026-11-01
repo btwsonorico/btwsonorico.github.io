@@ -21,6 +21,8 @@ interface Opzioni {
   ostacoli: () => { x: number; z: number; raggio?: number }[];
   // Il cibo è stato mangiato tutto
   finito?: (cibo: Cibo) => void;
+  // Zone dove i cervi non possono mettere piede (per esempio l'acqua): lì si fermano, si girano e cambiano meta
+  vietato?: (x: number, z: number) => boolean;
 }
 
 const MISURA: Record<Tipo, number> = { cervo: 0.8, cerva: 0.68, cerbiatto: 0.44 };
@@ -230,8 +232,13 @@ export function famigliaCervi(gruppo: THREE.Group, o: Opzioni) {
           const differenza = angolo(Math.atan2(-hz, hx) - v.verso);
           v.giro = morbido(v.giro, v.vel > 0.02 ? THREE.MathUtils.clamp(differenza * 1.5, -0.9, 0.9) : 0, dt * 2.5);
           v.verso += v.giro * dt;
-          v.x += Math.cos(v.verso) * v.vel * dt;
-          v.z -= Math.sin(v.verso) * v.vel * dt;
+          const nx = v.x + Math.cos(v.verso) * v.vel * dt, nz = v.z - Math.sin(v.verso) * v.vel * dt;
+          if (o.vietato?.(nx, nz)) {
+            // Davanti c'è una zona vietata: il cervo si gira e, se la meta era là, ne sceglie un'altra
+            v.verso += Math.PI * 0.6 * dt * 4;
+            v.vel *= 0.5;
+            if (!v.cibo && o.vietato(v.meta.x, v.meta.y)) nuovaMeta(v);
+          } else { v.x = nx; v.z = nz; }
           // Passo: avanza con la strada fatta, una falcata ogni 0.4 unità della taglia del cervo
           v.passo += (v.vel * dt) / (0.4 * MISURA[v.tipo]);
           // Orecchie e coda: un piccolo scatto ogni tanto

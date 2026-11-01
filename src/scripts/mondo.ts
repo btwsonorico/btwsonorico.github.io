@@ -367,6 +367,8 @@ export function monta(el: HTMLElement) {
     colori: c, chiaro, casuale: r, tipi: ['cervo', 'cerva', 'cerbiatto'],
     meta: out => { do { out.set((r() - 0.5) * 7, (r() - 0.5) * 6.5); } while (!sullIsola(out.x, out.y, 0.5) || nelloStagno(out.x, out.y, -0.4)); },
     ostacoli: () => [...alberi.map(a => ({ x: a.position.x, z: a.position.z, raggio: 0.4 })), { x: -1.7, z: -0.2, raggio: 0.7 }, { x: STAGNO.x, z: STAGNO.y, raggio: 1.8 }],
+    // Mai nell'acqua dello stagno e mai fuori dal prato
+    vietato: (x, z) => nelloStagno(x, z, -0.2) || !sullIsola(x, z, 0.25),
   });
 
   const accendi = (mats: THREE.Material[], livello: number) => {
