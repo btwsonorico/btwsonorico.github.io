@@ -214,6 +214,8 @@ export interface OpzioniPalco {
   giro?: number; inclina?: [number, number];
   // Nebbia: da quale distanza (in volte la distanza della camera) le cose sfumano nel fondo
   nebbia?: [number, number];
+  // Zoom con la rotella o con due dita: quanto vicino e quanto lontano può andare la camera (in volte la distanza)
+  zoom?: [number, number];
   aggiorna: (s: number, dt: number, p: Palco) => void;
   clic?: (raggio: THREE.Raycaster, p: Palco) => void;
   // Nome della scena e i suoi tre toni chiave di partenza. famiglie: false quando i toni non sono il verde,
@@ -241,6 +243,7 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
     colori: famiglie ? { ...T(), verde: toni[0]!, azzurro: toni[1]!, arancio: toni[2]! } : T(), toni, distruggi: () => {},
   };
 
+  scena.fog = new THREE.Fog(p.colori.bg, 1, 2);
   let inVista = true, vivo = true;
   const io = new IntersectionObserver(v => { inVista = v.some(x => x.isIntersecting); });
   io.observe(el);
@@ -255,24 +258,47 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
     lontano = Math.max(1, 1.3 / camera.aspect);
     camera.updateProjectionMatrix();
     p.scalaPunti = h * renderer.getPixelRatio() / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
-    const [vicino, fondo] = o.nebbia ?? [0.75, 1.7];
-    scena.fog = new THREE.Fog(p.colori.bg, dist * lontano * vicino, dist * lontano * fondo);
   });
   ro.observe(el);
 
   // Trascinamento: giro intorno alla scena con un po' di inerzia; lo sguardo sale e scende entro i limiti
   const [giu, su] = o.inclina ?? [-0.12, 0.12];
   let giro = 0, alza = 0, velGiro = 0, premuto = false, mosso = 0, px = 0, py = 0, fermo = 0, dentro = false;
+  // Zoom: la distanza voluta cambia con la rotella o allargando due dita; quella vera la segue piano
+  const [vicinoMax, lontanoMax] = o.zoom ?? [1, 1];
+  let zoom = 1, zoomVoluto = 1;
+  const dita = new Map<number, { x: number; y: number }>();
+  let pinza = 0;
+  if (o.zoom) cv0().addEventListener('wheel', e => {
+    e.preventDefault();
+    zoomVoluto = THREE.MathUtils.clamp(zoomVoluto * Math.exp(e.deltaY * 0.0012), vicinoMax, lontanoMax);
+    fermo = 240;
+  }, { passive: false });
+  function cv0() { return renderer.domElement; }
   const ndc = new THREE.Vector2(), raggio = new THREE.Raycaster();
   const cv = renderer.domElement;
   cv.style.touchAction = 'pan-y';
-  cv.addEventListener('pointerdown', e => { premuto = true; mosso = 0; px = e.clientX; py = e.clientY; velGiro = 0; });
+  cv.addEventListener('pointerdown', e => {
+    dita.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    premuto = true; mosso = 0; px = e.clientX; py = e.clientY; velGiro = 0;
+    if (dita.size === 2) { const [a, b] = [...dita.values()]; pinza = Math.hypot(a!.x - b!.x, a!.y - b!.y); }
+  });
+  cv.addEventListener('pointerup', e => { dita.delete(e.pointerId); });
+  cv.addEventListener('pointercancel', e => { dita.delete(e.pointerId); });
   const lascia = () => { premuto = false; };
   window.addEventListener('pointerup', lascia);
   cv.addEventListener('pointermove', e => {
     const b = cv.getBoundingClientRect();
     ndc.set(((e.clientX - b.left) / b.width) * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1);
     dentro = true;
+    if (dita.has(e.pointerId)) dita.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // Due dita: allargarle avvicina, stringerle allontana
+    if (o.zoom && dita.size === 2) {
+      const [a, b] = [...dita.values()], d = Math.hypot(a!.x - b!.x, a!.y - b!.y);
+      if (pinza > 0) zoomVoluto = THREE.MathUtils.clamp(zoomVoluto * (pinza / d), vicinoMax, lontanoMax);
+      pinza = d; mosso += 10; fermo = 240;
+      return;
+    }
     if (!premuto) return;
     const dx = e.clientX - px, dy = e.clientY - py;
     px = e.clientX; py = e.clientY;
@@ -300,7 +326,12 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
     if (!premuto) { giro += velGiro; velGiro *= 0.94; }
     if (fermo > 0) fermo--; else if (!ridotto) giro += (o.giro ?? 0.02) * dt;
     const a = giro0 + giro, e = alza0 + alza;
-    camera.position.set(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e)).multiplyScalar(dist * lontano).add(o.mira);
+    zoom += (zoomVoluto - zoom) * Math.min(1, dt * 6 || 1);
+    const d = dist * lontano * zoom;
+    camera.position.set(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e)).multiplyScalar(d).add(o.mira);
+    // La nebbia segue la distanza della camera: sfuma solo il fondo della scena
+    const [vicino, fondo] = o.nebbia ?? [0.75, 1.7];
+    (scena.fog as THREE.Fog).near = d * vicino; (scena.fog as THREE.Fog).far = d * fondo;
     camera.lookAt(o.mira);
     if (dentro) { raggio.setFromCamera(ndc, camera); p.raggio = raggio; } else p.raggio = null;
     o.aggiorna(s, ridotto ? 0 : dt, p);

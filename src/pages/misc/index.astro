@@ -14,7 +14,7 @@ import Base from '../../layouts/Base.astro';
     <p class="mono">Small experiments.</p>
     <p class="mono scelte" role="group" aria-label="Experiment">
       <button type="button" data-scena="barriera">reef</button>
-      <button type="button" data-scena="nuvole">clouds</button>
+      <button type="button" data-scena="nuvole">valley</button>
       <button type="button" data-scena="vita">life</button>
       <button type="button" data-scena="onde">waves</button>
     </p>
@@ -43,7 +43,7 @@ import Base from '../../layouts/Base.astro';
   const montate = new Map<string, Palco>();
   const montatori: Record<string, (el: HTMLElement) => Promise<Palco>> = {};
   // Nomi dei tre toni chiave di ogni scena, per il color editor
-  const NOMI: Record<string, string[]> = { barriera: ['water', 'earth', 'coral'], nuvole: ['meadow', 'water', 'accent'] };
+  const NOMI: Record<string, string[]> = { barriera: ['water', 'earth', 'coral'], nuvole: ['hills', 'sky', 'accent'] };
   const editor = document.querySelector<HTMLElement>('.toni')!;
   const selettori = editor.querySelectorAll<HTMLInputElement>('input[type="color"]');
   const giorno = document.querySelector<HTMLElement>('.giorno')!, cursore = giorno.querySelector<HTMLInputElement>('input')!;
