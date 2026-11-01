@@ -33,7 +33,7 @@ const build = new Date().toISOString().slice(0, 10);
         <a href="/advisory/">advisory</a>
         <a href="/knowledge/">knowledge</a>
         <a href="/about/">about</a>
-        <button type="button" class="tema" aria-label="Switch between light and dark mode">light</button>
+        <button type="button" class="cambia-tema" aria-label="Switch between light and dark mode">light</button>
       </nav>
     </header>
     <slot />
@@ -45,7 +45,7 @@ const build = new Date().toISOString().slice(0, 10);
     <script>
       // Cambio di tema: le pagine senza scene cambiano subito; quelle con una scena (3D o a pixel) si ricaricano,
       // perché le scene leggono i colori una volta sola, quando partono
-      const bottone = document.querySelector<HTMLButtonElement>('.tema')!;
+      const bottone = document.querySelector<HTMLButtonElement>('.cambia-tema')!;
       const radice = document.documentElement;
       const etichetta = () => { bottone.textContent = radice.dataset.theme === 'light' ? 'dark' : 'light'; };
       etichetta();
@@ -151,8 +151,8 @@ const build = new Date().toISOString().slice(0, 10);
   }
   .barra a { text-decoration: none; }
   .barra nav { display: flex; gap: 18px; align-items: center; }
-  .tema { padding: 0 5px; border: 1px solid var(--line); background: none; color: var(--muted); font: inherit; cursor: pointer; }
-  .tema:hover { color: var(--fg); border-color: var(--muted); }
+  .cambia-tema { padding: 0 5px; border: 1px solid var(--line); background: none; color: var(--muted); font: inherit; cursor: pointer; }
+  .cambia-tema:hover { color: var(--fg); border-color: var(--muted); }
   /* Su schermi stretti nome e link vanno su due righe, così nessun link esce dallo schermo */
   @media (max-width: 640px) { .barra { flex-wrap: wrap; row-gap: 10px; } .barra nav { gap: 14px; } }
   .io { color: var(--fg); }

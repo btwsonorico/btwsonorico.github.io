@@ -16,10 +16,10 @@ function casuale(seme: number) {
   return () => { seme = (seme * 16807) % 2147483647; return (seme - 1) / 2147483646; };
 }
 
-type Specie = 'salice' | 'quercia' | 'acacia' | 'abete';
-const SPECIE: Specie[] = ['salice', 'quercia', 'acacia', 'abete'];
+type Specie = 'melo' | 'quercia' | 'acacia' | 'abete';
+const SPECIE: Specie[] = ['melo', 'quercia', 'acacia', 'abete'];
 // Quanto sale il tronco dritto, per specie
-const TRONCO: Record<Specie, number> = { salice: 0.6, quercia: 0.8, acacia: 0.45, abete: 0.4 };
+const TRONCO: Record<Specie, number> = { melo: 0.55, quercia: 0.8, acacia: 0.45, abete: 0.4 };
 // Albero guida (uno per competenza o progetto): più grande degli altri
 const GUIDA = 1.2;
 
@@ -43,16 +43,20 @@ export function monta(el: HTMLElement) {
     g.add(new THREE.Mesh(geo, riempimento), new THREE.LineSegments(new THREE.EdgesGeometry(geo), m));
     return g;
   };
+  // Mele sui meli: rosse e piene
+  const matMelaAlbero = new THREE.MeshBasicMaterial({ color: chiaro ? '#cf222e' : '#f85149', transparent: true, opacity: 0.95 });
+  matMelaAlbero.userData.pieno = 0.95;
+  const geoMelaAlbero = new THREE.IcosahedronGeometry(0.035, 1);
   // Opacità di un pezzo d'albero: i riempimenti restano tenui anche quando l'albero è acceso
   const opacita = (o: THREE.Object3D, valore: number) => {
     const m = (o as THREE.Mesh).material as THREE.Material;
     m.opacity = valore * (m.userData.pieno ?? 1);
   };
 
-  // Prato: un disco verde tenue a strati, più intenso verso il centro, come l'acqua del laghetto
+  // Prato: un disco verde tenue a strati, più intenso verso il centro, come l'acqua del laghetto (di notte appena accennato)
   const chiaroPrato = document.documentElement.dataset.theme === 'light';
   for (const [raggio, op] of [[7.2, 0.07], [5.4, 0.045], [3.6, 0.045]] as const) {
-    const disco = new THREE.Mesh(new THREE.CircleGeometry(raggio, 64), new THREE.MeshBasicMaterial({ color: c.accent, transparent: true, opacity: op * (chiaroPrato ? 1 : 0.9), depthWrite: false }));
+    const disco = new THREE.Mesh(new THREE.CircleGeometry(raggio, 64), new THREE.MeshBasicMaterial({ color: c.accent, transparent: true, opacity: op * (chiaroPrato ? 1 : 0.45), depthWrite: false }));
     disco.rotation.x = -Math.PI / 2;
     disco.position.y = -0.01;
     disco.renderOrder = -1;
@@ -88,22 +92,22 @@ export function monta(el: HTMLElement) {
     const m = linea(colore);
     // Ogni pezzo con un materiale entra nella lista: anche i fili e il riempimento dentro una chioma piena
     const add = (o: THREE.Object3D) => { albero.add(o); o.traverse(x => { if ((x as THREE.Mesh).material) pezzi.push(x); }); };
-    if (specie === 'salice') {
-      // Salice piangente: una chioma bassa e larga e tanti rami sottili che ricadono quasi fino a terra
-      const cima = altezza * 0.62, larga = 0.3 + peso * 0.025;
-      const chioma0 = solido(new THREE.IcosahedronGeometry(larga, 1), m, colore);
-      chioma0.scale.set(1, 0.55, 1);
-      chioma0.position.y = cima + larga * 0.3;
-      add(chioma0);
-      const rami = THREE.MathUtils.clamp(ricchezza * 3 + 6, 10, 20);
-      const mr = linea(colore, 0.8);
-      for (let k = 0; k < rami; k++) {
-        const a = (k / rami) * Math.PI * 2 + r() * 0.3, fuori = larga * (0.75 + r() * 0.3), giu = cima * (0.55 + r() * 0.3);
-        add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 7 }, (_, q) => {
-          const u = q / 6;
-          // Il ramo esce dal bordo della chioma, si allarga appena e poi cade dritto
-          return new THREE.Vector3(Math.cos(a) * fuori * (1 + Math.sin(u * 1.6) * 0.25), cima + larga * 0.25 - u * u * giu, Math.sin(a) * fuori * (1 + Math.sin(u * 1.6) * 0.25));
-        })), mr));
+    if (specie === 'melo') {
+      // Melo: chioma tonda e bassa, fatta di tre palle, con le mele rosse appese sulla superficie
+      const cima = altezza * 0.55, larga = 0.28 + peso * 0.025;
+      const centri = [new THREE.Vector3(0, cima + larga * 0.7, 0), new THREE.Vector3(larga * 0.6, cima + larga * 0.45, 0.1), new THREE.Vector3(-larga * 0.55, cima + larga * 0.45, -0.08)];
+      centri.forEach((p, k) => {
+        const palla = solido(new THREE.IcosahedronGeometry(k ? larga * 0.7 : larga, 1), m, colore);
+        palla.position.copy(p);
+        add(palla);
+      });
+      const mele = THREE.MathUtils.clamp(ricchezza + 3, 4, 9);
+      for (let k = 0; k < mele; k++) {
+        const centro = centri[k % 3]!, raggio = k % 3 ? larga * 0.7 : larga;
+        const dir = new THREE.Vector3(r() - 0.5, r() * 0.6 - 0.35, r() - 0.5).normalize();
+        const mela = new THREE.Mesh(geoMelaAlbero, matMelaAlbero);
+        mela.position.copy(centro).addScaledVector(dir, raggio * 0.98);
+        add(mela);
       }
     } else if (specie === 'quercia') {
       // Chioma a nuvola: una palla centrale sulla cima del tronco e altre intorno,
@@ -153,7 +157,8 @@ export function monta(el: HTMLElement) {
   }
 
   // Sfumature dello stesso colore d'accento (in Projects il verde di GitHub): ogni albero ne prende una
-  const SFUMATURE = [-0.14, -0.07, 0, 0.07, 0.13].map((dl, k) => c.accent.clone().offsetHSL((k - 2) * 0.012, 0, dl));
+  // Sul fondo chiaro le sfumature sono più chiare: gli alberi non devono mai sembrare neri
+  const SFUMATURE = [-0.14, -0.07, 0, 0.07, 0.13].map((dl, k) => c.accent.clone().offsetHSL((k - 2) * 0.012, 0, dl + (chiaro ? 0.12 : 0)));
 
   // Alberi: uno per area, con la specie della sua competenza. Nella vista per progetto le specie si mescolano.
   type Albero = { id: string; albero: THREE.Group; cima: THREE.Object3D; pezzi: THREE.Object3D[]; altezza: number; fase: number; ritardo: number; punto: Punto };
@@ -177,8 +182,8 @@ export function monta(el: HTMLElement) {
   competenze.forEach((k, i) => {
     const specie = SPECIE[i % SPECIE.length]!;
     for (const a of k.aree) {
-      // I salici restano più bassi e larghi degli altri alberi
-      const altezza = specie === 'salice' ? 0.65 + a.peso * 0.18 : 0.75 + a.peso * 0.28;
+      // I meli restano più bassi degli altri alberi
+      const altezza = specie === 'melo' ? 0.65 + a.peso * 0.18 : 0.75 + a.peso * 0.28;
       perArea.set(a.id, nuovoAlbero(`area:${a.id}`, a.label, a.href, specie, altezza, a.punti, a.peso));
     }
   });
@@ -191,7 +196,7 @@ export function monta(el: HTMLElement) {
   const nuovoPalo = (id: string, label: string, href: string, specie: Specie) => {
     const base = new THREE.Group();
     base.rotation.y = r() * Math.PI;
-    const altezza = specie === 'salice' ? 1.55 : 1.9;
+    const altezza = specie === 'melo' ? 1.6 : 1.9;
     const tronco = segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, altezza * Math.max(TRONCO[specie], 0.001), 0), linea(c.fg));
     base.add(tronco);
     // Più visibile degli altri: verde più chiaro, chioma più piena
@@ -318,6 +323,10 @@ export function monta(el: HTMLElement) {
     g.position.set(x, y, z);
     return g;
   };
+  // Gambe sottili come quelle vere: coscia a cono rovesciato, stinco come un'asta, zoccolo scuro
+  const geoCoscia = new THREE.CylinderGeometry(0.03, 0.013, 0.17, 6), bordiCoscia = new THREE.EdgesGeometry(geoCoscia, 30);
+  const geoStinco = new THREE.CylinderGeometry(0.008, 0.007, 0.16, 5), geoZoccolo = new THREE.CylinderGeometry(0.009, 0.012, 0.016, 5);
+  const matZoccolo = new THREE.MeshBasicMaterial({ color: c.fg.clone().lerp(c.bg, chiaro ? 0.2 : 0.55) });
   type Tipo = 'cervo' | 'cerva' | 'cerbiatto';
   const MISURA: Record<Tipo, number> = { cervo: 0.8, cerva: 0.68, cerbiatto: 0.44 };
   const matMacchie = new THREE.PointsMaterial({ color: c.muted, size: 0.025, transparent: true, opacity: 0.9 });
@@ -381,10 +390,19 @@ export function monta(el: HTMLElement) {
     const zampe = ZAMPE.map(q => {
       const anca = new THREE.Group();
       anca.position.set(q.x * snella, alto, q.z);
-      anca.add(ovale(0.026, 0.085, 0.024, 0, -0.075, 0));
+      // Coscia affusolata, che parte larga dal corpo e si stringe verso il ginocchio
+      const coscia = new THREE.Mesh(geoCoscia, matCervo);
+      coscia.position.y = -0.08;
+      anca.add(coscia, new THREE.LineSegments(bordiCoscia, matBordiCervo).translateY(-0.08));
       const ginocchio = new THREE.Group();
       ginocchio.position.y = -0.16 * lungaZampa;
-      ginocchio.add(ovale(0.012, 0.085 * lungaZampa, 0.012, 0, -0.08 * lungaZampa, 0), ovale(0.016, 0.012, 0.014, 0.004, -0.16 * lungaZampa, 0));
+      // Stinco sottile e dritto, e lo zoccolo piccolo e scuro
+      const stinco = new THREE.Mesh(geoStinco, matCervo);
+      stinco.scale.y = lungaZampa;
+      stinco.position.y = -0.08 * lungaZampa;
+      const zoccolo = new THREE.Mesh(geoZoccolo, matZoccolo);
+      zoccolo.position.set(0.004, -0.162 * lungaZampa, 0);
+      ginocchio.add(stinco, zoccolo);
       anca.add(ginocchio);
       cervo.add(anca);
       return { ...q, anca, ginocchio };

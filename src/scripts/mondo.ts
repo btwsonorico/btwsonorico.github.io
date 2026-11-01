@@ -61,7 +61,7 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
   gruppo.add(curva(contorno, linea(verde.clone().lerp(c.muted, 0.4), 0.55), true));
   for (const [scala, op] of [[1, 0.07], [0.75, 0.045], [0.5, 0.04]] as const) {
     const forma = new THREE.Shape(contorno.map(p => new THREE.Vector2(p.x * scala, -p.z * scala)));
-    const strato = new THREE.Mesh(new THREE.ShapeGeometry(forma), new THREE.MeshBasicMaterial({ color: verde, transparent: true, opacity: op, depthWrite: false }));
+    const strato = new THREE.Mesh(new THREE.ShapeGeometry(forma), new THREE.MeshBasicMaterial({ color: verde, transparent: true, opacity: op * (chiaro ? 1 : 0.45), depthWrite: false }));
     strato.rotation.x = -Math.PI / 2;
     strato.position.y = -0.02;
     strato.renderOrder = -2;
@@ -120,7 +120,8 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
     gruppo.add(a);
     return a;
   };
-  const sfumature = [-0.1, -0.04, 0.03, 0.08].map(dl => verde.clone().offsetHSL(0, 0, dl));
+  // Sfumature del verde: mai troppo scure, così sul fondo chiaro gli alberi non sembrano neri
+  const sfumature = (chiaro ? [0.04, 0.09, 0.14, 0.19] : [-0.08, -0.03, 0.03, 0.08]).map(dl => verde.clone().offsetHSL(0, 0, dl));
   const alberi: THREE.Group[] = [];
   const occupati: THREE.Vector2[] = [new THREE.Vector2(-1.7, -0.2)];
   for (let k = 0; k < 15; k++) {
@@ -136,7 +137,7 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
   const insegna = new THREE.Object3D();
   insegna.position.y = 1.9 * 1.15;
   guida.add(insegna);
-  punti.push({ id: 'sezione:software', label: 'Software', href: '/software/', hub: true, famiglia: 'software', ancora: insegna, base: guida, tono: 'verde' });
+  punti.push({ id: 'sezione:software', label: 'Software →', href: '/software/', hub: true, famiglia: 'software', ancora: insegna, base: guida, tono: 'verde' });
 
   // --- Stagno (Advisory): acqua azzurra a strati, riva, canne, ninfee e pesci che nuotano in tondo
   const riva = Array.from({ length: 120 }, (_, i) => { const a = (i / 120) * Math.PI * 2, d = raggioStagno(a); return new THREE.Vector3(STAGNO.x + Math.cos(a) * d, 0.005, STAGNO.y + Math.sin(a) * d); });
@@ -175,7 +176,47 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
   const sopraStagno = new THREE.Object3D();
   sopraStagno.position.set(STAGNO.x, 0.45, STAGNO.y);
   gruppo.add(sopraStagno);
-  punti.push({ id: 'sezione:advisory', label: 'Advisory', href: '/advisory/', hub: true, famiglia: 'advisory', ancora: sopraStagno, tono: 'azzurro' });
+  punti.push({ id: 'sezione:advisory', label: 'Advisory →', href: '/advisory/', hub: true, famiglia: 'advisory', ancora: sopraStagno, tono: 'azzurro' });
+
+  // Anelli che si allargano e svaniscono sotto ogni sezione, uno dopo l'altro: dicono "qui si clicca"
+  const cerchio = (n: number) => Array.from({ length: n }, (_, i) => { const a = (i / n) * Math.PI * 2; return new THREE.Vector3(Math.cos(a), 0, Math.sin(a)); });
+  const impulsi: { o: THREE.LineLoop; da: number; a: number; ritardo: number }[] = [];
+  const impulso = (padre: THREE.Object3D, colore: THREE.Color, x: number, y: number, z: number, da: number, a: number, ritardo: number, verticale = false) => {
+    const o = curva(cerchio(56), linea(colore, 0), true) as THREE.LineLoop;
+    o.position.set(x, y, z);
+    if (verticale) o.rotation.x = Math.PI / 2;
+    padre.add(o);
+    impulsi.push({ o, da, a, ritardo });
+  };
+  impulso(gruppo, verde, -1.7, 0.012, -0.2, 0.45, 1.3, 0);
+  impulso(gruppo, azzurro, STAGNO.x, 0.012, STAGNO.y, 0.3, 1.25, 0.8);
+
+  // Un pesce ogni tanto salta fuori dall'acqua, con un cerchio dove esce e uno dove rientra
+  const spruzzi = [0, 1].map(() => { const o = curva(cerchio(32), linea(azzurro, 0), true); gruppo.add(o); return { o, nato: -9 }; });
+  let salto = { pesce: 0, nato: -9 }, prossimoSalto = 4;
+
+  // Notte: lucciole fra gli alberi del bosco. Giorno: due libellule arancioni sopra lo stagno
+  const LUCCIOLE = chiaro ? 0 : 30;
+  const baseLucciole = Array.from({ length: LUCCIOLE }, () => ({ x: -1.7 + (r() - 0.5) * 3.6, y: 0.2 + r() * 1.1, z: -0.2 + (r() - 0.5) * 3.8, fase: r() * 10, vel: 0.6 + r() * 0.8 }));
+  const gLucciole = new THREE.BufferGeometry();
+  gLucciole.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(LUCCIOLE * 3), 3));
+  gLucciole.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(LUCCIOLE * 3), 3));
+  gruppo.add(new THREE.Points(gLucciole, new THREE.PointsMaterial({ size: 0.07, vertexColors: true, transparent: true, opacity: 0.95 })));
+  const coloreLucciola = new THREE.Color('#e6ffb3'), lucciola = new THREE.Color();
+  const libellule = (chiaro ? [0, 1] : []).map(k => {
+    const g = new THREE.Group();
+    const ml = linea(arancio, 0.85);
+    g.add(curva([new THREE.Vector3(0, 0, 0.05), new THREE.Vector3(0, 0, -0.09)], ml));
+    const ali = new THREE.Group();
+    for (const lato of [1, -1]) for (const dz of [0.02, -0.01]) ali.add(curva([new THREE.Vector3(0, 0, dz), new THREE.Vector3(lato * 0.08, 0, dz + 0.012), new THREE.Vector3(lato * 0.08, 0, dz - 0.008)], ml, true));
+    g.add(ali);
+    gruppo.add(g);
+    return { g, ali, da: new THREE.Vector3(), a: new THREE.Vector3(STAGNO.x, 0.4, STAGNO.y), via: -9, sosta: 2 + k * 1.3 };
+  });
+  const puntoSopraStagno = (out: THREE.Vector3) => {
+    const a = r() * Math.PI * 2, d = raggioStagno(a) * (0.5 + r() * 0.6);
+    return out.set(STAGNO.x + Math.cos(a) * d, 0.3 + r() * 0.3, STAGNO.y + Math.sin(a) * d);
+  };
 
   // --- Cielo: un gruppo che annulla la rotazione del diorama, così resta sempre dietro
   const cielo = new THREE.Group();
@@ -185,6 +226,8 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
   const centroK = volta(4.71, 0.42, RAGGIO);
   const est = new THREE.Vector3(1, 0, 0), su = new THREE.Vector3(0, 1, 0);
   let aggiornaCielo: (s: number, dt: number) => void;
+  let nuvole: { g: THREE.Group; vel: number }[] = [];
+  let riflesso: THREE.Group | null = null, stelleAcqua: THREE.Points | null = null, muoviSegnali: (dt: number) => void = () => {};
 
   if (!chiaro) {
     // Notte: stelle che brillano, Via Lattea, luna sottile, stelle cadenti
@@ -215,6 +258,18 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
     luna.add(arco(0.36, 0, -Math.PI / 2, Math.PI / 2), arco(0.3, -0.12, -1.2, 1.2));
     luna.position.copy(volta(5.6, 0.3, RAGGIO * 0.95));
     cielo.add(luna);
+    // Riflesso della luna nello stagno: trattini che tremano, sempre rivolti verso chi guarda
+    riflesso = new THREE.Group();
+    const trattini: number[] = [];
+    for (let k = 0; k < 9; k++) { const z = 0.5 - k * 0.11, l = 0.05 + (1 - Math.abs(k - 4) / 4) * 0.12; trattini.push(-l, 0, z, l, 0, z); }
+    riflesso.add(segmenti(trattini, linea(c.fg, 0.55)));
+    riflesso.position.set(STAGNO.x, 0.01, STAGNO.y);
+    gruppo.add(riflesso);
+    // Stelle riflesse nell'acqua: puntini che brillano piano
+    const riflesse: number[] = [];
+    for (let k = 0; k < 26; k++) { let x = 0, z = 0; do { x = STAGNO.x + (r() - 0.5) * 2.6; z = STAGNO.y + (r() - 0.5) * 2.2; } while (!nelloStagno(x, z, 0.12)); riflesse.push(x, 0.006, z); }
+    stelleAcqua = nuvola(riflesse, c.fg, 0.035, 0.5);
+    gruppo.add(stelleAcqua);
     const scia = curva([new THREE.Vector3(), new THREE.Vector3()], linea(c.fg, 0));
     cielo.add(scia);
     let cadente = { da: new THREE.Vector3(), a: new THREE.Vector3(), nata: -1e9 }, prossima = 3;
@@ -241,6 +296,29 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
     const xyz: number[] = [];
     for (const [a, b] of archi) xyz.push(...posK[a]!.toArray(), ...posK[b]!.toArray());
     cielo.add(segmenti(xyz, mat('knowledge', arancio, 0.45)));
+    // Segnali: puntini luminosi che corrono lungo i legami da una stella all'altra, come idee che si collegano
+    const SEGNALI = Math.min(12, archi.length);
+    const segnali = Array.from({ length: SEGNALI }, () => ({ arco: Math.floor(r() * archi.length), u: r(), verso: r() < 0.5 }));
+    const gSegnali = new THREE.BufferGeometry();
+    gSegnali.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(SEGNALI * 3), 3));
+    cielo.add(new THREE.Points(gSegnali, new THREE.PointsMaterial({ color: arancio.clone().offsetHSL(0, 0, 0.15), size: 0.09, transparent: true, opacity: 0.95, fog: false })));
+    muoviSegnali = (dt: number) => {
+      const pos = gSegnali.attributes.position as THREE.BufferAttribute;
+      segnali.forEach((q, i) => {
+        q.u += dt * 0.5;
+        if (q.u >= 1) {
+          // Arrivato in fondo: riparte da un legame che tocca la stella dove è arrivato
+          const [a, b] = archi[q.arco]!, nodo = q.verso ? a : b;
+          const vicini = archi.map((x, k) => (x[0] === nodo || x[1] === nodo) && k !== q.arco ? k : -1).filter(k => k >= 0);
+          q.arco = vicini.length ? vicini[Math.floor(r() * vicini.length)]! : Math.floor(r() * archi.length);
+          q.verso = archi[q.arco]![1] === nodo;
+          q.u = 0;
+        }
+        const [a, b] = archi[q.arco]!, da = posK[q.verso ? b : a]!, verso = posK[q.verso ? a : b]!;
+        pos.setXYZ(i, da.x + (verso.x - da.x) * q.u, da.y + (verso.y - da.y) * q.u, da.z + (verso.z - da.z) * q.u);
+      });
+      pos.needsUpdate = true;
+    };
     const geoTema = new THREE.IcosahedronGeometry(0.1, 1), geoTesto = new THREE.IcosahedronGeometry(0.055, 1);
     nodi.forEach((n, i) => {
       const tema = n.tipo === 'tema';
@@ -252,9 +330,11 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
     const centro = new THREE.Object3D();
     centro.position.copy(centroK).addScaledVector(su, 2.05);
     cielo.add(centro);
-    punti.push({ id: 'sezione:knowledge', label: 'Knowledge', href: '/knowledge/', hub: true, famiglia: 'knowledge', ancora: centro, tono: 'arancio' });
+    punti.push({ id: 'sezione:knowledge', label: 'Knowledge →', href: '/knowledge/', hub: true, famiglia: 'knowledge', ancora: centro, tono: 'arancio' });
+    impulso(cielo, arancio, centroK.x, centroK.y, centroK.z, 0.5, 2.2, 1.6, true);
 
-    aggiornaCielo = (s: number) => {
+    aggiornaCielo = (s: number, dt: number) => {
+      muoviSegnali(dt);
       for (let i = 0; i < N; i++) {
         const b = forza[i]! * (0.75 + 0.25 * Math.sin(s * (1.2 + (fasi[i]! % 1) * 2) + fasi[i]!));
         luce.copy(c.fg).multiplyScalar(b);
@@ -287,7 +367,22 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
     });
     const centro = new THREE.Object3D();
     cielo.add(centro);
-    punti.push({ id: 'sezione:knowledge', label: 'Knowledge', href: '/knowledge/', hub: true, famiglia: 'knowledge', ancora: centro, tono: 'arancio' });
+    // Nuvole: grappoli di palle a fili, bianche e piene appena, che attraversano piano il cielo
+    nuvole = Array.from({ length: 4 }, (_, k) => {
+      const g = new THREE.Group();
+      for (let q = 0; q < 4; q++) {
+        const geo = new THREE.IcosahedronGeometry(0.35 + r() * 0.25, 1);
+        const palla = new THREE.Group();
+        palla.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.55, depthWrite: false })), new THREE.LineSegments(new THREE.EdgesGeometry(geo), linea(c.muted, 0.25)));
+        palla.position.set(q * 0.45 - 0.7, Math.sin(q * 1.7) * 0.15, (r() - 0.5) * 0.2);
+        palla.scale.y = 0.6;
+        g.add(palla);
+      }
+      g.position.copy(volta(3.6 + k * 0.75, 0.3 + (k % 2) * 0.22, RAGGIO * 0.92));
+      cielo.add(g);
+      return { g, vel: 0.12 + r() * 0.1 };
+    });
+    punti.push({ id: 'sezione:knowledge', label: 'Knowledge →', href: '/knowledge/', hub: true, famiglia: 'knowledge', ancora: centro, tono: 'arancio' });
     const meta = new THREE.Vector3(), forza = new THREE.Vector3(), d = new THREE.Vector3(), media = new THREE.Vector3(), centroA = new THREE.Vector3(), avanti = new THREE.Vector3();
     aggiornaCielo = (s: number, dt: number) => {
       // Il punto che tiene unito lo stormo disegna curve lente nel cielo dietro al diorama
@@ -323,7 +418,11 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
         u.g.scale.set(1, Math.sin(s * 14 + u.fase) * 1.5, 1);
       }
       centro.position.copy(centroA).addScaledVector(su, 0.35);
+      impulsi[impulsi.length - 1]!.o.position.copy(centroA);
+      // Le nuvole scorrono da sinistra a destra e rientrano dall'altra parte
+      for (const n of nuvole) { n.g.position.x += n.vel * dt; if (n.g.position.x > 7) n.g.position.x = -7; }
     };
+    impulso(cielo, arancio, centroK.x, centroK.y, centroK.z, 0.4, 1.6, 1.6, true);
   }
 
   const accendi = (mats: THREE.Material[], livello: number) => {
@@ -332,10 +431,12 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
   };
   let prima = -1;
   // Su schermi larghi il diorama sta a destra: a sinistra c'è il testo della pagina
-  gruppo.position.x = el.clientWidth > 700 ? 2.6 : 0;
+  const largo = el.clientWidth > 700;
+  gruppo.position.x = largo ? 2.6 : 0;
   vista(el, gruppo, punti, {
-    camera: new THREE.Vector3(0, 3.6, 15),
-    mira: new THREE.Vector3(0, 1.4, 0),
+    // Sul telefono la camera è più vicina: il riquadro è stretto e la vista si allontana già da sola
+    camera: largo ? new THREE.Vector3(0, 3.6, 15) : new THREE.Vector3(0, 3, 9.5),
+    mira: largo ? new THREE.Vector3(0, 1.4, 0) : new THREE.Vector3(0, 2, 0),
     inclinazione: [0.02, 0.32],
     aggiorna: (t, acceso) => {
       const s = t / 1000, dt = prima < 0 || t === 0 ? 0 : Math.min(0.05, (t - prima) / 1000);
@@ -343,12 +444,57 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
       cielo.rotation.set(-gruppo.rotation.x, -gruppo.rotation.y, 0, 'YXZ');
       gruppo.updateMatrixWorld();
       aggiornaCielo(s, dt);
-      pesci.forEach(p => {
+      // Anelli che invitano a cliccare: uno ogni 2.4 secondi per sezione, sfalsati
+      impulsi.forEach(q => {
+        const u = s > 0 ? (((s + q.ritardo) % 2.4) / 2.4) : 0;
+        q.o.scale.setScalar(q.da + u * (q.a - q.da));
+        (q.o.material as THREE.LineBasicMaterial).opacity = s > 0 ? (1 - u) ** 1.5 * 0.7 : 0;
+      });
+      // Salto: un pesce esce dall'acqua con un arco e rientra poco più avanti
+      if (s > 0 && s > prossimoSalto) {
+        salto = { pesce: Math.floor(r() * pesci.length), nato: s };
+        prossimoSalto = s + 5 + r() * 4;
+      }
+      pesci.forEach((p, k) => {
         const a = p.fase + s * p.vel;
         p.g.position.set(STAGNO.x + Math.cos(a) * p.raggio, -p.prof, STAGNO.y + Math.sin(a) * p.raggio * 0.7);
-        p.g.rotation.y = -a + (p.vel > 0 ? Math.PI : 0);
+        p.g.rotation.set(0, -a + (p.vel > 0 ? Math.PI : 0), 0);
+        const u = (s - salto.nato) / 0.8;
+        if (k === salto.pesce && u >= 0 && u <= 1) {
+          p.g.position.y = -p.prof + Math.sin(u * Math.PI) * 0.42;
+          p.g.rotateX(-Math.cos(u * Math.PI) * 0.9);
+          if (u < 0.08) { spruzzi[0]!.o.position.set(p.g.position.x, 0.01, p.g.position.z); spruzzi[0]!.nato = s; }
+          if (u > 0.92 && s - spruzzi[1]!.nato > 1) { spruzzi[1]!.o.position.set(p.g.position.x, 0.01, p.g.position.z); spruzzi[1]!.nato = s; }
+        }
         p.coda.rotation.y = Math.sin(s * 8 + p.fase) * 0.4;
       });
+      spruzzi.forEach(q => { const u = (s - q.nato) / 1.2; q.o.scale.setScalar(0.05 + Math.max(0, u) * 0.45); (q.o.material as THREE.LineBasicMaterial).opacity = u >= 0 && u <= 1 ? (1 - u) * 0.8 : 0; });
+      // Lucciole: vagano piano fra gli alberi e si accendono e spengono ognuna col suo ritmo
+      if (LUCCIOLE) {
+        const pos = gLucciole.attributes.position!, col = gLucciole.attributes.color!;
+        baseLucciole.forEach((l, n) => {
+          const u = s * 0.4 * l.vel + l.fase;
+          pos.setXYZ(n, l.x + Math.sin(u) * 0.3, l.y + Math.sin(u * 1.7) * 0.15, l.z + Math.cos(u * 0.8) * 0.3);
+          lucciola.copy(coloreLucciola).multiplyScalar(0.08 + Math.max(0, Math.sin(s * 1.5 * l.vel + l.fase * 3)) * 0.92);
+          col.setXYZ(n, lucciola.r, lucciola.g, lucciola.b);
+        });
+        pos.needsUpdate = true;
+        col.needsUpdate = true;
+      }
+      // Libellule: scatto verso un nuovo punto sopra lo stagno, poi sosta in volo con le ali che vibrano
+      libellule.forEach(l => {
+        if (s > l.via + 1.1 + l.sosta) { l.da.copy(l.a); puntoSopraStagno(l.a); l.via = s; l.g.lookAt(gruppo.localToWorld(l.a.clone())); }
+        const u = THREE.MathUtils.clamp((s - l.via) / 1.1, 0, 1);
+        l.g.position.lerpVectors(l.da, l.a, THREE.MathUtils.smootherstep(u, 0, 1));
+        l.g.position.y += Math.sin(s * 4) * 0.01;
+        l.ali.scale.x = 0.6 + Math.abs(Math.sin(s * 90)) * 0.4;
+      });
+      // Riflesso della luna: sempre verso chi guarda, con i trattini che tremano
+      if (riflesso) {
+        riflesso.rotation.y = -gruppo.rotation.y;
+        riflesso.scale.x = 1 + Math.sin(s * 3) * 0.15;
+      }
+      if (stelleAcqua) (stelleAcqua.material as THREE.PointsMaterial).opacity = 0.35 + Math.sin(s * 1.3) * 0.15;
       alberi.forEach((a, k) => { a.rotation.z = Math.sin(s * 1.1 + k) * 0.02; });
       for (const sezione of ['software', 'advisory', 'knowledge']) accendi(materiali[sezione]!, acceso(sezione, `sezione:${sezione}`));
     },
