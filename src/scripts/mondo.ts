@@ -400,7 +400,8 @@ export function monta(el: HTMLElement) {
   gruppo.position.x = largo ? 2 : 0;
   vista(el, gruppo, punti, {
     // Sul telefono la camera è più vicina: il riquadro è stretto e la vista si allontana già da sola
-    camera: largo ? new THREE.Vector3(0, 3.6, 12.5) : new THREE.Vector3(0, 3, 9.5),
+    // Su schermi molto larghi la camera si avvicina: il mondo riempie lo spazio accanto al testo invece di restare piccolo
+    camera: largo ? new THREE.Vector3(0, 3.6, 12.5).multiplyScalar(el.clientWidth > 1400 ? 0.8 : 1) : new THREE.Vector3(0, 3, 9.5),
     // La camera guarda un po' più in basso: il mondo sale verso il centro dello schermo
     mira: largo ? new THREE.Vector3(0, 0.8, 0) : new THREE.Vector3(0, 2, 0),
     // Mai di lato: la vista resta sempre un po' dall'alto, così sotto il prato non si vedono i pesci

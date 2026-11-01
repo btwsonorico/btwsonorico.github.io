@@ -409,7 +409,8 @@ export function monta(el: HTMLElement) {
   disponi('competenza');
 
   vista(el, gruppo, punti, {
-    camera: new THREE.Vector3(0, 5.6, 10),
+    // Vista naturale, poco dall'alto: come guardare il bosco stando in piedi davanti
+    camera: new THREE.Vector3(0, 3.6, 10.8),
     mira: new THREE.Vector3(0, 0.4, 0),
     inclinazione: [0.05, 0.35],
     // Clic sul prato (non su un albero): cade una mela in quel punto

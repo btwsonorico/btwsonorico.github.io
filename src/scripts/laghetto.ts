@@ -403,7 +403,7 @@ export function monta(el: HTMLElement) {
 
   vista(el, gruppo, punti, {
     // Vista obliqua, meno dall'alto: il laghetto si legge come un paesaggio, non come una mappa
-    camera: new THREE.Vector3(0, 5.8, 10.2),
+    camera: new THREE.Vector3(0, 4, 10.8),
     mira: new THREE.Vector3(0, -0.3, 0),
     inclinazione: [0.08, 0.45],
     // Clic sull'acqua: il raggio dalla camera tocca il piano dell'acqua dentro la riva, e lì cade il sasso

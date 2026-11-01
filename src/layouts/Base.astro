@@ -196,20 +196,25 @@ const build = new Date().toISOString().slice(0, 10);
   @media (min-width: 1080px) {
     body.largo main { padding: 0 40px var(--s4); }
     body.largo .barra, body.largo .piede { padding-left: 40px; padding-right: 40px; }
-    /* Pagine con scena: la scena è lo sfondo dell'intera pagina, senza riquadro né bordi, ferma mentre si scorre.
-       Testo e lista stanno in una colonna a sinistra; la scena passa anche sotto di loro, come nella home */
+    /* Pagine con grafo (Knowledge): il grafo sta a destra in una colonna sua, fermo mentre la colonna sinistra scorre */
     .affianca {
       display: grid;
-      grid-template-columns: minmax(340px, 34vw) 1fr;
-      grid-template-areas: "testa ." "resto .";
-      align-content: start;
+      grid-template-columns: minmax(340px, 0.75fr) minmax(0, 1.6fr);
+      grid-template-rows: auto 1fr;
+      grid-template-areas: "testa grafo" "resto grafo";
+      column-gap: 56px;
     }
-    .a-testa { grid-area: testa; position: relative; z-index: 2; }
-    .a-resto { grid-area: resto; position: relative; z-index: 2; }
-    .a-grafo { position: fixed; inset: 0; z-index: 0; --altezza-grafo: 100vh; }
-    .a-grafo .grafo { border: 0; }
+    .a-testa { grid-area: testa; }
+    .a-resto { grid-area: resto; }
+    .a-grafo { grid-area: grafo; align-self: start; position: sticky; top: 16px; --altezza-grafo: calc(100vh - 110px); }
+    /* Pagine con scena (Software, Advisory): la scena è lo sfondo dell'intera pagina, senza riquadro né bordi,
+       ferma mentre si scorre; testo e lista stanno a sinistra e la scena passa anche sotto di loro, come nella home */
+    .affianca.sfondo { grid-template-columns: minmax(340px, 34vw) 1fr; grid-template-rows: none; grid-template-areas: "testa ." "resto ."; align-content: start; column-gap: 0; }
+    .sfondo .a-testa, .sfondo .a-resto { position: relative; z-index: 2; }
+    .sfondo .a-grafo { position: fixed; inset: 0; z-index: 0; --altezza-grafo: 100vh; }
+    .sfondo .a-grafo .grafo { border: 0; }
     /* I bottoni delle viste stanno in basso a destra, sopra la scena */
-    .a-grafo figcaption { position: fixed; right: 40px; bottom: 24px; padding: 0; z-index: 3; }
+    .sfondo .a-grafo figcaption { position: fixed; right: 40px; bottom: 24px; padding: 0; z-index: 3; }
     body.largo .barra, body.largo .piede { position: relative; z-index: 3; }
   }
 
