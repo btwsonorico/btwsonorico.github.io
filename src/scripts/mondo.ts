@@ -406,7 +406,7 @@ export function monta(el: HTMLElement) {
     // La camera guarda un po' più in basso: il mondo sale verso il centro dello schermo
     // Se lo spazio è basso (meno di circa 790 px) la camera guarda più in basso: il mondo resta grande e sale,
     // così non passa sotto la linea della build
-    mira: largo ? new THREE.Vector3(0, 0.95 - THREE.MathUtils.clamp((790 - el.clientHeight) / 790, 0, 0.4) * 2, 0) : new THREE.Vector3(0, 2, 0),
+    mira: largo ? new THREE.Vector3(0, 0.7 - THREE.MathUtils.clamp((790 - el.clientHeight) / 790, 0, 0.4) * 2, 0) : new THREE.Vector3(0, 2, 0),
     // Mai di lato: la vista resta sempre un po' dall'alto, così sotto il prato non si vedono i pesci
     inclinazione: [0.16, 0.42],
     giuMax: 0,
