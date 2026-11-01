@@ -73,7 +73,9 @@ const PAGINE = [
   .link a { color: var(--accent); }
   .pagine ul { margin: 0; padding: 0; list-style: none; }
   .pagine li { display: flex; gap: var(--s2); align-items: baseline; font-size: 13px; line-height: 1.7; }
-  .pagine li a { min-width: 80px; color: var(--fg); }
+  .pagine li a { min-width: 80px; padding: 0 5px; margin-left: -5px; color: var(--fg); }
+  /* Al passaggio, la sezione diventa un riquadro nel suo colore, come la sua etichetta accesa nel mondo */
+  .pagine li a[data-tono]:hover { color: var(--bg); background: var(--accent); text-decoration: none; }
   .titoletto { margin: 0 0 4px; }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
   /* Il mondo sta tra la barra in alto e la linea del footer: non passa sotto nessuna delle due */
