@@ -188,7 +188,8 @@ export function famigliaCervi(gruppo: THREE.Group, o: Opzioni) {
         // Chi ha del cibo va in un punto poco prima del frutto, così ci arriva con la bocca e non con il corpo;
         // i cerbiatti, altrimenti, seguono la mamma: un punto al suo fianco, un po' dietro
         if (v.cibo) {
-          const bocca = 0.3 * v.scala, vx = v.cibo.x - v.x, vz = v.cibo.z - v.z, l = Math.hypot(vx, vz) || 1;
+          // Distanza fra il centro del corpo e la bocca con la testa abbassata, nella taglia di questo cervo
+          const bocca = 0.42 * v.scala, vx = v.cibo.x - v.x, vz = v.cibo.z - v.z, l = Math.hypot(vx, vz) || 1;
           v.meta.set(v.cibo.x - (vx / l) * bocca, v.cibo.z - (vz / l) * bocca);
         }
         else if (cucciolo) {
@@ -199,7 +200,7 @@ export function famigliaCervi(gruppo: THREE.Group, o: Opzioni) {
         if (dt > 0) {
           // Stato: cammina verso la meta; arrivato, bruca o si guarda intorno; poi sceglie una nuova meta.
           // Con il cibo il cervo si ferma quando la bocca ci arriva, e mangia a testa bassa
-          if (v.cibo && v.cibo.aTerra && v.stato === 'cammina' && d < 0.05) {
+          if (v.cibo && v.cibo.aTerra && v.stato === 'cammina' && d < 0.04) {
             v.stato = 'bruca';
             v.timer = 2.5;
           } else if (v.cibo) {
@@ -221,8 +222,13 @@ export function famigliaCervi(gruppo: THREE.Group, o: Opzioni) {
             }
           }
           // Velocità: cresce e cala piano; i cerbiatti trottano quando restano indietro; verso il cibo, di buon passo
-          const voluta = v.stato !== 'cammina' ? 0 : v.cibo ? 0.3 : cucciolo ? THREE.MathUtils.clamp(0.12 + d * 0.6, 0.12, 0.5) : v.tipo === 'cervo' ? 0.24 : 0.2;
-          v.vel = morbido(v.vel, voluta, dt * 1.4);
+          // Verso il cibo rallenta mentre si avvicina, così si ferma con la bocca sul frutto e non ci passa sopra
+          const voluta = v.stato !== 'cammina' ? 0 : v.cibo ? Math.min(0.3, 0.04 + d * 1.2) : cucciolo ? THREE.MathUtils.clamp(0.12 + d * 0.6, 0.12, 0.5) : v.tipo === 'cervo' ? 0.24 : 0.2;
+          // Mentre mangia si ferma subito e si gira verso il frutto
+          if (v.cibo && v.stato === 'bruca') {
+            v.vel = 0;
+            v.verso += angolo(Math.atan2(-(v.cibo.z - v.z), v.cibo.x - v.x) - v.verso) * Math.min(1, dt * 4);
+          } else v.vel = morbido(v.vel, voluta, dt * 1.4);
           // Direzione: verso la meta, lontano dagli ostacoli vicini; la virata accelera e rallenta piano
           let hx = dx / (d || 1), hz = dz / (d || 1);
           for (const q of ostacoli) {
