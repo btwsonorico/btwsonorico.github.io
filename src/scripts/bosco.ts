@@ -9,7 +9,7 @@ import { colori, tonoSezione, vista, type DatiCompetenze, type Punto } from './v
 // Ogni competenza (o progetto) ha un albero guida, grande, con il nome in cima.
 // I due colori sono quelli di Advisory e Knowledge: nei progetti uso anche la consulenza e quello che studio.
 // Le chiome hanno un riempimento tenue sotto i fili, così il colore del bosco è più pieno.
-// Tre cervi bianchi camminano piano fra gli alberi e ogni tanto si fermano a brucare.
+// Una famiglia di cervi bianchi cammina piano fra gli alberi: un cervo, una cerva e due cerbiatti che la seguono.
 
 // Numeri casuali ripetibili: il bosco è uguale a ogni visita
 function casuale(seme: number) {
@@ -306,9 +306,15 @@ export function monta(el: HTMLElement) {
     g.add(new THREE.Mesh(geo, matCervo), new THREE.LineSegments(new THREE.EdgesGeometry(geo), matBordiCervo));
     return g;
   };
-  const nuovoCervo = (k: number) => {
+  // Tre tipi: il cervo è il più grande, con le corna a rami; la cerva è più snella, senza corna;
+  // il cerbiatto è piccolo, con le zampe lunghe e le macchie sulla schiena
+  type Tipo = 'cervo' | 'cerva' | 'cerbiatto';
+  const MISURA: Record<Tipo, number> = { cervo: 0.78, cerva: 0.66, cerbiatto: 0.42 };
+  const matMacchie = new THREE.PointsMaterial({ color: c.muted, size: 0.03, transparent: true, opacity: 0.9 });
+  const nuovoCervo = (tipo: Tipo) => {
     const cervo = new THREE.Group();
-    const corpo = pezzoCervo(new THREE.BoxGeometry(0.36, 0.14, 0.13));
+    const snella = tipo === 'cerva' ? 0.85 : 1;
+    const corpo = pezzoCervo(new THREE.BoxGeometry(0.36 * snella, 0.14 * snella, 0.13 * snella));
     corpo.position.y = 0.3;
     // Collo e testa: girano insieme quando il cervo bruca
     const collo = new THREE.Group();
@@ -325,8 +331,18 @@ export function monta(el: HTMLElement) {
     );
     const geoCorna = new THREE.BufferGeometry();
     geoCorna.setAttribute('position', new THREE.Float32BufferAttribute(corna, 3));
-    // Un cervo su tre è una femmina, senza corna
-    if (k !== 1) collo.add(new THREE.LineSegments(geoCorna, matCorna));
+    if (tipo === 'cervo') collo.add(new THREE.LineSegments(geoCorna, matCorna));
+    // Cerva e cerbiatti: orecchie grandi al posto delle corna
+    else collo.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0.06, 0.22, 0.03), new THREE.Vector3(0.03, 0.29, 0.07), new THREE.Vector3(0.06, 0.22, -0.03), new THREE.Vector3(0.03, 0.29, -0.07),
+    ]), matCorna));
+    if (tipo === 'cerbiatto') {
+      const macchie: number[] = [];
+      for (let q = 0; q < 8; q++) macchie.push(-0.12 + (q % 4) * 0.08, 0.375, (q < 4 ? 1 : -1) * 0.04);
+      const geoMacchie = new THREE.BufferGeometry();
+      geoMacchie.setAttribute('position', new THREE.Float32BufferAttribute(macchie, 3));
+      cervo.add(new THREE.Points(geoMacchie, matMacchie));
+    }
     collo.add(pezzoCollo, testa);
     const coda = pezzoCervo(new THREE.BoxGeometry(0.04, 0.05, 0.04));
     coda.position.set(-0.19, 0.34, 0);
@@ -340,13 +356,18 @@ export function monta(el: HTMLElement) {
       return zampa;
     });
     cervo.add(corpo, collo, coda);
-    cervo.scale.setScalar(k === 1 ? 1.05 : 1.2);
+    cervo.scale.setScalar(MISURA[tipo]);
+    // Il cerbiatto ha le zampe lunghe rispetto al corpo
+    if (tipo === 'cerbiatto') zampe.forEach(z => { z.scale.y = 1.25; });
     cervo.visible = false;
     gruppo.add(cervo);
     const a = r() * Math.PI * 2, d = 2 + r() * 2.5;
-    return { cervo, collo, zampe, x: Math.cos(a) * d, z: Math.sin(a) * d, verso: r() * Math.PI * 2, meta: new THREE.Vector2(), passo: r() * 10, bruca: 0, finoA: 0 };
+    return { tipo, cervo, collo, zampe, x: Math.cos(a) * d, z: Math.sin(a) * d, verso: r() * Math.PI * 2, meta: new THREE.Vector2(), passo: r() * 10, bruca: 0, lato: 0 };
   };
-  const cervi = [0, 1, 2].map(nuovoCervo);
+  const cervi = (['cervo', 'cerva', 'cerbiatto', 'cerbiatto'] as const).map(nuovoCervo);
+  const mamma = cervi[1]!;
+  // I cerbiatti partono vicino alla mamma, uno per lato
+  cervi.slice(2).forEach((v, i) => { v.lato = i ? -1 : 1; v.x = mamma.x + 0.3; v.z = mamma.z + v.lato * 0.3; });
   const nuovaMeta = (v: (typeof cervi)[number]) => {
     const a = r() * Math.PI * 2, d = 1.2 + Math.sqrt(r()) * 4.4;
     v.meta.set(Math.cos(a) * d, Math.sin(a) * d);
@@ -454,21 +475,30 @@ export function monta(el: HTMLElement) {
       primaCervi = t;
       cervi.forEach(v => {
         v.cervo.visible = tempo > 2400;
+        // I cerbiatti seguono la mamma: la meta è un punto al suo fianco, un po' dietro
+        const cucciolo = v.tipo === 'cerbiatto';
+        if (cucciolo) {
+          const dietro = mamma.verso + Math.PI + v.lato * 0.7;
+          v.meta.set(mamma.x + Math.cos(dietro) * 0.32, mamma.z - Math.sin(dietro) * 0.32);
+          if (v.bruca > 0 && Math.hypot(v.meta.x - v.x, v.meta.y - v.z) > 0.4) v.bruca = 0;
+        }
         if (dtCervi > 0) {
           if (v.bruca > 0) {
             // Fermo a brucare: la testa scende, poi riparte verso una nuova meta
             v.bruca -= dtCervi;
-            if (v.bruca <= 0) nuovaMeta(v);
+            if (v.bruca <= 0 && !cucciolo) nuovaMeta(v);
           } else {
             const dx = v.meta.x - v.x, dz = v.meta.y - v.z, d = Math.hypot(dx, dz);
-            if (d < 0.15) v.bruca = 3 + r() * 4;
+            if (d < 0.15) v.bruca = cucciolo ? 0.8 + r() : 3 + r() * 4;
             else {
               // Gira piano verso la meta e cammina in avanti
               const voluto = Math.atan2(-dz, dx);
               v.verso += Math.atan2(Math.sin(voluto - v.verso), Math.cos(voluto - v.verso)) * Math.min(1, dtCervi * 1.5);
-              v.x += Math.cos(v.verso) * 0.28 * dtCervi;
-              v.z -= Math.sin(v.verso) * 0.28 * dtCervi;
-              v.passo += dtCervi * 7;
+              // I cerbiatti trotterellano più veloci quando restano indietro
+              const vel = cucciolo ? Math.min(0.55, 0.2 + d * 0.5) : v.tipo === 'cervo' ? 0.26 : 0.22;
+              v.x += Math.cos(v.verso) * vel * dtCervi;
+              v.z -= Math.sin(v.verso) * vel * dtCervi;
+              v.passo += dtCervi * (cucciolo ? 11 : 7) * (vel / 0.25);
             }
           }
         }
