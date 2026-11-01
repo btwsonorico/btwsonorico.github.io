@@ -1,15 +1,13 @@
 import * as THREE from 'three';
 import { colori, tonoSezione, vista, type Punto } from './vista3d';
+import { famigliaCervi } from './cervi';
 
 // Il mondo dell'About: le tre sezioni del sito in un solo diorama, nello stile di bosco e laghetto.
 // A terra, su un prato verde: un piccolo bosco (Software) e uno stagno con i pesci (Advisory).
-// In cielo, Knowledge. Di notte (tema scuro): stelle, luna, stelle cadenti, e Knowledge è una costellazione
-// fatta come il suo grafo, con i temi e i testi come stelle e i loro legami come linee.
-// Di giorno (tema chiaro): uno stormo di uccelli; una piccola parte, arancione, è Knowledge.
-// Il cielo resta fermo dietro al diorama, che ruota piano; un clic su una sezione la apre.
-
-export interface NodoK { id: string; tipo: string; label: string; href?: string }
-export interface DatiMondo { nodi: NodoK[]; archi: [string, string][] }
+// Sopra, Knowledge: un grande stormo di uccelli arancioni che gira sul diorama, di giorno e di notte.
+// Le tre sezioni hanno lo stesso peso; un anello pulsa sotto ognuna e un clic la apre.
+// Sul prato cammina una famiglia di cervi. Di notte: luna con il riflesso nello stagno e lucciole nel bosco.
+// Di giorno: nuvole. Il cielo resta fermo dietro al diorama, che ruota piano.
 
 function casuale(seme: number) {
   return () => { seme = (seme * 16807) % 2147483647; return (seme - 1) / 2147483646; };
@@ -40,7 +38,7 @@ const sullIsola = (x: number, z: number, margine = 0) => Math.hypot(x, z) < ragg
 // Punto sulla volta del cielo: azimut e altezza sull'orizzonte
 const volta = (az: number, alt: number, raggio: number) => new THREE.Vector3(Math.cos(alt) * Math.cos(az) * raggio, Math.sin(alt) * raggio + 0.3, Math.cos(alt) * Math.sin(az) * raggio);
 
-export function monta(el: HTMLElement, dati: DatiMondo) {
+export function monta(el: HTMLElement) {
   const c = colori(el);
   const chiaro = document.documentElement.dataset.theme === 'light';
   const verde = tonoSezione('--verde'), azzurro = tonoSezione('--azzurro'), arancio = tonoSezione('--arancio');
@@ -58,7 +56,6 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
 
   // --- Isola: bordo, prato verde a strati, puntini e ciuffi d'erba
   const contorno = Array.from({ length: 180 }, (_, i) => { const a = (i / 180) * Math.PI * 2, d = raggioIsola(a); return new THREE.Vector3(Math.cos(a) * d, 0, Math.sin(a) * d); });
-  gruppo.add(curva(contorno, linea(verde.clone().lerp(c.muted, 0.4), 0.55), true));
   for (const [scala, op] of [[1, 0.07], [0.75, 0.045], [0.5, 0.04]] as const) {
     const forma = new THREE.Shape(contorno.map(p => new THREE.Vector2(p.x * scala, -p.z * scala)));
     const strato = new THREE.Mesh(new THREE.ShapeGeometry(forma), new THREE.MeshBasicMaterial({ color: verde, transparent: true, opacity: op * (chiaro ? 1 : 0.45), depthWrite: false }));
@@ -195,7 +192,7 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
   const spruzzi = [0, 1].map(() => { const o = curva(cerchio(32), linea(azzurro, 0), true); gruppo.add(o); return { o, nato: -9 }; });
   let salto = { pesce: 0, nato: -9 }, prossimoSalto = 4;
 
-  // Notte: lucciole fra gli alberi del bosco. Giorno: due libellule arancioni sopra lo stagno
+  // Notte: lucciole fra gli alberi del bosco
   const LUCCIOLE = chiaro ? 0 : 30;
   const baseLucciole = Array.from({ length: LUCCIOLE }, () => ({ x: -1.7 + (r() - 0.5) * 3.6, y: 0.2 + r() * 1.1, z: -0.2 + (r() - 0.5) * 3.8, fase: r() * 10, vel: 0.6 + r() * 0.8 }));
   const gLucciole = new THREE.BufferGeometry();
@@ -203,53 +200,14 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
   gLucciole.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(LUCCIOLE * 3), 3));
   gruppo.add(new THREE.Points(gLucciole, new THREE.PointsMaterial({ size: 0.07, vertexColors: true, transparent: true, opacity: 0.95 })));
   const coloreLucciola = new THREE.Color('#e6ffb3'), lucciola = new THREE.Color();
-  const libellule = (chiaro ? [0, 1] : []).map(k => {
-    const g = new THREE.Group();
-    const ml = linea(arancio, 0.85);
-    g.add(curva([new THREE.Vector3(0, 0, 0.05), new THREE.Vector3(0, 0, -0.09)], ml));
-    const ali = new THREE.Group();
-    for (const lato of [1, -1]) for (const dz of [0.02, -0.01]) ali.add(curva([new THREE.Vector3(0, 0, dz), new THREE.Vector3(lato * 0.08, 0, dz + 0.012), new THREE.Vector3(lato * 0.08, 0, dz - 0.008)], ml, true));
-    g.add(ali);
-    gruppo.add(g);
-    return { g, ali, da: new THREE.Vector3(), a: new THREE.Vector3(STAGNO.x, 0.4, STAGNO.y), via: -9, sosta: 2 + k * 1.3 };
-  });
-  const puntoSopraStagno = (out: THREE.Vector3) => {
-    const a = r() * Math.PI * 2, d = raggioStagno(a) * (0.5 + r() * 0.6);
-    return out.set(STAGNO.x + Math.cos(a) * d, 0.3 + r() * 0.3, STAGNO.y + Math.sin(a) * d);
-  };
-
   // --- Cielo: un gruppo che annulla la rotazione del diorama, così resta sempre dietro
   const cielo = new THREE.Group();
   gruppo.add(cielo);
   const RAGGIO = 7;
-  const dietro = (p: THREE.Vector3) => { if (p.z > -0.5) p.z = -0.5 - Math.abs(p.z) * 0.5; return p; };
-  const centroK = volta(4.71, 0.42, RAGGIO);
-  const est = new THREE.Vector3(1, 0, 0), su = new THREE.Vector3(0, 1, 0);
-  let aggiornaCielo: (s: number, dt: number) => void;
-  let nuvole: { g: THREE.Group; vel: number }[] = [];
-  let riflesso: THREE.Group | null = null, stelleAcqua: THREE.Points | null = null, muoviSegnali: (dt: number) => void = () => {};
-
+  let riflesso: THREE.Group | null = null;
+  const nuvole: { g: THREE.Group; vel: number }[] = [];
   if (!chiaro) {
-    // Notte: stelle che brillano, Via Lattea, luna sottile, stelle cadenti
-    const N = 480;
-    const stelle = new Float32Array(N * 3), luci = new Float32Array(N * 3), fasi = new Float32Array(N), forza = new Float32Array(N);
-    for (let i = 0; i < N; i++) {
-      let p: THREE.Vector3;
-      if (i < 170) {
-        const a = r() * Math.PI * 2, spessore = (r() - 0.5) * 0.35;
-        p = dietro(new THREE.Vector3(Math.cos(a), Math.abs(Math.sin(a) * 0.5 + spessore) + 0.15, Math.sin(a) * 0.9).normalize().multiplyScalar(RAGGIO));
-        forza[i] = 0.25 + r() * 0.25;
-      } else {
-        p = dietro(volta(r() * Math.PI * 2, Math.asin(0.05 + r() * 0.92), RAGGIO * (1 + r() * 0.05)));
-        forza[i] = 0.35 + r() ** 3 * 0.65;
-      }
-      stelle.set([p.x, p.y, p.z], i * 3);
-      fasi[i] = r() * 10;
-    }
-    const gStelle = new THREE.BufferGeometry();
-    gStelle.setAttribute('position', new THREE.BufferAttribute(stelle, 3));
-    gStelle.setAttribute('color', new THREE.BufferAttribute(luci, 3));
-    cielo.add(new THREE.Points(gStelle, new THREE.PointsMaterial({ size: 0.05, vertexColors: true, transparent: true, opacity: 0.95, fog: false })));
+    // Notte: una luna sottile dietro al diorama, con il suo riflesso che trema nello stagno
     const luna = new THREE.Group();
     const arco = (raggio: number, cx: number, da: number, a: number) => curva(Array.from({ length: 24 }, (_, i) => {
       const t = da + (i / 23) * (a - da);
@@ -258,117 +216,15 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
     luna.add(arco(0.36, 0, -Math.PI / 2, Math.PI / 2), arco(0.3, -0.12, -1.2, 1.2));
     luna.position.copy(volta(5.6, 0.3, RAGGIO * 0.95));
     cielo.add(luna);
-    // Riflesso della luna nello stagno: trattini che tremano, sempre rivolti verso chi guarda
     riflesso = new THREE.Group();
     const trattini: number[] = [];
     for (let k = 0; k < 9; k++) { const z = 0.5 - k * 0.11, l = 0.05 + (1 - Math.abs(k - 4) / 4) * 0.12; trattini.push(-l, 0, z, l, 0, z); }
     riflesso.add(segmenti(trattini, linea(c.fg, 0.55)));
     riflesso.position.set(STAGNO.x, 0.01, STAGNO.y);
     gruppo.add(riflesso);
-    // Stelle riflesse nell'acqua: puntini che brillano piano
-    const riflesse: number[] = [];
-    for (let k = 0; k < 26; k++) { let x = 0, z = 0; do { x = STAGNO.x + (r() - 0.5) * 2.6; z = STAGNO.y + (r() - 0.5) * 2.2; } while (!nelloStagno(x, z, 0.12)); riflesse.push(x, 0.006, z); }
-    stelleAcqua = nuvola(riflesse, c.fg, 0.035, 0.5);
-    gruppo.add(stelleAcqua);
-    const scia = curva([new THREE.Vector3(), new THREE.Vector3()], linea(c.fg, 0));
-    cielo.add(scia);
-    let cadente = { da: new THREE.Vector3(), a: new THREE.Vector3(), nata: -1e9 }, prossima = 3;
-    const luce = new THREE.Color();
-
-    // Knowledge come costellazione: il grafo dei temi e dei testi, disposto con le forze come nella sua pagina
-    const nodi = dati.nodi, indice = new Map(nodi.map((n, i) => [n.id, i]));
-    const archi = dati.archi.map(([a, b]) => [indice.get(a)!, indice.get(b)!] as const).filter(([a, b]) => a !== undefined && b !== undefined);
-    const px = nodi.map(() => (r() - 0.5) * 2), py = nodi.map(() => (r() - 0.5) * 2);
-    for (let it = 0; it < 300; it++) {
-      const fx = nodi.map(() => 0), fy = nodi.map(() => 0);
-      for (let i = 0; i < nodi.length; i++) for (let j = i + 1; j < nodi.length; j++) {
-        const dx = px[i]! - px[j]!, dy = py[i]! - py[j]!, d2 = dx * dx + dy * dy + 0.01, f = 0.02 / d2;
-        fx[i]! += dx * f; fy[i]! += dy * f; fx[j]! -= dx * f; fy[j]! -= dy * f;
-      }
-      for (const [a, b] of archi) {
-        const dx = px[b]! - px[a]!, dy = py[b]! - py[a]!, d = Math.hypot(dx, dy) || 1, f = (d - 0.35) * 0.08;
-        fx[a]! += dx / d * f; fy[a]! += dy / d * f; fx[b]! -= dx / d * f; fy[b]! -= dy / d * f;
-      }
-      for (let i = 0; i < nodi.length; i++) { px[i] = px[i]! + fx[i]! - px[i]! * 0.01; py[i] = py[i]! + fy[i]! - py[i]! * 0.01; }
-    }
-    const misura = Math.max(...px.map(Math.abs), ...py.map(Math.abs)) || 1;
-    const posK = nodi.map((_, i) => centroK.clone().addScaledVector(est, (px[i]! / misura) * 3.2).addScaledVector(su, (py[i]! / misura) * 1.8));
-    const xyz: number[] = [];
-    for (const [a, b] of archi) xyz.push(...posK[a]!.toArray(), ...posK[b]!.toArray());
-    cielo.add(segmenti(xyz, mat('knowledge', arancio, 0.45)));
-    // Segnali: puntini luminosi che corrono lungo i legami da una stella all'altra, come idee che si collegano
-    const SEGNALI = Math.min(12, archi.length);
-    const segnali = Array.from({ length: SEGNALI }, () => ({ arco: Math.floor(r() * archi.length), u: r(), verso: r() < 0.5 }));
-    const gSegnali = new THREE.BufferGeometry();
-    gSegnali.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(SEGNALI * 3), 3));
-    cielo.add(new THREE.Points(gSegnali, new THREE.PointsMaterial({ color: arancio.clone().offsetHSL(0, 0, 0.15), size: 0.09, transparent: true, opacity: 0.95, fog: false })));
-    muoviSegnali = (dt: number) => {
-      const pos = gSegnali.attributes.position as THREE.BufferAttribute;
-      segnali.forEach((q, i) => {
-        q.u += dt * 0.5;
-        if (q.u >= 1) {
-          // Arrivato in fondo: riparte da un legame che tocca la stella dove è arrivato
-          const [a, b] = archi[q.arco]!, nodo = q.verso ? a : b;
-          const vicini = archi.map((x, k) => (x[0] === nodo || x[1] === nodo) && k !== q.arco ? k : -1).filter(k => k >= 0);
-          q.arco = vicini.length ? vicini[Math.floor(r() * vicini.length)]! : Math.floor(r() * archi.length);
-          q.verso = archi[q.arco]![1] === nodo;
-          q.u = 0;
-        }
-        const [a, b] = archi[q.arco]!, da = posK[q.verso ? b : a]!, verso = posK[q.verso ? a : b]!;
-        pos.setXYZ(i, da.x + (verso.x - da.x) * q.u, da.y + (verso.y - da.y) * q.u, da.z + (verso.z - da.z) * q.u);
-      });
-      pos.needsUpdate = true;
-    };
-    const geoTema = new THREE.IcosahedronGeometry(0.1, 1), geoTesto = new THREE.IcosahedronGeometry(0.055, 1);
-    nodi.forEach((n, i) => {
-      const tema = n.tipo === 'tema';
-      const stella = new THREE.Mesh(tema ? geoTema : geoTesto, pieno('knowledge', tema ? arancio : c.fg, tema ? 0.95 : 0.8));
-      stella.position.copy(posK[i]!);
-      cielo.add(stella);
-      punti.push({ id: `k:${n.id}`, label: n.label, href: n.href ?? '/knowledge/', hub: false, famiglia: 'knowledge', ancora: stella, tono: 'arancio' });
-    });
-    const centro = new THREE.Object3D();
-    centro.position.copy(centroK).addScaledVector(su, 2.05);
-    cielo.add(centro);
-    punti.push({ id: 'sezione:knowledge', label: 'Knowledge →', href: '/knowledge/', hub: true, famiglia: 'knowledge', ancora: centro, tono: 'arancio' });
-    impulso(cielo, arancio, centroK.x, centroK.y, centroK.z, 0.5, 2.2, 1.6, true);
-
-    aggiornaCielo = (s: number, dt: number) => {
-      muoviSegnali(dt);
-      for (let i = 0; i < N; i++) {
-        const b = forza[i]! * (0.75 + 0.25 * Math.sin(s * (1.2 + (fasi[i]! % 1) * 2) + fasi[i]!));
-        luce.copy(c.fg).multiplyScalar(b);
-        luci.set([luce.r, luce.g, luce.b], i * 3);
-      }
-      gStelle.attributes.color!.needsUpdate = true;
-      if (s > 0 && s > prossima) {
-        const az = 3.5 + r() * 2.4;
-        cadente = { da: volta(az, 0.65 + r() * 0.4, RAGGIO), a: volta(az + 0.45 + r() * 0.35, 0.3 + r() * 0.15, RAGGIO), nata: s };
-        prossima = s + 4 + r() * 5;
-      }
-      const u = (s - cadente.nata) / 0.9, m = scia.material as THREE.LineBasicMaterial;
-      if (u >= 0 && u <= 1) {
-        const testa = cadente.da.clone().lerp(cadente.a, u), coda = cadente.da.clone().lerp(cadente.a, Math.max(0, u - 0.25));
-        (scia.geometry.attributes.position as THREE.BufferAttribute).setXYZ(0, coda.x, coda.y, coda.z).setXYZ(1, testa.x, testa.y, testa.z).needsUpdate = true;
-        m.opacity = Math.sin(u * Math.PI) * 0.9;
-      } else m.opacity = 0;
-    };
   } else {
-    // Giorno: uno stormo di uccelli; quelli arancioni (Knowledge) volano insieme, come un piccolo stormo nello stormo
-    const N = 110, ARANCIONI = 16;
-    const geoAli = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.07, 0.03, 0), new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.07, 0.03, 0)]);
-    const matGrigio = linea(c.muted, 0.85), matArancio = mat('knowledge', arancio, 1);
-    const uccelli = Array.from({ length: N }, (_, i) => {
-      const k = i < ARANCIONI;
-      const g = new THREE.Line(geoAli, k ? matArancio : matGrigio);
-      cielo.add(g);
-      const p = centroK.clone().add(new THREE.Vector3((r() - 0.5) * 3, (r() - 0.5) * 1.2, (r() - 0.5) * 1.2));
-      return { g, k, p, v: new THREE.Vector3((r() - 0.5) * 0.6, (r() - 0.5) * 0.2, (r() - 0.5) * 0.3), fase: r() * 6 };
-    });
-    const centro = new THREE.Object3D();
-    cielo.add(centro);
-    // Nuvole: grappoli di palle a fili, bianche e piene appena, che attraversano piano il cielo
-    nuvole = Array.from({ length: 4 }, (_, k) => {
+    // Giorno: nuvole a grappoli di palle a fili, bianche e piene appena, che attraversano piano il cielo
+    for (let k = 0; k < 4; k++) {
       const g = new THREE.Group();
       for (let q = 0; q < 4; q++) {
         const geo = new THREE.IcosahedronGeometry(0.35 + r() * 0.25, 1);
@@ -378,52 +234,88 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
         palla.scale.y = 0.6;
         g.add(palla);
       }
-      g.position.copy(volta(3.6 + k * 0.75, 0.3 + (k % 2) * 0.22, RAGGIO * 0.92));
+      g.position.copy(volta(3.6 + k * 0.75, 0.35 + (k % 2) * 0.2, RAGGIO * 0.92));
       cielo.add(g);
-      return { g, vel: 0.12 + r() * 0.1 };
-    });
-    punti.push({ id: 'sezione:knowledge', label: 'Knowledge →', href: '/knowledge/', hub: true, famiglia: 'knowledge', ancora: centro, tono: 'arancio' });
-    const meta = new THREE.Vector3(), forza = new THREE.Vector3(), d = new THREE.Vector3(), media = new THREE.Vector3(), centroA = new THREE.Vector3(), avanti = new THREE.Vector3();
-    aggiornaCielo = (s: number, dt: number) => {
-      // Il punto che tiene unito lo stormo disegna curve lente nel cielo dietro al diorama
-      meta.copy(centroK).addScaledVector(est, Math.sin(s * 0.11) * 2.6).addScaledVector(su, Math.sin(s * 0.17 + 1) * 0.7);
-      centroA.set(0, 0, 0);
-      for (const u of uccelli) if (u.k) centroA.add(u.p);
-      centroA.multiplyScalar(1 / ARANCIONI);
-      if (dt > 0) for (const u of uccelli) {
-        forza.copy(meta).sub(u.p).multiplyScalar(0.25);
-        media.set(0, 0, 0);
-        let quanti = 0;
-        for (const q of uccelli) {
-          if (q === u) continue;
-          d.copy(u.p).sub(q.p);
-          const l = d.length();
-          if (l < 0.6) { media.add(q.v); quanti++; }
-          if (l < 0.18 && l > 1e-4) forza.addScaledVector(d, (0.18 - l) * 12 / l);
-        }
-        if (quanti) forza.addScaledVector(media.multiplyScalar(1 / quanti).sub(u.v), 0.9);
-        // Gli arancioni restano vicini fra loro
-        if (u.k) forza.add(d.copy(centroA).sub(u.p).multiplyScalar(0.9));
-        u.v.addScaledVector(forza, dt);
-        const vel = u.v.length();
-        if (vel > 1.1) u.v.multiplyScalar(1.1 / vel);
-        if (vel < 0.45) u.v.multiplyScalar(0.45 / (vel || 1));
-        u.p.addScaledVector(u.v, dt);
-        u.p.z = Math.min(u.p.z, -1);
-      }
-      for (const u of uccelli) {
-        u.g.position.copy(u.p);
-        avanti.copy(u.p).add(u.v);
-        u.g.lookAt(cielo.localToWorld(avanti));
-        u.g.scale.set(1, Math.sin(s * 14 + u.fase) * 1.5, 1);
-      }
-      centro.position.copy(centroA).addScaledVector(su, 0.35);
-      impulsi[impulsi.length - 1]!.o.position.copy(centroA);
-      // Le nuvole scorrono da sinistra a destra e rientrano dall'altra parte
-      for (const n of nuvole) { n.g.position.x += n.vel * dt; if (n.g.position.x > 7) n.g.position.x = -7; }
-    };
-    impulso(cielo, arancio, centroK.x, centroK.y, centroK.z, 0.4, 1.6, 1.6, true);
+      nuvole.push({ g, vel: 0.12 + r() * 0.1 });
+    }
   }
+
+  // --- Stormo (Knowledge): uccelli arancioni con le ali piene, che girano in tondo sopra il diorama.
+  // Regole degli stormi veri: non urtarsi, andare nella stessa direzione dei vicini, seguire il punto che guida.
+  const UCCELLI = 64;
+  const geoAla = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.05), new THREE.Vector3(0.17, 0.02, -0.02), new THREE.Vector3(0, 0, -0.06)]);
+  const bordoAla = new THREE.EdgesGeometry(geoAla);
+  const matAla = pieno('knowledge', arancio, chiaro ? 0.9 : 0.85);
+  matAla.side = THREE.DoubleSide;
+  const matBordoAla = mat('knowledge', arancio.clone().offsetHSL(0, 0, chiaro ? -0.12 : 0.1), 1);
+  const guidaStormo = new THREE.Vector3();
+  const posizioneGuida = (s: number, out: THREE.Vector3) => out.set(0.2 + Math.cos(s * 0.22) * 2.4, 2.6 + Math.sin(s * 0.37) * 0.35, -0.6 + Math.sin(s * 0.22) * 1.5);
+  posizioneGuida(0, guidaStormo);
+  const uccelli = Array.from({ length: UCCELLI }, () => {
+    const g = new THREE.Group();
+    const ali = [1, -1].map(lato => {
+      const ala = new THREE.Group();
+      ala.add(new THREE.Mesh(geoAla, matAla), new THREE.LineSegments(bordoAla, matBordoAla));
+      ala.scale.x = lato;
+      g.add(ala);
+      return ala;
+    });
+    g.add(segmenti([0, 0, 0.07, 0, 0, -0.08], matBordoAla));
+    gruppo.add(g);
+    const p = guidaStormo.clone().add(new THREE.Vector3((r() - 0.5) * 1.6, (r() - 0.5) * 0.6, (r() - 0.5) * 1.2));
+    return { g, ali, p, v: new THREE.Vector3(-0.6, 0, 0.3), fase: r() * 6 };
+  });
+  const centroStormo = new THREE.Object3D();
+  gruppo.add(centroStormo);
+  punti.push({ id: 'sezione:knowledge', label: 'Knowledge →', href: '/knowledge/', hub: true, famiglia: 'knowledge', ancora: centroStormo, tono: 'arancio' });
+  // L'anello dello stormo è verticale e si gira sempre verso chi guarda
+  impulso(gruppo, arancio, 0, 0, 0, 0.5, 1.6, 1.6, true);
+  const anelloStormo = impulsi[impulsi.length - 1]!.o;
+  const forza = new THREE.Vector3(), d = new THREE.Vector3(), media = new THREE.Vector3(), centro = new THREE.Vector3(), avanti = new THREE.Vector3();
+  const muoviStormo = (s: number, dt: number) => {
+    posizioneGuida(s, guidaStormo);
+    centro.set(0, 0, 0);
+    for (const u of uccelli) centro.add(u.p);
+    centro.multiplyScalar(1 / UCCELLI);
+    if (dt > 0) for (const u of uccelli) {
+      forza.copy(guidaStormo).sub(u.p).multiplyScalar(0.6);
+      media.set(0, 0, 0);
+      let quanti = 0;
+      for (const q of uccelli) {
+        if (q === u) continue;
+        d.copy(u.p).sub(q.p);
+        const l = d.length();
+        if (l < 0.55) { media.add(q.v); quanti++; }
+        if (l < 0.2 && l > 1e-4) forza.addScaledVector(d, (0.2 - l) * 14 / l);
+      }
+      if (quanti) forza.addScaledVector(media.multiplyScalar(1 / quanti).sub(u.v), 1.1);
+      u.v.addScaledVector(forza, dt);
+      const vel = u.v.length();
+      if (vel > 1.5) u.v.multiplyScalar(1.5 / vel);
+      if (vel < 0.6) u.v.multiplyScalar(0.6 / (vel || 1));
+      u.p.addScaledVector(u.v, dt);
+    }
+    for (const u of uccelli) {
+      u.g.position.copy(u.p);
+      avanti.copy(u.p).add(u.v);
+      u.g.lookAt(gruppo.localToWorld(avanti));
+      // Ali che battono, ognuno col suo ritmo
+      const battito = Math.sin(s * 11 + u.fase) * 0.65;
+      u.ali[0]!.rotation.z = battito;
+      u.ali[1]!.rotation.z = -battito;
+    }
+    centroStormo.position.copy(centro).add(new THREE.Vector3(0, 0.45, 0));
+    anelloStormo.position.copy(centro);
+    anelloStormo.rotation.set(Math.PI / 2, 0, 0);
+    anelloStormo.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), -gruppo.rotation.y);
+  };
+
+  // --- Cervi: una piccola famiglia che cammina sul prato, gira intorno agli alberi e allo stagno
+  const famiglia = famigliaCervi(gruppo, {
+    colori: c, chiaro, casuale: r, tipi: ['cervo', 'cerva', 'cerbiatto'],
+    meta: out => { do { out.set((r() - 0.5) * 7, (r() - 0.5) * 6.5); } while (!sullIsola(out.x, out.y, 0.5) || nelloStagno(out.x, out.y, -0.4)); },
+    ostacoli: () => [...alberi.map(a => ({ x: a.position.x, z: a.position.z, raggio: 0.4 })), { x: -1.7, z: -0.2, raggio: 0.7 }, { x: STAGNO.x, z: STAGNO.y, raggio: 1.8 }],
+  });
 
   const accendi = (mats: THREE.Material[], livello: number) => {
     const k = livello === 1 ? 1.5 : livello === 0.5 ? 1 : 0.45;
@@ -443,7 +335,10 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
       prima = t;
       cielo.rotation.set(-gruppo.rotation.x, -gruppo.rotation.y, 0, 'YXZ');
       gruppo.updateMatrixWorld();
-      aggiornaCielo(s, dt);
+      muoviStormo(s, dt);
+      famiglia.aggiorna(t, true);
+      // Le nuvole scorrono da sinistra a destra e rientrano dall'altra parte
+      for (const n of nuvole) { n.g.position.x += n.vel * dt; if (n.g.position.x > 7) n.g.position.x = -7; }
       // Anelli che invitano a cliccare: uno ogni 2.4 secondi per sezione, sfalsati
       impulsi.forEach(q => {
         const u = s > 0 ? (((s + q.ritardo) % 2.4) / 2.4) : 0;
@@ -481,20 +376,11 @@ export function monta(el: HTMLElement, dati: DatiMondo) {
         pos.needsUpdate = true;
         col.needsUpdate = true;
       }
-      // Libellule: scatto verso un nuovo punto sopra lo stagno, poi sosta in volo con le ali che vibrano
-      libellule.forEach(l => {
-        if (s > l.via + 1.1 + l.sosta) { l.da.copy(l.a); puntoSopraStagno(l.a); l.via = s; l.g.lookAt(gruppo.localToWorld(l.a.clone())); }
-        const u = THREE.MathUtils.clamp((s - l.via) / 1.1, 0, 1);
-        l.g.position.lerpVectors(l.da, l.a, THREE.MathUtils.smootherstep(u, 0, 1));
-        l.g.position.y += Math.sin(s * 4) * 0.01;
-        l.ali.scale.x = 0.6 + Math.abs(Math.sin(s * 90)) * 0.4;
-      });
       // Riflesso della luna: sempre verso chi guarda, con i trattini che tremano
       if (riflesso) {
         riflesso.rotation.y = -gruppo.rotation.y;
         riflesso.scale.x = 1 + Math.sin(s * 3) * 0.15;
       }
-      if (stelleAcqua) (stelleAcqua.material as THREE.PointsMaterial).opacity = 0.35 + Math.sin(s * 1.3) * 0.15;
       alberi.forEach((a, k) => { a.rotation.z = Math.sin(s * 1.1 + k) * 0.02; });
       for (const sezione of ['software', 'advisory', 'knowledge']) accendi(materiali[sezione]!, acceso(sezione, `sezione:${sezione}`));
     },

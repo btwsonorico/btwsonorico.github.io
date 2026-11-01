@@ -1,6 +1,5 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { grafoKnowledge } from '../../lib/grafi';
 
 // Tutte le pagine del sito, con una riga che dice cosa c'è
 const PAGINE = [
@@ -10,15 +9,12 @@ const PAGINE = [
   { nome: 'knowledge', href: '/knowledge/', nota: 'notes on papers, talks and books' },
   { nome: 'rss', href: '/rss.xml', nota: 'feed of the knowledge notes' },
 ];
-// Mondo dell'About: Knowledge in cielo è il suo grafo (temi e testi, con i loro legami)
-const knowledge = await grafoKnowledge({ fonti: false });
-const MONDO = { nodi: knowledge.nodi.map(n => ({ id: n.id, tipo: n.tipo, label: n.label, href: n.href })), archi: knowledge.archi };
 const BIO = 'I help organisations adopt AI, and I build the tools that make it work: from research to code.';
 ---
 <Base title="About · Riccardo Mondi" description="Riccardo Mondi: AI advisor and developer at Politecnico di Milano." largo>
   <canvas class="scena" aria-hidden="true"></canvas>
   <!-- Mondo 3D: il contenitore copre lo schermo; la scena sta dentro, così la vista 3D sa quando è visibile -->
-  <div class="fondo3d" hidden><div class="scena3d" aria-hidden="true" data-mondo={JSON.stringify(MONDO)}></div></div>
+  <div class="fondo3d" hidden><div class="scena3d" aria-hidden="true"></div></div>
   <main class="about">
     <p class="mono">~/about</p>
     <h1>Riccardo Mondi</h1>
@@ -61,7 +57,7 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
   const montaMondo = async (): Promise<Scena> => {
     tela.hidden = true;
     fondo.hidden = false;
-    if (!mondoMontato) { mondoMontato = true; (await import('../../scripts/mondo')).monta(mondo, JSON.parse(mondo.dataset.mondo!)); }
+    if (!mondoMontato) { mondoMontato = true; (await import('../../scripts/mondo')).monta(mondo); }
     return { ferma() { fondo.hidden = true; tela.hidden = false; } };
   };
 
@@ -69,9 +65,7 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
   const SCENE: Record<string, { aiuto: string; monta: () => Promise<Scena> }> = {
     vita: { aiuto: "Conway's game of life · move the mouse to seed cells · click for a burst", monta: async () => (await import('../../scripts/vita')).monta(tela) },
     onde: { aiuto: 'the shore seen from above · move the mouse to make ripples · click for a splash', monta: async () => (await import('../../scripts/onde')).monta(tela) },
-    mondo: { aiuto: document.documentElement.dataset.theme === 'light'
-      ? 'the forest is Software, the pond is Advisory, the orange birds are Knowledge · click one to open it · drag to rotate'
-      : 'the forest is Software, the pond is Advisory, the constellation is Knowledge · click one to open it · drag to rotate', monta: montaMondo },
+    mondo: { aiuto: 'the forest is Software, the pond is Advisory, the orange flock is Knowledge · click one to open it · drag to rotate', monta: montaMondo },
   };
 
   let attuale: Scena | null = null, richiesta = 0;
