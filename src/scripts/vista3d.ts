@@ -53,6 +53,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     s.className = `etichetta ${p.hub ? 'skill' : 'area'}`;
     s.textContent = p.label;
     if (p.tono) s.dataset.tono = p.tono;
+    s.style.opacity = '0';
     el.appendChild(s);
     return s;
   });
