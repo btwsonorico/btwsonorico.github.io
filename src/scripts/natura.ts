@@ -98,11 +98,11 @@ export function terreno(gruppo: THREE.Group, colore: THREE.Color, raggio: number
 // Ogni nastro sale dal suo piede, si assottiglia in cima e può avere le foglie a onde; la scena dice di quanto si
 // piega ogni punto a ogni fotogramma.
 export interface Nastro { x: number; y: number; z: number; alto: number; largo: number; angolo: number; fase: number; colore: THREE.Color; foglie?: boolean }
-export function nastri(lista: Nastro[], nodi = 10) {
+export function nastri(lista: Nastro[], nodi = 10, grezzo = false) {
   const V = lista.length * nodi * 2;
   const pos = new Float32Array(V * 3), col = new Float32Array(V * 3), idx: number[] = [];
   lista.forEach((q, n) => {
-    const c = tono(q.colore);
+    const c = grezzo ? q.colore : tono(q.colore);
     for (let i = 0; i < nodi; i++) {
       const a = (n * nodi + i) * 2;
       for (const k of [a, a + 1]) col.set([c.r, c.g, c.b], k * 3);

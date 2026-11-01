@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { casuale, mat, pezzo, scuoti, sasso, unisci, linea, tono, terreno, nastri, puntiMorbidi, palco, type Nastro, type Palco } from './natura';
+import { casuale, mat as matSito, pezzo, scuoti, sasso, unisci, terreno, nastri, puntiMorbidi, palco, type Extra, type Nastro, type Palco } from './natura';
 
 // Barriera corallina: un fondale aperto, tutto sott'acqua, nello stile del laghetto. Una foresta di kelp sul fondo, rocce a terrazze, coralli, anemoni, ricci, vongole, un forziere e due colonne antiche.
 // Tutto si muove con la stessa corrente: la risacca va e viene, le alghe ondeggiano, la neve marina scorre.
@@ -12,6 +12,39 @@ export function monta(el: HTMLElement) {
   const r = casuale(11);
   const p = palco(el, { camera: new THREE.Vector3(0, 3.1, 8.6), mira: new THREE.Vector3(0, 1.1, 0), giro: 0.02, inclina: [-0.12, 0.3], aggiorna, clic });
   const g = p.gruppo;
+
+  // --- Tavolozza a tre colori: 60% blu-azzurro (acqua, alghe, rocce, meduse, quasi tutti i pesci), 30% grigio terra
+  // un po' aranciato (sabbia, pietre, colonne, coralli duri, forziere), 10% rosso acceso (un banco, i pesci
+  // pagliaccio, il granchio, una stella, un corallo, un ventaglio, un anemone, il mangime).
+  // Ogni colore della scena ha la sua famiglia e una sfumatura (più chiaro o più scuro della base).
+  const BASE = {
+    b: p.colori.azzurro.clone(),
+    t: new THREE.Color(p.chiaro ? '#8f8272' : '#a89a88'),
+    r: new THREE.Color(p.chiaro ? '#e0352a' : '#ff4a3d'),
+  };
+  const CATALOGO: Record<string, ['b' | 't' | 'r', number]> = {
+    // Blu-azzurro
+    '#4f7cad': ['b', 0], '#3e6795': ['b', -0.08], '#6d97c4': ['b', 0.07], '#6f8db0': ['b', -0.03],
+    '#5aa65a': ['b', 0], '#4a8f5c': ['b', -0.07], '#7cbf5f': ['b', 0.07], '#e7a83c': ['b', 0.12],
+    '#9b72d6': ['b', -0.04], '#4fb3c9': ['b', 0.08], '#c3d36a': ['b', 0.1], '#c38bff': ['b', 0.04],
+    '#5e2f8f': ['b', -0.14], '#3b1a5e': ['b', -0.18], '#d9c3e8': ['b', 0.14], '#35587f': ['b', -0.1],
+    '#ff9ec7': ['b', 0.12], '#ffc2a0': ['b', 0.05], '#c9a6ff': ['b', 0.16], '#d9ecf2': ['b', 0.16], '#f7cf4f': ['b', 0.04],
+    // Grigio terra
+    '#9aa6b2': ['t', 0], '#c9b48a': ['t', 0.06], '#dcd0b2': ['t', 0.1], '#86a85a': ['t', -0.06],
+    '#ff9fb4': ['t', 0.04], '#f6b24a': ['t', 0.08], '#f07aa0': ['t', -0.02], '#e7a6c9': ['t', 0.1],
+    '#f08a4b': ['t', 0.02], '#ffb36b': ['t', 0.06], '#d9774f': ['t', -0.06], '#f0c9a8': ['t', 0.08],
+    '#fffaf0': ['t', 0.2], '#f08a3c': ['t', 0], '#f6c14a': ['t', 0.08], '#8a5a2b': ['t', -0.12],
+    '#f2c14e': ['t', 0.12], '#ffd75e': ['t', 0.16],
+    // Rosso acceso
+    '#f0603f': ['r', 0], '#ff7a1a': ['r', 0.04], '#e0583a': ['r', -0.02], '#b8442a': ['r', -0.12],
+    '#e8505b': ['r', 0.02], '#f2836b': ['r', 0.05], '#e3566f': ['r', 0], '#ff8fb1': ['r', 0.08],
+  };
+  const colore = (hex: string) => {
+    const [f, dl] = CATALOGO[hex] ?? ['b', 0];
+    return BASE[f].clone().offsetHSL(0, 0, dl * (p.chiaro ? 0.7 : 1));
+  };
+  const mat = (hex: string, extra: Extra = {}) => matSito(colore(hex), { grezzo: true, ...extra });
+  const linea = (hex: string, opacita = 0.9) => new THREE.LineBasicMaterial({ color: colore(hex), transparent: true, opacity: opacita });
   // --- Corrente del mare: una direzione che cambia piano e una risacca che va e viene, uguale per tutti
   const corrente = new THREE.Vector2();
   const mare = (s: number) => {
@@ -26,7 +59,7 @@ export function monta(el: HTMLElement) {
     return bordo * (0.06 + 0.07 * Math.sin(x * 1.6 + 1) * Math.cos(z * 1.2) + 0.04 * Math.sin(x * 3.3 + z * 2.1)
       + 0.4 * Math.exp(-((x + 1.9) ** 2 + (z + 1.9) ** 2) / 1.3));
   };
-  terreno(g, p.colori.azzurro, 4.6, altezza);
+  terreno(g, BASE.b, 4.6, altezza);
   // Sassi sparsi sul fondo
   const sassi = [mat('#9aa6b2'), mat('#c9b48a'), mat('#6f8db0')];
   for (let k = 0; k < 46; k++) {
@@ -69,8 +102,8 @@ export function monta(el: HTMLElement) {
 
   // --- Kelp dorato sul fondo e alghe verdi basse sparse: tutti nastri mossi dalla corrente
   const fili: Nastro[] = [];
-  const kelp = ['#5aa65a', '#4a8f5c', '#7cbf5f', '#e7a83c'].map(c => new THREE.Color(c));
-  const verdi = ['#5aa65a', '#4a8f5c', '#7cbf5f'].map(c => new THREE.Color(c));
+  const kelp = ['#5aa65a', '#4a8f5c', '#7cbf5f', '#e7a83c'].map(colore);
+  const verdi = ['#5aa65a', '#4a8f5c', '#7cbf5f'].map(colore);
   for (let k = 0; k < 44; k++) {
     let x = 0, z = 0;
     do { x = -2.8 + r() * 5.6; z = -2.8 + r() * 5.6; } while (x + z > -0.4 || (x < -1.4 && z < -1.4));
@@ -81,7 +114,7 @@ export function monta(el: HTMLElement) {
     if (Math.hypot(x - 0.4, z - 0.6) < 1.1) continue;
     fili.push({ x, z, y: altezza(x, z), alto: 0.35 + r() * 0.7, largo: 0.05 + r() * 0.04, angolo: r() * 6, fase: r() * 6, colore: verdi[k % 3]! });
   }
-  const alghe = nastri(fili, 12);
+  const alghe = nastri(fili, 12, true);
   g.add(alghe.mesh);
 
   // --- Coralli
@@ -225,7 +258,7 @@ export function monta(el: HTMLElement) {
   const raggi = Array.from({ length: 7 }, () => {
     const perno = new THREE.Group();
     perno.position.set(-2.2 + r() * 4.4, ACQUA * 0.55, -2.2 + r() * 4.4);
-    const m = new THREE.MeshBasicMaterial({ map: lama, color: p.chiaro ? p.colori.azzurro : p.colori.fg, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, fog: false });
+    const m = new THREE.MeshBasicMaterial({ map: lama, color: BASE.b.clone().offsetHSL(0, 0, p.chiaro ? 0 : 0.2), transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, fog: false });
     const piano = new THREE.Mesh(new THREE.PlaneGeometry(0.5 + r() * 0.6, ACQUA * 1.1), m);
     piano.rotation.z = 0.18;
     perno.add(piano);
@@ -240,9 +273,9 @@ export function monta(el: HTMLElement) {
   type Banco = { mesh: THREE.InstancedMesh; n: number; pos: Float32Array; vel: Float32Array; meta: THREE.Vector3; fase: number; paura: number; scala: Float32Array };
   const quanti = p.telefono ? [40, 32, 26] : [72, 58, 44];
   const banchi: Banco[] = (['#d9ecf2', '#f7cf4f', '#f0603f'] as const).map((c, b) => {
-    const n = quanti[b]!, mesh = new THREE.InstancedMesh(geoPesce, mat('#ffffff', { side: THREE.DoubleSide, grezzo: true, opacity: 0.85, fili: 0 }), n);
+    const n = quanti[b]!, mesh = new THREE.InstancedMesh(geoPesce, matSito('#ffffff', { side: THREE.DoubleSide, grezzo: true, opacity: 0.85, fili: 0 }), n);
     const pos = new Float32Array(n * 3), vel = new Float32Array(n * 3), scala = new Float32Array(n);
-    const base = tono(c);
+    const base = colore(c);
     for (let i = 0; i < n; i++) {
       pos.set([(r() - 0.5) * 1.2 + (b - 1) * 1.5, 1.2 + r() * 0.8, (r() - 0.5) * 1.2], i * 3);
       vel.set([(r() - 0.5) * 0.4, 0, (r() - 0.5) * 0.4], i * 3);
@@ -313,7 +346,7 @@ export function monta(el: HTMLElement) {
     const f = fonti[i % 3]!;
     bolle.pos.set([f.x, f.y + r() * (ACQUA - f.y), f.z], i * 3);
     bolle.dim[i] = 0.035 + r() * 0.05;
-    bolle.col.set(p.colori.azzurro.clone().lerp(p.colori.fg, 0.4).toArray(), i * 3);
+    bolle.col.set(BASE.b.clone().lerp(p.colori.fg, 0.4).toArray(), i * 3);
     bolle.alfa[i] = statoBolle[i]!.viva ? 0.75 : 0;
   }
   g.add(bolle.punti);
@@ -321,13 +354,13 @@ export function monta(el: HTMLElement) {
   for (let i = 0; i < NEVE; i++) {
     neve.pos.set([(r() - 0.5) * 5.8, 0.1 + r() * (ACQUA - 0.2), (r() - 0.5) * 5.8], i * 3);
     neve.dim[i] = 0.015 + r() * 0.025;
-    neve.col.set(p.colori.muted.toArray(), i * 3);
+    neve.col.set(BASE.t.toArray(), i * 3);
     neve.alfa[i] = 0.35 + r() * 0.4;
   }
   g.add(neve.punti);
   const MANGIME = 40, mangime = puntiMorbidi(MANGIME);
   const scaglie = Array.from({ length: MANGIME }, () => ({ viva: false, v: new THREE.Vector3(), vita: 0 }));
-  for (let i = 0; i < MANGIME; i++) { mangime.dim[i] = 0.05; mangime.col.set(p.colori.arancio.toArray(), i * 3); mangime.alfa[i] = 0; }
+  for (let i = 0; i < MANGIME; i++) { mangime.dim[i] = 0.05; mangime.col.set(BASE.r.toArray(), i * 3); mangime.alfa[i] = 0; }
   g.add(mangime.punti);
   let prossima = 0;
 
