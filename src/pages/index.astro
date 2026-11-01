@@ -63,7 +63,8 @@ const PAGINE = [
 <style>
   /* Il mondo copre tutto lo schermo, dietro al testo; il testo lascia passare il puntatore tranne sui link */
   .about a { pointer-events: auto; }
-  .about { position: relative; z-index: 1; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; min-height: calc(100vh - 160px); padding-bottom: var(--s4); }
+  /* Il testo sta a metà altezza dello schermo, non in fondo */
+  .about { position: relative; z-index: 1; pointer-events: none; display: flex; flex-direction: column; justify-content: center; min-height: calc(100vh - 160px); padding-bottom: var(--s4); }
   .about > * { max-width: 520px; margin: 0 0 var(--s2); }
   h1 { margin-bottom: var(--s1); font-size: 44px; font-weight: 400; line-height: 1.1; }
   .ruolo { font-size: 22px; margin-bottom: var(--s1); }
