@@ -1,13 +1,12 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// Esperimenti: due sfondi a pixel e tre diorami 3D per rilassarsi (barriera, sottobosco con i formicai, nuvole)
+// Esperimenti: due sfondi a pixel e due scene 3D per rilassarsi (barriera, valle con le nuvole)
 ---
 <Base title="Misc · Riccardo Mondi" description="Small experiments." largo>
   <canvas class="scena" aria-hidden="true"></canvas>
   <!-- Scene 3D: ognuna nel suo contenitore, montata la prima volta che si apre -->
   <div class="fondo3d" data-fondo="barriera" hidden><div class="scena3d" aria-hidden="true"></div></div>
-  <div class="fondo3d" data-fondo="formicaio" hidden><div class="scena3d" aria-hidden="true"></div></div>
   <div class="fondo3d" data-fondo="nuvole" hidden><div class="scena3d" aria-hidden="true"></div></div>
   <main class="misc">
     <p class="mono"><a href="/">~</a>/misc</p>
@@ -15,7 +14,6 @@ import Base from '../../layouts/Base.astro';
     <p class="mono">Small experiments.</p>
     <p class="mono scelte" role="group" aria-label="Experiment">
       <button type="button" data-scena="barriera">reef</button>
-      <button type="button" data-scena="formicaio">ants</button>
       <button type="button" data-scena="nuvole">clouds</button>
       <button type="button" data-scena="vita">life</button>
       <button type="button" data-scena="onde">waves</button>
@@ -45,7 +43,7 @@ import Base from '../../layouts/Base.astro';
   const montate = new Map<string, Palco>();
   const montatori: Record<string, (el: HTMLElement) => Promise<Palco>> = {};
   // Nomi dei tre toni chiave di ogni scena, per il color editor
-  const NOMI: Record<string, string[]> = { barriera: ['water', 'earth', 'coral'], formicaio: ['red', document.documentElement.dataset.theme === 'light' ? 'black' : 'white', 'green'], nuvole: ['meadow', 'water', 'accent'] };
+  const NOMI: Record<string, string[]> = { barriera: ['water', 'earth', 'coral'], nuvole: ['meadow', 'water', 'accent'] };
   const editor = document.querySelector<HTMLElement>('.toni')!;
   const selettori = editor.querySelectorAll<HTMLInputElement>('input[type="color"]');
   const giorno = document.querySelector<HTMLElement>('.giorno')!, cursore = giorno.querySelector<HTMLInputElement>('input')!;
@@ -94,7 +92,6 @@ import Base from '../../layouts/Base.astro';
   // Ogni esperimento si carica solo quando serve
   const SCENE: Record<string, () => Promise<Scena>> = {
     barriera: scena3d('barriera', async el => (await import('../../scripts/barriera')).monta(el)),
-    formicaio: scena3d('formicaio', async el => (await import('../../scripts/formicaio')).monta(el)),
     nuvole: scena3d('nuvole', async el => (await import('../../scripts/nuvole')).monta(el)),
     vita: async () => (await import('../../scripts/vita')).monta(tela),
     onde: async () => (await import('../../scripts/onde')).monta(tela),
