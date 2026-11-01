@@ -22,7 +22,7 @@ const righe = (kind: string) => scritti.filter(s => s.data.kind === kind).map(s 
       <h1>Knowledge</h1>
       <p>What I read, watch and think about. Each point is a piece of writing or a topic; the sources are inside each note.</p>
     </header>
-    <div class="a-grafo"><Grafo dati={dati} legenda={['testo', 'tema']} /></div>
+    <div class="a-grafo"><Grafo dati={dati} /></div>
     <div class="a-resto">
       <Lista titolo="Essays" righe={righe('essay')} />
       <Lista titolo="Thoughts" righe={righe('thought')} />

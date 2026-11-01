@@ -1,34 +1,29 @@
 ---
-import type { DatiGrafo, TipoNodo } from '../lib/grafi';
+import type { DatiGrafo } from '../lib/grafi';
 import type { DatiCompetenze } from '../scripts/vista3d';
 
 // Una o più viste dello stesso grafo. Con due viste compaiono i pulsanti per passare dall'una all'altra.
+// Niente legende né istruzioni: cursore e hover bastano a capire cosa si clicca.
 // motore: "grafo" (rete a forze, Knowledge), "bosco" (Software) o "laghetto" (Advisory).
 type Motore = 'grafo' | 'bosco' | 'laghetto';
-interface Vista { nome: string; dati: DatiGrafo | DatiCompetenze; legenda: TipoNodo[] }
+interface Vista { nome: string; dati: DatiGrafo | DatiCompetenze }
 // modi: viste della stessa scena (per esempio il bosco per competenza o per progetto). Il primo è quello iniziale.
-type Comuni = { motore?: Motore; nomi?: Partial<Record<TipoNodo, string>>; aiuto?: string; modi?: { id: string; nome: string }[] };
-type Props = Comuni & ({ viste: Vista[] } | { dati: DatiGrafo | DatiCompetenze; legenda: TipoNodo[] });
+type Comuni = { motore?: Motore; modi?: { id: string; nome: string }[] };
+type Props = Comuni & ({ viste: Vista[] } | { dati: DatiGrafo | DatiCompetenze });
 const props = Astro.props;
-const { motore = 'grafo', aiuto = 'drag a node · click to open · drag the space to rotate', modi = [] } = props;
-const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props.dati, legenda: props.legenda }];
-const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte: 'source', area: 'area', tech: 'technology', skill: 'key skill', ...props.nomi };
+const { motore = 'grafo', modi = [] } = props;
+const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props.dati }];
 ---
 <figure class="grafo">
   {viste.map((v, i) => <div class="scena" data-vista={i} data-grafo={JSON.stringify(v.dati)} data-motore={motore} hidden={i > 0} aria-hidden="true"></div>)}
-  <figcaption class="mono">
+  {(modi.length > 1 || viste.length > 1) && <figcaption class="mono">
     {modi.length > 1 && <span class="viste" role="group" aria-label="Group by">
       {modi.map((m, i) => <button type="button" data-modo={m.id} aria-pressed={i === 0 ? 'true' : 'false'}>{m.nome}</button>)}
     </span>}
     {viste.length > 1 && <span class="viste" role="group" aria-label="View">
       {viste.map((v, i) => <button type="button" data-mostra={i} aria-pressed={i === 0 ? 'true' : 'false'}>{v.nome}</button>)}
     </span>}
-    {viste.map((v, i) => <span class="legenda" data-vista={i} hidden={i > 0}>
-      {v.legenda.map(t => <span><i class={`punto ${t}`}></i>{NOMI[t]}</span>)}
-      {'stelle' in v.dati && v.dati.stelle?.length ? <span><i class="punto stella"></i>older writing</span> : null}
-    </span>)}
-    <span class="aiuto">{aiuto}</span>
-  </figcaption>
+  </figcaption>}
 </figure>
 
 <script>
@@ -58,19 +53,10 @@ const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte:
   .scena[hidden] { display: none; }
   .scena:active { cursor: grabbing; }
   figcaption { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 10px 0; }
-  .legenda { display: flex; flex-wrap: wrap; gap: 6px 18px; }
-  .legenda[hidden] { display: none; }
   .viste { display: inline-flex; border: 1px solid var(--line); }
   .viste button { font: inherit; color: var(--muted); background: none; border: 0; padding: 2px 10px; cursor: pointer; }
   .viste button[aria-pressed="true"] { color: var(--bg); background: var(--accent); }
   .viste button:hover:not([aria-pressed="true"]) { color: var(--accent); }
-  .aiuto { margin-left: auto; }
-  .punto { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; vertical-align: 1px; }
-  .punto.testo, .punto.area { background: var(--fg); }
-  .punto.tema, .punto.tech, .punto.skill { background: var(--accent); }
-  .punto.tech { border-radius: 0; }
-  .punto.fonte { border: 1px solid var(--muted); border-radius: 0; transform: rotate(45deg); }
-  .punto.stella { width: 3px; height: 3px; margin: 0 8px 0 2px; background: var(--fg); opacity: .7; }
   .scena :global(.etichetta) {
     position: absolute;
     left: 0;
@@ -102,6 +88,5 @@ const NOMI: Record<TipoNodo, string> = { testo: 'writing', tema: 'topic', fonte:
   .scena :global(.etichetta.attiva) { color: var(--bg); background: var(--fg); padding: 2px 7px; font-size: 11px; z-index: 2; }
   @media (max-width: 640px) {
     .scena { height: 360px; }
-    .aiuto { margin-left: 0; }
   }
 </style>

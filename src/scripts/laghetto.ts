@@ -284,6 +284,14 @@ export function monta(el: HTMLElement) {
     if (d > max) out.multiplyScalar(max / d).setY(-0.15);
     return out;
   };
+  // Pesci liberi: non sono aree e non si cliccano. Nuotano da soli per tutto il lago, così lo stagno è già popolato
+  // e i branchi delle aree nuove ci si aggiungono senza cambiare l'aspetto della scena.
+  const liberi = Array.from({ length: 9 }, (_, k) => {
+    const p = pesce(SPECIE[(k + 2) % SPECIE.length]!, c.accent.clone().lerp(c.muted, 0.45));
+    p.mats.forEach(m => { m.opacity *= 0.7; });
+    gruppo.add(p.corpo);
+    return { ...p, fase: r() * Math.PI * 2, vel: (0.05 + r() * 0.05) * (k % 2 ? 1 : -1), raggio: 0.6 + r() * 0.5, prof: 0.15 + r() * 0.2, colpo: r() * 6 };
+  });
   const libellule = Array.from({ length: 3 }, (_, k) => {
     const corpo = new THREE.Group();
     const m = linea(ARANCIO_KNOWLEDGE, 0.75);
@@ -434,6 +442,14 @@ export function monta(el: HTMLElement) {
         m.opacity = (1 - u) * (chiaro ? 0.6 : 0.35);
       });
 
+      // Pesci liberi: girano lenti seguendo la forma della riva, a profondità diverse
+      liberi.forEach(p => {
+        const a = p.fase + t * 0.001 * p.vel, d = (raggioRiva(a) - 0.6) * p.raggio;
+        p.corpo.position.set(Math.cos(a) * d, -p.prof, Math.sin(a) * d);
+        const a2 = a + Math.sign(p.vel) * 0.05, d2 = (raggioRiva(a2) - 0.6) * p.raggio;
+        p.corpo.lookAt(gruppo.localToWorld(new THREE.Vector3(Math.cos(a2) * d2, -p.prof, Math.sin(a2) * d2)));
+        p.coda.rotation.y = Math.sin(t * 0.006 + p.colpo) * 0.3;
+      });
       branchi.forEach(b => {
         capofila(b, t, b.capo);
         capofila(b, t + 600, dopo);

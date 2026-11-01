@@ -78,11 +78,12 @@ export function monta(el: HTMLElement) {
   // lontani almeno DISTANZA l'uno dall'altro. Ogni vista ha il suo generatore, così le posizioni sono sempre le stesse.
   const DISTANZA = 0.85;
   const posto = (rr: () => number, occupati: THREE.Vector2[], centro: number, ampiezza: number) => {
-    for (let prova = 0; prova < 200; prova++) {
+    // Il bosco cresce con le aree: se il settore è pieno, il cerchio si allarga piano e gli alberi si stringono un po'
+    for (let prova = 0; prova < 400; prova++) {
       const a = centro + (rr() - 0.5) * ampiezza;
-      const d = 1.2 + Math.sqrt(rr()) * 3.5;
+      const d = 1.2 + Math.sqrt(rr()) * Math.min(5.4, 3.5 + prova * 0.006);
       const p = new THREE.Vector2(Math.cos(a) * d, Math.sin(a) * d);
-      if (occupati.every(q => q.distanceTo(p) > DISTANZA)) { occupati.push(p); return p; }
+      if (occupati.every(q => q.distanceTo(p) > DISTANZA * (1 - prova / 900))) { occupati.push(p); return p; }
     }
     const p = new THREE.Vector2(Math.cos(centro) * 3, Math.sin(centro) * 3);
     occupati.push(p);
@@ -164,7 +165,7 @@ export function monta(el: HTMLElement) {
   const SFUMATURE = [-0.14, -0.07, 0, 0.07, 0.13].map((dl, k) => c.accent.clone().offsetHSL((k - 2) * 0.012, 0, dl + (chiaro ? 0.12 : 0)));
 
   // Alberi: uno per area, con la specie della sua competenza. Nella vista per progetto le specie si mescolano.
-  type Albero = { id: string; albero: THREE.Group; cima: THREE.Object3D; pezzi: THREE.Object3D[]; altezza: number; fase: number; ritardo: number; punto: Punto };
+  type Albero = { id: string; albero: THREE.Group; cima: THREE.Object3D; nido: THREE.Object3D; pezzi: THREE.Object3D[]; altezza: number; fase: number; ritardo: number; punto: Punto };
   const nuovoAlbero = (id: string, label: string, href: string, specie: Specie, altezza: number, ricchezza: number, peso: number): Albero => {
     const albero = new THREE.Group();
     albero.rotation.y = r() * Math.PI;
@@ -172,6 +173,10 @@ export function monta(el: HTMLElement) {
     albero.add(tronco);
     const pezzi = chioma(albero, specie, altezza, ricchezza, peso, SFUMATURE[Math.floor(r() * SFUMATURE.length)]!);
     // Punto d'ancora in cima: lì compaiono etichetta e clic, e lì si posano gli uccelli
+    // Nido: un punto dentro la chioma, dove gli uccelli si posano e spariscono fra le foglie
+    const nido = new THREE.Object3D();
+    nido.position.y = altezza * 0.78;
+    albero.add(nido);
     const cima = new THREE.Object3D();
     cima.position.y = altezza * 1.15;
     albero.add(cima);
@@ -179,7 +184,7 @@ export function monta(el: HTMLElement) {
     gruppo.add(albero);
     const punto: Punto = { id, label, href, hub: false, famiglia: '', ancora: cima, base: albero };
     punti.push(punto);
-    return { id, albero, cima, pezzi: [tronco, ...pezzi], altezza, fase: r() * 10, ritardo: 0, punto };
+    return { id, albero, cima, nido, pezzi: [tronco, ...pezzi], altezza, fase: r() * 10, ritardo: 0, punto };
   };
   const perArea = new Map<string, Albero>();
   competenze.forEach((k, i) => {
@@ -222,6 +227,19 @@ export function monta(el: HTMLElement) {
       membri: [...p.aree.map(id => perArea.get(id)).filter((x): x is Albero => !!x), ...alberelli.filter(x => x.progetto === p.id)],
     }));
   const tutti = [...perArea.values()];
+  // Alberelli selvatici sul bordo del bosco: non sono aree e non si cliccano. Il bosco è già vivo,
+  // e le aree nuove ci si mescolano senza cambiare l'aspetto della scena.
+  const selvatici = Array.from({ length: 12 }, (_, k) => {
+    const a = (k / 12) * Math.PI * 2 + r() * 0.4, d = 5.2 + r() * 1.3;
+    const g = new THREE.Group();
+    const alto = 0.4 + r() * 0.35, specie = SPECIE[k % SPECIE.length]!;
+    g.add(segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, alto * Math.max(TRONCO[specie], 0.3), 0), linea(c.fg, 0.5)));
+    chioma(g, specie, alto, 2, 0, c.accent.clone().lerp(c.muted, 0.4));
+    g.position.set(Math.cos(a) * d, 0, Math.sin(a) * d);
+    g.rotation.y = r() * 6;
+    gruppo.add(g);
+    return g;
+  });
 
   // Erba: ciuffi a tre fili sparsi fra gli alberi
   const erba: number[] = [];
@@ -294,7 +312,7 @@ export function monta(el: HTMLElement) {
   const geoUccello = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.11, 0.05, 0), new THREE.Vector3(0, 0, 0), new THREE.Vector3(0.11, 0.05, 0)]);
   // Uccelli arancioni, nel colore di Knowledge: gli stessi dello stormo dell'About
   const matUccello = linea(tonoSezione('--arancio'), 1);
-  const cimaDi = (i: number) => tutti[i]!.cima.getWorldPosition(new THREE.Vector3()).applyMatrix4(new THREE.Matrix4().copy(gruppo.matrixWorld).invert());
+  const cimaDi = (i: number) => tutti[i]!.nido.getWorldPosition(new THREE.Vector3()).applyMatrix4(new THREE.Matrix4().copy(gruppo.matrixWorld).invert());
   // Pochi uccelli e calmi: voli lenti e soste lunghe sulle cime
   const uccelli = Array.from({ length: Math.min(4, tutti.length) }, (_, k) => {
     const corpo = new THREE.Line(geoUccello, matUccello);
@@ -313,7 +331,7 @@ export function monta(el: HTMLElement) {
 
   // Cervi: una famiglia bianca (due cervi, una cerva, due cerbiatti) che cammina fra gli alberi e li aggira
   const famiglia = famigliaCervi(gruppo, {
-    colori: c, chiaro, casuale: r, tipi: ['cervo', 'cervo', 'cerva', 'cerbiatto', 'cerbiatto'],
+    colori: c, chiaro, casuale: r, tipi: ['cervo', 'cervo', 'cerva', 'cerbiatto', 'cerbiatto', 'cerva', 'cervo'],
     meta: out => { const a = r() * Math.PI * 2, d = 1.2 + Math.sqrt(r()) * 4.4; out.set(Math.cos(a) * d, Math.sin(a) * d); },
     ostacoli: () => [...tutti.filter(x => x.albero.visible).map(x => x.albero.position), ...gruppiAttivi.map(g => g.base.position)],
     finito: cibo => togliMela(cibo as Mela),
@@ -406,6 +424,7 @@ export function monta(el: HTMLElement) {
       // Con prefers-reduced-motion t resta 0: il bosco è già cresciuto e gli uccelli restano posati
       const tempo = t === 0 ? Infinity : t - inizio;
       prato.scale.y = Math.max(0.001, THREE.MathUtils.clamp(tempo / 1500, 0, 1));
+      selvatici.forEach((g, k) => g.scale.setScalar(Math.max(0.001, ease(THREE.MathUtils.clamp((tempo - 300 - k * 60) / 900, 0, 1)))));
       // Campanule e fiori sbocciano insieme all'erba
       campanule.scale.y = Math.max(0.001, THREE.MathUtils.clamp((tempo - 400) / 1500, 0, 1));
       fiori.scale.y = Math.max(0.001, THREE.MathUtils.clamp((tempo - 600) / 1500, 0, 1));
@@ -463,9 +482,8 @@ export function monta(el: HTMLElement) {
       gruppo.updateMatrixWorld();
       uccelli.forEach(u => {
         if (tempo < u.partenza) return;
-        u.corpo.visible = true;
         let fase = tempo === Infinity ? u.durata + 1 : tempo - u.partenza;
-        // Ciclo: volo, poi sosta sulla cima; alla fine del ciclo sceglie un nuovo albero
+        // Ciclo: volo, poi sosta dentro la chioma (l'uccello sparisce fra le foglie); alla fine sceglie un nuovo albero
         while (fase > u.durata + u.sosta) {
           fase -= u.durata + u.sosta;
           u.da = u.a;
@@ -474,18 +492,18 @@ export function monta(el: HTMLElement) {
           u.partenza += u.durata + u.sosta;
         }
         p0.copy(cimaDi(u.da)); p1.copy(cimaDi(u.a));
-        pc.copy(p0).add(p1).multiplyScalar(0.5).setY(Math.max(p0.y, p1.y) + 0.6 + p0.distanceTo(p1) * 0.2);
+        pc.copy(p0).add(p1).multiplyScalar(0.5).setY(Math.max(p0.y, p1.y) + 0.5 + p0.distanceTo(p1) * 0.25);
+        u.corpo.visible = fase < u.durata;
         if (fase < u.durata) {
-          const v = THREE.MathUtils.smootherstep(fase / u.durata, 0, 1);
+          const s = fase / u.durata, v = THREE.MathUtils.smootherstep(s, 0, 1);
           arco(v, pos);
           arco(Math.min(1, v + 0.02), dopo);
           u.corpo.position.copy(pos);
           if (dopo.distanceToSquared(pos) > 1e-6) u.corpo.lookAt(dopo.applyMatrix4(gruppo.matrixWorld));
-          u.corpo.scale.set(1, Math.sin(t * 0.016 + u.durata) * 1.4, 1);
-        } else {
-          // Posato: ali quasi chiuse
-          u.corpo.position.copy(p1).setY(p1.y - 0.05);
-          u.corpo.scale.set(0.8, 0.3, 1);
+          // Volo naturale: battiti d'ala alla partenza e all'arrivo, planata a ali aperte nel mezzo
+          const batte = s < 0.3 || s > 0.82 || Math.sin(s * 9 + u.durata) > 0.75;
+          u.corpo.scale.set(1, batte ? Math.sin(t * 0.03 + u.durata) * 1.5 : 0.35, 1);
+          u.corpo.rotateZ(Math.sin(s * Math.PI * 2) * 0.25);
         }
       });
     },

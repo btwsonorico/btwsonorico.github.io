@@ -154,7 +154,7 @@ export function monta(el: HTMLElement) {
     for (let q = 0; q < 3; q++) { const h = 0.2 + r() * 0.25, dx = (r() - 0.5) * 0.06, dz = (r() - 0.5) * 0.06; canne.push(x + dx, 0, z + dz, x + dx * 2.5, h, z + dz * 2.5); }
   }
   gruppo.add(segmenti(canne, linea(verde, 0.55)));
-  // Ninfee: foglia tonda con lo spicchio tagliato, piena appena, con tre nervature; due hanno un fiore bianco a stella
+  // Ninfee: foglia tonda con lo spicchio tagliato, piena appena, con tre nervature (solo foglie, niente fiori)
   const ninfee: THREE.Group[] = [];
   const posti = [[0.45, 0.3], [-0.55, 0.15], [0.1, -0.5], [-0.2, 0.55], [0.7, -0.25]];
   posti.forEach(([dx, dz], k) => {
@@ -165,17 +165,6 @@ export function monta(el: HTMLElement) {
     pienoFoglia.rotation.x = -Math.PI / 2;
     foglia.add(pienoFoglia, curva([new THREE.Vector3(), ...bordo], linea(verde, 0.85), true));
     foglia.add(segmenti([0, 0, 0, Math.cos(1.6) * raggio * 0.8, 0, Math.sin(1.6) * raggio * 0.8, 0, 0, 0, Math.cos(3.2) * raggio * 0.8, 0, Math.sin(3.2) * raggio * 0.8, 0, 0, 0, Math.cos(4.8) * raggio * 0.8, 0, Math.sin(4.8) * raggio * 0.8], linea(verde, 0.45)));
-    if (k % 2 === 0) {
-      // Fiore: due giri di petali a punta, il secondo più piccolo e ruotato
-      const fiore = new THREE.Group();
-      // Fiore arancione, il colore di Knowledge: mai nero sul fondo chiaro
-      const coloreFiore = arancio;
-      for (const [lungo, giro] of [[0.07, 0], [0.045, Math.PI / 6]] as const) {
-        fiore.add(curva(Array.from({ length: 12 }, (_, i) => { const b = (i / 12) * Math.PI * 2 + giro, d = i % 2 ? lungo * 0.35 : lungo; return new THREE.Vector3(Math.cos(b) * d, 0, Math.sin(b) * d); }), linea(coloreFiore, 0.9), true));
-      }
-      fiore.position.set(raggio * 0.15, 0.025, raggio * 0.1);
-      foglia.add(fiore);
-    }
     foglia.position.set(STAGNO.x + dx!, 0.012, STAGNO.y + dz!);
     foglia.rotation.y = k * 1.7;
     gruppo.add(foglia);
@@ -388,12 +377,14 @@ export function monta(el: HTMLElement) {
   let prima = -1;
   // Su schermi larghi il diorama sta a destra: a sinistra c'è il testo della pagina
   const largo = el.clientWidth > 700;
-  gruppo.position.x = largo ? 2.6 : 0;
+  gruppo.position.x = largo ? 2 : 0;
   vista(el, gruppo, punti, {
     // Sul telefono la camera è più vicina: il riquadro è stretto e la vista si allontana già da sola
-    camera: largo ? new THREE.Vector3(0, 3.6, 15) : new THREE.Vector3(0, 3, 9.5),
+    camera: largo ? new THREE.Vector3(0, 3.6, 12.5) : new THREE.Vector3(0, 3, 9.5),
     mira: largo ? new THREE.Vector3(0, 1.4, 0) : new THREE.Vector3(0, 2, 0),
-    inclinazione: [0.02, 0.32],
+    // Mai di lato: la vista resta sempre un po' dall'alto, così sotto il prato non si vedono i pesci
+    inclinazione: [0.16, 0.42],
+    giuMax: 0,
     puntatore: nuovoPuntatore,
     aggiorna: (t, acceso) => {
       const s = t / 1000, dt = prima < 0 || t === 0 ? 0 : Math.min(0.05, (t - prima) / 1000);

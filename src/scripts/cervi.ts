@@ -183,8 +183,12 @@ export function famigliaCervi(gruppo: THREE.Group, o: Opzioni) {
         const cresce = t === 0 ? 1 : THREE.MathUtils.clamp((t - nascita - k * 280) / 800, 0, 1);
         v.cervo.scale.setScalar(Math.max(0.001, v.scala * ease(cresce)));
         const cucciolo = v.tipo === 'cerbiatto';
-        // Chi ha del cibo va lì; i cerbiatti, altrimenti, seguono la mamma: un punto al suo fianco, un po' dietro
-        if (v.cibo) v.meta.set(v.cibo.x, v.cibo.z);
+        // Chi ha del cibo va in un punto poco prima del frutto, così ci arriva con la bocca e non con il corpo;
+        // i cerbiatti, altrimenti, seguono la mamma: un punto al suo fianco, un po' dietro
+        if (v.cibo) {
+          const bocca = 0.3 * v.scala, vx = v.cibo.x - v.x, vz = v.cibo.z - v.z, l = Math.hypot(vx, vz) || 1;
+          v.meta.set(v.cibo.x - (vx / l) * bocca, v.cibo.z - (vz / l) * bocca);
+        }
         else if (cucciolo) {
           const dietro = mamma.verso + Math.PI + v.lato * 0.8;
           v.meta.set(mamma.x + Math.cos(dietro) * 0.28, mamma.z - Math.sin(dietro) * 0.28);
@@ -193,7 +197,7 @@ export function famigliaCervi(gruppo: THREE.Group, o: Opzioni) {
         if (dt > 0) {
           // Stato: cammina verso la meta; arrivato, bruca o si guarda intorno; poi sceglie una nuova meta.
           // Con il cibo il cervo si ferma quando la bocca ci arriva, e mangia a testa bassa
-          if (v.cibo && v.cibo.aTerra && v.stato === 'cammina' && d < 0.3 * MISURA[v.tipo]) {
+          if (v.cibo && v.cibo.aTerra && v.stato === 'cammina' && d < 0.05) {
             v.stato = 'bruca';
             v.timer = 2.5;
           } else if (v.cibo) {

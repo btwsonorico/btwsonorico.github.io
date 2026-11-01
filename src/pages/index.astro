@@ -16,16 +16,17 @@ const PERSONA = {
   sameAs: [SITO.github, SITO.linkedin],
 };
 
+// Colore di ogni sezione: nella lista, al passaggio del puntatore
+const TONI: Record<string, string> = { software: 'verde', advisory: 'azzurro', knowledge: 'arancio' };
 // Tutte le pagine del sito, con una riga che dice cosa c'è
 const PAGINE = [
   { nome: 'software', href: '/software/', nota: 'what I build: skills, areas, commits' },
   { nome: 'advisory', href: '/advisory/', nota: 'how I help organisations adopt AI' },
   { nome: 'knowledge', href: '/knowledge/', nota: 'notes on papers, talks and books' },
   { nome: 'misc', href: '/misc/', nota: 'small experiments: game of life, waves' },
-  { nome: 'rss', href: '/rss.xml', nota: 'feed of the knowledge notes' },
 ];
 ---
-<Base title="Riccardo Mondi" description="Riccardo Mondi: AI advisor and developer at Politecnico di Milano." largo>
+<Base title="Riccardo Mondi" description="Riccardo Mondi: AI advisor and developer at Politecnico di Milano." tono="neutro" largo>
   <script type="application/ld+json" set:html={JSON.stringify(PERSONA)} />
   <!-- Mondo 3D: il contenitore copre lo schermo; la scena sta dentro, così la vista 3D sa quando è visibile -->
   <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
@@ -42,10 +43,9 @@ const PAGINE = [
     <nav class="pagine" aria-label="All pages">
       <p class="mono titoletto">pages</p>
       <ul>
-        {PAGINE.map(p => <li><a href={p.href} data-sezione={['software', 'advisory', 'knowledge'].includes(p.nome) ? `sezione:${p.nome}` : undefined}>{p.nome}</a><span class="mono">{p.nota}</span></li>)}
+        {PAGINE.map(p => <li><a href={p.href} data-sezione={TONI[p.nome] ? `sezione:${p.nome}` : undefined} data-tono={TONI[p.nome]}>{p.nome}</a><span class="mono">{p.nota}</span></li>)}
       </ul>
     </nav>
-    <p class="mono aiuto">the forest is Software, the pond is Advisory, the orange flock is Knowledge · click one to open it · drag to rotate</p>
   </main>
 </Base>
 
@@ -70,10 +70,12 @@ const PAGINE = [
   .ente { font-size: 13px; }
   .link { display: flex; gap: var(--s2); }
   .link a { color: var(--accent); }
-  .aiuto { margin-top: var(--s2); }
   .pagine ul { margin: 0; padding: 0; list-style: none; }
   .pagine li { display: flex; gap: var(--s2); align-items: baseline; font-size: 13px; line-height: 1.7; }
-  .pagine li a { min-width: 80px; color: var(--accent); }
+  /* Le sezioni: nel colore del testo; al passaggio, il riquadro nel colore della sezione con "open", come le etichette del mondo */
+  .pagine li a { min-width: 80px; padding: 0 5px; margin-left: -5px; color: var(--fg); text-decoration: none; }
+  .pagine li a:hover { color: var(--bg); background: var(--accent); }
+  .pagine li a[data-tono]:hover::after { content: ' · open →'; }
   .titoletto { margin: 0 0 4px; }
   /* Testo leggibile anche quando la scena ci passa sotto */
   .about > * { text-shadow: 0 0 6px var(--bg), 0 0 12px var(--bg); }

@@ -41,6 +41,14 @@ const competenze = Object.entries(tutte)
     s.addEventListener('mouseenter', () => invia(s.dataset.id!));
     s.addEventListener('mouseleave', () => invia(null));
   });
+  // Aprire una competenza avvicina la scena al suo albero (o branco); chiuderla torna alla vista intera
+  document.querySelectorAll<HTMLDetailsElement>('.competenza').forEach(d => {
+    d.querySelector('summary')!.addEventListener('click', () => {
+      // Il clic arriva prima che la voce si apra o si chiuda: qui d.open è ancora lo stato di prima
+      const id = d.open ? null : `skill:${d.id}`;
+      window.dispatchEvent(new CustomEvent('grafo:zoom', { detail: id }));
+    });
+  });
   // Un link a #competenza (dal grafo o dalla home) apre quella voce
   const apri = () => {
     const d = location.hash && document.getElementById(location.hash.slice(1));

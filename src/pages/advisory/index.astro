@@ -13,7 +13,7 @@ const dati = await datiCompetenze('advisory');
       <p>How I help organisations adopt AI, grouped by skill.</p>
     </header>
 
-    <div class="a-grafo"><Grafo dati={dati} legenda={['skill', 'area']} motore="laghetto" nomi={{ skill: 'school: key skill', area: 'fish: area' }} aiuto="hover a fish or a school · click to see its topic · click the water to throw a stone · drag to rotate" /></div>
+    <div class="a-grafo"><Grafo dati={dati} motore="laghetto" /></div>
 
     <div class="a-resto">
       <Competenze sezione="advisory" />

@@ -4,7 +4,7 @@ import Cursore from '@/components/Cursore.astro';
 import { INDICIZZABILE } from '@/lib/sito';
 // tono: colore d'accento della pagina. Senza tono resta l'azzurro del sito.
 // largo: pagina a tutta larghezza su schermi grandi (home, Knowledge, Projects); i testi restano stretti.
-interface Props { title: string; description?: string; lang?: 'it' | 'en'; tono?: 'verde' | 'arancio' | 'azzurro'; largo?: boolean }
+interface Props { title: string; description?: string; lang?: 'it' | 'en'; tono?: 'verde' | 'arancio' | 'azzurro' | 'neutro'; largo?: boolean }
 const { title, description = 'Riccardo Mondi: AI advisor and developer at Politecnico di Milano.', lang = 'en', tono, largo = false } = Astro.props;
 // Indirizzo canonico della pagina, per i motori di ricerca e per le anteprime quando la pagina si condivide
 const canonico = new URL(Astro.url.pathname, Astro.site).href;
@@ -126,6 +126,8 @@ const build = new Date().toISOString().slice(0, 10);
   :root[data-theme][data-cyber][data-tono="verde"], [data-tono="verde"] { --accent: var(--verde); }
   /* Vale per una pagina intera (Base con tono) o per una sola sezione (data-tono sull'elemento) */
   :root[data-theme][data-cyber][data-tono="arancio"], [data-tono="arancio"] { --accent: var(--arancio); }
+  /* Neutro (la home): niente colore d'accento, solo il colore del testo; i colori restano alle sezioni */
+  :root[data-theme][data-cyber][data-tono="neutro"] { --accent: var(--fg); }
   /* Departure Mono (SIL OFL, helenazhang.com): nitida a multipli di 11px */
   @font-face {
     font-family: 'Departure Mono';
@@ -186,15 +188,17 @@ const build = new Date().toISOString().slice(0, 10);
   .testa-pagina { padding: var(--s4) 0 var(--s3); }
   main { width: 100%; max-width: var(--larghezza); margin: 0 auto; padding: 0 16px var(--s4); }
   body { --larghezza: 760px; }
-  body.largo { --larghezza: 1320px; }
+  /* Pagine larghe: tutta la larghezza dello schermo, senza bande vuote ai lati */
+  body.largo { --larghezza: 100%; }
 
   /* Pagine con grafo: su schermi larghi il grafo sta a destra, fermo mentre la colonna sinistra scorre.
      Su schermi stretti l'ordine resta: testa, grafo, resto. */
   @media (min-width: 1080px) {
-    body.largo main { padding: 0 32px var(--s4); }
+    body.largo main { padding: 0 40px var(--s4); }
+    body.largo .barra, body.largo .piede { padding-left: 40px; padding-right: 40px; }
     .affianca {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+      grid-template-columns: minmax(340px, 0.75fr) minmax(0, 1.6fr);
       grid-template-rows: auto 1fr;
       grid-template-areas: "testa grafo" "resto grafo";
       column-gap: 56px;
@@ -206,7 +210,7 @@ const build = new Date().toISOString().slice(0, 10);
       align-self: start;
       position: sticky;
       top: 16px;
-      --altezza-grafo: min(calc(100vh - 120px), 820px);
+      --altezza-grafo: calc(100vh - 110px);
     }
   }
   .mono { font-family: var(--mono); font-size: 11px; color: var(--muted); }

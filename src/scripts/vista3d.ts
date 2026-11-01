@@ -23,6 +23,8 @@ interface Opzioni {
   inclinazione: [number, number];
   // Chiamata a ogni fotogramma: muove gli oggetti e li accende o spegne
   aggiorna: (t: number, acceso: (famiglia: string, id: string) => number) => void;
+  // Quanto si può inclinare la vista verso il basso, oltre l'inclinazione minima (0.25 se manca; 0: mai più in basso)
+  giuMax?: number;
   // Puntatore che si muove sopra la scena (senza trascinare): riceve il raggio dalla camera, o null quando esce
   puntatore?: (raggio: THREE.Raycaster | null) => void;
   // Clic che non prende nessun punto (per esempio un sasso lanciato nello stagno): riceve il raggio dalla camera
@@ -105,7 +107,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     mosso = Math.max(mosso, m.distanceTo(giu));
     if (ruota) {
       rotY += (m.x - ultimo.x) * 0.006;
-      rotX = THREE.MathUtils.clamp(rotX + (m.y - ultimo.y) * 0.004, o.inclinazione[0] - 0.25, o.inclinazione[1]);
+      rotX = THREE.MathUtils.clamp(rotX + (m.y - ultimo.y) * 0.004, o.inclinazione[0] - (o.giuMax ?? 0.25), o.inclinazione[1]);
     } else {
       sopra = piuVicino(m.x, m.y);
       el.style.cursor = sopra >= 0 && punti[sopra]!.href ? 'pointer' : '';
@@ -122,6 +124,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
       const m = locale(e);
       const i = piuVicino(m.x, m.y);
       if (i >= 0 && punti[i]!.href) apri(punti[i]!);
+      else if (zoomId) zoomSu(null);
       else if (o.clicVuoto) {
         raggio.setFromCamera(new THREE.Vector2((m.x / w) * 2 - 1, -(m.y / h) * 2 + 1), camera);
         o.clicVuoto(raggio);
@@ -138,7 +141,17 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     voce.classList.remove('lampo');
     void voce.offsetWidth; // riparte l'animazione CSS
     voce.classList.add('lampo');
+    zoomSu(p.id);
   }
+  // Zoom: la camera si avvicina piano a un punto (per esempio la competenza aperta nella lista) e lo segue mentre la scena gira.
+  // Un clic nel vuoto della scena, o chiudere la voce, riporta la vista intera.
+  let zoomId: string | null = null, zoom = 1;
+  const miraOra = o.mira.clone(), miraVoluta = new THREE.Vector3(), base = new THREE.Vector3();
+  function zoomSu(id: string | null) {
+    zoomId = id && punti.some(p => p.id === id) ? id : null;
+    fermo = zoomId ? 600 : 0;
+  }
+  window.addEventListener('grafo:zoom', e => zoomSu((e as CustomEvent<string | null>).detail));
   el.addEventListener('pointerleave', () => { sopra = -1; o.puntatore?.(null); });
   window.addEventListener('grafo:evidenzia', e => {
     const id = (e as CustomEvent<string | null>).detail ?? '';
@@ -150,8 +163,9 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     renderer.setSize(w, h);
     camera.aspect = w / h;
     // In un riquadro stretto o alto la camera si allontana, così la scena entra tutta
-    camera.position.copy(o.camera).multiplyScalar(Math.max(1, 1.3 / camera.aspect));
-    camera.lookAt(o.mira);
+    base.copy(o.camera).multiplyScalar(Math.max(1, 1.3 / camera.aspect));
+    camera.position.copy(base);
+    camera.lookAt(miraOra);
     // La nebbia segue la distanza della camera: sfuma solo il fondo della scena
     const d = camera.position.distanceTo(o.mira);
     scene.fog = new THREE.Fog(c.bg, d * 0.75, d * 1.7);
@@ -164,6 +178,15 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     const t = ridotto ? 0 : performance.now();
     if (fermo > 0) fermo--; else if (!ruota && !ridotto) rotY += 0.0012;
     gruppo.rotation.set(rotX, rotY, 0);
+    // Zoom morbido: la mira scivola verso il punto scelto e la camera si avvicina, con la stessa direzione di sempre
+    const pz = zoomId ? punti.find(p => p.id === zoomId) : null;
+    if (pz) { gruppo.updateMatrixWorld(); pz.ancora.getWorldPosition(miraVoluta); } else miraVoluta.copy(o.mira);
+    if (zoomId && !ruota) fermo = Math.max(fermo, 2);
+    const k = ridotto ? 1 : 0.06;
+    miraOra.lerp(miraVoluta, k);
+    zoom += ((pz ? 0.5 : 1) - zoom) * k;
+    camera.position.copy(base).sub(o.mira).multiplyScalar(zoom).add(miraOra);
+    camera.lookAt(miraOra);
 
     const fuoco = sopra >= 0 ? sopra : esterno;
     const f = fuoco >= 0 ? punti[fuoco]! : null;
