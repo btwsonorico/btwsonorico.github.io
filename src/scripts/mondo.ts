@@ -156,11 +156,31 @@ export function monta(el: HTMLElement) {
     for (let q = 0; q < 3; q++) { const h = 0.2 + r() * 0.25, dx = (r() - 0.5) * 0.06, dz = (r() - 0.5) * 0.06; canne.push(x + dx, 0, z + dz, x + dx * 2.5, h, z + dz * 2.5); }
   }
   gruppo.add(segmenti(canne, linea(verde, 0.55)));
-  for (let k = 0; k < 4; k++) {
-    const a = r() * Math.PI * 2, d = Math.sqrt(r()) * 0.9, x = STAGNO.x + Math.cos(a) * d, z = STAGNO.y + Math.sin(a) * d;
-    const foglia = curva(Array.from({ length: 16 }, (_, i) => { const b = 0.4 + (i / 15) * (Math.PI * 2 - 0.8); return new THREE.Vector3(x + Math.cos(b) * 0.12, 0.01, z + Math.sin(b) * 0.12); }), linea(verde, 0.7));
+  // Ninfee: foglia tonda con lo spicchio tagliato, piena appena, con tre nervature; due hanno un fiore bianco a stella
+  const ninfee: THREE.Group[] = [];
+  const posti = [[0.45, 0.3], [-0.55, 0.15], [0.1, -0.5], [-0.2, 0.55], [0.7, -0.25]];
+  posti.forEach(([dx, dz], k) => {
+    const foglia = new THREE.Group(), raggio = 0.12 + (k % 3) * 0.025;
+    const bordo = Array.from({ length: 22 }, (_, i) => { const b = 0.35 + (i / 21) * (Math.PI * 2 - 0.7); return new THREE.Vector3(Math.cos(b) * raggio, 0, Math.sin(b) * raggio); });
+    const forma = new THREE.Shape([new THREE.Vector2(0, 0), ...bordo.map(p => new THREE.Vector2(p.x, -p.z))]);
+    const pienoFoglia = new THREE.Mesh(new THREE.ShapeGeometry(forma), new THREE.MeshBasicMaterial({ color: verde, transparent: true, opacity: chiaro ? 0.3 : 0.22, depthWrite: false }));
+    pienoFoglia.rotation.x = -Math.PI / 2;
+    foglia.add(pienoFoglia, curva([new THREE.Vector3(), ...bordo], linea(verde, 0.85), true));
+    foglia.add(segmenti([0, 0, 0, Math.cos(1.6) * raggio * 0.8, 0, Math.sin(1.6) * raggio * 0.8, 0, 0, 0, Math.cos(3.2) * raggio * 0.8, 0, Math.sin(3.2) * raggio * 0.8, 0, 0, 0, Math.cos(4.8) * raggio * 0.8, 0, Math.sin(4.8) * raggio * 0.8], linea(verde, 0.45)));
+    if (k % 2 === 0) {
+      // Fiore: due giri di petali a punta, il secondo più piccolo e ruotato
+      const fiore = new THREE.Group();
+      for (const [lungo, giro] of [[0.07, 0], [0.045, Math.PI / 6]] as const) {
+        fiore.add(curva(Array.from({ length: 12 }, (_, i) => { const b = (i / 12) * Math.PI * 2 + giro, d = i % 2 ? lungo * 0.35 : lungo; return new THREE.Vector3(Math.cos(b) * d, 0, Math.sin(b) * d); }), linea(c.fg, 0.85), true));
+      }
+      fiore.position.set(raggio * 0.15, 0.025, raggio * 0.1);
+      foglia.add(fiore);
+    }
+    foglia.position.set(STAGNO.x + dx!, 0.012, STAGNO.y + dz!);
+    foglia.rotation.y = k * 1.7;
     gruppo.add(foglia);
-  }
+    ninfee.push(foglia);
+  });
   const pesci = Array.from({ length: 7 }, (_, k) => {
     const g = new THREE.Group();
     const corpo = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.SphereGeometry(1, 7, 5)), mat('advisory', azzurro.clone().offsetHSL(0, 0, (k % 3 - 1) * 0.07), 0.95));
@@ -168,7 +188,8 @@ export function monta(el: HTMLElement) {
     const coda = curva([new THREE.Vector3(0, 0, -0.09), new THREE.Vector3(0, 0.04, -0.15), new THREE.Vector3(0, -0.04, -0.15)], mat('advisory', azzurro, 0.9), true);
     g.add(corpo, coda);
     gruppo.add(g);
-    return { g, coda, raggio: 0.3 + r() * 0.7, vel: (0.25 + r() * 0.25) * (k % 2 ? 1 : -1), fase: r() * 6, prof: 0.05 + r() * 0.1 };
+    // Tutti nello stesso verso, su anelli diversi, con velocità simili: un giro calmo e regolare
+    return { g, coda, raggio: 0.35 + (k / 6) * 0.6, vel: 0.28 + (k % 3) * 0.04, fase: (k / 7) * Math.PI * 2, prof: 0.06 + (k % 3) * 0.04 };
   });
   const sopraStagno = new THREE.Object3D();
   sopraStagno.position.set(STAGNO.x, 0.45, STAGNO.y);
@@ -214,16 +235,17 @@ export function monta(el: HTMLElement) {
 
   // --- Stormo (Knowledge): una murmuration di storni arancioni, come quella della pagina a pixel.
   // Conta soprattutto andare nella stessa direzione dei vicini; il richiamo verso il punto che guida è debole.
-  // Così lo stormo si allunga in nastri, si piega e si avvolge su se stesso. Il punto che guida cambia rotta
-  // in modo irregolare, e ogni tanto un falco invisibile attraversa lo stormo e lo apre in due.
-  // Anche il puntatore spaventa gli uccelli vicini. L'etichetta segue il centro dello stormo con molto ritardo:
-  // resta quasi ferma, così si clicca anche mentre gli uccelli scappano.
-  const UCCELLI = 500, CENTRO_STORMO = new THREE.Vector3(0.3, 2.8, -0.9);
-  const VICINI = 0.32, SEPARA = 0.06, VEL_MIN = 0.9, VEL_MAX = 1.7;
+  // Così lo stormo si allunga in nastri, si piega e si avvolge su se stesso. Il punto che guida salta da una tappa
+  // all'altra (lo stormo vira di colpo) e un vortice, con l'asse che cambia piano, lo fa arrotolare.
+  // Ogni tanto un falco invisibile attraversa lo stormo e lo apre in due; anche il puntatore spaventa gli uccelli.
+  // Lo stormo resta sempre sopra la scena: sotto una certa quota gli uccelli risalgono.
+  // L'etichetta sta di lato allo stormo e lo segue con un po' di ritardo, così si clicca anche quando scappano.
+  const UCCELLI = 500, CENTRO_STORMO = new THREE.Vector3(0.3, 3.2, -0.9);
+  const VICINI = 0.38, SEPARA = 0.08, VEL_MIN = 0.9, VEL_MAX = 1.8, QUOTA_MIN = 2.4, QUOTA_MAX = 4.4, LARGO_STORMO = 3.4;
   const pos = new Float32Array(UCCELLI * 3), vel = new Float32Array(UCCELLI * 3), fase = new Float32Array(UCCELLI), paura = new Float32Array(UCCELLI);
   for (let i = 0; i < UCCELLI; i++) {
     const a = r() * Math.PI * 2, d = Math.sqrt(r());
-    pos.set([CENTRO_STORMO.x + Math.cos(a) * d * 1.4, CENTRO_STORMO.y + (r() - 0.5) * 0.5, CENTRO_STORMO.z + Math.sin(a) * d * 0.8], i * 3);
+    pos.set([CENTRO_STORMO.x + Math.cos(a) * d * 2.2, CENTRO_STORMO.y + (r() - 0.5) * 0.9, CENTRO_STORMO.z + Math.sin(a) * d * 1.2], i * 3);
     vel.set([-1, (r() - 0.5) * 0.1, 0.4], i * 3);
     fase[i] = r() * 6;
   }
@@ -236,13 +258,19 @@ export function monta(el: HTMLElement) {
   centroStormo.position.copy(CENTRO_STORMO).add(new THREE.Vector3(0, 0.8, 0));
   gruppo.add(centroStormo);
   punti.push({ id: 'sezione:knowledge', label: 'Knowledge', href: '/knowledge/', hub: true, famiglia: 'knowledge', ancora: centroStormo, tono: 'arancio' });
-  // Il punto che guida: somma di curve lente con frequenze diverse, così la rotta non si ripete mai uguale
-  const verso = new THREE.Vector3();
-  const posizioneGuida = (t: number) => verso.set(
-    CENTRO_STORMO.x + Math.sin(t * 0.23) * 1.7 + Math.sin(t * 0.61 + 1) * 0.6,
-    CENTRO_STORMO.y + Math.sin(t * 0.31 + 2) * 0.45 + Math.sin(t * 0.9) * 0.15,
-    CENTRO_STORMO.z + Math.cos(t * 0.19) * 1.1 + Math.sin(t * 0.53 + 3) * 0.4,
-  );
+  // Il punto che guida: va verso una tappa a caso nel cielo sopra la scena e ogni 3-6 secondi ne sceglie un'altra
+  const verso = CENTRO_STORMO.clone(), tappa = CENTRO_STORMO.clone();
+  let prossimaTappa = 0;
+  // Vortice: un asse che gira piano e una forza che cambia segno, così lo stormo si arrotola ora da una parte ora dall'altra
+  const asse = new THREE.Vector3();
+  const posizioneGuida = (t: number, dt = 0) => {
+    if (t > prossimaTappa) {
+      tappa.set(CENTRO_STORMO.x + (r() - 0.5) * 5.2, QUOTA_MIN + 0.5 + r() * (QUOTA_MAX - QUOTA_MIN - 0.9), CENTRO_STORMO.z + (r() - 0.5) * 2.8);
+      prossimaTappa = t + 3 + r() * 3;
+    }
+    verso.lerp(tappa, Math.min(1, dt * 0.7));
+    asse.set(Math.sin(t * 0.17), 0.6 + Math.sin(t * 0.11) * 0.4, Math.cos(t * 0.13)).normalize();
+  };
   // Falco: ogni 7-12 secondi attraversa lo stormo in linea retta, veloce
   const falco = { da: new THREE.Vector3(), a: new THREE.Vector3(), nato: -99, durata: 1.6 }, falcoOra = new THREE.Vector3();
   let prossimoFalco = 5;
@@ -250,9 +278,10 @@ export function monta(el: HTMLElement) {
   const inversaStormo = new THREE.Matrix4(), vicino = new THREE.Vector3(), punto = new THREE.Vector3();
   const griglia = new Map<number, number[]>();
   const chiave = (x: number, y: number, z: number) => ((Math.floor(x / VICINI) + 512) * 1024 + (Math.floor(y / VICINI) + 512)) * 1024 + (Math.floor(z / VICINI) + 512);
-  const centroLento = CENTRO_STORMO.clone();
+  const centroLento = CENTRO_STORMO.clone(), destra = new THREE.Vector3(), rotazioneInversa = new THREE.Quaternion();
   const muoviStormo = (t: number, dt: number) => {
-    posizioneGuida(t);
+    posizioneGuida(t, dt);
+    const vortice = Math.sin(t * 0.21) * 1.1;
     if (dt > 0) {
       // Il falco parte da un lato dello stormo e passa dall'altro, attraverso il centro
       if (t > prossimoFalco) {
@@ -273,7 +302,16 @@ export function monta(el: HTMLElement) {
       let cx = 0, cy = 0, cz = 0;
       for (let i = 0; i < UCCELLI; i++) {
         const x = pos[i * 3]!, y = pos[i * 3 + 1]!, z = pos[i * 3 + 2]!;
-        let fx = (verso.x - x) * 0.18, fy = (verso.y - y) * 0.3, fz = (verso.z - z) * 0.18;
+        // Richiamo debole verso la guida: lo stormo resta largo e libero di cambiare forma
+        let fx = (verso.x - x) * 0.07, fy = (verso.y - y) * 0.1, fz = (verso.z - z) * 0.07;
+        // Vortice intorno alla guida: spinge di lato rispetto all'asse, e lo stormo si avvolge su se stesso
+        const rx = x - verso.x, ry = y - verso.y, rz = z - verso.z;
+        fx += (asse.y * rz - asse.z * ry) * vortice; fy += (asse.z * rx - asse.x * rz) * vortice; fz += (asse.x * ry - asse.y * rx) * vortice;
+        // Sempre sopra la scena e non troppo lontano: sotto la quota minima risale, fuori dal cerchio rientra
+        if (y < QUOTA_MIN) fy += (QUOTA_MIN - y) * 6;
+        if (y > QUOTA_MAX) fy -= (y - QUOTA_MAX) * 4;
+        const fuori = Math.hypot(x - CENTRO_STORMO.x, (z - CENTRO_STORMO.z) * 1.6) - LARGO_STORMO;
+        if (fuori > 0) { fx -= (x - CENTRO_STORMO.x) * fuori * 1.5; fz -= (z - CENTRO_STORMO.z) * fuori * 1.5; }
         let mx = 0, my = 0, mz = 0, lx = 0, ly = 0, lz = 0, n = 0;
         const gx = Math.floor(x / VICINI), gy = Math.floor(y / VICINI), gz = Math.floor(z / VICINI);
         for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) for (let oz = -1; oz <= 1; oz++) {
@@ -291,9 +329,9 @@ export function monta(el: HTMLElement) {
         }
         if (n) {
           // Allineamento forte, coesione locale leggera: nascono i nastri e le pieghe
-          fx += (mx / n - vel[i * 3]!) * 2.2 + (lx / n) * 0.6;
-          fy += (my / n - vel[i * 3 + 1]!) * 2.2 + (ly / n) * 0.6;
-          fz += (mz / n - vel[i * 3 + 2]!) * 2.2 + (lz / n) * 0.6;
+          fx += (mx / n - vel[i * 3]!) * 2.6 + (lx / n) * 0.35;
+          fy += (my / n - vel[i * 3 + 1]!) * 2.6 + (ly / n) * 0.35;
+          fz += (mz / n - vel[i * 3 + 2]!) * 2.6 + (lz / n) * 0.35;
         }
         // Paura: dal falco e dal puntatore, più forte quanto più sono vicini
         const scappa = (sx: number, sy: number, sz: number, raggio: number, forza: number) => {
@@ -314,9 +352,10 @@ export function monta(el: HTMLElement) {
         pos.set([x + vx * dt, y + vy * dt, z + vz * dt], i * 3);
         cx += x; cy += y; cz += z;
       }
-      // L'etichetta segue il centro dello stormo con molto ritardo
-      centroLento.lerp(punto.set(cx / UCCELLI, cy / UCCELLI, cz / UCCELLI), Math.min(1, dt * 0.25));
-      centroStormo.position.copy(centroLento).add(new THREE.Vector3(0, 0.8, 0));
+      // L'etichetta segue il centro dello stormo con un po' di ritardo e sta di lato, a destra di chi guarda
+      centroLento.lerp(punto.set(cx / UCCELLI, cy / UCCELLI, cz / UCCELLI), Math.min(1, dt * 1.2));
+      destra.set(1, 0, 0).applyQuaternion(rotazioneInversa.copy(gruppo.quaternion).invert());
+      centroStormo.position.copy(centroLento).addScaledVector(destra, 1.3).add(new THREE.Vector3(0, 0.25, 0));
     }
     // V di ogni uccello: le ali partono dal corpo, di lato rispetto alla direzione di volo, e battono
     for (let i = 0; i < UCCELLI; i++) {
@@ -345,7 +384,8 @@ export function monta(el: HTMLElement) {
   });
 
   const accendi = (mats: THREE.Material[], livello: number) => {
-    const k = livello === 1 ? 1.5 : livello === 0.5 ? 1 : 0.45;
+    // Sotto il puntatore: la sezione si accende, le altre si spengono quasi del tutto
+    const k = livello === 1 ? 1.7 : livello === 0.5 ? 1 : 0.18;
     mats.forEach(m => { m.opacity = Math.min(1, (m.userData.base ??= m.opacity) * k); });
   };
   let prima = -1;
@@ -375,7 +415,8 @@ export function monta(el: HTMLElement) {
       pesci.forEach((p, k) => {
         const a = p.fase + s * p.vel;
         p.g.position.set(STAGNO.x + Math.cos(a) * p.raggio, -p.prof, STAGNO.y + Math.sin(a) * p.raggio * 0.7);
-        p.g.rotation.set(0, -a + (p.vel > 0 ? Math.PI : 0), 0);
+        // Il muso (verso +z del pesce) guarda nella direzione in cui nuota
+        p.g.rotation.set(0, Math.atan2(-Math.sin(a) * p.raggio, Math.cos(a) * p.raggio * 0.7), 0);
         const u = (s - salto.nato) / 0.8;
         if (k === salto.pesce && u >= 0 && u <= 1) {
           p.g.position.y = -p.prof + Math.sin(u * Math.PI) * 0.42;
@@ -383,7 +424,7 @@ export function monta(el: HTMLElement) {
           if (u < 0.08) { spruzzi[0]!.o.position.set(p.g.position.x, 0.01, p.g.position.z); spruzzi[0]!.nato = s; }
           if (u > 0.92 && s - spruzzi[1]!.nato > 1) { spruzzi[1]!.o.position.set(p.g.position.x, 0.01, p.g.position.z); spruzzi[1]!.nato = s; }
         }
-        p.coda.rotation.y = Math.sin(s * 8 + p.fase) * 0.4;
+        p.coda.rotation.y = Math.sin(s * 6 + p.fase) * 0.3;
       });
       spruzzi.forEach(q => { const u = (s - q.nato) / 1.2; q.o.scale.setScalar(0.05 + Math.max(0, u) * 0.45); (q.o.material as THREE.LineBasicMaterial).opacity = u >= 0 && u <= 1 ? (1 - u) * 0.8 : 0; });
       // Lucciole: vagano piano fra gli alberi e si accendono e spengono ognuna col suo ritmo
@@ -399,6 +440,7 @@ export function monta(el: HTMLElement) {
         col.needsUpdate = true;
       }
       alberi.forEach((a, k) => { a.rotation.z = Math.sin(s * 1.1 + k) * 0.02; });
+      ninfee.forEach((n, k) => { n.rotation.y = k * 1.7 + Math.sin(s * 0.2 + k) * 0.15; });
       for (const sezione of ['software', 'advisory', 'knowledge']) accendi(materiali[sezione]!, acceso(sezione, `sezione:${sezione}`));
     },
   });
