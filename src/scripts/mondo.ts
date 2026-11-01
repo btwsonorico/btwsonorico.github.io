@@ -216,8 +216,8 @@ export function monta(el: HTMLElement) {
   // Ogni tanto un falco invisibile attraversa lo stormo e lo apre in due; anche il puntatore spaventa gli uccelli.
   // Lo stormo resta sempre sopra la scena: sotto una certa quota gli uccelli risalgono.
   // L'etichetta sta di lato allo stormo e lo segue con un po' di ritardo, così si clicca anche quando scappano.
-  const UCCELLI = 500, CENTRO_STORMO = new THREE.Vector3(0.3, 3.2, -0.9);
-  const VICINI = 0.38, SEPARA = 0.08, VEL_MIN = 0.5, VEL_MAX = 1, QUOTA_MIN = 2.4, QUOTA_MAX = 4.4, LARGO_STORMO = 3.4;
+  const UCCELLI = 500, CENTRO_STORMO = new THREE.Vector3(0.2, 2.9, -0.6);
+  const VICINI = 0.38, SEPARA = 0.08, VEL_MIN = 0.5, VEL_MAX = 1, QUOTA_MIN = 2.5, QUOTA_MAX = 3.4, LARGO_STORMO = 2.5;
   const pos = new Float32Array(UCCELLI * 3), vel = new Float32Array(UCCELLI * 3), fase = new Float32Array(UCCELLI), paura = new Float32Array(UCCELLI);
   for (let i = 0; i < UCCELLI; i++) {
     const a = r() * Math.PI * 2, d = Math.sqrt(r());
@@ -241,7 +241,7 @@ export function monta(el: HTMLElement) {
   const asse = new THREE.Vector3();
   const posizioneGuida = (t: number, dt = 0) => {
     if (t > prossimaTappa) {
-      tappa.set(CENTRO_STORMO.x + (r() - 0.5) * 5.2, QUOTA_MIN + 0.5 + r() * (QUOTA_MAX - QUOTA_MIN - 0.9), CENTRO_STORMO.z + (r() - 0.5) * 2.8);
+      tappa.set(CENTRO_STORMO.x + (r() - 0.5) * 3.4, QUOTA_MIN + 0.25 + r() * (QUOTA_MAX - QUOTA_MIN - 0.5), CENTRO_STORMO.z + (r() - 0.5) * 1.8);
       prossimaTappa = t + 5 + r() * 4;
     }
     verso.lerp(tappa, Math.min(1, dt * 0.35));
@@ -289,7 +289,7 @@ export function monta(el: HTMLElement) {
         if (lontano > 1.1) { const f = (lontano - 1.1) * 0.45 / lontano; fx += gx0 * f; fy += gy0 * f; fz += gz0 * f; }
         // Sempre sopra la scena e non troppo lontano: sotto la quota minima risale, fuori dal cerchio rientra
         if (y < QUOTA_MIN) fy += (QUOTA_MIN - y) * 6;
-        if (y > QUOTA_MAX) fy -= (y - QUOTA_MAX) * 4;
+        if (y > QUOTA_MAX) fy -= (y - QUOTA_MAX) * 6;
         const fuori = Math.hypot(x - CENTRO_STORMO.x, (z - CENTRO_STORMO.z) * 1.6) - LARGO_STORMO;
         if (fuori > 0) { fx -= (x - CENTRO_STORMO.x) * fuori * 1.5; fz -= (z - CENTRO_STORMO.z) * fuori * 1.5; }
         let mx = 0, my = 0, mz = 0, lx = 0, ly = 0, lz = 0, n = 0;
