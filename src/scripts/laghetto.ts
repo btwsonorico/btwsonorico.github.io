@@ -62,6 +62,15 @@ export function monta(el: HTMLElement) {
     });
   }
 
+  // Prato intorno al lago: dischi verdi tenui a strati, più intensi verso il centro, che sfumano verso i bordi
+  // come il prato del bosco (di notte appena accennati)
+  for (const [raggio, op] of [[7.2, 0.07], [5.6, 0.045], [4.2, 0.045]] as const) {
+    const disco = new THREE.Mesh(new THREE.CircleGeometry(raggio, 64), new THREE.MeshBasicMaterial({ color: VERDE_PROJECTS, transparent: true, opacity: op * (chiaro ? 1 : 0.45), depthWrite: false }));
+    disco.rotation.x = -Math.PI / 2;
+    disco.position.y = -0.04;
+    disco.renderOrder = -2;
+    gruppo.add(disco);
+  }
   // Acqua: punti fitti dentro la riva, come lo sfondo del sito; fuori, il prato a puntini radi
   const acqua: number[] = [], prato: number[] = [];
   for (let x = -5; x <= 5; x += 0.3) for (let z = -5; z <= 5; z += 0.3) {
@@ -394,7 +403,7 @@ export function monta(el: HTMLElement) {
 
   vista(el, gruppo, punti, {
     // Vista obliqua, meno dall'alto: il laghetto si legge come un paesaggio, non come una mappa
-    camera: new THREE.Vector3(0, 4.6, 7.4),
+    camera: new THREE.Vector3(0, 5.8, 10.2),
     mira: new THREE.Vector3(0, -0.3, 0),
     inclinazione: [0.08, 0.45],
     // Clic sull'acqua: il raggio dalla camera tocca il piano dell'acqua dentro la riva, e lì cade il sasso
