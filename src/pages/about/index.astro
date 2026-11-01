@@ -2,16 +2,16 @@
 import Base from '../../layouts/Base.astro';
 import { COMPETENZE, COMPETENZE_ADVISORY } from '../../content.config';
 
-// Una zona per ogni sezione del sito, con il suo colore
+// Una zona per ogni sezione del sito, con il suo colore: il nome della variabile CSS, letta nel browser secondo il tema
 const ZONE = [
-  { nome: 'projects', href: '/projects/', colore: '#3fb950' },
-  { nome: 'advisory', href: '/advisory/', colore: '#58a6ff' },
-  { nome: 'knowledge', href: '/knowledge/', colore: '#ffa45e' },
+  { nome: 'projects', href: '/projects/', colore: '--verde' },
+  { nome: 'advisory', href: '/advisory/', colore: '--azzurro' },
+  { nome: 'knowledge', href: '/knowledge/', colore: '--arancio' },
 ];
 const BIO = 'I help organisations adopt AI, and I build the tools that make it work: from research to code.';
 // Frasi per i token che cadono: la bio, poi le competenze chiave nel colore della loro sezione
 const FRASI = [
-  { testo: BIO, colore: '#d9dde3' },
+  { testo: BIO, colore: '--fg' },
   ...Object.values(COMPETENZE).map(c => ({ testo: `${c.title}: ${c.summary}`, colore: ZONE[0]!.colore })),
   ...Object.values(COMPETENZE_ADVISORY).map(c => ({ testo: `${c.title}: ${c.summary}`, colore: ZONE[1]!.colore })),
 ];
@@ -46,8 +46,11 @@ const FRASI = [
   import type { Frase } from '../../scripts/token';
 
   const tela = document.querySelector<HTMLCanvasElement>('.scena')!;
-  const zone: Zona[] = JSON.parse(tela.dataset.zone!);
-  const frasi: Frase[] = JSON.parse(tela.dataset.frasi!);
+  // I colori arrivano come nomi di variabili CSS: qui diventano i colori del tema attuale
+  const radice = getComputedStyle(document.documentElement);
+  const tinta = <T extends { colore: string }>(x: T) => ({ ...x, colore: radice.getPropertyValue(x.colore).trim() });
+  const zone: Zona[] = JSON.parse(tela.dataset.zone!).map(tinta);
+  const frasi: Frase[] = JSON.parse(tela.dataset.frasi!).map(tinta);
   const spiega = document.querySelector<HTMLElement>('.spiega')!;
   const bottoni = document.querySelectorAll<HTMLButtonElement>('[data-scena]');
 

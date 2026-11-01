@@ -26,6 +26,8 @@ interface Opzioni {
 
 const css = (el: HTMLElement, nome: string) => new THREE.Color(getComputedStyle(el).getPropertyValue(nome).trim());
 
+// Colore di una sezione (--verde, --azzurro, --arancio) nel tema attuale
+export const tonoSezione = (nome: string) => css(document.documentElement, nome);
 export function colori(el: HTMLElement) {
   return { fg: css(el, '--fg'), accent: css(el, '--accent'), muted: css(el, '--muted'), line: css(el, '--line'), bg: css(el, '--bg') };
 }

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { colori, vista, type DatiCompetenze, type Punto } from './vista3d';
+import { colori, tonoSezione, vista, type DatiCompetenze, type Punto } from './vista3d';
 
 // Projects come bosco: ogni area è un albero, sparso sul terreno. Ogni competenza chiave ha il suo
 // tipo di albero e la sua zona, segnata da un palo con il nome della competenza.
@@ -205,7 +205,7 @@ export function monta(el: HTMLElement) {
   // Campanule azzurre nell'erba, nel colore di Advisory: un gambo piegato e un fiore a campana rivolto in basso
   // Colori delle altre sezioni smorzati (verso il grigio, semitrasparenti): il verde del bosco resta il protagonista
   const SMORZA = 0.3, OPACITA_ALTRI = 0.65;
-  const AZZURRO_ADVISORY = new THREE.Color('#58a6ff').lerp(c.muted, SMORZA), ARANCIO_KNOWLEDGE = new THREE.Color('#ffa45e').lerp(c.muted, SMORZA);
+  const AZZURRO_ADVISORY = tonoSezione('--azzurro').lerp(c.muted, SMORZA), ARANCIO_KNOWLEDGE = tonoSezione('--arancio').lerp(c.muted, SMORZA);
   const campanule = new THREE.Group();
   const matCampane = linea(AZZURRO_ADVISORY, OPACITA_ALTRI), matGambiAzzurri = linea(c.muted, 0.7);
   const geoCampana = new THREE.EdgesGeometry(new THREE.ConeGeometry(0.06, 0.09, 6, 1, true));

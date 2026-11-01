@@ -32,7 +32,7 @@ export function monta(canvas: HTMLCanvasElement, contatore?: HTMLElement | null,
   const ctx = canvas.getContext('2d')!;
   const css = (nome: string) => getComputedStyle(document.documentElement).getPropertyValue(nome).trim();
   const ridotto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const COLORI = koi ? ['#ff7a2f', '#e8452c', '#f2b134', '#ff7a2f'] : ['#3fb950', '#ffa45e', '#58a6ff'];
+  const COLORI = koi ? ['#ff7a2f', '#e8452c', '#f2b134', '#ff7a2f'] : [css('--verde') || '#3fb950', css('--arancio') || '#ffa45e', css('--azzurro') || '#58a6ff'];
   const bianco = daHex(css('--fg'), [217, 221, 227]), grigio = daHex(css('--muted'), [122, 130, 141]);
   const sfondo = css('--bg') || '#0d1117', occhio = css('--line') || '#1c2026';
   const SCURO: Rgb = [58, 63, 70];

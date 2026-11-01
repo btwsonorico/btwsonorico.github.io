@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { colori, vista, type DatiCompetenze, type Punto } from './vista3d';
+import { colori, tonoSezione, vista, type DatiCompetenze, type Punto } from './vista3d';
 
 // Advisory come laghetto visto dall'alto: ogni competenza chiave è un branco di pesci, ogni area è un pesce.
 // Ogni branco ha la sua specie e segue un capofila che vaga per il lago; i pesci nuotano in 3D, a profondità diverse.
@@ -27,7 +27,7 @@ export function monta(el: HTMLElement) {
   // uso le competenze tecniche e quello che studio. Stessi valori di --accent nelle due sezioni (Base.astro).
   // Smorzati (verso il grigio, semitrasparenti): l'azzurro del laghetto resta il protagonista
   const SMORZA = 0.3;
-  const VERDE_PROJECTS = new THREE.Color('#3fb950').lerp(c.muted, SMORZA), ARANCIO_KNOWLEDGE = new THREE.Color('#ffa45e').lerp(c.muted, SMORZA);
+  const VERDE_PROJECTS = tonoSezione('--verde').lerp(c.muted, SMORZA), ARANCIO_KNOWLEDGE = tonoSezione('--arancio').lerp(c.muted, SMORZA);
   const gruppo = new THREE.Group();
   const punti: Punto[] = [];
   const r = casuale(5);

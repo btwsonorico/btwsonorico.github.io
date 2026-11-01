@@ -15,6 +15,15 @@ const build = new Date().toISOString().slice(0, 10);
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml" />
+    <!-- Tema scelto (o quello del sistema) prima del primo disegno, così la pagina non lampeggia -->
+    <script is:inline>
+      (() => {
+        let tema = null;
+        try { tema = localStorage.getItem('tema'); } catch {}
+        if (tema !== 'light' && tema !== 'dark') tema = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        document.documentElement.dataset.theme = tema;
+      })();
+    </script>
   </head>
   <body class:list={{ largo }}>
     <header class="barra">
@@ -24,6 +33,7 @@ const build = new Date().toISOString().slice(0, 10);
         <a href="/advisory/">advisory</a>
         <a href="/knowledge/">knowledge</a>
         <a href="/about/">about</a>
+        <button type="button" class="tema" aria-label="Switch between light and dark mode">light</button>
       </nav>
     </header>
     <slot />
@@ -32,16 +42,36 @@ const build = new Date().toISOString().slice(0, 10);
       <span>static · github pages</span>
     </footer>
     <Cursore />
+    <script>
+      // Cambio di tema: le pagine senza scene cambiano subito; quelle con una scena (3D o a pixel) si ricaricano,
+      // perché le scene leggono i colori una volta sola, quando partono
+      const bottone = document.querySelector<HTMLButtonElement>('.tema')!;
+      const radice = document.documentElement;
+      const etichetta = () => { bottone.textContent = radice.dataset.theme === 'light' ? 'dark' : 'light'; };
+      etichetta();
+      bottone.addEventListener('click', () => {
+        const tema = radice.dataset.theme === 'light' ? 'dark' : 'light';
+        try { localStorage.setItem('tema', tema); } catch {}
+        if (document.querySelector('canvas, [data-grafo]')) { location.reload(); return; }
+        radice.dataset.theme = tema;
+        etichetta();
+      });
+    </script>
   </body>
 </html>
 
 <style is:global>
+  /* Tema scuro (base) e tema chiaro. I tre colori delle sezioni cambiano col tema, per restare leggibili sul fondo. */
   :root {
     --bg: #0a0b0d;
     --fg: #d9dde3;
     --muted: #7a828d;
     --line: #1c2026;
-    --accent: #58a6ff;
+    --superficie: #15181d;
+    --verde: #3fb950;
+    --azzurro: #58a6ff;
+    --arancio: #ffa45e;
+    --accent: var(--azzurro);
     --mono: 'Departure Mono', ui-monospace, monospace;
     /* Spaziature: s1 dentro un blocco, s2 sotto un titolo, s3 fra sezioni, s4 in testa alla pagina */
     --s1: 8px;
@@ -50,12 +80,23 @@ const build = new Date().toISOString().slice(0, 10);
     --s4: 48px;
     color-scheme: dark;
   }
+  :root[data-theme="light"] {
+    --bg: #f6f5f1;
+    --fg: #1f2328;
+    --muted: #656d76;
+    --line: #dcd9d0;
+    --superficie: #ebe9e2;
+    --verde: #1a7f37;
+    --azzurro: #0969da;
+    --arancio: #bc4c00;
+    color-scheme: light;
+  }
   /* I componenti Arc usano i colori del sito */
-  :root[data-theme="dark"][data-cyber] {
-    --accent: #58a6ff;
+  :root[data-theme][data-cyber] {
+    --accent: var(--azzurro);
     --accent-foreground: var(--bg);
     --background: var(--bg);
-    --surface: #15181d;
+    --surface: var(--superficie);
     --surface-muted: var(--bg);
     --foreground: var(--fg);
     --text-muted: var(--muted);
@@ -65,10 +106,10 @@ const build = new Date().toISOString().slice(0, 10);
     --radius-control: 2px;
   }
   /* Tre sezioni, tre colori: verde GitHub (Projects), arancio (Knowledge), azzurro (Advisory, anche il colore base) */
-  :root[data-theme="dark"][data-cyber][data-tono="azzurro"], [data-tono="azzurro"] { --accent: #58a6ff; }
-  :root[data-theme="dark"][data-cyber][data-tono="verde"], [data-tono="verde"] { --accent: #3fb950; }
+  :root[data-theme][data-cyber][data-tono="azzurro"], [data-tono="azzurro"] { --accent: var(--azzurro); }
+  :root[data-theme][data-cyber][data-tono="verde"], [data-tono="verde"] { --accent: var(--verde); }
   /* Vale per una pagina intera (Base con tono) o per una sola sezione (data-tono sull'elemento) */
-  :root[data-theme="dark"][data-cyber][data-tono="arancio"], [data-tono="arancio"] { --accent: #ffa45e; }
+  :root[data-theme][data-cyber][data-tono="arancio"], [data-tono="arancio"] { --accent: var(--arancio); }
   /* Departure Mono (SIL OFL, helenazhang.com): nitida a multipli di 11px */
   @font-face {
     font-family: 'Departure Mono';
@@ -109,7 +150,9 @@ const build = new Date().toISOString().slice(0, 10);
     color: var(--muted);
   }
   .barra a { text-decoration: none; }
-  .barra nav { display: flex; gap: 18px; }
+  .barra nav { display: flex; gap: 18px; align-items: center; }
+  .tema { padding: 0 5px; border: 1px solid var(--line); background: none; color: var(--muted); font: inherit; cursor: pointer; }
+  .tema:hover { color: var(--fg); border-color: var(--muted); }
   /* Su schermi stretti nome e link vanno su due righe, così nessun link esce dallo schermo */
   @media (max-width: 640px) { .barra { flex-wrap: wrap; row-gap: 10px; } .barra nav { gap: 14px; } }
   .io { color: var(--fg); }
