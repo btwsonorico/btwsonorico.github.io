@@ -197,21 +197,12 @@ const build = new Date().toISOString().slice(0, 10);
     body.largo main { padding: 0 40px var(--s4); }
     body.largo .barra, body.largo .piede { padding-left: 40px; padding-right: 40px; }
     /* Pagine con scena: la scena è lo sfondo dell'intera pagina, senza riquadro né bordi, ferma mentre si scorre.
-       Testo e lista stanno in una colonna a sinistra, sopra una sfumatura che li rende leggibili */
+       Testo e lista stanno in una colonna a sinistra; la scena passa anche sotto di loro, come nella home */
     .affianca {
       display: grid;
       grid-template-columns: minmax(340px, 34vw) 1fr;
       grid-template-areas: "testa ." "resto .";
       align-content: start;
-    }
-    .affianca::before {
-      content: '';
-      position: fixed;
-      inset: 0 auto 0 0;
-      width: calc(34vw + 160px);
-      background: linear-gradient(90deg, var(--bg) 62%, transparent);
-      z-index: 1;
-      pointer-events: none;
     }
     .a-testa { grid-area: testa; position: relative; z-index: 2; }
     .a-resto { grid-area: resto; position: relative; z-index: 2; }
