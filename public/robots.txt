@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://btwsonorico.github.io/sitemap.xml

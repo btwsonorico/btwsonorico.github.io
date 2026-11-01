@@ -4,7 +4,9 @@ import Cursore from '@/components/Cursore.astro';
 // tono: colore d'accento della pagina. Senza tono resta l'azzurro del sito.
 // largo: pagina a tutta larghezza su schermi grandi (home, Knowledge, Projects); i testi restano stretti.
 interface Props { title: string; description?: string; lang?: 'it' | 'en'; tono?: 'verde' | 'arancio' | 'azzurro'; largo?: boolean }
-const { title, description = 'Research, advisory, software.', lang = 'en', tono, largo = false } = Astro.props;
+const { title, description = 'Riccardo Mondi: AI advisor and developer at Politecnico di Milano.', lang = 'en', tono, largo = false } = Astro.props;
+// Indirizzo canonico della pagina, per i motori di ricerca e per le anteprime quando la pagina si condivide
+const canonico = new URL(Astro.url.pathname, Astro.site).href;
 const build = new Date().toISOString().slice(0, 10);
 ---
 <!doctype html>
@@ -14,7 +16,20 @@ const build = new Date().toISOString().slice(0, 10);
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonico} />
     <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml" />
+    <link rel="sitemap" href="/sitemap.xml" />
+    <!-- Il font del sito arriva subito, insieme alla pagina: il testo non cambia aspetto dopo il caricamento -->
+    <link rel="preload" href="/fonts/DepartureMono-Regular.woff2" as="font" type="font/woff2" crossorigin />
+    <meta name="theme-color" content="#0a0b0d" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f6f5f1" media="(prefers-color-scheme: light)" />
+    <!-- Anteprima quando la pagina si condivide (LinkedIn, chat, social) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Riccardo Mondi" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonico} />
+    <meta name="twitter:card" content="summary" />
     <!-- Tema scelto (o quello del sistema) prima del primo disegno, così la pagina non lampeggia -->
     <script is:inline>
       (() => {

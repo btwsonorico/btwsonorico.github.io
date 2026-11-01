@@ -216,15 +216,23 @@ export function monta(el: HTMLElement) {
   // Ogni tanto un falco invisibile attraversa lo stormo e lo apre in due; anche il puntatore spaventa gli uccelli.
   // Lo stormo resta sempre sopra la scena: sotto una certa quota gli uccelli risalgono.
   // L'etichetta sta di lato allo stormo e lo segue con un po' di ritardo, così si clicca anche quando scappano.
-  const UCCELLI = 500, CENTRO_STORMO = new THREE.Vector3(0.2, 2.9, -0.6);
+  // Meno uccelli sul telefono: lo stormo resta bello e il telefono non si scalda
+  const UCCELLI = el.clientWidth < 700 ? 280 : 500, CENTRO_STORMO = new THREE.Vector3(0.2, 2.9, -0.6);
   const VICINI = 0.42, SEPARA = 0.14, VEL_MIN = 0.5, VEL_MAX = 1, QUOTA_MIN = 2.5, QUOTA_MAX = 3.5, LARGO_STORMO = 3;
   const pos = new Float32Array(UCCELLI * 3), vel = new Float32Array(UCCELLI * 3), fase = new Float32Array(UCCELLI), paura = new Float32Array(UCCELLI);
   // Posto di ogni uccello intorno alla guida, sparso in un volume largo e basso: lo stormo occupa un'area, non una fila
   const posto = new Float32Array(UCCELLI * 3);
+  // Partenza diversa a ogni visita (qui il caso è vero, non con il seme): tre gruppetti sparsi in punti a caso,
+  // ognuno con la sua direzione, che poi si cercano e si uniscono
+  const caso = Math.random;
+  const gruppetti = [0, 1, 2].map(() => ({
+    x: CENTRO_STORMO.x + (caso() - 0.5) * 4, y: CENTRO_STORMO.y + (caso() - 0.5) * 0.6, z: CENTRO_STORMO.z + (caso() - 0.5) * 2,
+    a: caso() * Math.PI * 2, largo: 0.4 + caso() * 0.8,
+  }));
   for (let i = 0; i < UCCELLI; i++) {
-    const a = r() * Math.PI * 2, d = Math.sqrt(r());
-    pos.set([CENTRO_STORMO.x + Math.cos(a) * d * 2.2, CENTRO_STORMO.y + (r() - 0.5) * 0.9, CENTRO_STORMO.z + Math.sin(a) * d * 1.2], i * 3);
-    vel.set([-1, (r() - 0.5) * 0.1, 0.4], i * 3);
+    const g = gruppetti[i % 3]!, a = caso() * Math.PI * 2, d = Math.sqrt(caso()) * g.largo;
+    pos.set([g.x + Math.cos(a) * d, g.y + (caso() - 0.5) * 0.5, g.z + Math.sin(a) * d * 0.7], i * 3);
+    vel.set([Math.cos(g.a) * 0.7 + (caso() - 0.5) * 0.2, (caso() - 0.5) * 0.1, Math.sin(g.a) * 0.7 + (caso() - 0.5) * 0.2], i * 3);
     fase[i] = r() * 6;
     const b = r() * Math.PI * 2, e = Math.cbrt(r());
     posto.set([Math.cos(b) * e * 1.8, (r() - 0.5) * 0.6, Math.sin(b) * e * 1.1], i * 3);
@@ -245,7 +253,7 @@ export function monta(el: HTMLElement) {
   const asse = new THREE.Vector3();
   const posizioneGuida = (t: number, dt = 0) => {
     if (t > prossimaTappa) {
-      tappa.set(CENTRO_STORMO.x + (r() - 0.5) * 3.4, QUOTA_MIN + 0.25 + r() * (QUOTA_MAX - QUOTA_MIN - 0.5), CENTRO_STORMO.z + (r() - 0.5) * 1.8);
+      tappa.set(CENTRO_STORMO.x + (caso() - 0.5) * 3.4, QUOTA_MIN + 0.25 + caso() * (QUOTA_MAX - QUOTA_MIN - 0.5), CENTRO_STORMO.z + (caso() - 0.5) * 1.8);
       prossimaTappa = t + 5 + r() * 4;
     }
     verso.lerp(tappa, Math.min(1, dt * 0.35));

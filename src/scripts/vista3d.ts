@@ -41,7 +41,11 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
   const ridotto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const c = colori(el);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // Sul telefono una risoluzione un po' più bassa: la scena resta nitida e consuma meno batteria
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, window.innerWidth < 700 ? 1.5 : 2));
+  // La scena disegna solo quando si vede: fuori dallo schermo, o con la scheda in secondo piano, si ferma
+  let inVista = true;
+  new IntersectionObserver(voci => { inVista = voci.some(v => v.isIntersecting); }).observe(el);
   el.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
   scene.add(gruppo);
@@ -156,7 +160,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
 
   function disegna() {
     // Una scena in una tab nascosta non consuma risorse
-    if (el.offsetParent === null) { requestAnimationFrame(disegna); return; }
+    if (el.offsetParent === null || !inVista || document.hidden) { requestAnimationFrame(disegna); return; }
     const t = ridotto ? 0 : performance.now();
     if (fermo > 0) fermo--; else if (!ruota && !ridotto) rotY += 0.0012;
     gruppo.rotation.set(rotX, rotY, 0);
