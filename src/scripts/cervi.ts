@@ -35,7 +35,8 @@ const angolo = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
 export function famigliaCervi(gruppo: THREE.Group, o: Opzioni) {
   const { colori: c, chiaro } = o, r = o.casuale;
   const linea = (colore: THREE.Color, opacita: number) => new THREE.LineBasicMaterial({ color: colore, transparent: true, opacity: opacita });
-  const matCervo = new THREE.MeshBasicMaterial({ color: new THREE.Color(chiaro ? '#ffffff' : '#eef1f5'), transparent: true, opacity: chiaro ? 1 : 0.92 });
+  // Corpo pieno: bianco di notte; di giorno un grigio caldo, perché il bianco sul fondo chiaro sparirebbe
+  const matCervo = new THREE.MeshBasicMaterial({ color: new THREE.Color(chiaro ? '#cdc7b8' : '#eef1f5'), transparent: true, opacity: chiaro ? 1 : 0.92 });
   // Sul fondo chiaro i bordi sono scuri, così il cervo bianco si stacca dallo sfondo
   const matBordi = linea(c.fg, chiaro ? 0.5 : 0.4), matCorna = linea(c.fg, chiaro ? 0.75 : 0.85);
   const geoOvale = new THREE.SphereGeometry(1, 8, 6), bordiOvale = new THREE.EdgesGeometry(geoOvale, 25);
@@ -47,9 +48,9 @@ export function famigliaCervi(gruppo: THREE.Group, o: Opzioni) {
     g.position.set(x, y, z);
     return g;
   };
-  // Gambe sottili come quelle vere: coscia a cono rovesciato, stinco come un'asta, zoccolo scuro
-  const geoCoscia = new THREE.CylinderGeometry(0.03, 0.013, 0.17, 6), bordiCoscia = new THREE.EdgesGeometry(geoCoscia, 30);
-  const geoStinco = new THREE.CylinderGeometry(0.008, 0.007, 0.16, 5), geoZoccolo = new THREE.CylinderGeometry(0.009, 0.012, 0.016, 5);
+  // Gambe snelle ma piene: coscia a cono rovesciato, stinco affusolato, zoccolo scuro
+  const geoCoscia = new THREE.CylinderGeometry(0.034, 0.017, 0.17, 6), bordiCoscia = new THREE.EdgesGeometry(geoCoscia, 30);
+  const geoStinco = new THREE.CylinderGeometry(0.013, 0.01, 0.16, 6), bordiStinco = new THREE.EdgesGeometry(geoStinco, 30), geoZoccolo = new THREE.CylinderGeometry(0.012, 0.015, 0.018, 6);
   const matZoccolo = new THREE.MeshBasicMaterial({ color: c.fg.clone().lerp(c.bg, chiaro ? 0.2 : 0.55) });
   const matMacchie = new THREE.PointsMaterial({ color: c.muted, size: 0.025, transparent: true, opacity: 0.9 });
 
@@ -120,7 +121,10 @@ export function famigliaCervi(gruppo: THREE.Group, o: Opzioni) {
       stinco.position.y = -0.08 * lungaZampa;
       const zoccolo = new THREE.Mesh(geoZoccolo, matZoccolo);
       zoccolo.position.set(0.004, -0.162 * lungaZampa, 0);
-      ginocchio.add(stinco, zoccolo);
+      const bordoStinco = new THREE.LineSegments(bordiStinco, matBordi);
+      bordoStinco.scale.y = lungaZampa;
+      bordoStinco.position.y = -0.08 * lungaZampa;
+      ginocchio.add(stinco, bordoStinco, zoccolo);
       anca.add(ginocchio);
       cervo.add(anca);
       return { ...q, anca, ginocchio };
