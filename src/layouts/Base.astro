@@ -11,7 +11,7 @@ const canonico = new URL(Astro.url.pathname, Astro.site).href;
 const build = new Date().toISOString().slice(0, 10);
 ---
 <!doctype html>
-<html lang={lang} data-theme="dark" data-cyber data-tono={tono}>
+<html lang={lang} data-theme="light" data-cyber data-tono={tono}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -33,12 +33,12 @@ const build = new Date().toISOString().slice(0, 10);
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonico} />
     <meta name="twitter:card" content="summary" />
-    <!-- Tema scelto (o quello del sistema) prima del primo disegno, così la pagina non lampeggia -->
+    <!-- Tema scelto prima del primo disegno, così la pagina non lampeggia. Senza una scelta salvata il sito è chiaro -->
     <script is:inline>
       (() => {
         let tema = null;
         try { tema = localStorage.getItem('tema'); } catch {}
-        if (tema !== 'light' && tema !== 'dark') tema = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        if (tema !== 'light' && tema !== 'dark') tema = 'light';
         document.documentElement.dataset.theme = tema;
       })();
     </script>
