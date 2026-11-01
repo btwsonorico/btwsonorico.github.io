@@ -293,11 +293,12 @@ export function monta(el: HTMLElement) {
   // Uccelli arancioni, nel colore di Knowledge: gli stessi dello stormo dell'About
   const matUccello = linea(tonoSezione('--arancio'), 1);
   const cimaDi = (i: number) => tutti[i]!.cima.getWorldPosition(new THREE.Vector3()).applyMatrix4(new THREE.Matrix4().copy(gruppo.matrixWorld).invert());
-  const uccelli = Array.from({ length: Math.min(6, tutti.length) }, (_, k) => {
+  // Pochi uccelli e calmi: voli lenti e soste lunghe sulle cime
+  const uccelli = Array.from({ length: Math.min(4, tutti.length) }, (_, k) => {
     const corpo = new THREE.Line(geoUccello, matUccello);
     corpo.visible = false;
     gruppo.add(corpo);
-    return { corpo, da: k * 2 % tutti.length, a: (k * 2 + 1) % tutti.length, partenza: 2600 + k * 900, durata: 2600 + r() * 1800, sosta: 800 + r() * 2200 };
+    return { corpo, da: k * 2 % tutti.length, a: (k * 2 + 1) % tutti.length, partenza: 2600 + k * 1800, durata: 3800 + r() * 1800, sosta: 5000 + r() * 7000 };
   });
   // Gli uccelli si posano solo sugli alberi visibili nella vista attuale
   const posabili = () => tutti.map((x, i) => (x.albero.visible ? i : -1)).filter(i => i >= 0);
@@ -379,7 +380,7 @@ export function monta(el: HTMLElement) {
       x.albero.scale.setScalar(0.001);
     }
     inizio = -1;
-    uccelli.forEach((u, n) => { u.partenza = 2600 + n * 900; u.corpo.visible = false; });
+    uccelli.forEach((u, n) => { u.partenza = 2600 + n * 1800; u.corpo.visible = false; });
   }
   el.addEventListener('scena:modo', e => {
     const m: Modo = (e as CustomEvent<string>).detail === 'progetto' ? 'progetto' : 'competenza';
@@ -482,7 +483,7 @@ export function monta(el: HTMLElement) {
           arco(Math.min(1, v + 0.02), dopo);
           u.corpo.position.copy(pos);
           if (dopo.distanceToSquared(pos) > 1e-6) u.corpo.lookAt(dopo.applyMatrix4(gruppo.matrixWorld));
-          u.corpo.scale.set(1, Math.sin(t * 0.025 + u.durata) * 1.6, 1);
+          u.corpo.scale.set(1, Math.sin(t * 0.016 + u.durata) * 1.4, 1);
         } else {
           // Posato: ali quasi chiuse
           u.corpo.position.copy(p1).setY(p1.y - 0.05);

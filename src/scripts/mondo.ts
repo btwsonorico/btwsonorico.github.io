@@ -212,78 +212,124 @@ export function monta(el: HTMLElement) {
     }
   }
 
-  // --- Stormo (Knowledge): tanti uccellini a V, arancioni, che volano insieme come gli storni.
-  // Regole degli stormi veri: non urtarsi, andare nella stessa direzione dei vicini, restare vicino al punto che guida.
-  // Il punto che guida gira piano intorno a un centro fisso: lì sta l'etichetta, che resta ferma e si clicca sempre.
-  // Il puntatore spaventa gli uccelli vicini, che scappano e poi tornano nello stormo.
-  const UCCELLI = 150, CENTRO_STORMO = new THREE.Vector3(0.3, 2.7, -0.8);
-  const geoV = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.06, 0.025, 0), new THREE.Vector3(0, 0, 0.01), new THREE.Vector3(0.06, 0.025, 0)]);
-  const matV = mat('knowledge', arancio, 1);
-  const guidaStormo = new THREE.Vector3();
-  const posizioneGuida = (s: number, out: THREE.Vector3) =>
-    out.copy(CENTRO_STORMO).add(new THREE.Vector3(Math.cos(s * 0.3) * 1.1, Math.sin(s * 0.47) * 0.3, Math.sin(s * 0.3) * 0.7));
-  posizioneGuida(0, guidaStormo);
-  const uccelli = Array.from({ length: UCCELLI }, () => {
-    const g = new THREE.Line(geoV, matV);
-    gruppo.add(g);
-    const p = guidaStormo.clone().add(new THREE.Vector3((r() - 0.5) * 1.4, (r() - 0.5) * 0.5, (r() - 0.5) * 0.9));
-    return { g, p, v: new THREE.Vector3(-0.5 + r() * 0.2, (r() - 0.5) * 0.1, 0.3), fase: r() * 6, paura: 0 };
-  });
+  // --- Stormo (Knowledge): una murmuration di storni arancioni, come quella della pagina a pixel.
+  // Conta soprattutto andare nella stessa direzione dei vicini; il richiamo verso il punto che guida è debole.
+  // Così lo stormo si allunga in nastri, si piega e si avvolge su se stesso. Il punto che guida cambia rotta
+  // in modo irregolare, e ogni tanto un falco invisibile attraversa lo stormo e lo apre in due.
+  // Anche il puntatore spaventa gli uccelli vicini. L'etichetta segue il centro dello stormo con molto ritardo:
+  // resta quasi ferma, così si clicca anche mentre gli uccelli scappano.
+  const UCCELLI = 500, CENTRO_STORMO = new THREE.Vector3(0.3, 2.8, -0.9);
+  const VICINI = 0.32, SEPARA = 0.06, VEL_MIN = 0.9, VEL_MAX = 1.7;
+  const pos = new Float32Array(UCCELLI * 3), vel = new Float32Array(UCCELLI * 3), fase = new Float32Array(UCCELLI), paura = new Float32Array(UCCELLI);
+  for (let i = 0; i < UCCELLI; i++) {
+    const a = r() * Math.PI * 2, d = Math.sqrt(r());
+    pos.set([CENTRO_STORMO.x + Math.cos(a) * d * 1.4, CENTRO_STORMO.y + (r() - 0.5) * 0.5, CENTRO_STORMO.z + Math.sin(a) * d * 0.8], i * 3);
+    vel.set([-1, (r() - 0.5) * 0.1, 0.4], i * 3);
+    fase[i] = r() * 6;
+  }
+  // Ogni uccello è una V: due segmenti che partono dal corpo; tutti in un'unica geometria, aggiornata a ogni fotogramma
+  const geoStormo = new THREE.BufferGeometry();
+  const vertici = new Float32Array(UCCELLI * 4 * 3);
+  geoStormo.setAttribute('position', new THREE.BufferAttribute(vertici, 3));
+  gruppo.add(new THREE.LineSegments(geoStormo, mat('knowledge', arancio, chiaro ? 0.95 : 0.9)));
   const centroStormo = new THREE.Object3D();
-  centroStormo.position.copy(CENTRO_STORMO).add(new THREE.Vector3(0, 0.75, 0));
+  centroStormo.position.copy(CENTRO_STORMO).add(new THREE.Vector3(0, 0.8, 0));
   gruppo.add(centroStormo);
   punti.push({ id: 'sezione:knowledge', label: 'Knowledge', href: '/knowledge/', hub: true, famiglia: 'knowledge', ancora: centroStormo, tono: 'arancio' });
-  // Il puntatore come raggio nello spazio del diorama: gli uccelli vicini al raggio scappano
+  // Il punto che guida: somma di curve lente con frequenze diverse, così la rotta non si ripete mai uguale
+  const verso = new THREE.Vector3();
+  const posizioneGuida = (t: number) => verso.set(
+    CENTRO_STORMO.x + Math.sin(t * 0.23) * 1.7 + Math.sin(t * 0.61 + 1) * 0.6,
+    CENTRO_STORMO.y + Math.sin(t * 0.31 + 2) * 0.45 + Math.sin(t * 0.9) * 0.15,
+    CENTRO_STORMO.z + Math.cos(t * 0.19) * 1.1 + Math.sin(t * 0.53 + 3) * 0.4,
+  );
+  // Falco: ogni 7-12 secondi attraversa lo stormo in linea retta, veloce
+  const falco = { da: new THREE.Vector3(), a: new THREE.Vector3(), nato: -99, durata: 1.6 }, falcoOra = new THREE.Vector3();
+  let prossimoFalco = 5;
   let raggioPuntatore: THREE.Ray | null = null;
-  const inversaStormo = new THREE.Matrix4();
-  const forza = new THREE.Vector3(), d = new THREE.Vector3(), media = new THREE.Vector3(), vicino = new THREE.Vector3(), avanti = new THREE.Vector3();
-  // Griglia per trovare i vicini senza confrontare ogni uccello con tutti gli altri
-  const griglia = new Map<string, number[]>();
-  const CELLA_STORMO = 0.35;
-  const chiave = (x: number, y: number, z: number) => `${Math.floor(x / CELLA_STORMO)},${Math.floor(y / CELLA_STORMO)},${Math.floor(z / CELLA_STORMO)}`;
-  const muoviStormo = (s: number, dt: number) => {
-    posizioneGuida(s, guidaStormo);
+  const inversaStormo = new THREE.Matrix4(), vicino = new THREE.Vector3(), punto = new THREE.Vector3();
+  const griglia = new Map<number, number[]>();
+  const chiave = (x: number, y: number, z: number) => ((Math.floor(x / VICINI) + 512) * 1024 + (Math.floor(y / VICINI) + 512)) * 1024 + (Math.floor(z / VICINI) + 512);
+  const centroLento = CENTRO_STORMO.clone();
+  const muoviStormo = (t: number, dt: number) => {
+    posizioneGuida(t);
     if (dt > 0) {
+      // Il falco parte da un lato dello stormo e passa dall'altro, attraverso il centro
+      if (t > prossimoFalco) {
+        const a = r() * Math.PI * 2;
+        falco.da.set(Math.cos(a), (r() - 0.5) * 0.6, Math.sin(a)).multiplyScalar(2.2).add(centroLento);
+        falco.a.copy(centroLento).multiplyScalar(2).sub(falco.da);
+        falco.nato = t;
+        prossimoFalco = t + 7 + r() * 5;
+      }
+      const uf = (t - falco.nato) / falco.durata, falcoAttivo = uf >= 0 && uf <= 1;
+      if (falcoAttivo) falcoOra.lerpVectors(falco.da, falco.a, uf);
       griglia.clear();
-      uccelli.forEach((u, i) => { const k = chiave(u.p.x, u.p.y, u.p.z); const l = griglia.get(k); if (l) l.push(i); else griglia.set(k, [i]); });
-      for (const u of uccelli) {
-        forza.copy(guidaStormo).sub(u.p).multiplyScalar(0.5);
-        media.set(0, 0, 0);
-        let quanti = 0;
-        const cx = Math.floor(u.p.x / CELLA_STORMO), cy = Math.floor(u.p.y / CELLA_STORMO), cz = Math.floor(u.p.z / CELLA_STORMO);
+      for (let i = 0; i < UCCELLI; i++) {
+        const k = chiave(pos[i * 3]!, pos[i * 3 + 1]!, pos[i * 3 + 2]!);
+        const l = griglia.get(k);
+        if (l) l.push(i); else griglia.set(k, [i]);
+      }
+      let cx = 0, cy = 0, cz = 0;
+      for (let i = 0; i < UCCELLI; i++) {
+        const x = pos[i * 3]!, y = pos[i * 3 + 1]!, z = pos[i * 3 + 2]!;
+        let fx = (verso.x - x) * 0.18, fy = (verso.y - y) * 0.3, fz = (verso.z - z) * 0.18;
+        let mx = 0, my = 0, mz = 0, lx = 0, ly = 0, lz = 0, n = 0;
+        const gx = Math.floor(x / VICINI), gy = Math.floor(y / VICINI), gz = Math.floor(z / VICINI);
         for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) for (let oz = -1; oz <= 1; oz++) {
-          for (const j of griglia.get(`${cx + ox},${cy + oy},${cz + oz}`) ?? []) {
-            const q = uccelli[j]!;
-            if (q === u) continue;
-            d.copy(u.p).sub(q.p);
-            const l = d.length();
-            if (l < CELLA_STORMO) { media.add(q.v); quanti++; }
-            if (l < 0.09 && l > 1e-4) forza.addScaledVector(d, (0.09 - l) * 40 / l);
+          const lista = griglia.get(((gx + ox + 512) * 1024 + (gy + oy + 512)) * 1024 + (gz + oz + 512));
+          if (!lista) continue;
+          for (const j of lista) {
+            if (j === i) continue;
+            const dx = pos[j * 3]! - x, dy = pos[j * 3 + 1]! - y, dz = pos[j * 3 + 2]! - z, d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 > VICINI * VICINI) continue;
+            n++;
+            mx += vel[j * 3]!; my += vel[j * 3 + 1]!; mz += vel[j * 3 + 2]!;
+            lx += dx; ly += dy; lz += dz;
+            if (d2 < SEPARA * SEPARA) { const d = Math.sqrt(d2) || 1e-3, f = (SEPARA - d) * 60 / d; fx -= dx * f; fy -= dy * f; fz -= dz * f; }
           }
         }
-        if (quanti) forza.addScaledVector(media.multiplyScalar(1 / quanti).sub(u.v), 1.4);
-        // Paura: il puntatore vicino spinge l'uccello lontano dal raggio, poi la paura passa piano
-        if (raggioPuntatore) {
-          raggioPuntatore.closestPointToPoint(u.p, vicino);
-          d.copy(u.p).sub(vicino);
-          const l = d.length();
-          if (l < 0.7) { u.paura = 1; forza.addScaledVector(d, (0.7 - l) * 22 / (l || 1)); }
+        if (n) {
+          // Allineamento forte, coesione locale leggera: nascono i nastri e le pieghe
+          fx += (mx / n - vel[i * 3]!) * 2.2 + (lx / n) * 0.6;
+          fy += (my / n - vel[i * 3 + 1]!) * 2.2 + (ly / n) * 0.6;
+          fz += (mz / n - vel[i * 3 + 2]!) * 2.2 + (lz / n) * 0.6;
         }
-        u.paura = Math.max(0, u.paura - dt * 0.8);
-        u.v.addScaledVector(forza, dt);
-        const vel = u.v.length(), max = 1.3 + u.paura * 1.4;
-        if (vel > max) u.v.multiplyScalar(max / vel);
-        if (vel < 0.5) u.v.multiplyScalar(0.5 / (vel || 1));
-        u.p.addScaledVector(u.v, dt);
+        // Paura: dal falco e dal puntatore, più forte quanto più sono vicini
+        const scappa = (sx: number, sy: number, sz: number, raggio: number, forza: number) => {
+          const dx = x - sx, dy = y - sy, dz = z - sz, d = Math.hypot(dx, dy, dz);
+          if (d < raggio && d > 1e-4) { const f = (1 - d / raggio) * forza / d; fx += dx * f; fy += dy * f; fz += dz * f; paura[i] = 1; }
+        };
+        if (falcoAttivo) scappa(falcoOra.x, falcoOra.y, falcoOra.z, 0.8, 14);
+        if (raggioPuntatore) {
+          raggioPuntatore.closestPointToPoint(punto.set(x, y, z), vicino);
+          scappa(vicino.x, vicino.y, vicino.z, 0.7, 16);
+        }
+        paura[i] = Math.max(0, paura[i]! - dt * 0.7);
+        let vx = vel[i * 3]! + fx * dt, vy = vel[i * 3 + 1]! + fy * dt, vz = vel[i * 3 + 2]! + fz * dt;
+        const v = Math.hypot(vx, vy, vz) || 1, max = VEL_MAX * (1 + paura[i]! * 0.7);
+        const k = v > max ? max / v : v < VEL_MIN ? VEL_MIN / v : 1;
+        vx *= k; vy *= k; vz *= k;
+        vel.set([vx, vy, vz], i * 3);
+        pos.set([x + vx * dt, y + vy * dt, z + vz * dt], i * 3);
+        cx += x; cy += y; cz += z;
       }
+      // L'etichetta segue il centro dello stormo con molto ritardo
+      centroLento.lerp(punto.set(cx / UCCELLI, cy / UCCELLI, cz / UCCELLI), Math.min(1, dt * 0.25));
+      centroStormo.position.copy(centroLento).add(new THREE.Vector3(0, 0.8, 0));
     }
-    for (const u of uccelli) {
-      u.g.position.copy(u.p);
-      avanti.copy(u.p).add(u.v);
-      u.g.lookAt(gruppo.localToWorld(avanti));
-      // Ali che battono: più veloci quando l'uccello ha paura
-      u.g.scale.set(1, Math.sin(s * (12 + u.paura * 10) + u.fase) * 1.4, 1);
+    // V di ogni uccello: le ali partono dal corpo, di lato rispetto alla direzione di volo, e battono
+    for (let i = 0; i < UCCELLI; i++) {
+      const x = pos[i * 3]!, y = pos[i * 3 + 1]!, z = pos[i * 3 + 2]!;
+      const vx = vel[i * 3]!, vz = vel[i * 3 + 2]!, l = Math.hypot(vx, vz) || 1;
+      const sx = -vz / l * 0.045, sz = vx / l * 0.045, alza = Math.sin(t * (13 + paura[i]! * 8) + fase[i]!) * 0.03;
+      const o = i * 12;
+      vertici[o] = x - sx; vertici[o + 1] = y + alza; vertici[o + 2] = z - sz;
+      vertici[o + 3] = x; vertici[o + 4] = y; vertici[o + 5] = z;
+      vertici[o + 6] = x; vertici[o + 7] = y; vertici[o + 8] = z;
+      vertici[o + 9] = x + sx; vertici[o + 10] = y + alza; vertici[o + 11] = z + sz;
     }
+    geoStormo.attributes.position!.needsUpdate = true;
   };
   const nuovoPuntatore = (raggio: THREE.Raycaster | null) => {
     if (!raggio) { raggioPuntatore = null; return; }
