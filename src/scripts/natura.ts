@@ -16,6 +16,22 @@ export function tavolozza() {
 let tav: ReturnType<typeof tavolozza> | null = null;
 const T = () => (tav ??= tavolozza());
 
+// Tre toni chiave per ogni scena (di solito verde, azzurro, arancio). Chi guarda li può cambiare col color editor:
+// la scelta resta in questo browser, separata per tema chiaro e scuro.
+const chiaveToni = (scena: string) => `misc-toni-${scena}-${tema() ? 'chiaro' : 'scuro'}`;
+export function toniSalvati(scena: string, base: THREE.ColorRepresentation[]) {
+  let salvati: (string | null)[] | null = null;
+  try { salvati = JSON.parse(localStorage.getItem(chiaveToni(scena)) ?? 'null'); } catch { /* niente */ }
+  return base.map((c, i) => new THREE.Color(salvati?.[i] ?? c));
+}
+export function salvaToni(scena: string, toni: (string | null)[] | null) {
+  try { if (toni) localStorage.setItem(chiaveToni(scena), JSON.stringify(toni)); else localStorage.removeItem(chiaveToni(scena)); } catch { /* niente */ }
+}
+// Toni della scena che si sta costruendo (li imposta il palco); senza, valgono quelli del sito
+let attivi: THREE.Color[] | null = null;
+// Toni chiave di partenza delle scene: verde, azzurro e arancio del sito
+export const SITO = ['--verde', '--azzurro', '--arancio'].map(css);
+
 // Ogni colore della scena diventa il tono di sezione più vicino (verde, azzurro, arancio), un po' più chiaro o
 // più scuro; i colori quasi grigi diventano il colore del testo. Così le scene usano la stessa tavolozza del sito.
 const hsl = { h: 0, s: 0, l: 0 }, hsl2 = { h: 0, s: 0, l: 0 };
@@ -23,14 +39,16 @@ export function tono(colore: THREE.ColorRepresentation) {
   new THREE.Color(colore).getHSL(hsl);
   const t = T();
   if (hsl.s < 0.2) return (hsl.l > 0.55 ? t.fg : t.muted).clone();
-  let meglio = t.verde, dm = 9;
-  for (const c of [t.verde, t.azzurro, t.arancio]) {
+  // La famiglia si sceglie sui toni del sito; il colore che esce è il tono chiave della scena per quella famiglia
+  const sito = [t.verde, t.azzurro, t.arancio];
+  let meglio = 0, dm = 9;
+  sito.forEach((c, i) => {
     c.getHSL(hsl2);
     const d = Math.min(Math.abs(hsl.h - hsl2.h), 1 - Math.abs(hsl.h - hsl2.h));
-    if (d < dm) { dm = d; meglio = c; }
-  }
-  meglio.getHSL(hsl2);
-  return meglio.clone().offsetHSL(0, 0, Math.max(-0.12, Math.min(0.12, (hsl.l - hsl2.l) * 0.5)));
+    if (d < dm) { dm = d; meglio = i; }
+  });
+  sito[meglio]!.getHSL(hsl2);
+  return (attivi?.[meglio] ?? sito[meglio]!).clone().offsetHSL(0, 0, Math.max(-0.12, Math.min(0.12, (hsl.l - hsl2.l) * 0.5)));
 }
 export const PIENO = () => (tema() ? 0.24 : 0.2);
 export const linea = (colore: THREE.ColorRepresentation, opacita = 0.9) => new THREE.LineBasicMaterial({ color: tono(colore), transparent: true, opacity: opacita });
@@ -184,7 +202,11 @@ export interface Palco {
   chiaro: boolean; ridotto: boolean; telefono: boolean;
   // Fattore per le particelle: grandezza in pixel a distanza 1 dalla camera
   scalaPunti: number;
+  // Colori del sito; verde, azzurro e arancio sono i tre toni chiave della scena
   colori: ReturnType<typeof tavolozza>;
+  toni: THREE.Color[];
+  // Ferma la scena e libera la memoria (per ridisegnarla con altri colori)
+  distruggi: () => void;
 }
 export interface OpzioniPalco {
   camera: THREE.Vector3; mira: THREE.Vector3; fov?: number;
@@ -194,6 +216,8 @@ export interface OpzioniPalco {
   nebbia?: [number, number];
   aggiorna: (s: number, dt: number, p: Palco) => void;
   clic?: (raggio: THREE.Raycaster, p: Palco) => void;
+  // Nome della scena e i suoi tre toni chiave di partenza
+  scena: string; toni: THREE.ColorRepresentation[];
 }
 
 // Palco: renderer, camera e ciclo. Trascinando si gira la scena; quando è fuori schermo, nascosta o la scheda
@@ -208,14 +232,20 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
   const scena = new THREE.Scene(), gruppo = new THREE.Group();
   scena.add(gruppo);
   const camera = new THREE.PerspectiveCamera(o.fov ?? 40, 1, 0.1, 80);
-  const p: Palco = { scena, gruppo, camera, raggio: null, chiaro: tema(), ridotto, telefono, scalaPunti: 500, colori: T() };
+  const toni = toniSalvati(o.scena, o.toni);
+  attivi = toni;
+  const p: Palco = {
+    scena, gruppo, camera, raggio: null, chiaro: tema(), ridotto, telefono, scalaPunti: 500,
+    colori: { ...T(), verde: toni[0]!, azzurro: toni[1]!, arancio: toni[2]! }, toni, distruggi: () => {},
+  };
 
-  let inVista = true;
-  new IntersectionObserver(v => { inVista = v.some(x => x.isIntersecting); }).observe(el);
+  let inVista = true, vivo = true;
+  const io = new IntersectionObserver(v => { inVista = v.some(x => x.isIntersecting); });
+  io.observe(el);
   const dir = o.camera.clone().sub(o.mira);
   const dist = dir.length(), alza0 = Math.asin(dir.y / dist), giro0 = Math.atan2(dir.x, dir.z);
   let lontano = 1;
-  new ResizeObserver(() => {
+  const ro = new ResizeObserver(() => {
     const w = el.clientWidth || 1, h = el.clientHeight || 1;
     renderer.setSize(w, h);
     camera.aspect = w / h;
@@ -225,7 +255,8 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
     p.scalaPunti = h * renderer.getPixelRatio() / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     const [vicino, fondo] = o.nebbia ?? [0.75, 1.7];
     scena.fog = new THREE.Fog(p.colori.bg, dist * lontano * vicino, dist * lontano * fondo);
-  }).observe(el);
+  });
+  ro.observe(el);
 
   // Trascinamento: giro intorno alla scena con un po' di inerzia; lo sguardo sale e scende entro i limiti
   const [giu, su] = o.inclina ?? [-0.12, 0.12];
@@ -234,7 +265,8 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
   const cv = renderer.domElement;
   cv.style.touchAction = 'pan-y';
   cv.addEventListener('pointerdown', e => { premuto = true; mosso = 0; px = e.clientX; py = e.clientY; velGiro = 0; });
-  window.addEventListener('pointerup', () => { premuto = false; });
+  const lascia = () => { premuto = false; };
+  window.addEventListener('pointerup', lascia);
   cv.addEventListener('pointermove', e => {
     const b = cv.getBoundingClientRect();
     ndc.set(((e.clientX - b.left) / b.width) * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1);
@@ -257,6 +289,7 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
 
   let prima = performance.now(), s = 0;
   function disegna(ora: number) {
+    if (!vivo) return;
     requestAnimationFrame(disegna);
     const dt = Math.min(0.05, (ora - prima) / 1000);
     prima = ora;
@@ -273,5 +306,17 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
     renderer.render(scena, camera);
   }
   requestAnimationFrame(disegna);
+  p.distruggi = () => {
+    vivo = false;
+    io.disconnect(); ro.disconnect();
+    window.removeEventListener('pointerup', lascia);
+    scena.traverse(o => {
+      const m = o as THREE.Mesh;
+      m.geometry?.dispose();
+      (Array.isArray(m.material) ? m.material : m.material ? [m.material] : []).forEach(x => x.dispose());
+    });
+    renderer.dispose();
+    cv.remove();
+  };
   return p;
 }

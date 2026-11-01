@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { casuale, mat, pezzo, scuoti, sasso, unisci, linea, tono, terreno, nastri, puntiMorbidi, palco, type Nastro, type Palco } from './natura';
+import { casuale, mat, pezzo, scuoti, sasso, unisci, linea, tono, terreno, nastri, puntiMorbidi, palco, SITO, type Nastro, type Palco } from './natura';
 
 // Un prato aperto, nello stile del bosco, con tre formicai di tre colonie diverse. Le formiche escono, esplorano,
 // girano intorno a sassi, funghi e pozzanghera, trovano il cibo (bacche, semi, pezzi di foglia, briciole) e lo
@@ -13,7 +13,7 @@ const COLORI_CIBO = ['#d8314a', '#e6c26a', '#79b84a', '#f3e6c8', '#ffffff'];
 
 export function monta(el: HTMLElement) {
   const r = casuale(5);
-  const p = palco(el, { camera: new THREE.Vector3(0, 3.3, 6.6), mira: new THREE.Vector3(0, 0.15, 0), giro: 0.02, inclina: [-0.2, 0.3], aggiorna, clic });
+  const p = palco(el, { camera: new THREE.Vector3(0, 3.3, 6.6), mira: new THREE.Vector3(0, 0.15, 0), giro: 0.02, inclina: [-0.2, 0.3], aggiorna, clic, scena: 'formicaio', toni: SITO });
   const g = p.gruppo;
   // --- Terreno: collinette dolci, dischi verdi e griglia di punti come il bosco
   const CASE = [new THREE.Vector2(-1.35, -0.85), new THREE.Vector2(1.45, -0.55), new THREE.Vector2(0.05, 1.45)];
@@ -445,4 +445,5 @@ export function monta(el: HTMLElement) {
     }
     polline.aggiorna();
   }
+  return p;
 }

@@ -1,7 +1,9 @@
 import * as THREE from 'three';
-import { casuale, mat as matSito, pezzo, scuoti, sasso, unisci, terreno, nastri, puntiMorbidi, palco, type Extra, type Nastro, type Palco } from './natura';
+import { casuale, mat as matSito, pezzo, scuoti, sasso, unisci, terreno, nastri, puntiMorbidi, palco, tema, type Extra, type Nastro, type Palco } from './natura';
 
-// Barriera corallina: un fondale aperto, tutto sott'acqua, nello stile del laghetto. Una foresta di kelp sul fondo, rocce a terrazze, coralli, anemoni, ricci, vongole, un forziere e due colonne antiche.
+// Barriera corallina: un fondale aperto, tutto sott'acqua, nello stile del laghetto. Al centro una torre di rocce a
+// terrazze; intorno, da ogni lato, alghe, coralli, anemoni, ricci, vongole, un forziere e due colonne antiche:
+// girando piano si scopre tutto. Dall'alto scendono i raggi del sole, l'acqua è piena di particelle sospese.
 // Tutto si muove con la stessa corrente: la risacca va e viene, le alghe ondeggiano, la neve marina scorre.
 // Banchi di pesciolini nuotano insieme e scappano dal puntatore; un clic sull'acqua fa cadere il mangime.
 
@@ -10,18 +12,18 @@ const SU = new THREE.Vector3(0, 1, 0);
 
 export function monta(el: HTMLElement) {
   const r = casuale(11);
-  const p = palco(el, { camera: new THREE.Vector3(0, 3.6, 9.6), mira: new THREE.Vector3(0, 1.9, 0), giro: 0.02, inclina: [-0.12, 0.3], aggiorna, clic });
+  const chiaro = tema();
+  const p = palco(el, {
+    camera: new THREE.Vector3(0, 3.6, 9.6), mira: new THREE.Vector3(0, 1.9, 0), giro: 0.02, inclina: [-0.12, 0.3], aggiorna, clic,
+    scena: 'barriera', toni: [getComputedStyle(document.documentElement).getPropertyValue('--azzurro').trim(), chiaro ? '#8f8272' : '#a89a88', chiaro ? '#e0352a' : '#ff4a3d'],
+  });
   const g = p.gruppo;
 
   // --- Tavolozza a tre colori: 60% blu-azzurro (acqua, alghe, rocce, meduse, quasi tutti i pesci), 30% grigio terra
   // un po' aranciato (sabbia, pietre, colonne, coralli duri, forziere), 10% rosso acceso (un banco, i pesci
   // pagliaccio, il granchio, una stella, un corallo, un ventaglio, un anemone, il mangime).
   // Ogni colore della scena ha la sua famiglia e una sfumatura (più chiaro o più scuro della base).
-  const BASE = {
-    b: p.colori.azzurro.clone(),
-    t: new THREE.Color(p.chiaro ? '#8f8272' : '#a89a88'),
-    r: new THREE.Color(p.chiaro ? '#e0352a' : '#ff4a3d'),
-  };
+  const BASE = { b: p.toni[0]!.clone(), t: p.toni[1]!.clone(), r: p.toni[2]!.clone() };
   const CATALOGO: Record<string, ['b' | 't' | 'r', number]> = {
     // Blu-azzurro
     '#4f7cad': ['b', 0], '#3e6795': ['b', -0.08], '#6d97c4': ['b', 0.07], '#6f8db0': ['b', -0.03],
@@ -50,8 +52,8 @@ export function monta(el: HTMLElement) {
   // --- Corrente del mare: una direzione che cambia piano e una risacca che va e viene, uguale per tutti
   const corrente = new THREE.Vector2();
   const mare = (s: number) => {
-    const a = 0.6 + Math.sin(s * 0.05) * 0.8;
-    const spinta = 0.1 + 0.16 * Math.sin(s * 0.42) + 0.05 * Math.sin(s * 1.07);
+    const a = 0.6 + Math.sin(s * 0.02) * 0.5;
+    const spinta = 0.13 + 0.05 * Math.sin(s * 0.42) + 0.015 * Math.sin(s * 1.07);
     return corrente.set(Math.cos(a) * spinta, Math.sin(a) * spinta);
   };
 
@@ -59,7 +61,7 @@ export function monta(el: HTMLElement) {
   const altezza = (x: number, z: number) => {
     const bordo = Math.max(0, Math.min(1, (4.4 - Math.hypot(x, z)) / 1.2));
     return bordo * (0.06 + 0.07 * Math.sin(x * 1.6 + 1) * Math.cos(z * 1.2) + 0.04 * Math.sin(x * 3.3 + z * 2.1)
-      + 0.4 * Math.exp(-((x + 1.9) ** 2 + (z + 1.9) ** 2) / 1.3));
+      + 0.45 * Math.exp(-(x * x + z * z) / 1.4));
   };
   terreno(g, BASE.b, 4.6, altezza);
   // Sassi sparsi sul fondo
@@ -71,11 +73,11 @@ export function monta(el: HTMLElement) {
     g.add(s);
   }
 
-  // --- Rocce azzurre a terrazze nell'angolo di fondo, come scalini
+  // --- Rocce a terrazze: una torre al centro, che dà altezza alla scena, e mucchi più bassi tutto intorno
   const roccia = [mat('#4f7cad'), mat('#3e6795'), mat('#6d97c4')];
-  ([[-2.1, -2.0, 3], [-1.25, -2.35, 2], [-2.35, -1.1, 2], [-0.45, -2.5, 1], [-2.5, -0.25, 1], [1.9, 0.6, 1]] as const).forEach(([x, z, livelli], q) => {
+  ([[0, 0, 5, 0.7], [0.65, -0.4, 2, 0.45], [-0.6, 0.35, 3, 0.45], [2.3, 0.9, 2, 0.5], [-1.3, 2.2, 1, 0.5], [-2.4, -0.6, 2, 0.5], [-0.6, -2.4, 1, 0.45], [1.6, -1.9, 2, 0.5], [1.1, 2.6, 1, 0.4]] as const).forEach(([x, z, livelli, base], q) => {
     for (let k = 0; k < livelli; k++) {
-      const s = pezzo(sasso(0.55 - k * 0.12, r, 1), roccia[(q + k) % 3]!, x + (r() - 0.5) * 0.2, altezza(x, z) + 0.1 + k * 0.3, z + (r() - 0.5) * 0.2);
+      const s = pezzo(sasso(base - k * (base / (livelli + 1)), r, 1), roccia[(q + k) % 3]!, x + (r() - 0.5) * 0.2, altezza(x, z) + 0.1 + k * 0.3, z + (r() - 0.5) * 0.2);
       s.scale.set(1.3, 0.42, 1.15);
       s.rotation.y = r() * 6;
       g.add(s);
@@ -108,12 +110,13 @@ export function monta(el: HTMLElement) {
   const verdi = ['#5aa65a', '#4a8f5c', '#7cbf5f'].map(colore);
   for (let k = 0; k < 44; k++) {
     let x = 0, z = 0;
-    do { x = -2.8 + r() * 5.6; z = -2.8 + r() * 5.6; } while (x + z > -0.4 || (x < -1.4 && z < -1.4));
+    const a = r() * Math.PI * 2, d = 1.3 + Math.sqrt(r()) * 2.6;
+    x = Math.cos(a) * d; z = Math.sin(a) * d;
     fili.push({ x, z, y: altezza(x, z), alto: 0.8 + r() * 0.8, largo: 0.14 + r() * 0.08, angolo: r() * 6, fase: r() * 6, colore: kelp[k % 4]!, foglie: true });
   }
   for (let k = 0; k < 34; k++) {
     const x = -2.8 + r() * 5.6, z = -2.8 + r() * 5.6;
-    if (Math.hypot(x - 0.4, z - 0.6) < 1.1) continue;
+    if (Math.hypot(x, z) < 1) continue;
     fili.push({ x, z, y: altezza(x, z), alto: 0.22 + r() * 0.4, largo: 0.04 + r() * 0.03, angolo: r() * 6, fase: r() * 6, colore: verdi[k % 3]! });
   }
   const alghe = nastri(fili, 12, true);
@@ -163,19 +166,19 @@ export function monta(el: HTMLElement) {
   };
   // Ventaglio di gorgonia: un mezzo disco sottile e irregolare
   const ventaglio = (colore: string) => pezzo(scuoti(new THREE.CircleGeometry(0.42, 10, 0, Math.PI), 0.06, r), mat(colore, { side: THREE.DoubleSide }));
-  posa(ramificato('#f2836b', 3), 0.3, 0.9);
-  posa(ramificato('#ff9fb4', 8), 1.4, 1.9).scale.setScalar(0.8);
-  posa(ramificato('#f6b24a', 21), -0.9, 1.6).scale.setScalar(0.7);
-  posa(canne('#9b72d6', 9), 1.2, 0.2);
-  posa(canne('#4fb3c9', 6), -1.6, 2.2);
-  posa(canne('#f07aa0', 7), 2.3, 2.1).scale.setScalar(0.8);
-  posa(cervello('#c3d36a', 0.34), -0.2, 2.2);
-  posa(cervello('#e7a6c9', 0.24), 2.2, 1.2);
-  const ventagli = [posa(ventaglio('#e3566f'), 0.9, -0.6), posa(ventaglio('#f08a4b'), -0.6, 0.2)];
+  posa(ramificato('#f2836b', 3), 1.15, 0.75);
+  posa(ramificato('#ff9fb4', 8), -1.6, 1.0).scale.setScalar(0.8);
+  posa(ramificato('#f6b24a', 21), 0.2, -1.5).scale.setScalar(0.7);
+  posa(canne('#9b72d6', 9), 1.5, -0.6);
+  posa(canne('#4fb3c9', 6), -1.3, -1.2);
+  posa(canne('#f07aa0', 7), 0.5, 1.6).scale.setScalar(0.8);
+  posa(cervello('#c3d36a', 0.34), -0.9, 1.7);
+  posa(cervello('#e7a6c9', 0.24), 2.1, -0.3);
+  const ventagli = [posa(ventaglio('#e3566f'), -0.9, -0.95), posa(ventaglio('#f08a4b'), 1.0, 1.35)];
   ventagli[1]!.rotation.y = 1.2;
 
   // --- Anemoni: tentacoli che ondeggiano con la corrente; il primo ha due pesci pagliaccio
-  const anemoni = ([[0.2, 1.95, '#ff8fb1'], [1.9, -0.4, '#ffb36b'], [-0.4, 1.0, '#c38bff']] as const).map(([x, z, c]) => {
+  const anemoni = ([[0.3, 1.15, '#ff8fb1'], [-1.9, 0.2, '#ffb36b'], [1.2, -1.2, '#c38bff']] as const).map(([x, z, c]) => {
     const o = new THREE.Group(), m = mat(c), cono = new THREE.ConeGeometry(0.02, 0.24, 4).translate(0, 0.12, 0);
     o.add(pezzo(new THREE.CylinderGeometry(0.11, 0.14, 0.12, 8), mat('#d9774f'), 0, 0.06, 0));
     const tentacoli = Array.from({ length: 20 }, (_, k) => {
@@ -192,7 +195,7 @@ export function monta(el: HTMLElement) {
   const aculei: number[] = [];
   const corpoRiccio = mat('#5e2f8f');
   for (let k = 0; k < 7; k++) {
-    const x = -1 + r() * 3.6, z = -0.5 + r() * 3.2, y = altezza(x, z) + 0.05;
+    const ar = r() * Math.PI * 2, dr = 1 + r() * 2, x = Math.cos(ar) * dr, z = Math.sin(ar) * dr, y = altezza(x, z) + 0.05;
     g.add(pezzo(new THREE.IcosahedronGeometry(0.07, 0), corpoRiccio, x, y, z));
     for (let q = 0; q < 22; q++) {
       const d = new THREE.Vector3(r() - 0.5, r() * 0.8, r() - 0.5).normalize().multiplyScalar(0.12 + r() * 0.05);
@@ -205,7 +208,7 @@ export function monta(el: HTMLElement) {
 
   // --- Vongole che si aprono piano e mostrano la perla
   const conchiglia = new THREE.SphereGeometry(0.13, 8, 3, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, 0.45, 1);
-  const vongole = ([[0.9, 2.4], [-1.9, 1.2], [2.4, -1.0]] as const).map(([x, z], k) => {
+  const vongole = ([[2.4, 1.6], [-2.2, 1.6], [0.4, -2.6]] as const).map(([x, z], k) => {
     const o = new THREE.Group(), m = mat(k === 1 ? '#f0c9a8' : '#d9c3e8', { side: THREE.DoubleSide });
     const sotto = pezzo(conchiglia, m);
     sotto.rotation.x = Math.PI;
@@ -224,8 +227,8 @@ export function monta(el: HTMLElement) {
     for (let k = 0; k < 10; k++) { const a = (k / 10) * Math.PI * 2, d = k % 2 ? 0.035 : 0.1; if (k) forma.lineTo(Math.cos(a) * d, Math.sin(a) * d); else forma.moveTo(d, 0); }
     return new THREE.ExtrudeGeometry(forma, { depth: 0.025, bevelEnabled: false }).rotateX(-Math.PI / 2);
   })();
-  ([[-1.9, -1.6, '#f08a3c'], [0.6, 1.5, '#e8505b'], [-1.2, -2.3, '#f6c14a']] as const).forEach(([x, z, c]) => {
-    const s = pezzo(stella, mat(c), x, altezza(x, z) + (x < -1 ? 0.95 : 0.02), z);
+  ([[0.05, 0.1, '#f08a3c', 1.55], [0.6, 2.3, '#e8505b', 0.02], [-1.2, -2.3, '#f6c14a', 0.02], [2.2, 0.9, '#f08a3c', 0.65]] as const).forEach(([x, z, c, su]) => {
+    const s = pezzo(stella, mat(c), x, altezza(x, z) + su, z);
     s.rotation.y = r() * 6;
     g.add(s);
   });
@@ -243,7 +246,7 @@ export function monta(el: HTMLElement) {
   coperchio.add(pezzo(geoCop, legno, 0, 0, 0.16));
   forziere.add(coperchio);
   forziere.rotation.set(0.12, -0.6, 0.08);
-  posa(forziere, 1.6, 2.35).position.y -= 0.06;
+  posa(forziere, -0.5, 2.7).position.y -= 0.06;
 
   // --- Raggi di luce dall'alto: lame calde e morbide che si accendono e si spengono piano
   const lama = (() => {
@@ -259,16 +262,34 @@ export function monta(el: HTMLElement) {
     ctx.fillStyle = o; ctx.fillRect(0, 0, 32, 128);
     return new THREE.CanvasTexture(tela);
   })();
-  const raggi = Array.from({ length: 7 }, () => {
+  // Di notte (tema scuro) la luce si somma e brilla; di giorno (tema chiaro) è un velo azzurro
+  const luce = BASE.b.clone().offsetHSL(0, 0, p.chiaro ? -0.05 : 0.18);
+  const somma = p.chiaro ? THREE.NormalBlending : THREE.AdditiveBlending;
+  const raggi = Array.from({ length: 9 }, (_, k) => {
     const perno = new THREE.Group();
-    perno.position.set(-2.2 + r() * 4.4, ACQUA * 0.55, -2.2 + r() * 4.4);
-    const m = new THREE.MeshBasicMaterial({ map: lama, color: BASE.b.clone().offsetHSL(0, 0, p.chiaro ? 0 : 0.2), transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, fog: false });
-    const piano = new THREE.Mesh(new THREE.PlaneGeometry(0.5 + r() * 0.6, ACQUA * 1.1), m);
-    piano.rotation.z = 0.18;
+    const a = (k / 9) * Math.PI * 2 + r(), d = 0.4 + r() * 2.4;
+    perno.position.set(Math.cos(a) * d, ACQUA * 0.5 + 0.4, Math.sin(a) * d);
+    const m = new THREE.MeshBasicMaterial({ map: lama, color: luce, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, fog: false, blending: somma });
+    const piano = new THREE.Mesh(new THREE.PlaneGeometry(0.7 + r() * 1.1, ACQUA + 1), m);
     perno.add(piano);
     g.add(perno);
-    return { perno, m, fase: r() * 6, vel: 0.15 + r() * 0.15 };
+    return { perno, piano, m, fase: r() * 6, vel: 0.06 + r() * 0.08, forza: 0.6 + r() * 0.4 };
   });
+  // Bagliore della superficie in alto, e una pozza di luce morbida sul fondo
+  const alone = (() => {
+    const tela = document.createElement('canvas');
+    tela.width = tela.height = 128;
+    const ctx = tela.getContext('2d')!, v = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    v.addColorStop(0, 'rgba(255,255,255,1)'); v.addColorStop(0.4, 'rgba(255,255,255,0.35)'); v.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = v; ctx.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(tela);
+  })();
+  const cielo = new THREE.Mesh(new THREE.PlaneGeometry(12, 12).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ map: alone, color: luce, transparent: true, opacity: p.chiaro ? 0.35 : 0.5, depthWrite: false, fog: false, blending: somma, side: THREE.DoubleSide }));
+  cielo.position.y = ACQUA + 0.8;
+  g.add(cielo);
+  const pozza = new THREE.Mesh(new THREE.PlaneGeometry(7, 7).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: alone, color: luce, transparent: true, opacity: p.chiaro ? 0.18 : 0.22, depthWrite: false, fog: false, blending: somma }));
+  pozza.position.y = 0.03;
+  g.add(pozza);
 
   // --- Pesci: tutti dalla stessa forma piccola (corpo a rombo e coda), in banchi
   const coda = new THREE.BufferGeometry();
@@ -344,7 +365,7 @@ export function monta(el: HTMLElement) {
 
   // --- Bolle, neve marina e mangime: particelle morbide
   const BOLLE = 90, FISSE = 45, bolle = puntiMorbidi(BOLLE);
-  const fonti = [new THREE.Vector3(-1.6, 0.9, -1.2), new THREE.Vector3(2.1, 0.3, 0.55), new THREE.Vector3(-0.4, 0.2, 1.0)];
+  const fonti = [new THREE.Vector3(0, 1.6, 0), new THREE.Vector3(2.1, 0.3, 0.55), new THREE.Vector3(-0.4, 0.2, 1.0)];
   const statoBolle = Array.from({ length: BOLLE }, (_, i) => ({ vel: 0.25 + r() * 0.25, fase: r() * 6, viva: i < FISSE, fonte: i % 3 }));
   for (let i = 0; i < BOLLE; i++) {
     const f = fonti[i % 3]!;
@@ -354,12 +375,14 @@ export function monta(el: HTMLElement) {
     bolle.alfa[i] = statoBolle[i]!.viva ? 0.75 : 0;
   }
   g.add(bolle.punti);
-  const NEVE = p.telefono ? 160 : 300, neve = puntiMorbidi(NEVE);
+  const NEVE = p.telefono ? 380 : 900, neve = puntiMorbidi(NEVE), luccica = new Float32Array(NEVE);
   for (let i = 0; i < NEVE; i++) {
-    neve.pos.set([(r() - 0.5) * 5.8, 0.1 + r() * (ACQUA - 0.2), (r() - 0.5) * 5.8], i * 3);
-    neve.dim[i] = 0.015 + r() * 0.025;
-    neve.col.set(BASE.t.toArray(), i * 3);
-    neve.alfa[i] = 0.35 + r() * 0.4;
+    neve.pos.set([(r() - 0.5) * 7.6, 0.1 + r() * (ACQUA + 0.4), (r() - 0.5) * 7.6], i * 3);
+    neve.dim[i] = 0.01 + r() * 0.022;
+    const brilla = r() < 0.25;
+    luccica[i] = brilla ? 0.5 + r() * 2 : 0;
+    neve.col.set((brilla ? luce : BASE.t.clone().lerp(BASE.b, 0.5)).toArray(), i * 3);
+    neve.alfa[i] = 0.3 + r() * 0.4;
   }
   g.add(neve.punti);
   const MANGIME = 40, mangime = puntiMorbidi(MANGIME);
@@ -398,7 +421,7 @@ export function monta(el: HTMLElement) {
   g.add(scia);
   // Il flusso in un punto: la corrente di fondo più due vortici lenti
   const flusso = (x: number, y: number, z: number, s: number, cur: THREE.Vector2, fuori: THREE.Vector3) =>
-    fuori.set(cur.x * 2 + Math.sin(z * 0.8 + s * 0.2) * 0.25, Math.sin(x * 0.6 + y * 0.9 + s * 0.3) * 0.08, cur.y * 2 + Math.cos(x * 0.7 - s * 0.17) * 0.25);
+    fuori.set(cur.x * 2 + Math.sin(z * 0.5 + s * 0.05) * 0.06, Math.sin(x * 0.4 + y * 0.6 + s * 0.08) * 0.03, cur.y * 2 + Math.cos(x * 0.5 - s * 0.04) * 0.06);
   const fondoScia = p.colori.bg;
 
   // --- Ciclo
@@ -414,7 +437,8 @@ export function monta(el: HTMLElement) {
     }, s);
     raggi.forEach(q => {
       q.perno.rotation.y = Math.atan2(p.camera.position.x - q.perno.position.x, p.camera.position.z - q.perno.position.z);
-      q.m.opacity = (p.chiaro ? 0.08 : 0.07) * Math.max(0, Math.sin(s * q.vel + q.fase)) ** 2;
+      q.piano.rotation.z = 0.16 + Math.sin(s * 0.11 + q.fase) * 0.05;
+      q.m.opacity = (p.chiaro ? 0.12 : 0.16) * q.forza * (0.35 + 0.65 * Math.sin(s * q.vel + q.fase) ** 2);
     });
     // Scie della corrente: ogni filo è un pezzo di traiettoria nel flusso, chiaro al centro e sfumato ai capi
     const fl = new THREE.Vector3();
@@ -471,8 +495,9 @@ export function monta(el: HTMLElement) {
     for (let i = 0; i < NEVE; i++) {
       const k = i * 3;
       let x = neve.pos[k]! + cur.x * dt * 0.8, y = neve.pos[k + 1]! - dt * 0.02, z = neve.pos[k + 2]! + cur.y * dt * 0.8;
-      if (x > 2.9) x -= 5.8; if (x < -2.9) x += 5.8; if (z > 2.9) z -= 5.8; if (z < -2.9) z += 5.8; if (y < 0.1) y = ACQUA - 0.1;
-      neve.pos[k] = x; neve.pos[k + 1] = y; neve.pos[k + 2] = z;
+      if (x > 3.8) x -= 7.6; if (x < -3.8) x += 7.6; if (z > 3.8) z -= 7.6; if (z < -3.8) z += 7.6; if (y < 0.1) y = ACQUA + 0.3;
+      neve.pos[k] = x; neve.pos[k + 1] = y + Math.sin(s * 0.7 + i) * 0.0015; neve.pos[k + 2] = z;
+      if (luccica[i]) neve.alfa[i] = 0.25 + 0.6 * Math.max(0, Math.sin(s * luccica[i]! + i)) ** 3;
     }
     neve.aggiorna();
     // Mangime: scende e si sparge; i pesci lo mangiano, il resto si posa e sparisce
@@ -525,7 +550,7 @@ export function monta(el: HTMLElement) {
         }
         acc.addScaledVector(vicino.copy(b.meta).sub(tmp), trovato ? 0.9 : 0.35);
         // Bordi della scena, fondale e soffitto: spinte morbide verso l'interno
-        const fondo = altezza(tmp.x, tmp.z) + 1.0, M = LATO - 0.35;
+        const fondo = altezza(tmp.x, tmp.z) + 1.0 + Math.max(0, 1 - Math.hypot(tmp.x, tmp.z)) * 1.2, M = LATO - 0.35;
         if (tmp.x > M) acc.x -= (tmp.x - M) * 8; if (tmp.x < -M) acc.x -= (tmp.x + M) * 8;
         if (tmp.z > M) acc.z -= (tmp.z - M) * 8; if (tmp.z < -M) acc.z -= (tmp.z + M) * 8;
         if (tmp.y < fondo) acc.y += (fondo - tmp.y) * 8; if (tmp.y > ACQUA - 0.25) acc.y -= (tmp.y - ACQUA + 0.25) * 8;
@@ -608,4 +633,5 @@ export function monta(el: HTMLElement) {
     const gx = 0.4 + Math.sin(s * 0.25) * 0.9, gz = 2.6;
     granchio.position.set(gx, altezza(gx, gz) + Math.abs(Math.sin(s * 8)) * 0.012 * Math.abs(Math.cos(s * 0.25)), gz);
   }
+  return p;
 }

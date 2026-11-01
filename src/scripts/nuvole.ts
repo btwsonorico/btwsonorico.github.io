@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { casuale, mat, pezzo, sasso, linea, terreno, nastri, puntiMorbidi, palco, type Nastro, type Palco } from './natura';
+import { casuale, mat, pezzo, sasso, linea, terreno, nastri, puntiMorbidi, palco, SITO, type Nastro, type Palco } from './natura';
 
 // Una campagna tranquilla sotto un cielo lento, nello stile del bosco. Su una collina un mulino a vento gira piano;
 // accanto un laghetto, qualche albero, tre pecore che pascolano. In cielo nuvole fatte di puntini morbidi che si
@@ -8,7 +8,7 @@ import { casuale, mat, pezzo, sasso, linea, terreno, nastri, puntiMorbidi, palco
 
 export function monta(el: HTMLElement) {
   const r = casuale(23);
-  const p = palco(el, { camera: new THREE.Vector3(0, 2.4, 9.6), mira: new THREE.Vector3(0, 2.1, 0), giro: 0.012, inclina: [-0.1, 0.25], nebbia: [0.9, 2], aggiorna, clic });
+  const p = palco(el, { camera: new THREE.Vector3(0, 2.4, 9.6), mira: new THREE.Vector3(0, 2.1, 0), giro: 0.012, inclina: [-0.1, 0.25], nebbia: [0.9, 2], aggiorna, clic, scena: 'nuvole', toni: SITO });
   const g = p.gruppo, c = p.colori;
 
   // --- Prato: colline dolci, una più alta per il mulino
@@ -302,4 +302,5 @@ export function monta(el: HTMLElement) {
       q.testa.position.y += ((bruca ? 0.08 + Math.abs(Math.sin(s * 3 + q.fase)) * 0.02 : 0.22) - q.testa.position.y) * Math.min(1, dt * 3);
     });
   }
+  return p;
 }

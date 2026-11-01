@@ -20,24 +20,62 @@ import Base from '../../layouts/Base.astro';
       <button type="button" data-scena="vita">life</button>
       <button type="button" data-scena="onde">waves</button>
     </p>
+    <!-- Color editor: i tre toni chiave della scena 3D aperta; la scelta resta in questo browser -->
+    <p class="mono toni" hidden>
+      <label><input type="color" data-tono="0" /><span></span></label>
+      <label><input type="color" data-tono="1" /><span></span></label>
+      <label><input type="color" data-tono="2" /><span></span></label>
+      <button type="button" class="ripristina">reset</button>
+    </p>
   </main>
 </Base>
 
 <script>
   import type { Scena } from '../../scripts/pixel';
+  import type { Palco } from '../../scripts/natura';
 
   const tela = document.querySelector<HTMLCanvasElement>('.scena')!;
   const bottoni = document.querySelectorAll<HTMLButtonElement>('[data-scena]');
 
   // Scene 3D: si montano una volta sola; fermarle vuol dire nasconderle (la vista 3D non disegna quando è nascosta)
-  const montate = new Set<string>();
-  const scena3d = (nome: string, monta: (el: HTMLElement) => Promise<unknown>) => async (): Promise<Scena> => {
+  const montate = new Map<string, Palco>();
+  const montatori: Record<string, (el: HTMLElement) => Promise<Palco>> = {};
+  // Nomi dei tre toni chiave di ogni scena, per il color editor
+  const NOMI: Record<string, string[]> = { barriera: ['water', 'earth', 'coral'], formicaio: ['meadow', 'water', 'ants'], nuvole: ['meadow', 'water', 'accent'] };
+  const editor = document.querySelector<HTMLElement>('.toni')!;
+  const selettori = editor.querySelectorAll<HTMLInputElement>('input[type="color"]');
+  const mostraEditor = (nome: string | null) => {
+    const palco = nome ? montate.get(nome) : undefined;
+    editor.hidden = !palco;
+    if (!palco || !nome) return;
+    selettori.forEach((s, i) => { s.value = `#${palco.toni[i]!.getHexString()}`; s.nextElementSibling!.textContent = NOMI[nome]![i]!; });
+  };
+  const scena3d = (nome: string, monta: (el: HTMLElement) => Promise<Palco>) => async (): Promise<Scena> => {
     const fondo = document.querySelector<HTMLElement>(`[data-fondo="${nome}"]`)!;
+    montatori[nome] = monta;
     tela.hidden = true;
     fondo.hidden = false;
-    if (!montate.has(nome)) { montate.add(nome); await monta(fondo.querySelector<HTMLElement>('.scena3d')!); }
-    return { ferma() { fondo.hidden = true; tela.hidden = false; } };
+    if (!montate.has(nome)) montate.set(nome, await monta(fondo.querySelector<HTMLElement>('.scena3d')!));
+    mostraEditor(nome);
+    return { ferma() { fondo.hidden = true; tela.hidden = false; editor.hidden = true; } };
   };
+  // Nuovi toni: la scena si smonta e si ridisegna con i colori scelti
+  const ridisegna = async (toni: string[] | null) => {
+    const nome = [...bottoni].find(b => b.getAttribute('aria-pressed') === 'true')?.dataset.scena;
+    const vecchia = nome ? montate.get(nome) : undefined;
+    if (!nome || !vecchia) return;
+    const { salvaToni } = await import('../../scripts/natura');
+    salvaToni(nome, toni);
+    vecchia.distruggi();
+    montate.set(nome, await montatori[nome]!(document.querySelector<HTMLElement>(`[data-fondo="${nome}"] .scena3d`)!));
+    mostraEditor(nome);
+  };
+  let attesa = 0;
+  selettori.forEach(s => s.addEventListener('input', () => {
+    clearTimeout(attesa);
+    attesa = window.setTimeout(() => ridisegna([...selettori].map(x => x.value)), 250);
+  }));
+  editor.querySelector('.ripristina')!.addEventListener('click', () => ridisegna(null));
 
   // Ogni esperimento si carica solo quando serve
   const SCENE: Record<string, () => Promise<Scena>> = {
@@ -81,6 +119,15 @@ import Base from '../../layouts/Base.astro';
   .scelte button { padding: 0 6px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
   .scelte button:hover { color: var(--fg); }
   .scelte button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
+  /* Color editor: tre quadratini di colore col loro nome, e il bottone per tornare ai colori di partenza */
+  .toni { display: flex; flex-wrap: wrap; gap: 6px var(--s2); align-items: center; color: var(--muted); }
+  .toni[hidden] { display: none; }
+  .toni label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; pointer-events: auto; }
+  .toni input { width: 18px; height: 18px; padding: 0; border: 1px solid var(--line); background: none; cursor: pointer; }
+  .toni input::-webkit-color-swatch-wrapper { padding: 0; }
+  .toni input::-webkit-color-swatch { border: none; }
+  .toni button { padding: 0 6px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
+  .toni button:hover { color: var(--fg); }
   /* Etichette delle scene 3D, come nelle altre pagine */
   .scena3d :global(.etichetta) {
     position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;
