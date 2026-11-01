@@ -1,0 +1,66 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Misc · Riccardo Mondi" description="Small experiments: pixel backgrounds." largo>
+  <canvas class="scena" aria-hidden="true"></canvas>
+  <main class="misc">
+    <p class="mono"><a href="/">~</a>/misc</p>
+    <h1>Misc</h1>
+    <p class="mono">Small experiments that are not in use for now.</p>
+    <div class="mono aiuto">
+      <p class="scelte" role="group" aria-label="Experiment">
+        <button type="button" data-scena="vita">life</button>
+        <button type="button" data-scena="onde">waves</button>
+      </p>
+      <p class="spiega"></p>
+    </div>
+  </main>
+</Base>
+
+<script>
+  import type { Scena } from '../../scripts/pixel';
+
+  const tela = document.querySelector<HTMLCanvasElement>('.scena')!;
+  const spiega = document.querySelector<HTMLElement>('.spiega')!;
+  const bottoni = document.querySelectorAll<HTMLButtonElement>('[data-scena]');
+
+  // Esperimenti a pixel: ognuno si carica solo quando serve
+  const SCENE: Record<string, { aiuto: string; monta: () => Promise<Scena> }> = {
+    vita: { aiuto: "Conway's game of life · move the mouse to seed cells · click for a burst", monta: async () => (await import('../../scripts/vita')).monta(tela) },
+    onde: { aiuto: 'the shore seen from above · move the mouse to make ripples · click for a splash', monta: async () => (await import('../../scripts/onde')).monta(tela) },
+  };
+
+  let attuale: Scena | null = null, richiesta = 0;
+  const mostra = async (nome: string) => {
+    if (!SCENE[nome]) nome = 'vita';
+    const mia = ++richiesta;
+    attuale?.ferma();
+    attuale = null;
+    bottoni.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.scena === nome)));
+    spiega.textContent = SCENE[nome]!.aiuto;
+    try { localStorage.setItem('misc-scena', nome); } catch {}
+    const scena = await SCENE[nome]!.monta();
+    // Se nel frattempo è stato scelto un altro esperimento, questo si ferma subito
+    if (mia !== richiesta) scena.ferma(); else attuale = scena;
+  };
+  bottoni.forEach(b => b.addEventListener('click', () => mostra(b.dataset.scena!)));
+  let ricordata = 'vita';
+  try { ricordata = localStorage.getItem('misc-scena') ?? 'vita'; } catch {}
+  mostra(ricordata);
+</script>
+
+<style>
+  /* L'esperimento copre tutto lo schermo, dietro al testo; il testo lascia passare il puntatore tranne su link e bottoni */
+  .scena { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; touch-action: manipulation; }
+  .misc a, .misc button { pointer-events: auto; }
+  .misc { position: relative; z-index: 1; pointer-events: none; padding-top: var(--s4); }
+  .misc > * { max-width: 520px; margin: 0 0 var(--s2); text-shadow: 0 0 6px var(--bg), 0 0 12px var(--bg); }
+  .misc > p:first-child a { color: inherit; }
+  h1 { font-size: 33px; font-weight: 400; line-height: 1.1; }
+  .aiuto p { margin: 0 0 6px; }
+  .scelte { display: flex; flex-wrap: wrap; gap: 6px var(--s2); align-items: center; }
+  .scelte button { padding: 0 6px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
+  .scelte button:hover { color: var(--fg); }
+  .scelte button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  :global(.barra), :global(.piede) { position: relative; z-index: 1; }
+</style>
