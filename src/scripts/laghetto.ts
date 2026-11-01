@@ -45,9 +45,22 @@ export function monta(el: HTMLElement) {
     const a = (i / 160) * Math.PI * 2, d = raggioRiva(a);
     return new THREE.Vector3(Math.cos(a) * d, 0, Math.sin(a) * d);
   });
-  gruppo.add(anello(riva, linea(c.accent, 0.55)));
+  // Sul fondo chiaro i fili sottili si perdono: riva più marcata e l'acqua riempita d'azzurro,
+  // a strati sempre più scuri verso il centro, come un lago che diventa profondo
+  const chiaro = document.documentElement.dataset.theme === 'light';
+  gruppo.add(anello(riva, linea(c.accent, chiaro ? 0.9 : 0.55)));
   // Una seconda riva più interna, appena visibile: dà profondità all'acqua
-  gruppo.add(anello(riva.map(p => p.clone().multiplyScalar(0.94)), linea(c.accent, 0.18)));
+  gruppo.add(anello(riva.map(p => p.clone().multiplyScalar(0.94)), linea(c.accent, chiaro ? 0.35 : 0.18)));
+  if (chiaro) {
+    [1, 0.82, 0.6, 0.36].forEach((scala, k) => {
+      const forma = new THREE.Shape(riva.map(p => new THREE.Vector2(p.x * scala, -p.z * scala)));
+      const strato = new THREE.Mesh(new THREE.ShapeGeometry(forma), new THREE.MeshBasicMaterial({ color: c.accent, transparent: true, opacity: k === 0 ? 0.13 : 0.06, depthWrite: false }));
+      strato.rotation.x = -Math.PI / 2;
+      strato.position.y = -0.03 - k * 0.001;
+      strato.renderOrder = -1;
+      gruppo.add(strato);
+    });
+  }
 
   // Acqua: punti fitti dentro la riva, come lo sfondo del sito; fuori, il prato a puntini radi
   const acqua: number[] = [], prato: number[] = [];
@@ -61,7 +74,7 @@ export function monta(el: HTMLElement) {
     g.setAttribute('position', new THREE.Float32BufferAttribute(xyz, 3));
     return new THREE.Points(g, new THREE.PointsMaterial({ color: colore, size, transparent: true, opacity: opacita }));
   };
-  gruppo.add(nuvola(acqua, c.accent, 0.022, 0.35), nuvola(prato, VERDE_PROJECTS, 0.022, 0.4));
+  gruppo.add(nuvola(acqua, c.accent, 0.022, chiaro ? 0.55 : 0.35), nuvola(prato, VERDE_PROJECTS, 0.022, 0.4));
 
   // Canne lungo la riva: ciuffi di steli leggermente piegati, con la punta a spiga
   const canne: number[] = [];
@@ -326,7 +339,7 @@ export function monta(el: HTMLElement) {
         const m = o.o.material as THREE.LineBasicMaterial;
         if (u < 0 || u > 1) { m.opacity = 0; return; }
         o.o.scale.setScalar(0.04 + u * 0.4);
-        m.opacity = (1 - u) * 0.35;
+        m.opacity = (1 - u) * (chiaro ? 0.6 : 0.35);
       });
 
       branchi.forEach(b => {
