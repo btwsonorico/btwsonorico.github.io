@@ -73,13 +73,8 @@ const PAGINE = [
   .link a { color: var(--accent); }
   .pagine ul { margin: 0; padding: 0; list-style: none; }
   .pagine li { display: flex; gap: var(--s2); align-items: baseline; font-size: 13px; line-height: 1.7; }
-  /* Le sezioni: nel colore del testo; al passaggio, il riquadro nel colore della sezione con "open", come le etichette del mondo */
-  .pagine li a { min-width: 80px; padding: 0 5px; margin-left: -5px; color: var(--fg); text-decoration: none; }
-  .pagine li a:hover { color: var(--bg); background: var(--accent); }
-  .pagine li a[data-tono]:hover::after { content: ' · open →'; }
+  .pagine li a { min-width: 80px; color: var(--fg); }
   .titoletto { margin: 0 0 4px; }
-  /* Testo leggibile anche quando la scena ci passa sotto */
-  .about > * { text-shadow: 0 0 6px var(--bg), 0 0 12px var(--bg); }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
   .fondo3d { position: fixed; inset: 0; z-index: 0; }
   .scena3d { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
@@ -100,6 +95,5 @@ const PAGINE = [
     .about { padding-top: 45vh; min-height: 0; justify-content: flex-start; }
     /* Sul telefono il trascinamento in verticale fa scorrere la pagina anche sopra il cielo */
     .scena3d { touch-action: pan-y; }
-    .about > * { text-shadow: none; }
   }
 </style>

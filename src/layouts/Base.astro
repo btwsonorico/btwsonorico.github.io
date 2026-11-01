@@ -205,13 +205,18 @@ const build = new Date().toISOString().slice(0, 10);
     }
     .a-testa { grid-area: testa; }
     .a-resto { grid-area: resto; }
+    /* La scena occupa tutta l'altezza dello schermo e arriva fino al bordo destro, senza linee né margini */
     .a-grafo {
       grid-area: grafo;
       align-self: start;
       position: sticky;
-      top: 16px;
-      --altezza-grafo: calc(100vh - 110px);
+      top: 0;
+      margin-right: -40px;
+      --altezza-grafo: 100vh;
     }
+    .a-grafo .grafo { position: relative; border: 0; }
+    /* I bottoni delle viste stanno sopra la scena, in basso a sinistra */
+    .a-grafo figcaption { position: absolute; left: 16px; bottom: 16px; padding: 0; z-index: 3; }
   }
   .mono { font-family: var(--mono); font-size: 11px; color: var(--muted); }
   /* Tutto il sito è in Departure Mono. Il testo da leggere ha più interlinea. */

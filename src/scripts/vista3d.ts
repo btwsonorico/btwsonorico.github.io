@@ -25,6 +25,9 @@ interface Opzioni {
   aggiorna: (t: number, acceso: (famiglia: string, id: string) => number) => void;
   // Quanto si può inclinare la vista verso il basso, oltre l'inclinazione minima (0.25 se manca; 0: mai più in basso)
   giuMax?: number;
+  // Zone cliccabili grandi (per esempio tutto lo stagno): dal raggio della camera restituisce l'id di un punto, o null.
+  // Vale quando il puntatore non è vicino a nessun punto
+  zona?: (raggio: THREE.Raycaster) => string | null;
   // Puntatore che si muove sopra la scena (senza trascinare): riceve il raggio dalla camera, o null quando esce
   puntatore?: (raggio: THREE.Raycaster | null) => void;
   // Clic che non prende nessun punto (per esempio un sasso lanciato nello stagno): riceve il raggio dalla camera
@@ -93,6 +96,12 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     // Raggio di presa largo: pesci e alberi piccoli si prendono facilmente
     let best = -1, dist = 28;
     punti.forEach((p, i) => { const d = distanza(p, x, y); if (d < dist) { dist = d; best = i; } });
+    // Lontano dai punti: la scena può dire a quale zona grande appartiene il puntatore
+    if (best < 0 && o.zona) {
+      raggio.setFromCamera(new THREE.Vector2((x / w) * 2 - 1, -(y / h) * 2 + 1), camera);
+      const id = o.zona(raggio);
+      if (id) best = punti.findIndex(p => p.id === id);
+    }
     return best;
   };
   const locale = (e: PointerEvent) => { const b = el.getBoundingClientRect(); return new THREE.Vector2(e.clientX - b.left, e.clientY - b.top); };

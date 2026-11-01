@@ -374,6 +374,24 @@ export function monta(el: HTMLElement) {
     const k = livello === 1 ? 1.7 : livello === 0.5 ? 1 : 0.18;
     mats.forEach(m => { m.opacity = Math.min(1, (m.userData.base ??= m.opacity) * k); });
   };
+  // Zone grandi: tutto lo stagno è Advisory, ogni albero è Software, il cielo intorno allo stormo è Knowledge.
+  // Così si clicca facilmente, senza dover centrare l'etichetta.
+  const inversaZona = new THREE.Matrix4(), pianoZona = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), suAcqua = new THREE.Vector3();
+  const piede = new THREE.Vector3(), testa = new THREE.Vector3();
+  const zona = (raggio: THREE.Raycaster) => {
+    gruppo.updateMatrixWorld();
+    const r0 = raggio.ray.clone().applyMatrix4(inversaZona.copy(gruppo.matrixWorld).invert());
+    // Stormo: entro 1.5 dal suo centro
+    if (r0.distanceSqToPoint(centroLento) < 1.5 * 1.5) return 'sezione:knowledge';
+    // Alberi: un cilindro intorno a ogni tronco, alto quanto l'albero
+    const vicinoAlbero = (x: number, z: number, alto: number, largo: number) =>
+      r0.distanceSqToSegment(piede.set(x, 0, z), testa.set(x, alto, z)) < largo * largo;
+    if (vicinoAlbero(-1.7, -0.2, 2.3, 0.8) || alberi.some(a => vicinoAlbero(a.position.x, a.position.z, 1.4, 0.45))) return 'sezione:software';
+    // Stagno: il raggio tocca l'acqua dentro la riva (con un po' di margine)
+    if (r0.intersectPlane(pianoZona, suAcqua) && nelloStagno(suAcqua.x, suAcqua.z, -0.25)) return 'sezione:advisory';
+    return null;
+  };
+
   let prima = -1;
   // Su schermi larghi il diorama sta a destra: a sinistra c'è il testo della pagina
   const largo = el.clientWidth > 700;
@@ -387,6 +405,7 @@ export function monta(el: HTMLElement) {
     inclinazione: [0.16, 0.42],
     giuMax: 0,
     puntatore: nuovoPuntatore,
+    zona,
     aggiorna: (t, acceso) => {
       const s = t / 1000, dt = prima < 0 || t === 0 ? 0 : Math.min(0.05, (t - prima) / 1000);
       prima = t;
