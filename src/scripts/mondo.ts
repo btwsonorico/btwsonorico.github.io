@@ -168,8 +168,8 @@ export function monta(el: HTMLElement) {
     if (k % 2 === 0) {
       // Fiore: due giri di petali a punta, il secondo più piccolo e ruotato
       const fiore = new THREE.Group();
-      // Fiore bianco di notte, rosa chiaro di giorno: sul fondo chiaro il colore del testo lo farebbe sembrare nero
-      const coloreFiore = chiaro ? new THREE.Color('#e48bb0') : c.fg;
+      // Fiore arancione, il colore di Knowledge: mai nero sul fondo chiaro
+      const coloreFiore = arancio;
       for (const [lungo, giro] of [[0.07, 0], [0.045, Math.PI / 6]] as const) {
         fiore.add(curva(Array.from({ length: 12 }, (_, i) => { const b = (i / 12) * Math.PI * 2 + giro, d = i % 2 ? lungo * 0.35 : lungo; return new THREE.Vector3(Math.cos(b) * d, 0, Math.sin(b) * d); }), linea(coloreFiore, 0.9), true));
       }

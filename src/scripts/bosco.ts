@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { colori, tonoSezione, vista, type DatiCompetenze, type Punto } from './vista3d';
 import { famigliaCervi, type Cibo } from './cervi';
+import { frutto, FRUTTI } from './frutti';
 
 // Projects come bosco: ogni area è un albero, sparso sul terreno. Ogni competenza chiave ha il suo
 // tipo di albero e la sua zona, segnata da un palo con il nome della competenza.
@@ -45,7 +46,8 @@ export function monta(el: HTMLElement) {
     return g;
   };
   // Mele sui meli: rosse e piene
-  const matMelaAlbero = new THREE.MeshBasicMaterial({ color: chiaro ? '#cf222e' : '#f85149', transparent: true, opacity: 0.95 });
+  // Mele sui meli: arancioni, il colore di Knowledge
+  const matMelaAlbero = new THREE.MeshBasicMaterial({ color: tonoSezione('--arancio'), transparent: true, opacity: 0.95 });
   matMelaAlbero.userData.pieno = 0.95;
   const geoMelaAlbero = new THREE.IcosahedronGeometry(0.035, 1);
   // Opacità di un pezzo d'albero: i riempimenti restano tenui anche quando l'albero è acceso
@@ -319,15 +321,11 @@ export function monta(el: HTMLElement) {
   // Mele: un clic sul prato ne fa cadere una dall'alto; rimbalza, poi il cervo più vicino va a mangiarla
   type Mela = Cibo & { g: THREE.Group; y: number; vy: number };
   const mele: Mela[] = [];
-  const matMela = linea(new THREE.Color(chiaro ? '#cf222e' : '#f85149'), 0.95);
-  const geoMela = new THREE.IcosahedronGeometry(0.055, 1);
+  // Ogni clic fa cadere un frutto a caso: mela, pera, ciliegie o arancia, nei toni dell'arancione
+  const coloriFrutti = { arancio: tonoSezione('--arancio'), verde: c.accent, fg: c.fg };
   const nuovaMela = (x: number, z: number) => {
-    const g = new THREE.Group();
-    const corpoMela = solido(geoMela, matMela, matMela.color);
-    corpoMela.scale.y = 0.9;
-    g.add(corpoMela, segmento(new THREE.Vector3(0, 0.045, 0), new THREE.Vector3(0.01, 0.085, 0), linea(c.fg, 0.8)));
-    const foglia = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0.01, 0.075, 0), new THREE.Vector3(0.045, 0.09, 0.01), new THREE.Vector3(0.06, 0.075, 0), new THREE.Vector3(0.035, 0.07, -0.01)]), linea(c.accent, 0.9));
-    g.add(foglia);
+    const g = frutto(FRUTTI[Math.floor(Math.random() * FRUTTI.length)]!, coloriFrutti);
+    g.rotation.y = Math.random() * Math.PI * 2;
     gruppo.add(g);
     const mela: Mela = { g, x, z, y: 2.2, vy: 0, aTerra: false, mangiata: 0 };
     mele.push(mela);

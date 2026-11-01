@@ -193,8 +193,8 @@ export function monta(el: HTMLElement) {
     foglia.add(new THREE.LineSegments(geoN, linea(VERDE_PROJECTS, 0.3)));
     if (k % 4 !== 3) {
       const fiore = new THREE.Group();
-      // Petali bianchi di notte, rosa chiaro di giorno: sul fondo chiaro il colore del testo li farebbe sembrare neri
-      const petali = chiaro ? new THREE.Color('#e48bb0') : c.fg;
+      // Petali arancioni, il colore di Knowledge: mai neri sul fondo chiaro
+      const petali = tonoSezione('--arancio');
       const matPetali = linea(petali, 0.9), matInterni = linea(petali, 0.6);
       for (const [giro, quanti, lungo, inclina, mat] of [[0, 8, 0.11, 0.35, matPetali], [0.4, 6, 0.08, 0.7, matInterni]] as const) {
         for (let i = 0; i < quanti; i++) {

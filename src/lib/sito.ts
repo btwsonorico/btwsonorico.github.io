@@ -8,7 +8,7 @@ export const SITO = {
   nome: 'Riccardo Mondi',
   ruolo: 'AI Advisor and Developer',
   ente: 'Politecnico di Milano',
-  gruppo: 'Osservatorio Artificial Intelligence; Team R&D',
+  gruppo: 'Osservatorio AI; Team R&D',
   email: 'riccardo.mondi@polimi.it',
   github: 'https://github.com/btwsonorico',
   linkedin: 'https://www.linkedin.com/in/riccardo-mondi-7717181aa/',
