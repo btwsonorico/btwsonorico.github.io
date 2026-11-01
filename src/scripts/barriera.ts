@@ -5,12 +5,12 @@ import { casuale, mat as matSito, pezzo, scuoti, sasso, unisci, terreno, nastri,
 // Tutto si muove con la stessa corrente: la risacca va e viene, le alghe ondeggiano, la neve marina scorre.
 // Banchi di pesciolini nuotano insieme e scappano dal puntatore; un clic sull'acqua fa cadere il mangime.
 
-const LATO = 3, ACQUA = 3;
+const LATO = 3, ACQUA = 4.8;
 const SU = new THREE.Vector3(0, 1, 0);
 
 export function monta(el: HTMLElement) {
   const r = casuale(11);
-  const p = palco(el, { camera: new THREE.Vector3(0, 3.1, 8.6), mira: new THREE.Vector3(0, 1.1, 0), giro: 0.02, inclina: [-0.12, 0.3], aggiorna, clic });
+  const p = palco(el, { camera: new THREE.Vector3(0, 3.6, 9.6), mira: new THREE.Vector3(0, 1.9, 0), giro: 0.02, inclina: [-0.12, 0.3], aggiorna, clic });
   const g = p.gruppo;
 
   // --- Tavolozza a tre colori: 60% blu-azzurro (acqua, alghe, rocce, meduse, quasi tutti i pesci), 30% grigio terra
@@ -26,24 +26,26 @@ export function monta(el: HTMLElement) {
     // Blu-azzurro
     '#4f7cad': ['b', 0], '#3e6795': ['b', -0.08], '#6d97c4': ['b', 0.07], '#6f8db0': ['b', -0.03],
     '#5aa65a': ['b', 0], '#4a8f5c': ['b', -0.07], '#7cbf5f': ['b', 0.07], '#e7a83c': ['b', 0.12],
-    '#9b72d6': ['b', -0.04], '#4fb3c9': ['b', 0.08], '#c3d36a': ['b', 0.1], '#c38bff': ['b', 0.04],
+    '#9b72d6': ['r', -0.1], '#4fb3c9': ['r', 0.06], '#c3d36a': ['r', 0.1], '#c38bff': ['r', 0.04],
     '#5e2f8f': ['b', -0.14], '#3b1a5e': ['b', -0.18], '#d9c3e8': ['b', 0.14], '#35587f': ['b', -0.1],
     '#ff9ec7': ['b', 0.12], '#ffc2a0': ['b', 0.05], '#c9a6ff': ['b', 0.16], '#d9ecf2': ['b', 0.16], '#f7cf4f': ['b', 0.04],
     // Grigio terra
     '#9aa6b2': ['t', 0], '#c9b48a': ['t', 0.06], '#dcd0b2': ['t', 0.1], '#86a85a': ['t', -0.06],
-    '#ff9fb4': ['t', 0.04], '#f6b24a': ['t', 0.08], '#f07aa0': ['t', -0.02], '#e7a6c9': ['t', 0.1],
-    '#f08a4b': ['t', 0.02], '#ffb36b': ['t', 0.06], '#d9774f': ['t', -0.06], '#f0c9a8': ['t', 0.08],
+    '#ff9fb4': ['r', 0.1], '#f6b24a': ['r', 0.14], '#f07aa0': ['r', -0.04], '#e7a6c9': ['r', 0.12],
+    '#f08a4b': ['r', -0.08], '#ffb36b': ['r', 0.08], '#d9774f': ['r', -0.16], '#f0c9a8': ['t', 0.08],
     '#fffaf0': ['t', 0.2], '#f08a3c': ['t', 0], '#f6c14a': ['t', 0.08], '#8a5a2b': ['t', -0.12],
     '#f2c14e': ['t', 0.12], '#ffd75e': ['t', 0.16],
     // Rosso acceso
     '#f0603f': ['r', 0], '#ff7a1a': ['r', 0.04], '#e0583a': ['r', -0.02], '#b8442a': ['r', -0.12],
     '#e8505b': ['r', 0.02], '#f2836b': ['r', 0.05], '#e3566f': ['r', 0], '#ff8fb1': ['r', 0.08],
   };
+  // Il rosso dei coralli varia un poco anche di tinta (verso il corallo e verso il lampone), così non sono tutti uguali
   const colore = (hex: string) => {
     const [f, dl] = CATALOGO[hex] ?? ['b', 0];
-    return BASE[f].clone().offsetHSL(0, 0, dl * (p.chiaro ? 0.7 : 1));
+    return BASE[f].clone().offsetHSL(f === 'r' ? dl * 0.15 : 0, 0, dl * (p.chiaro ? 0.7 : 1));
   };
-  const mat = (hex: string, extra: Extra = {}) => matSito(colore(hex), { grezzo: true, ...extra });
+  // Fili in primo piano, riempimenti leggeri: si vede la trama delle forme
+  const mat = (hex: string, extra: Extra = {}) => matSito(colore(hex), { grezzo: true, opacity: p.chiaro ? 0.16 : 0.12, fili: 0.95, ...extra });
   const linea = (hex: string, opacita = 0.9) => new THREE.LineBasicMaterial({ color: colore(hex), transparent: true, opacity: opacita });
   // --- Corrente del mare: una direzione che cambia piano e una risacca che va e viene, uguale per tutti
   const corrente = new THREE.Vector2();
@@ -107,14 +109,16 @@ export function monta(el: HTMLElement) {
   for (let k = 0; k < 44; k++) {
     let x = 0, z = 0;
     do { x = -2.8 + r() * 5.6; z = -2.8 + r() * 5.6; } while (x + z > -0.4 || (x < -1.4 && z < -1.4));
-    fili.push({ x, z, y: altezza(x, z), alto: 1.6 + r() * 1.25, largo: 0.18 + r() * 0.12, angolo: r() * 6, fase: r() * 6, colore: kelp[k % 4]!, foglie: true });
+    fili.push({ x, z, y: altezza(x, z), alto: 0.8 + r() * 0.8, largo: 0.14 + r() * 0.08, angolo: r() * 6, fase: r() * 6, colore: kelp[k % 4]!, foglie: true });
   }
   for (let k = 0; k < 34; k++) {
     const x = -2.8 + r() * 5.6, z = -2.8 + r() * 5.6;
     if (Math.hypot(x - 0.4, z - 0.6) < 1.1) continue;
-    fili.push({ x, z, y: altezza(x, z), alto: 0.35 + r() * 0.7, largo: 0.05 + r() * 0.04, angolo: r() * 6, fase: r() * 6, colore: verdi[k % 3]! });
+    fili.push({ x, z, y: altezza(x, z), alto: 0.22 + r() * 0.4, largo: 0.04 + r() * 0.03, angolo: r() * 6, fase: r() * 6, colore: verdi[k % 3]! });
   }
   const alghe = nastri(fili, 12, true);
+  (alghe.mesh.material as THREE.MeshBasicMaterial).opacity = 0.07;
+  ((alghe.mesh.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.3;
   g.add(alghe.mesh);
 
   // --- Coralli
@@ -277,7 +281,7 @@ export function monta(el: HTMLElement) {
     const pos = new Float32Array(n * 3), vel = new Float32Array(n * 3), scala = new Float32Array(n);
     const base = colore(c);
     for (let i = 0; i < n; i++) {
-      pos.set([(r() - 0.5) * 1.2 + (b - 1) * 1.5, 1.2 + r() * 0.8, (r() - 0.5) * 1.2], i * 3);
+      pos.set([(r() - 0.5) * 1.2 + (b - 1) * 1.5, 2.2 + b * 0.5 + r() * 0.8, (r() - 0.5) * 1.2], i * 3);
       vel.set([(r() - 0.5) * 0.4, 0, (r() - 0.5) * 0.4], i * 3);
       scala[i] = (b === 2 ? 1.25 : 1) * (0.8 + r() * 0.4);
       mesh.setColorAt(i, base.clone().offsetHSL((r() - 0.5) * 0.03, 0, (r() - 0.5) * 0.12));
@@ -301,7 +305,7 @@ export function monta(el: HTMLElement) {
     const campana = pezzo(geoCampana, mat(tinta, { opacity: 0.3, side: THREE.DoubleSide }));
     campana.add(pezzo(new THREE.SphereGeometry(0.08, 8, 4, 0, Math.PI * 2, 0, Math.PI * 0.5), mat(tinta, { opacity: 0.45 })));
     o.add(campana);
-    o.position.set(-1 + k * 1.1, 1.6 + k * 0.35, 0.4 - k * 0.5);
+    o.position.set(-1.4 + k * 1.3, 2.6 + k * 0.6, 0.4 - k * 0.6);
     g.add(o);
     const lineaMat = linea(tinta, 0.75);
     const fili = Array.from({ length: 8 }, (_, q) => {
@@ -377,6 +381,26 @@ export function monta(el: HTMLElement) {
     }
   }
 
+  // --- Corrente: fili sottili che scorrono nell'acqua seguendo il flusso, a tutte le altezze; mostrano il mare che si muove
+  const SCIE = p.telefono ? 40 : 70, PASSI = 6;
+  const scie = Array.from({ length: SCIE }, () => ({ x: 0, y: 0, z: 0, vita: r(), lungo: 0.5 + r() * 0.7 }));
+  const nuovaScia = (q: (typeof scie)[number]) => {
+    const a = r() * Math.PI * 2, d = Math.sqrt(r()) * 4;
+    q.x = Math.cos(a) * d; q.z = Math.sin(a) * d; q.y = 0.4 + r() * 4.2; q.vita = 0;
+  };
+  scie.forEach(nuovaScia);
+  const posScie = new Float32Array(SCIE * PASSI * 6), colScie = new Float32Array(SCIE * PASSI * 6);
+  const geoScie = new THREE.BufferGeometry();
+  geoScie.setAttribute('position', new THREE.BufferAttribute(posScie, 3));
+  geoScie.setAttribute('color', new THREE.BufferAttribute(colScie, 3));
+  const scia = new THREE.LineSegments(geoScie, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: p.chiaro ? 0.55 : 0.45, depthWrite: false }));
+  scia.frustumCulled = false;
+  g.add(scia);
+  // Il flusso in un punto: la corrente di fondo più due vortici lenti
+  const flusso = (x: number, y: number, z: number, s: number, cur: THREE.Vector2, fuori: THREE.Vector3) =>
+    fuori.set(cur.x * 2 + Math.sin(z * 0.8 + s * 0.2) * 0.25, Math.sin(x * 0.6 + y * 0.9 + s * 0.3) * 0.08, cur.y * 2 + Math.cos(x * 0.7 - s * 0.17) * 0.25);
+  const fondoScia = p.colori.bg;
+
   // --- Ciclo
   const tmp = new THREE.Vector3(), acc = new THREE.Vector3(), vicino = new THREE.Vector3(), via = new THREE.Vector3(), cibo = new THREE.Vector3();
   const media = new THREE.Vector3(), centro = new THREE.Vector3(), separa = new THREE.Vector3(), dummy = new THREE.Object3D();
@@ -392,6 +416,28 @@ export function monta(el: HTMLElement) {
       q.perno.rotation.y = Math.atan2(p.camera.position.x - q.perno.position.x, p.camera.position.z - q.perno.position.z);
       q.m.opacity = (p.chiaro ? 0.08 : 0.07) * Math.max(0, Math.sin(s * q.vel + q.fase)) ** 2;
     });
+    // Scie della corrente: ogni filo è un pezzo di traiettoria nel flusso, chiaro al centro e sfumato ai capi
+    const fl = new THREE.Vector3();
+    scie.forEach((q, n) => {
+      q.vita += dt / 9;
+      if (q.vita > 1 || Math.hypot(q.x, q.z) > 4.4) nuovaScia(q);
+      flusso(q.x, q.y, q.z, s, cur, fl);
+      q.x += fl.x * dt * 0.6; q.y += fl.y * dt * 0.6; q.z += fl.z * dt * 0.6;
+      let x = q.x, y = q.y, z = q.z;
+      const luce = Math.sin(q.vita * Math.PI);
+      for (let i = 0; i < PASSI; i++) {
+        flusso(x, y, z, s, cur, fl);
+        const k = fl.length() || 1, passo = q.lungo / PASSI / k;
+        const x2 = x - fl.x * passo, y2 = y - fl.y * passo, z2 = z - fl.z * passo;
+        const j = (n * PASSI + i) * 6, a = luce * (1 - i / PASSI), b2 = luce * (1 - (i + 1) / PASSI);
+        posScie.set([x, y, z, x2, y2, z2], j);
+        const c1 = fondoScia.clone().lerp(BASE.b, a), c2 = fondoScia.clone().lerp(BASE.b, b2);
+        colScie.set([c1.r, c1.g, c1.b, c2.r, c2.g, c2.b], j);
+        x = x2; y = y2; z = z2;
+      }
+    });
+    geoScie.attributes.position!.needsUpdate = true;
+    geoScie.attributes.color!.needsUpdate = true;
     // Coralli morbidi e anemoni seguono la corrente; quelli duri stanno fermi
     ventagli.forEach((v, k) => { v.rotation.x = Math.sin(s * 0.42 + k) * 0.08 + cur.x * 0.3; });
     anemoni.forEach(a => a.tentacoli.forEach(t => {
@@ -453,7 +499,7 @@ export function monta(el: HTMLElement) {
     banchi.forEach(b => {
       const f = b.fase;
       if (trovato) b.meta.copy(cibo);
-      else b.meta.set(2.0 * Math.sin(s * 0.09 + f), 1.35 + 0.6 * Math.sin(s * 0.13 + f * 2), 2.0 * Math.sin(s * 0.071 + f * 3));
+      else b.meta.set(2.2 * Math.sin(s * 0.09 + f), 2.1 + f * 0.45 + 0.9 * Math.sin(s * 0.13 + f * 2), 2.2 * Math.sin(s * 0.071 + f * 3));
       b.paura = Math.max(0, b.paura - dt * 0.5);
       const vMax = 0.75 + b.paura * 1.3, vMin = 0.3;
       for (let i = 0; i < b.n; i++) {
@@ -479,7 +525,7 @@ export function monta(el: HTMLElement) {
         }
         acc.addScaledVector(vicino.copy(b.meta).sub(tmp), trovato ? 0.9 : 0.35);
         // Bordi della scena, fondale e soffitto: spinte morbide verso l'interno
-        const fondo = altezza(tmp.x, tmp.z) + 0.3, M = LATO - 0.35;
+        const fondo = altezza(tmp.x, tmp.z) + 1.0, M = LATO - 0.35;
         if (tmp.x > M) acc.x -= (tmp.x - M) * 8; if (tmp.x < -M) acc.x -= (tmp.x + M) * 8;
         if (tmp.z > M) acc.z -= (tmp.z - M) * 8; if (tmp.z < -M) acc.z -= (tmp.z + M) * 8;
         if (tmp.y < fondo) acc.y += (fondo - tmp.y) * 8; if (tmp.y > ACQUA - 0.25) acc.y -= (tmp.y - ACQUA + 0.25) * 8;
@@ -497,7 +543,9 @@ export function monta(el: HTMLElement) {
         const v = Math.hypot(vx, vy, vz) || 1e-4, vv = Math.min(vMax, Math.max(vMin, v));
         vx *= vv / v; vy *= vv / v; vz *= vv / v;
         b.vel[k] = vx; b.vel[k + 1] = vy; b.vel[k + 2] = vz;
-        b.pos[k] = tmp.x + (vx + cur.x * 0.2) * dt; b.pos[k + 1] = tmp.y + vy * dt; b.pos[k + 2] = tmp.z + (vz + cur.y * 0.2) * dt;
+        // La corrente porta il banco avanti e indietro, e un'onda lenta lo fa salire e scendere: un movimento sinuoso
+        const onda = Math.sin(s * 0.7 + tmp.x * 0.9 + f) * 0.18;
+        b.pos[k] = tmp.x + (vx + cur.x * 1.1) * dt; b.pos[k + 1] = tmp.y + (vy + onda) * dt; b.pos[k + 2] = tmp.z + (vz + cur.y * 1.1) * dt;
         // Il pesce guarda dove va e muove la coda: più veloce va, più la muove
         dummy.position.set(b.pos[k]!, b.pos[k + 1]!, b.pos[k + 2]!);
         dummy.lookAt(vicino.set(b.pos[k]! + vx, b.pos[k + 1]! + vy, b.pos[k + 2]! + vz));
@@ -524,10 +572,10 @@ export function monta(el: HTMLElement) {
       m.campana.scale.set(1 - stringe * 0.22, 1 + stringe * 0.2, 1 - stringe * 0.22);
       if (fase < 0.22) m.v.y += dt * 0.55;
       m.v.y -= dt * 0.05;
-      m.v.x += (cur.x * 0.5 + (m.casa.x - m.o.position.x) * 0.04) * dt;
-      m.v.z += (cur.y * 0.5 + (m.casa.z - m.o.position.z) * 0.04) * dt;
+      m.v.x += (cur.x * 1.1 + Math.sin(s * 0.23 + m.fase * 9) * 0.08 + (m.casa.x - m.o.position.x) * 0.04) * dt;
+      m.v.z += (cur.y * 1.1 + Math.cos(s * 0.19 + m.fase * 7) * 0.08 + (m.casa.z - m.o.position.z) * 0.04) * dt;
       if (m.o.position.y > ACQUA - 0.5) m.v.y -= dt * 0.4;
-      if (m.o.position.y < 1) m.v.y += dt * 0.3;
+      if (m.o.position.y < 2.2) m.v.y += dt * 0.3;
       m.v.multiplyScalar(1 - dt * 0.9);
       m.o.position.addScaledVector(m.v, dt);
       m.o.rotation.z = m.v.x * 0.8; m.o.rotation.x = -m.v.z * 0.8;
@@ -549,7 +597,7 @@ export function monta(el: HTMLElement) {
 
     // Manta: gira largo e si inclina in curva; le punte delle ali battono, la parte vicina al corpo le segue
     const am = s * 0.11;
-    manta.o.position.set(Math.cos(am) * 2.1, 2.15 + Math.sin(s * 0.3) * 0.15, Math.sin(am) * 2.1);
+    manta.o.position.set(Math.cos(am) * 2.3, 3.7 + Math.sin(s * 0.3) * 0.35, Math.sin(am) * 2.3);
     manta.o.lookAt(Math.cos(am + 0.1) * 2.1, manta.o.position.y, Math.sin(am + 0.1) * 2.1);
     manta.o.rotateZ(-0.25);
     const ali = Math.sin(s * 1.9) * 0.16, dentro = Math.sin(s * 1.9 - 0.6) * 0.07;
