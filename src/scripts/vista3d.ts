@@ -14,7 +14,8 @@ export interface DatiCompetenze { competenze: Competenza[]; progetti?: Progetto[
 // Un punto cliccabile della scena. famiglia: la competenza a cui appartiene.
 // base (facoltativa): con la base, il punto si tocca lungo tutto il segmento base-ancora (per esempio un albero intero).
 // spento: il punto non si vede e non si tocca (per esempio i pali dei progetti nella vista per competenza).
-export interface Punto { id: string; label: string; href: string; hub: boolean; famiglia: string; ancora: THREE.Object3D; base?: THREE.Object3D; spento?: boolean }
+// tono (facoltativo): colore della sezione per l'etichetta (verde, azzurro, arancio), per le scene con più sezioni.
+export interface Punto { id: string; label: string; href: string; hub: boolean; famiglia: string; ancora: THREE.Object3D; base?: THREE.Object3D; spento?: boolean; tono?: string }
 
 interface Opzioni {
   camera: THREE.Vector3;
@@ -48,6 +49,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     const s = document.createElement('span');
     s.className = `etichetta ${p.hub ? 'skill' : 'area'}`;
     s.textContent = p.label;
+    if (p.tono) s.dataset.tono = p.tono;
     s.style.opacity = '0';
     el.appendChild(s);
     return s;

@@ -1,5 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
+import { COMPETENZE, COMPETENZE_ADVISORY } from '../../content.config';
+import { hrefTema, scrittiPubblici } from '../../lib/grafi';
 
 // Tutte le pagine del sito, con una riga che dice cosa c'è
 const PAGINE = [
@@ -9,10 +11,23 @@ const PAGINE = [
   { nome: 'knowledge', href: '/knowledge/', nota: 'notes on papers, talks and books' },
   { nome: 'rss', href: '/rss.xml', nota: 'feed of the knowledge notes' },
 ];
+// Costellazioni del cielo: una per sezione; le stelle piccole sono le competenze chiave, o i temi più usati per Knowledge
+const conta = new Map<string, number>();
+for (const s of await scrittiPubblici()) for (const t of s.data.topics) conta.set(t, (conta.get(t) ?? 0) + 1);
+const SEZIONI = [
+  { id: 'software', label: 'SW engineering', href: '/software/', tono: 'verde',
+    voci: Object.entries(COMPETENZE).map(([id, c]) => ({ id: `skill:${id}`, label: c.title, href: `/software/#${id}` })) },
+  { id: 'advisory', label: 'Advisory', href: '/advisory/', tono: 'azzurro',
+    voci: Object.entries(COMPETENZE_ADVISORY).map(([id, c]) => ({ id: `advisory:${id}`, label: c.title, href: `/advisory/#${id}` })) },
+  { id: 'knowledge', label: 'Knowledge', href: '/knowledge/', tono: 'arancio',
+    voci: [...conta].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => ({ id: `tema:${t}`, label: `#${t}`, href: hrefTema(t) })) },
+];
 const BIO = 'I help organisations adopt AI, and I build the tools that make it work: from research to code.';
 ---
 <Base title="About · Riccardo Mondi" description="Riccardo Mondi: AI advisor and developer at Politecnico di Milano." largo>
   <canvas class="scena" aria-hidden="true"></canvas>
+  <!-- Cielo 3D: il contenitore copre lo schermo; la scena sta dentro, così la vista 3D sa quando è visibile -->
+  <div class="fondo3d" hidden><div class="scena3d" aria-hidden="true" data-sezioni={JSON.stringify(SEZIONI)}></div></div>
   <main class="about">
     <p class="mono">~/about</p>
     <h1>Riccardo Mondi</h1>
@@ -35,6 +50,8 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
         <span>background</span>
         <button type="button" data-scena="vita">life</button>
         <button type="button" data-scena="onde">waves</button>
+        <button type="button" data-scena="stormo">flock</button>
+        <button type="button" data-scena="cielo">sky</button>
       </p>
       <p class="spiega"></p>
     </div>
@@ -48,10 +65,22 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
   const spiega = document.querySelector<HTMLElement>('.spiega')!;
   const bottoni = document.querySelectorAll<HTMLButtonElement>('[data-scena]');
 
+  // Cielo 3D: si monta una volta sola; fermarlo vuol dire nasconderlo (la vista 3D non disegna quando è nascosta)
+  const fondo = document.querySelector<HTMLElement>('.fondo3d')!, cielo = document.querySelector<HTMLElement>('.scena3d')!;
+  let cieloMontato = false;
+  const montaCielo = async (): Promise<Scena> => {
+    tela.hidden = true;
+    fondo.hidden = false;
+    if (!cieloMontato) { cieloMontato = true; (await import('../../scripts/cielo')).monta(cielo, JSON.parse(cielo.dataset.sezioni!)); }
+    return { ferma() { fondo.hidden = true; tela.hidden = false; } };
+  };
+
   // Ogni scena si carica solo quando serve
   const SCENE: Record<string, { aiuto: string; monta: () => Promise<Scena> }> = {
     vita: { aiuto: "Conway's game of life · move the mouse to seed cells · click for a burst", monta: async () => (await import('../../scripts/vita')).monta(tela) },
     onde: { aiuto: 'the shore seen from above · move the mouse to make ripples · click for a splash', monta: async () => (await import('../../scripts/onde')).monta(tela) },
+    stormo: { aiuto: 'a murmuration of starlings · the pointer is a falcon: get close and they scatter · click to scare them', monta: async () => (await import('../../scripts/stormo')).monta(tela) },
+    cielo: { aiuto: 'one constellation per section · hover a star to see its name · click to open · drag to look around', monta: montaCielo },
   };
 
   let attuale: Scena | null = null, richiesta = 0;
@@ -98,12 +127,24 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
   /* Testo leggibile anche quando la scena ci passa sotto */
   .about > * { text-shadow: 0 0 6px var(--bg), 0 0 12px var(--bg); }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
+  .scena[hidden], .fondo3d[hidden] { display: none; }
+  .fondo3d { position: fixed; inset: 0; z-index: 0; }
+  .scena3d { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
+  /* Etichette delle stelle: come nelle scene di bosco e laghetto, nel colore della loro sezione */
+  .scena3d :global(.etichetta) {
+    position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;
+    padding: 1px 5px; font-family: var(--mono); font-size: 11px; color: var(--accent);
+    background: color-mix(in srgb, var(--bg) 78%, transparent); transition: opacity .15s;
+  }
+  .scena3d :global(.etichetta.attiva) { color: var(--bg); background: var(--accent); padding: 2px 7px; z-index: 2; }
   @media (max-width: 640px) {
     h1 { font-size: 33px; }
     /* Sul telefono la scena non sta dietro al testo: occupa una fascia in alto, che scorre via con la pagina.
        Così il testo resta leggibile e i link si toccano */
-    .scena { position: absolute; top: 0; left: 0; right: 0; bottom: auto; width: 100%; height: 46vh; }
+    .scena, .fondo3d { position: absolute; top: 0; left: 0; right: 0; bottom: auto; width: 100%; height: 46vh; }
     .about { padding-top: 40vh; min-height: 0; justify-content: flex-start; }
+    /* Sul telefono il trascinamento in verticale fa scorrere la pagina anche sopra il cielo */
+    .scena3d { touch-action: pan-y; }
     .about > * { text-shadow: none; }
   }
 </style>
