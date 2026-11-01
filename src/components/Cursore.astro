@@ -17,7 +17,7 @@
       punto.classList.add('visibile');
       // Più grande dove si può interagire: link, pulsanti, tab, voci apribili, nodi del grafo
       const el = e.target as Element;
-      const nodo = (el.closest('.scena') as HTMLElement | null)?.style.cursor === 'pointer';
+      const nodo = (el.closest('.scena, .scena3d') as HTMLElement | null)?.style.cursor === 'pointer';
       punto.classList.toggle('sopra', nodo || !!el.closest('a, button, summary, label, input, select, textarea, [role="button"], [role="radio"], [role="tab"]'));
       muovi();
     });

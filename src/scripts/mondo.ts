@@ -134,7 +134,7 @@ export function monta(el: HTMLElement) {
   const insegna = new THREE.Object3D();
   insegna.position.y = 1.9 * 1.15;
   guida.add(insegna);
-  punti.push({ id: 'sezione:software', label: 'Software →', href: '/software/', hub: true, famiglia: 'software', ancora: insegna, base: guida, tono: 'verde' });
+  punti.push({ id: 'sezione:software', label: 'Software', href: '/software/', hub: true, famiglia: 'software', ancora: insegna, base: guida, tono: 'verde' });
 
   // --- Stagno (Advisory): acqua azzurra a strati, riva, canne, ninfee e pesci che nuotano in tondo
   const riva = Array.from({ length: 120 }, (_, i) => { const a = (i / 120) * Math.PI * 2, d = raggioStagno(a); return new THREE.Vector3(STAGNO.x + Math.cos(a) * d, 0.005, STAGNO.y + Math.sin(a) * d); });
@@ -173,20 +173,9 @@ export function monta(el: HTMLElement) {
   const sopraStagno = new THREE.Object3D();
   sopraStagno.position.set(STAGNO.x, 0.45, STAGNO.y);
   gruppo.add(sopraStagno);
-  punti.push({ id: 'sezione:advisory', label: 'Advisory →', href: '/advisory/', hub: true, famiglia: 'advisory', ancora: sopraStagno, tono: 'azzurro' });
+  punti.push({ id: 'sezione:advisory', label: 'Advisory', href: '/advisory/', hub: true, famiglia: 'advisory', ancora: sopraStagno, tono: 'azzurro' });
 
-  // Anelli che si allargano e svaniscono sotto ogni sezione, uno dopo l'altro: dicono "qui si clicca"
   const cerchio = (n: number) => Array.from({ length: n }, (_, i) => { const a = (i / n) * Math.PI * 2; return new THREE.Vector3(Math.cos(a), 0, Math.sin(a)); });
-  const impulsi: { o: THREE.LineLoop; da: number; a: number; ritardo: number }[] = [];
-  const impulso = (padre: THREE.Object3D, colore: THREE.Color, x: number, y: number, z: number, da: number, a: number, ritardo: number, verticale = false) => {
-    const o = curva(cerchio(56), linea(colore, 0), true) as THREE.LineLoop;
-    o.position.set(x, y, z);
-    if (verticale) o.rotation.x = Math.PI / 2;
-    padre.add(o);
-    impulsi.push({ o, da, a, ritardo });
-  };
-  impulso(gruppo, verde, -1.7, 0.012, -0.2, 0.45, 1.3, 0);
-  impulso(gruppo, azzurro, STAGNO.x, 0.012, STAGNO.y, 0.3, 1.25, 0.8);
 
   // Un pesce ogni tanto salta fuori dall'acqua, con un cerchio dove esce e uno dove rientra
   const spruzzi = [0, 1].map(() => { const o = curva(cerchio(32), linea(azzurro, 0), true); gruppo.add(o); return { o, nato: -9 }; });
@@ -240,74 +229,83 @@ export function monta(el: HTMLElement) {
     }
   }
 
-  // --- Stormo (Knowledge): uccelli arancioni con le ali piene, che girano in tondo sopra il diorama.
-  // Regole degli stormi veri: non urtarsi, andare nella stessa direzione dei vicini, seguire il punto che guida.
-  const UCCELLI = 64;
-  const geoAla = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.05), new THREE.Vector3(0.17, 0.02, -0.02), new THREE.Vector3(0, 0, -0.06)]);
-  const bordoAla = new THREE.EdgesGeometry(geoAla);
-  const matAla = pieno('knowledge', arancio, chiaro ? 0.9 : 0.85);
-  matAla.side = THREE.DoubleSide;
-  const matBordoAla = mat('knowledge', arancio.clone().offsetHSL(0, 0, chiaro ? -0.12 : 0.1), 1);
+  // --- Stormo (Knowledge): tanti uccellini a V, arancioni, che volano insieme come gli storni.
+  // Regole degli stormi veri: non urtarsi, andare nella stessa direzione dei vicini, restare vicino al punto che guida.
+  // Il punto che guida gira piano intorno a un centro fisso: lì sta l'etichetta, che resta ferma e si clicca sempre.
+  // Il puntatore spaventa gli uccelli vicini, che scappano e poi tornano nello stormo.
+  const UCCELLI = 150, CENTRO_STORMO = new THREE.Vector3(0.3, 2.7, -0.8);
+  const geoV = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.06, 0.025, 0), new THREE.Vector3(0, 0, 0.01), new THREE.Vector3(0.06, 0.025, 0)]);
+  const matV = mat('knowledge', arancio, 1);
   const guidaStormo = new THREE.Vector3();
-  const posizioneGuida = (s: number, out: THREE.Vector3) => out.set(0.2 + Math.cos(s * 0.22) * 2.4, 2.6 + Math.sin(s * 0.37) * 0.35, -0.6 + Math.sin(s * 0.22) * 1.5);
+  const posizioneGuida = (s: number, out: THREE.Vector3) =>
+    out.copy(CENTRO_STORMO).add(new THREE.Vector3(Math.cos(s * 0.3) * 1.1, Math.sin(s * 0.47) * 0.3, Math.sin(s * 0.3) * 0.7));
   posizioneGuida(0, guidaStormo);
   const uccelli = Array.from({ length: UCCELLI }, () => {
-    const g = new THREE.Group();
-    const ali = [1, -1].map(lato => {
-      const ala = new THREE.Group();
-      ala.add(new THREE.Mesh(geoAla, matAla), new THREE.LineSegments(bordoAla, matBordoAla));
-      ala.scale.x = lato;
-      g.add(ala);
-      return ala;
-    });
-    g.add(segmenti([0, 0, 0.07, 0, 0, -0.08], matBordoAla));
+    const g = new THREE.Line(geoV, matV);
     gruppo.add(g);
-    const p = guidaStormo.clone().add(new THREE.Vector3((r() - 0.5) * 1.6, (r() - 0.5) * 0.6, (r() - 0.5) * 1.2));
-    return { g, ali, p, v: new THREE.Vector3(-0.6, 0, 0.3), fase: r() * 6 };
+    const p = guidaStormo.clone().add(new THREE.Vector3((r() - 0.5) * 1.4, (r() - 0.5) * 0.5, (r() - 0.5) * 0.9));
+    return { g, p, v: new THREE.Vector3(-0.5 + r() * 0.2, (r() - 0.5) * 0.1, 0.3), fase: r() * 6, paura: 0 };
   });
   const centroStormo = new THREE.Object3D();
+  centroStormo.position.copy(CENTRO_STORMO).add(new THREE.Vector3(0, 0.75, 0));
   gruppo.add(centroStormo);
-  punti.push({ id: 'sezione:knowledge', label: 'Knowledge →', href: '/knowledge/', hub: true, famiglia: 'knowledge', ancora: centroStormo, tono: 'arancio' });
-  // L'anello dello stormo è verticale e si gira sempre verso chi guarda
-  impulso(gruppo, arancio, 0, 0, 0, 0.5, 1.6, 1.6, true);
-  const anelloStormo = impulsi[impulsi.length - 1]!.o;
-  const forza = new THREE.Vector3(), d = new THREE.Vector3(), media = new THREE.Vector3(), centro = new THREE.Vector3(), avanti = new THREE.Vector3();
+  punti.push({ id: 'sezione:knowledge', label: 'Knowledge', href: '/knowledge/', hub: true, famiglia: 'knowledge', ancora: centroStormo, tono: 'arancio' });
+  // Il puntatore come raggio nello spazio del diorama: gli uccelli vicini al raggio scappano
+  let raggioPuntatore: THREE.Ray | null = null;
+  const inversaStormo = new THREE.Matrix4();
+  const forza = new THREE.Vector3(), d = new THREE.Vector3(), media = new THREE.Vector3(), vicino = new THREE.Vector3(), avanti = new THREE.Vector3();
+  // Griglia per trovare i vicini senza confrontare ogni uccello con tutti gli altri
+  const griglia = new Map<string, number[]>();
+  const CELLA_STORMO = 0.35;
+  const chiave = (x: number, y: number, z: number) => `${Math.floor(x / CELLA_STORMO)},${Math.floor(y / CELLA_STORMO)},${Math.floor(z / CELLA_STORMO)}`;
   const muoviStormo = (s: number, dt: number) => {
     posizioneGuida(s, guidaStormo);
-    centro.set(0, 0, 0);
-    for (const u of uccelli) centro.add(u.p);
-    centro.multiplyScalar(1 / UCCELLI);
-    if (dt > 0) for (const u of uccelli) {
-      forza.copy(guidaStormo).sub(u.p).multiplyScalar(0.6);
-      media.set(0, 0, 0);
-      let quanti = 0;
-      for (const q of uccelli) {
-        if (q === u) continue;
-        d.copy(u.p).sub(q.p);
-        const l = d.length();
-        if (l < 0.55) { media.add(q.v); quanti++; }
-        if (l < 0.2 && l > 1e-4) forza.addScaledVector(d, (0.2 - l) * 14 / l);
+    if (dt > 0) {
+      griglia.clear();
+      uccelli.forEach((u, i) => { const k = chiave(u.p.x, u.p.y, u.p.z); const l = griglia.get(k); if (l) l.push(i); else griglia.set(k, [i]); });
+      for (const u of uccelli) {
+        forza.copy(guidaStormo).sub(u.p).multiplyScalar(0.5);
+        media.set(0, 0, 0);
+        let quanti = 0;
+        const cx = Math.floor(u.p.x / CELLA_STORMO), cy = Math.floor(u.p.y / CELLA_STORMO), cz = Math.floor(u.p.z / CELLA_STORMO);
+        for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) for (let oz = -1; oz <= 1; oz++) {
+          for (const j of griglia.get(`${cx + ox},${cy + oy},${cz + oz}`) ?? []) {
+            const q = uccelli[j]!;
+            if (q === u) continue;
+            d.copy(u.p).sub(q.p);
+            const l = d.length();
+            if (l < CELLA_STORMO) { media.add(q.v); quanti++; }
+            if (l < 0.09 && l > 1e-4) forza.addScaledVector(d, (0.09 - l) * 40 / l);
+          }
+        }
+        if (quanti) forza.addScaledVector(media.multiplyScalar(1 / quanti).sub(u.v), 1.4);
+        // Paura: il puntatore vicino spinge l'uccello lontano dal raggio, poi la paura passa piano
+        if (raggioPuntatore) {
+          raggioPuntatore.closestPointToPoint(u.p, vicino);
+          d.copy(u.p).sub(vicino);
+          const l = d.length();
+          if (l < 0.7) { u.paura = 1; forza.addScaledVector(d, (0.7 - l) * 22 / (l || 1)); }
+        }
+        u.paura = Math.max(0, u.paura - dt * 0.8);
+        u.v.addScaledVector(forza, dt);
+        const vel = u.v.length(), max = 1.3 + u.paura * 1.4;
+        if (vel > max) u.v.multiplyScalar(max / vel);
+        if (vel < 0.5) u.v.multiplyScalar(0.5 / (vel || 1));
+        u.p.addScaledVector(u.v, dt);
       }
-      if (quanti) forza.addScaledVector(media.multiplyScalar(1 / quanti).sub(u.v), 1.1);
-      u.v.addScaledVector(forza, dt);
-      const vel = u.v.length();
-      if (vel > 1.5) u.v.multiplyScalar(1.5 / vel);
-      if (vel < 0.6) u.v.multiplyScalar(0.6 / (vel || 1));
-      u.p.addScaledVector(u.v, dt);
     }
     for (const u of uccelli) {
       u.g.position.copy(u.p);
       avanti.copy(u.p).add(u.v);
       u.g.lookAt(gruppo.localToWorld(avanti));
-      // Ali che battono, ognuno col suo ritmo
-      const battito = Math.sin(s * 11 + u.fase) * 0.65;
-      u.ali[0]!.rotation.z = battito;
-      u.ali[1]!.rotation.z = -battito;
+      // Ali che battono: più veloci quando l'uccello ha paura
+      u.g.scale.set(1, Math.sin(s * (12 + u.paura * 10) + u.fase) * 1.4, 1);
     }
-    centroStormo.position.copy(centro).add(new THREE.Vector3(0, 0.45, 0));
-    anelloStormo.position.copy(centro);
-    anelloStormo.rotation.set(Math.PI / 2, 0, 0);
-    anelloStormo.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), -gruppo.rotation.y);
+  };
+  const nuovoPuntatore = (raggio: THREE.Raycaster | null) => {
+    if (!raggio) { raggioPuntatore = null; return; }
+    gruppo.updateMatrixWorld();
+    raggioPuntatore = raggio.ray.clone().applyMatrix4(inversaStormo.copy(gruppo.matrixWorld).invert());
   };
 
   // --- Cervi: una piccola famiglia che cammina sul prato, gira intorno agli alberi e allo stagno
@@ -330,6 +328,7 @@ export function monta(el: HTMLElement) {
     camera: largo ? new THREE.Vector3(0, 3.6, 15) : new THREE.Vector3(0, 3, 9.5),
     mira: largo ? new THREE.Vector3(0, 1.4, 0) : new THREE.Vector3(0, 2, 0),
     inclinazione: [0.02, 0.32],
+    puntatore: nuovoPuntatore,
     aggiorna: (t, acceso) => {
       const s = t / 1000, dt = prima < 0 || t === 0 ? 0 : Math.min(0.05, (t - prima) / 1000);
       prima = t;
@@ -339,12 +338,6 @@ export function monta(el: HTMLElement) {
       famiglia.aggiorna(t, true);
       // Le nuvole scorrono da sinistra a destra e rientrano dall'altra parte
       for (const n of nuvole) { n.g.position.x += n.vel * dt; if (n.g.position.x > 7) n.g.position.x = -7; }
-      // Anelli che invitano a cliccare: uno ogni 2.4 secondi per sezione, sfalsati
-      impulsi.forEach(q => {
-        const u = s > 0 ? (((s + q.ritardo) % 2.4) / 2.4) : 0;
-        q.o.scale.setScalar(q.da + u * (q.a - q.da));
-        (q.o.material as THREE.LineBasicMaterial).opacity = s > 0 ? (1 - u) ** 1.5 * 0.7 : 0;
-      });
       // Salto: un pesce esce dall'acqua con un arco e rientra poco più avanti
       if (s > 0 && s > prossimoSalto) {
         salto = { pesce: Math.floor(r() * pesci.length), nato: s };

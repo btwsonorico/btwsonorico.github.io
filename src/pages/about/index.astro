@@ -29,7 +29,7 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
     <nav class="pagine" aria-label="All pages">
       <p class="mono titoletto">pages</p>
       <ul>
-        {PAGINE.map(p => <li><a href={p.href}>{p.nome}</a><span class="mono">{p.nota}</span></li>)}
+        {PAGINE.map(p => <li><a href={p.href} data-sezione={['software', 'advisory', 'knowledge'].includes(p.nome) ? `sezione:${p.nome}` : undefined}>{p.nome}</a><span class="mono">{p.nota}</span></li>)}
       </ul>
     </nav>
     <div class="mono aiuto">
@@ -82,6 +82,11 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
     if (mia !== richiesta) scena.ferma(); else attuale = scena;
   };
   bottoni.forEach(b => b.addEventListener('click', () => mostra(b.dataset.scena!)));
+  // Passare sopra una sezione nella lista accende la sua parte del mondo 3D, come nelle liste delle altre pagine
+  document.querySelectorAll<HTMLElement>('[data-sezione]').forEach(a => {
+    a.addEventListener('mouseenter', () => window.dispatchEvent(new CustomEvent('grafo:evidenzia', { detail: a.dataset.sezione })));
+    a.addEventListener('mouseleave', () => window.dispatchEvent(new CustomEvent('grafo:evidenzia', { detail: null })));
+  });
   let ricordata = 'mondo';
   try { ricordata = localStorage.getItem('about-scena') ?? 'mondo'; } catch {}
   mostra(ricordata);
@@ -122,8 +127,6 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
     background: color-mix(in srgb, var(--bg) 78%, transparent); transition: opacity .15s;
   }
   .scena3d :global(.etichetta.attiva) { color: var(--bg); background: var(--accent); padding: 2px 7px; z-index: 2; }
-  /* Le tre sezioni: etichette più grandi, con il bordo nel loro colore, perché si capisca che si possono cliccare */
-  .scena3d :global(.etichetta.skill) { font-size: 12px; padding: 2px 7px; border: 1px solid color-mix(in srgb, var(--accent) 70%, transparent); }
   @media (max-width: 640px) {
     h1 { font-size: 33px; }
     /* Sul telefono la scena non sta dietro al testo: occupa una fascia in alto, che scorre via con la pagina.

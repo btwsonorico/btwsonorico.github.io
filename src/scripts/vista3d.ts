@@ -23,6 +23,8 @@ interface Opzioni {
   inclinazione: [number, number];
   // Chiamata a ogni fotogramma: muove gli oggetti e li accende o spegne
   aggiorna: (t: number, acceso: (famiglia: string, id: string) => number) => void;
+  // Puntatore che si muove sopra la scena (senza trascinare): riceve il raggio dalla camera, o null quando esce
+  puntatore?: (raggio: THREE.Raycaster | null) => void;
   // Clic che non prende nessun punto (per esempio un sasso lanciato nello stagno): riceve il raggio dalla camera
   clicVuoto?: (raggio: THREE.Raycaster) => void;
 }
@@ -103,6 +105,10 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     } else {
       sopra = piuVicino(m.x, m.y);
       el.style.cursor = sopra >= 0 && punti[sopra]!.href ? 'pointer' : '';
+      if (o.puntatore) {
+        raggio.setFromCamera(new THREE.Vector2((m.x / w) * 2 - 1, -(m.y / h) * 2 + 1), camera);
+        o.puntatore(raggio);
+      }
     }
     ultimo.copy(m);
   });
@@ -129,7 +135,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     void voce.offsetWidth; // riparte l'animazione CSS
     voce.classList.add('lampo');
   }
-  el.addEventListener('pointerleave', () => { sopra = -1; });
+  el.addEventListener('pointerleave', () => { sopra = -1; o.puntatore?.(null); });
   window.addEventListener('grafo:evidenzia', e => {
     const id = (e as CustomEvent<string | null>).detail ?? '';
     esterno = punti.findIndex(p => p.id === id);
