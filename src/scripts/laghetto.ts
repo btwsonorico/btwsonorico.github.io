@@ -45,16 +45,16 @@ export function monta(el: HTMLElement) {
     const a = (i / 160) * Math.PI * 2, d = raggioRiva(a);
     return new THREE.Vector3(Math.cos(a) * d, 0, Math.sin(a) * d);
   });
-  // Sul fondo chiaro i fili sottili si perdono: riva più marcata e l'acqua riempita d'azzurro,
-  // a strati sempre più scuri verso il centro, come un lago che diventa profondo
+  // L'acqua è riempita d'azzurro tenue, a strati sempre più intensi verso il centro, come un lago che diventa profondo.
+  // Sul fondo chiaro i fili sottili si perdono: lì la riva è più marcata
   const chiaro = document.documentElement.dataset.theme === 'light';
   gruppo.add(anello(riva, linea(c.accent, chiaro ? 0.9 : 0.55)));
   // Una seconda riva più interna, appena visibile: dà profondità all'acqua
   gruppo.add(anello(riva.map(p => p.clone().multiplyScalar(0.94)), linea(c.accent, chiaro ? 0.35 : 0.18)));
-  if (chiaro) {
+  {
     [1, 0.82, 0.6, 0.36].forEach((scala, k) => {
       const forma = new THREE.Shape(riva.map(p => new THREE.Vector2(p.x * scala, -p.z * scala)));
-      const strato = new THREE.Mesh(new THREE.ShapeGeometry(forma), new THREE.MeshBasicMaterial({ color: c.accent, transparent: true, opacity: k === 0 ? 0.13 : 0.06, depthWrite: false }));
+      const strato = new THREE.Mesh(new THREE.ShapeGeometry(forma), new THREE.MeshBasicMaterial({ color: c.accent, transparent: true, opacity: (k === 0 ? 0.08 : 0.035) * (chiaro ? 1 : 0.9), depthWrite: false }));
       strato.rotation.x = -Math.PI / 2;
       strato.position.y = -0.03 - k * 0.001;
       strato.renderOrder = -1;

@@ -50,9 +50,9 @@ const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role ==
       <section data-pannello="projects" data-tono="verde">
         <section class="sezione"><h2 class="mono">Commits</h2><Attivita /></section>
         <Lista titolo="Key skills" righe={Object.entries(COMPETENZE).map(([id, c], i) => ({
-          id: `skill:${id}`, data: String(i + 1).padStart(2, '0'), titolo: c.title, href: `/projects/#${id}`, nota: c.summary,
+          id: `skill:${id}`, data: String(i + 1).padStart(2, '0'), titolo: c.title, href: `/software/#${id}`, nota: c.summary,
         }))} />
-        <p class="tutto mono"><a href="/projects/">all skills and areas →</a></p>
+        <p class="tutto mono"><a href="/software/">all skills and areas →</a></p>
       </section>
 
       <section data-pannello="advisory" data-tono="azzurro" hidden>

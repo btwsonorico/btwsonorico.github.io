@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import SegmentedControl from "@/components/arc/segmented-control/segmented-control";
 
 // Tab della home. Comunica con la pagina con l'evento "home:tab" e tiene la tab nell'indirizzo (#knowledge, #advisory).
-// Projects è la prima tab e quella aperta all'avvio.
+// SW engineering (valore "projects") è la prima tab e quella aperta all'avvio.
 const TAB = [
-  { value: "projects", label: "Projects" },
+  { value: "projects", label: "SW engineering" },
   { value: "advisory", label: "Advisory" },
   { value: "knowledge", label: "Knowledge" },
 ];

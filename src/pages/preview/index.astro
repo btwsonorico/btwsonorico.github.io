@@ -1,0 +1,46 @@
+---
+import Base from '../../layouts/Base.astro';
+import Grafo from '../../components/Grafo.astro';
+import { COMPETENZE, COMPETENZE_ADVISORY } from '../../content.config';
+import { hrefTema, scrittiPubblici } from '../../lib/grafi';
+import type { DatiPanorama, Sezione } from '../../scripts/panorama';
+
+// Pagina di prova, fuori dal menu: tre idee per una home nello stile delle scene 3D, da confrontare.
+// Le voci di ogni sezione: competenze chiave (SW engineering, Advisory) e i temi più usati (Knowledge).
+const conta = new Map<string, number>();
+for (const s of await scrittiPubblici()) for (const t of s.data.topics) conta.set(t, (conta.get(t) ?? 0) + 1);
+const temi = [...conta].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t);
+
+const sezioni: Sezione[] = [
+  { id: 'software', label: 'SW engineering', href: '/software/', tono: 'verde',
+    voci: Object.entries(COMPETENZE).map(([id, c]) => ({ id: `skill:${id}`, label: c.title, href: `/software/#${id}` })) },
+  { id: 'advisory', label: 'Advisory', href: '/advisory/', tono: 'azzurro',
+    voci: Object.entries(COMPETENZE_ADVISORY).map(([id, c]) => ({ id: `advisory:${id}`, label: c.title, href: `/advisory/#${id}` })) },
+  { id: 'knowledge', label: 'Knowledge', href: '/knowledge/', tono: 'arancio',
+    voci: temi.map(t => ({ id: `tema:${t}`, label: `#${t}`, href: hrefTema(t) })) },
+];
+const viste = (['stella', 'costellazione', 'scrivania'] as const).map(tipo => ({
+  nome: { stella: 'star', costellazione: 'constellation', scrivania: 'desk' }[tipo],
+  dati: { tipo, sezioni } satisfies DatiPanorama,
+  legenda: [],
+}));
+---
+<Base title="Home options · Riccardo Mondi" description="Three ideas for the home page, to compare." largo>
+  <main>
+    <section class="testa-pagina">
+      <p class="mono">~/preview · not in the menu</p>
+      <h1>Riccardo Mondi</h1>
+      <p class="mono">AI Advisor & Developer · Politecnico di Milano - Osservatorio Artificial Intelligence + R&amp;D Osservatori</p>
+    </section>
+    <div class="panorama">
+      <Grafo viste={viste} motore="panorama" aiuto="click a world, a constellation or an object to open its section · drag to rotate" />
+    </div>
+  </main>
+</Base>
+
+<style>
+  .testa-pagina > * { margin: 0 0 var(--s1); }
+  h1 { font-size: 44px; font-weight: 400; line-height: 1.1; }
+  .panorama { --altezza-grafo: min(calc(100vh - 260px), 760px); }
+  @media (max-width: 640px) { h1 { font-size: 33px; } }
+</style>

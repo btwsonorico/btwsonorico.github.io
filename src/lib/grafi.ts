@@ -96,6 +96,8 @@ export async function grafoKnowledge({ fonti = true } = {}): Promise<DatiGrafo> 
 // peso: tecnologie (Projects) o metodi (Advisory) dell'area; punti: righe "- " del suo file.
 export async function datiCompetenze(sezione: Sezione) {
   const { competenze, aree: carica } = sezioni[sezione];
+  // Projects si chiama SW engineering: le pagine stanno in /software/
+  const percorso = sezione === 'projects' ? 'software' : sezione;
   const aree = await carica();
   const scritti = await scrittiPubblici();
   for (const a of aree) for (const r of a.data.related)
@@ -115,9 +117,9 @@ export async function datiCompetenze(sezione: Sezione) {
     competenze: Object.entries(competenze)
       .filter(([id]) => aree.some(a => a.data.skill === id))
       .map(([id, c]) => ({
-        id, label: c.title, href: `/${sezione}/#${id}`,
+        id, label: c.title, href: `/${percorso}/#${id}`,
         aree: aree.filter(a => a.data.skill === id).map(a => ({
-          id: a.id, label: a.data.title, href: `/${sezione}/${a.id}/`,
+          id: a.id, label: a.data.title, href: `/${percorso}/${a.id}/`,
           peso: ('stack' in a.data ? a.data.stack : a.data.methods).length,
           punti: (a.body?.match(/^- /gm) ?? []).length,
         })),

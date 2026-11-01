@@ -6,6 +6,8 @@ import { sezioni, type Sezione } from '../lib/grafi';
 interface Props { sezione: Sezione }
 const { sezione } = Astro.props;
 const { competenze: tutte, aree: carica } = sezioni[sezione];
+// Projects si chiama SW engineering: le pagine stanno in /software/
+const percorso = sezione === 'projects' ? 'software' : sezione;
 const aree = await carica();
 const competenze = Object.entries(tutte)
   .map(([id, c]) => ({ id, ...c, aree: aree.filter(a => a.data.skill === id) }))
@@ -24,7 +26,7 @@ const competenze = Object.entries(tutte)
     </summary>
     <ul class="aree">
       {c.aree.map(a => <li>
-        <a class="area" href={`/${sezione}/${a.id}/`} data-id={`area:${a.id}`}>
+        <a class="area" href={`/${percorso}/${a.id}/`} data-id={`area:${a.id}`}>
           <span class="nome">{a.data.title}</span>
           <span class="nota">{a.data.summary}</span>
         </a>

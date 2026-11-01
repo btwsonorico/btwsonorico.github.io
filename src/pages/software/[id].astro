@@ -16,7 +16,7 @@ const scritti = (await scrittiPubblici()).filter(s => a.data.related.includes(s.
 <Base title={`${a.data.title} · Riccardo Mondi`} description={a.data.summary} tono="verde">
   <main>
     <article>
-      <p class="mono testa"><a href="/projects/">projects</a> · <a href={`/projects/#${a.data.skill}`}>{competenza.title}</a></p>
+      <p class="mono testa"><a href="/software/">sw engineering</a> · <a href={`/software/#${a.data.skill}`}>{competenza.title}</a></p>
       <h1>{a.data.title}</h1>
       <p class="sommario">{a.data.summary}</p>
       <p class="mono stack">{a.data.stack.map(t => <span>{t}</span>)}</p>
