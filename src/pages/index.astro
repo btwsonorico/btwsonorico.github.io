@@ -52,6 +52,15 @@ const PAGINE = [
 <script>
   // Il mondo 3D: bosco (Software), stagno (Advisory), stormo (Knowledge)
   import { monta } from '../scripts/mondo';
+  // Su schermi larghi il mondo sta esattamente tra la barra in alto e la linea del footer: le misure sono quelle vere
+  const fondo = document.querySelector<HTMLElement>('.fondo3d')!;
+  const adatta = () => {
+    if (window.innerWidth <= 640) { fondo.style.top = fondo.style.bottom = ''; return; }
+    fondo.style.top = `${document.querySelector<HTMLElement>('.barra')!.offsetHeight}px`;
+    fondo.style.bottom = `${document.querySelector<HTMLElement>('.piede')!.offsetHeight + 8}px`;
+  };
+  adatta();
+  window.addEventListener('resize', adatta);
   monta(document.querySelector<HTMLElement>('.scena3d')!);
   // Passare sopra una sezione nella lista accende la sua parte del mondo, come nelle liste delle altre pagine
   document.querySelectorAll<HTMLElement>('[data-sezione]').forEach(a => {
