@@ -96,7 +96,7 @@ export async function grafoKnowledge({ fonti = true } = {}): Promise<DatiGrafo> 
 // peso: tecnologie (Projects) o metodi (Advisory) dell'area; punti: righe "- " del suo file.
 export async function datiCompetenze(sezione: Sezione) {
   const { competenze, aree: carica } = sezioni[sezione];
-  // Projects si chiama SW engineering: le pagine stanno in /software/
+  // Projects si chiama Software: le pagine stanno in /software/
   const percorso = sezione === 'projects' ? 'software' : sezione;
   const aree = await carica();
   const scritti = await scrittiPubblici();

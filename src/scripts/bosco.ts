@@ -20,6 +20,8 @@ type Specie = 'salice' | 'quercia' | 'acacia' | 'abete';
 const SPECIE: Specie[] = ['salice', 'quercia', 'acacia', 'abete'];
 // Quanto sale il tronco dritto, per specie
 const TRONCO: Record<Specie, number> = { salice: 0.6, quercia: 0.8, acacia: 0.45, abete: 0.4 };
+// Albero guida (uno per competenza o progetto): più grande degli altri
+const GUIDA = 1.2;
 
 export function monta(el: HTMLElement) {
   const { competenze, progetti = [] } = JSON.parse(el.dataset.grafo!) as DatiCompetenze;
@@ -47,6 +49,15 @@ export function monta(el: HTMLElement) {
     m.opacity = valore * (m.userData.pieno ?? 1);
   };
 
+  // Prato: un disco verde tenue a strati, più intenso verso il centro, come l'acqua del laghetto
+  const chiaroPrato = document.documentElement.dataset.theme === 'light';
+  for (const [raggio, op] of [[7.2, 0.07], [5.4, 0.045], [3.6, 0.045]] as const) {
+    const disco = new THREE.Mesh(new THREE.CircleGeometry(raggio, 64), new THREE.MeshBasicMaterial({ color: c.accent, transparent: true, opacity: op * (chiaroPrato ? 1 : 0.9), depthWrite: false }));
+    disco.rotation.x = -Math.PI / 2;
+    disco.position.y = -0.01;
+    disco.renderOrder = -1;
+    gruppo.add(disco);
+  }
   // Terreno: una griglia di punti, come lo sfondo del sito
   const passo = 0.4, lato = 7.2;
   const terreno: number[] = [];
@@ -183,7 +194,9 @@ export function monta(el: HTMLElement) {
     const altezza = specie === 'salice' ? 1.55 : 1.9;
     const tronco = segmento(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, altezza * Math.max(TRONCO[specie], 0.001), 0), linea(c.fg));
     base.add(tronco);
-    const pezzi = chioma(base, specie, altezza, 5, 5, c.accent);
+    // Più visibile degli altri: verde più chiaro, chioma più piena
+    const pezzi = chioma(base, specie, altezza, 5, 5, c.accent.clone().offsetHSL(0, 0, 0.06));
+    pezzi.forEach(p => { const m = (p as THREE.Mesh).material as THREE.Material; if (m.userData.pieno) m.userData.pieno = PIENO * 2.2; });
     const insegna = new THREE.Object3D();
     insegna.position.y = altezza * 1.15;
     base.add(insegna);
@@ -523,7 +536,7 @@ export function monta(el: HTMLElement) {
       gruppiAttivi.forEach(g => {
         const lg = acceso(g.id, g.id);
         g.pezzi.forEach(p => opacita(p, Math.min(1, lg * 2)));
-        g.base.scale.setScalar(Math.max(0.001, crescitaPali * (lg === 1 ? 1.08 : 1)));
+        g.base.scale.setScalar(Math.max(0.001, crescitaPali * GUIDA * (lg === 1 ? 1.08 : 1)));
         g.base.rotation.z = Math.sin(t * 0.0009 + g.fase) * 0.015;
         g.membri.forEach(x => {
           const l = acceso(g.id, x.punto.id);

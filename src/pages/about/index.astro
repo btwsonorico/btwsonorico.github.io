@@ -1,33 +1,24 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { COMPETENZE, COMPETENZE_ADVISORY } from '../../content.config';
-import { hrefTema, scrittiPubblici } from '../../lib/grafi';
+import { grafoKnowledge } from '../../lib/grafi';
 
 // Tutte le pagine del sito, con una riga che dice cosa c'è
 const PAGINE = [
   { nome: 'home', href: '/', nota: 'overview: forest, pond and latest writing' },
-  { nome: 'sw engineering', href: '/software/', nota: 'what I build: skills, areas, commits' },
+  { nome: 'software', href: '/software/', nota: 'what I build: skills, areas, commits' },
   { nome: 'advisory', href: '/advisory/', nota: 'how I help organisations adopt AI' },
   { nome: 'knowledge', href: '/knowledge/', nota: 'notes on papers, talks and books' },
   { nome: 'rss', href: '/rss.xml', nota: 'feed of the knowledge notes' },
 ];
-// Costellazioni del cielo: una per sezione; le stelle piccole sono le competenze chiave, o i temi più usati per Knowledge
-const conta = new Map<string, number>();
-for (const s of await scrittiPubblici()) for (const t of s.data.topics) conta.set(t, (conta.get(t) ?? 0) + 1);
-const SEZIONI = [
-  { id: 'software', label: 'SW engineering', href: '/software/', tono: 'verde',
-    voci: Object.entries(COMPETENZE).map(([id, c]) => ({ id: `skill:${id}`, label: c.title, href: `/software/#${id}` })) },
-  { id: 'advisory', label: 'Advisory', href: '/advisory/', tono: 'azzurro',
-    voci: Object.entries(COMPETENZE_ADVISORY).map(([id, c]) => ({ id: `advisory:${id}`, label: c.title, href: `/advisory/#${id}` })) },
-  { id: 'knowledge', label: 'Knowledge', href: '/knowledge/', tono: 'arancio',
-    voci: [...conta].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => ({ id: `tema:${t}`, label: `#${t}`, href: hrefTema(t) })) },
-];
+// Mondo dell'About: Knowledge in cielo è il suo grafo (temi e testi, con i loro legami)
+const knowledge = await grafoKnowledge({ fonti: false });
+const MONDO = { nodi: knowledge.nodi.map(n => ({ id: n.id, tipo: n.tipo, label: n.label, href: n.href })), archi: knowledge.archi };
 const BIO = 'I help organisations adopt AI, and I build the tools that make it work: from research to code.';
 ---
 <Base title="About · Riccardo Mondi" description="Riccardo Mondi: AI advisor and developer at Politecnico di Milano." largo>
   <canvas class="scena" aria-hidden="true"></canvas>
-  <!-- Cielo 3D: il contenitore copre lo schermo; la scena sta dentro, così la vista 3D sa quando è visibile -->
-  <div class="fondo3d" hidden><div class="scena3d" aria-hidden="true" data-sezioni={JSON.stringify(SEZIONI)}></div></div>
+  <!-- Mondo 3D: il contenitore copre lo schermo; la scena sta dentro, così la vista 3D sa quando è visibile -->
+  <div class="fondo3d" hidden><div class="scena3d" aria-hidden="true" data-mondo={JSON.stringify(MONDO)}></div></div>
   <main class="about">
     <p class="mono">~/about</p>
     <h1>Riccardo Mondi</h1>
@@ -48,10 +39,9 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
     <div class="mono aiuto">
       <p class="scelte" role="group" aria-label="Background">
         <span>background</span>
+        <button type="button" data-scena="mondo">world</button>
         <button type="button" data-scena="vita">life</button>
         <button type="button" data-scena="onde">waves</button>
-        <button type="button" data-scena="stormo">flock</button>
-        <button type="button" data-scena="cielo">sky</button>
       </p>
       <p class="spiega"></p>
     </div>
@@ -65,13 +55,13 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
   const spiega = document.querySelector<HTMLElement>('.spiega')!;
   const bottoni = document.querySelectorAll<HTMLButtonElement>('[data-scena]');
 
-  // Cielo 3D: si monta una volta sola; fermarlo vuol dire nasconderlo (la vista 3D non disegna quando è nascosta)
-  const fondo = document.querySelector<HTMLElement>('.fondo3d')!, cielo = document.querySelector<HTMLElement>('.scena3d')!;
-  let cieloMontato = false;
-  const montaCielo = async (): Promise<Scena> => {
+  // Mondo 3D: si monta una volta sola; fermarlo vuol dire nasconderlo (la vista 3D non disegna quando è nascosta)
+  const fondo = document.querySelector<HTMLElement>('.fondo3d')!, mondo = document.querySelector<HTMLElement>('.scena3d')!;
+  let mondoMontato = false;
+  const montaMondo = async (): Promise<Scena> => {
     tela.hidden = true;
     fondo.hidden = false;
-    if (!cieloMontato) { cieloMontato = true; (await import('../../scripts/cielo')).monta(cielo, JSON.parse(cielo.dataset.sezioni!)); }
+    if (!mondoMontato) { mondoMontato = true; (await import('../../scripts/mondo')).monta(mondo, JSON.parse(mondo.dataset.mondo!)); }
     return { ferma() { fondo.hidden = true; tela.hidden = false; } };
   };
 
@@ -79,13 +69,14 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
   const SCENE: Record<string, { aiuto: string; monta: () => Promise<Scena> }> = {
     vita: { aiuto: "Conway's game of life · move the mouse to seed cells · click for a burst", monta: async () => (await import('../../scripts/vita')).monta(tela) },
     onde: { aiuto: 'the shore seen from above · move the mouse to make ripples · click for a splash', monta: async () => (await import('../../scripts/onde')).monta(tela) },
-    stormo: { aiuto: 'a murmuration of starlings · the pointer is a falcon: get close and they scatter · click to scare them', monta: async () => (await import('../../scripts/stormo')).monta(tela) },
-    cielo: { aiuto: 'one constellation per section · hover a star to see its name · click to open · drag to look around', monta: montaCielo },
+    mondo: { aiuto: document.documentElement.dataset.theme === 'light'
+      ? 'the forest is Software, the pond is Advisory, the orange birds are Knowledge · click one to open it · drag to rotate'
+      : 'the forest is Software, the pond is Advisory, the constellation is Knowledge · click one to open it · drag to rotate', monta: montaMondo },
   };
 
   let attuale: Scena | null = null, richiesta = 0;
   const mostra = async (nome: string) => {
-    if (!SCENE[nome]) nome = 'vita';
+    if (!SCENE[nome]) nome = 'mondo';
     const mia = ++richiesta;
     attuale?.ferma();
     attuale = null;
@@ -97,8 +88,8 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
     if (mia !== richiesta) scena.ferma(); else attuale = scena;
   };
   bottoni.forEach(b => b.addEventListener('click', () => mostra(b.dataset.scena!)));
-  let ricordata = 'vita';
-  try { ricordata = localStorage.getItem('about-scena') ?? 'vita'; } catch {}
+  let ricordata = 'mondo';
+  try { ricordata = localStorage.getItem('about-scena') ?? 'mondo'; } catch {}
   mostra(ricordata);
 </script>
 
@@ -130,7 +121,7 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
   .scena[hidden], .fondo3d[hidden] { display: none; }
   .fondo3d { position: fixed; inset: 0; z-index: 0; }
   .scena3d { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
-  /* Etichette delle stelle: come nelle scene di bosco e laghetto, nel colore della loro sezione */
+  /* Etichette del mondo: come nelle scene di bosco e laghetto, nel colore della loro sezione */
   .scena3d :global(.etichetta) {
     position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;
     padding: 1px 5px; font-family: var(--mono); font-size: 11px; color: var(--accent);

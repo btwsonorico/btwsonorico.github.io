@@ -3,7 +3,7 @@ import type { DatiGrafo, TipoNodo } from '../lib/grafi';
 import type { DatiCompetenze } from '../scripts/vista3d';
 
 // Una o più viste dello stesso grafo. Con due viste compaiono i pulsanti per passare dall'una all'altra.
-// motore: "grafo" (rete a forze, Knowledge), "bosco" (SW engineering) o "laghetto" (Advisory).
+// motore: "grafo" (rete a forze, Knowledge), "bosco" (Software) o "laghetto" (Advisory).
 type Motore = 'grafo' | 'bosco' | 'laghetto';
 interface Vista { nome: string; dati: DatiGrafo | DatiCompetenze; legenda: TipoNodo[] }
 // modi: viste della stessa scena (per esempio il bosco per competenza o per progetto). Il primo è quello iniziale.

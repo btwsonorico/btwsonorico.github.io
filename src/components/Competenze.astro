@@ -6,7 +6,7 @@ import { sezioni, type Sezione } from '../lib/grafi';
 interface Props { sezione: Sezione }
 const { sezione } = Astro.props;
 const { competenze: tutte, aree: carica } = sezioni[sezione];
-// Projects si chiama SW engineering: le pagine stanno in /software/
+// Projects si chiama Software: le pagine stanno in /software/
 const percorso = sezione === 'projects' ? 'software' : sezione;
 const aree = await carica();
 const competenze = Object.entries(tutte)
