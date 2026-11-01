@@ -1,6 +1,7 @@
 ---
 import '@/components/arc/foundation.css';
 import Cursore from '@/components/Cursore.astro';
+import { INDICIZZABILE } from '@/lib/sito';
 // tono: colore d'accento della pagina. Senza tono resta l'azzurro del sito.
 // largo: pagina a tutta larghezza su schermi grandi (home, Knowledge, Projects); i testi restano stretti.
 interface Props { title: string; description?: string; lang?: 'it' | 'en'; tono?: 'verde' | 'arancio' | 'azzurro'; largo?: boolean }
@@ -16,6 +17,8 @@ const build = new Date().toISOString().slice(0, 10);
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <!-- Finché il contenuto non è finale, motori di ricerca e AI non indicizzano il sito (interruttore in src/lib/sito.ts) -->
+    {!INDICIZZABILE && <meta name="robots" content="noindex, nofollow" />}
     <link rel="canonical" href={canonico} />
     <link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml" />
     <link rel="sitemap" href="/sitemap.xml" />

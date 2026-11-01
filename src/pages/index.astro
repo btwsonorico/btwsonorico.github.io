@@ -1,5 +1,20 @@
 ---
 import Base from '../layouts/Base.astro';
+import { SITO } from '../lib/sito';
+
+// Dati strutturati: chi sono, in una forma che motori di ricerca e AI leggono senza ambiguità
+const PERSONA = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name: SITO.nome,
+  jobTitle: SITO.ruolo,
+  description: SITO.bio,
+  email: `mailto:${SITO.email}`,
+  url: Astro.site?.href,
+  worksFor: { '@type': 'CollegeOrUniversity', name: SITO.ente, department: SITO.gruppo },
+  knowsAbout: ['Artificial intelligence', 'AI strategy', 'AI adoption', 'Software engineering', 'LLM applications', 'Human-AI interaction'],
+  sameAs: [SITO.github, SITO.linkedin],
+};
 
 // Tutte le pagine del sito, con una riga che dice cosa c'è
 const PAGINE = [
@@ -11,6 +26,7 @@ const PAGINE = [
 ];
 ---
 <Base title="Riccardo Mondi" description="Riccardo Mondi: AI advisor and developer at Politecnico di Milano." largo>
+  <script type="application/ld+json" set:html={JSON.stringify(PERSONA)} />
   <!-- Mondo 3D: il contenitore copre lo schermo; la scena sta dentro, così la vista 3D sa quando è visibile -->
   <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
   <main class="about">
