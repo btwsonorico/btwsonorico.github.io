@@ -1,118 +1,144 @@
 ---
 import Base from '../layouts/Base.astro';
-import Attivita from '../components/Attivita.astro';
-import Grafo from '../components/Grafo.astro';
-import Lista from '../components/Lista.astro';
-import TabHome from '../components/TabHome';
-import { datiCompetenze, grafoKnowledge, scrittiPubblici } from '../lib/grafi';
-import { COMPETENZE, COMPETENZE_ADVISORY } from '../content.config';
 
-const scritti = (await scrittiPubblici()).slice(0, 5);
-const [knowledge, projects, advisory] = await Promise.all([grafoKnowledge({ fonti: false }), datiCompetenze('projects'), datiCompetenze('advisory')]);
-const data = (d: Date) => d.toISOString().slice(0, 10);
-const tipo = (s: (typeof scritti)[number]) => s.data.sources.find(f => f.role === 'main')?.type;
+// Tutte le pagine del sito, con una riga che dice cosa c'è
+const PAGINE = [
+  { nome: 'software', href: '/software/', nota: 'what I build: skills, areas, commits' },
+  { nome: 'advisory', href: '/advisory/', nota: 'how I help organisations adopt AI' },
+  { nome: 'knowledge', href: '/knowledge/', nota: 'notes on papers, talks and books' },
+  { nome: 'rss', href: '/rss.xml', nota: 'feed of the knowledge notes' },
+];
+const BIO = 'I help organisations adopt AI, and I build the tools that make it work: from research to code.';
 ---
-<Base title="Riccardo Mondi" tono="verde" largo>
-  <main class="affianca">
-    <div class="a-testa">
-    <section class="intro testa-pagina">
-      <h1>Riccardo Mondi</h1>
-      <p class="ruoli mono">
-        <span>AI Advisor & Developer</span>
-        <span class="ente">Politecnico di Milano - Osservatorio Artificial Intelligence + R&amp;D Osservatori</span>
+<Base title="Riccardo Mondi" description="Riccardo Mondi: AI advisor and developer at Politecnico di Milano." largo>
+  <canvas class="scena" aria-hidden="true"></canvas>
+  <!-- Mondo 3D: il contenitore copre lo schermo; la scena sta dentro, così la vista 3D sa quando è visibile -->
+  <div class="fondo3d" hidden><div class="scena3d" aria-hidden="true"></div></div>
+  <main class="about">
+    <p class="mono">~/</p>
+    <h1>Riccardo Mondi</h1>
+    <p class="ruolo">AI Advisor & Developer</p>
+    <p class="mono ente">Politecnico di Milano - Osservatorio Artificial Intelligence + R&amp;D Osservatori</p>
+    <p class="bio">{BIO}</p>
+    <p class="mono link">
+      <a href="mailto:riccardo.mondi@polimi.it">email</a>
+      <a href="https://github.com/btwsonorico" rel="me">github</a>
+      <a href="https://www.linkedin.com/in/riccardo-mondi-7717181aa/" rel="me">linkedin</a>
+    </p>
+    <nav class="pagine" aria-label="All pages">
+      <p class="mono titoletto">pages</p>
+      <ul>
+        {PAGINE.map(p => <li><a href={p.href} data-sezione={['software', 'advisory', 'knowledge'].includes(p.nome) ? `sezione:${p.nome}` : undefined}>{p.nome}</a><span class="mono">{p.nota}</span></li>)}
+      </ul>
+    </nav>
+    <div class="mono aiuto">
+      <p class="scelte" role="group" aria-label="Background">
+        <span>background</span>
+        <button type="button" data-scena="mondo">world</button>
+        <button type="button" data-scena="vita">life</button>
+        <button type="button" data-scena="onde">waves</button>
       </p>
-      <p class="link mono">
-        <a href="mailto:riccardo.mondi@polimi.it">email</a>
-        <a href="https://github.com/btwsonorico" rel="me">github</a>
-        <a href="https://www.linkedin.com/in/riccardo-mondi-7717181aa/" rel="me">linkedin</a>
-      </p>
-    </section>
-
-    <div class="tab"><TabHome client:only="react" /></div>
-    </div>
-
-    <!-- Un grafo per tab: su schermi larghi stanno a destra, accanto al nome -->
-    <div class="a-grafo grafi">
-      <div data-pannello="knowledge" data-tono="arancio" hidden><Grafo dati={knowledge} legenda={['testo', 'tema']} /></div>
-      <div data-pannello="projects" data-tono="verde"><Grafo dati={projects} legenda={['skill', 'area']} motore="bosco" modi={[{ id: 'competenza', nome: 'by skill' }, { id: 'progetto', nome: 'by project' }]} nomi={{ skill: 'big tree: skill or project', area: 'tree: area' }} aiuto="taller tree, more technologies · click a tree to see its topic · click the grass to drop an apple · drag to rotate" /></div>
-      <div data-pannello="advisory" data-tono="azzurro" hidden><Grafo dati={advisory} legenda={['skill', 'area']} motore="laghetto" nomi={{ skill: 'school: key skill', area: 'fish: area' }} aiuto="hover a fish or a school · click to see its topic · click the water to throw a stone · drag to rotate" /></div>
-    </div>
-
-    <div class="a-resto pannelli">
-      <section data-pannello="knowledge" data-tono="arancio" hidden>
-        <Lista titolo="Latest" righe={scritti.map(s => ({
-          id: s.id, data: data(s.data.date), titolo: s.data.title, href: `/knowledge/${s.id}/`,
-          etichetta: [tipo(s), s.data.lang].filter(Boolean).join(' · '),
-        }))} />
-        <p class="tutto mono"><a href="/knowledge/">all writing →</a></p>
-      </section>
-
-      <section data-pannello="projects" data-tono="verde">
-        <section class="sezione"><h2 class="mono">Commits</h2><Attivita /></section>
-        <Lista titolo="Key skills" righe={Object.entries(COMPETENZE).map(([id, c], i) => ({
-          id: `skill:${id}`, data: String(i + 1).padStart(2, '0'), titolo: c.title, href: `/software/#${id}`, nota: c.summary,
-        }))} />
-        <p class="tutto mono"><a href="/software/">all skills and areas →</a></p>
-      </section>
-
-      <section data-pannello="advisory" data-tono="azzurro" hidden>
-        <Lista titolo="Key skills" righe={Object.entries(COMPETENZE_ADVISORY).map(([id, c], i) => ({
-          id: `skill:${id}`, data: String(i + 1).padStart(2, '0'), titolo: c.title, href: `/advisory/#${id}`, nota: c.summary,
-        }))} />
-        <p class="tutto mono"><a href="/advisory/">all skills and areas →</a></p>
-      </section>
+      <p class="spiega"></p>
     </div>
   </main>
 </Base>
 
 <script>
-  // Cambio di tab: dissolvenza con le View Transitions quando il browser le supporta
-  const pannelli = document.querySelectorAll<HTMLElement>('[data-pannello]');
-  let attuale = 'projects';
-  // Il colore della pagina (cursore dopo il nome, link, tab) segue il tab aperto
-  const TONI: Record<string, string> = { projects: 'verde', knowledge: 'arancio', advisory: 'azzurro' };
-  const tingi = (tab: string) => { document.documentElement.dataset.tono = TONI[tab] ?? 'verde'; };
-  // /#knowledge e /#advisory aprono subito quel tab: il controllo dei tab può caricarsi prima di questo script e il suo evento andrebbe perso
-  const daIndirizzo = location.hash.slice(1);
-  if (daIndirizzo === 'knowledge' || daIndirizzo === 'advisory') {
-    attuale = daIndirizzo;
-    tingi(daIndirizzo);
-    pannelli.forEach(p => { p.hidden = p.dataset.pannello !== daIndirizzo; });
-  }
-  window.addEventListener('home:tab', e => {
-    const tab = (e as CustomEvent<string>).detail;
-    if (tab === attuale) return;
-    attuale = tab;
-    tingi(tab);
-    const applica = () => pannelli.forEach(p => { p.hidden = p.dataset.pannello !== tab; });
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
-    if (doc.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) doc.startViewTransition(applica);
-    else applica();
+  import type { Scena } from '../scripts/pixel';
+
+  const tela = document.querySelector<HTMLCanvasElement>('.scena')!;
+  const spiega = document.querySelector<HTMLElement>('.spiega')!;
+  const bottoni = document.querySelectorAll<HTMLButtonElement>('[data-scena]');
+
+  // Mondo 3D: si monta una volta sola; fermarlo vuol dire nasconderlo (la vista 3D non disegna quando è nascosta)
+  const fondo = document.querySelector<HTMLElement>('.fondo3d')!, mondo = document.querySelector<HTMLElement>('.scena3d')!;
+  let mondoMontato = false;
+  const montaMondo = async (): Promise<Scena> => {
+    tela.hidden = true;
+    fondo.hidden = false;
+    if (!mondoMontato) { mondoMontato = true; (await import('../scripts/mondo')).monta(mondo); }
+    return { ferma() { fondo.hidden = true; tela.hidden = false; } };
+  };
+
+  // Ogni scena si carica solo quando serve
+  const SCENE: Record<string, { aiuto: string; monta: () => Promise<Scena> }> = {
+    vita: { aiuto: "Conway's game of life · move the mouse to seed cells · click for a burst", monta: async () => (await import('../scripts/vita')).monta(tela) },
+    onde: { aiuto: 'the shore seen from above · move the mouse to make ripples · click for a splash', monta: async () => (await import('../scripts/onde')).monta(tela) },
+    mondo: { aiuto: 'the forest is Software, the pond is Advisory, the orange flock is Knowledge · click one to open it · drag to rotate', monta: montaMondo },
+  };
+
+  let attuale: Scena | null = null, richiesta = 0;
+  const mostra = async (nome: string) => {
+    if (!SCENE[nome]) nome = 'mondo';
+    const mia = ++richiesta;
+    attuale?.ferma();
+    attuale = null;
+    bottoni.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.scena === nome)));
+    spiega.textContent = SCENE[nome]!.aiuto;
+    try { localStorage.setItem('about-scena', nome); } catch {}
+    const scena = await SCENE[nome]!.monta();
+    // Se nel frattempo è stata scelta un'altra scena, questa si ferma subito
+    if (mia !== richiesta) scena.ferma(); else attuale = scena;
+  };
+  bottoni.forEach(b => b.addEventListener('click', () => mostra(b.dataset.scena!)));
+  // Passare sopra una sezione nella lista accende la sua parte del mondo 3D, come nelle liste delle altre pagine
+  document.querySelectorAll<HTMLElement>('[data-sezione]').forEach(a => {
+    a.addEventListener('mouseenter', () => window.dispatchEvent(new CustomEvent('grafo:evidenzia', { detail: a.dataset.sezione })));
+    a.addEventListener('mouseleave', () => window.dispatchEvent(new CustomEvent('grafo:evidenzia', { detail: null })));
   });
+  let ricordata = 'mondo';
+  try { ricordata = localStorage.getItem('about-scena') ?? 'mondo'; } catch {}
+  mostra(ricordata);
 </script>
 
 <style>
-  h1 { margin: 0 0 var(--s2); font-size: 44px; font-weight: 400; line-height: 1.1; }
-  .intro p { margin: 0 0 var(--s2); max-width: 560px; }
-  .intro p:last-child { margin-bottom: 0; }
-  .ruoli { display: flex; flex-direction: column; gap: 2px; font-size: 22px; color: var(--fg); }
-  .intro .ruoli { max-width: none; }
-  .ente { font-size: 13px; color: var(--muted); }
-  .link { display: flex; gap: 18px; flex-wrap: wrap; }
-  .tab { min-height: 40px; margin-bottom: var(--s3); font-family: var(--mono); }
-  .pannelli { view-transition-name: pannelli; }
-  .grafi { view-transition-name: grafi; }
-  .tutto { margin: 0; }
-  .tutto a { text-decoration: none; }
-  @media (max-width: 640px) {
-    .intro { padding-top: var(--s3); }
-    h1 { font-size: 33px; }
+  /* La scena copre tutto lo schermo, dietro al testo; il canvas riceve il puntatore, il testo lo lascia passare tranne su link e bottoni */
+  .scena { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; touch-action: manipulation; }
+  .about a, .about button { pointer-events: auto; }
+  .about { position: relative; z-index: 1; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; min-height: calc(100vh - 160px); padding-bottom: var(--s4); }
+  .about > * { max-width: 520px; margin: 0 0 var(--s2); }
+  h1 { margin-bottom: var(--s1); font-size: 44px; font-weight: 400; line-height: 1.1; }
+  .ruolo { font-size: 22px; margin-bottom: var(--s1); }
+  .ente { font-size: 13px; }
+  .bio { color: var(--fg); }
+  .link { display: flex; gap: var(--s2); }
+  .link a, .aiuto a { color: var(--accent); }
+  .aiuto { margin-top: var(--s2); }
+  .pagine ul { margin: 0; padding: 0; list-style: none; }
+  .pagine li { display: flex; gap: var(--s2); align-items: baseline; font-size: 13px; line-height: 1.7; }
+  .pagine li a { min-width: 80px; color: var(--accent); }
+  .titoletto { margin: 0 0 4px; }
+  .aiuto p { margin: 0 0 6px; }
+  .scelte { display: flex; flex-wrap: wrap; gap: 6px var(--s2); align-items: center; }
+  .scelte button { padding: 0 6px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
+  .scelte button:hover { color: var(--fg); }
+  .scelte button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  /* Testo leggibile anche quando la scena ci passa sotto */
+  .about > * { text-shadow: 0 0 6px var(--bg), 0 0 12px var(--bg); }
+  :global(.barra), :global(.piede) { position: relative; z-index: 1; }
+  .scena[hidden], .fondo3d[hidden] { display: none; }
+  .fondo3d { position: fixed; inset: 0; z-index: 0; }
+  .scena3d { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
+  /* Etichette del mondo: come nelle scene di bosco e laghetto, nel colore della loro sezione */
+  .scena3d :global(.etichetta) {
+    position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;
+    padding: 1px 5px; font-family: var(--mono); font-size: 11px; color: var(--accent);
+    background: color-mix(in srgb, var(--bg) 78%, transparent); transition: opacity .15s;
   }
-</style>
-
-<style is:global>
-  ::view-transition-old(pannelli) { animation: 160ms ease-in both pannello-esce; }
-  ::view-transition-new(pannelli) { animation: 260ms cubic-bezier(.2, .8, .2, 1) both pannello-entra; }
-  @keyframes pannello-esce { to { opacity: 0; transform: translateY(-6px); filter: blur(2px); } }
-  @keyframes pannello-entra { from { opacity: 0; transform: translateY(8px); filter: blur(2px); } }
+  .scena3d :global(.etichetta.attiva) { color: var(--bg); background: var(--accent); padding: 2px 7px; z-index: 2; }
+  /* Sezione sotto il puntatore: la sua etichetta dice che si apre */
+  .scena3d :global(.etichetta.skill.attiva)::after { content: ' · open →'; }
+  @media (max-width: 640px) {
+    h1 { font-size: 33px; }
+    /* Sul telefono la scena non sta dietro al testo: occupa una fascia in alto, che scorre via con la pagina.
+       Così il testo resta leggibile e i link si toccano */
+    .scena, .fondo3d { position: absolute; top: 0; left: 0; right: 0; bottom: auto; width: 100%; height: 46vh; }
+    /* Il mondo 3D ha bisogno di più spazio: la sua fascia è più alta */
+    .fondo3d { height: 50vh; }
+    .fondo3d:not([hidden]) ~ .about { padding-top: 45vh; }
+    .about { padding-top: 40vh; min-height: 0; justify-content: flex-start; }
+    /* Sul telefono il trascinamento in verticale fa scorrere la pagina anche sopra il cielo */
+    .scena3d { touch-action: pan-y; }
+    .about > * { text-shadow: none; }
+  }
 </style>
