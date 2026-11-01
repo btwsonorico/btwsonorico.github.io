@@ -295,84 +295,116 @@ export function monta(el: HTMLElement) {
     return out.copy(p0).multiplyScalar(v * v).addScaledVector(pc, 2 * v * u).addScaledVector(p1, u * u);
   };
 
-  // Cervi: corpo pieno bianco con i bordi a fili, zampe che si muovono, corna a rami.
-  // Camminano verso un punto a caso del bosco, si girano piano, e ogni tanto si fermano a brucare.
+  // Cervi: una famiglia bianca (cervo, cerva, due cerbiatti). Forme arrotondate a facce, come i pesci del laghetto.
+  // Zampe a due pezzi con il ginocchio; l'andatura è a quattro tempi (posteriore sinistra, anteriore sinistra,
+  // posteriore destra, anteriore destra), il corpo sale e scende appena e la testa accompagna il passo.
+  // Velocità e virate cambiano piano. Da fermi brucano o alzano la testa e si guardano intorno; orecchie e coda si muovono.
   const BIANCO = new THREE.Color(chiaro ? '#ffffff' : '#eef1f5');
   const matCervo = new THREE.MeshBasicMaterial({ color: BIANCO, transparent: true, opacity: chiaro ? 1 : 0.92 });
   // Sul fondo chiaro i bordi sono scuri, così il cervo bianco si stacca dallo sfondo
-  const matBordiCervo = linea(c.fg, chiaro ? 0.6 : 0.55), matCorna = linea(c.fg, chiaro ? 0.75 : 0.85);
-  const pezzoCervo = (geo: THREE.BufferGeometry) => {
+  const matBordiCervo = linea(c.fg, chiaro ? 0.5 : 0.4), matCorna = linea(c.fg, chiaro ? 0.75 : 0.85);
+  const geoOvale = new THREE.SphereGeometry(1, 8, 6), bordiOvale = new THREE.EdgesGeometry(geoOvale, 25);
+  // Ellissoide pieno con i bordi delle facce: il mattone di tutto il corpo
+  const ovale = (rx: number, ry: number, rz: number, x = 0, y = 0, z = 0) => {
     const g = new THREE.Group();
-    g.add(new THREE.Mesh(geo, matCervo), new THREE.LineSegments(new THREE.EdgesGeometry(geo), matBordiCervo));
+    g.add(new THREE.Mesh(geoOvale, matCervo), new THREE.LineSegments(bordiOvale, matBordiCervo));
+    g.scale.set(rx, ry, rz);
+    g.position.set(x, y, z);
     return g;
   };
-  // Tre tipi: il cervo è il più grande, con le corna a rami; la cerva è più snella, senza corna;
-  // il cerbiatto è piccolo, con le zampe lunghe e le macchie sulla schiena
   type Tipo = 'cervo' | 'cerva' | 'cerbiatto';
-  const MISURA: Record<Tipo, number> = { cervo: 0.78, cerva: 0.66, cerbiatto: 0.42 };
-  const matMacchie = new THREE.PointsMaterial({ color: c.muted, size: 0.03, transparent: true, opacity: 0.9 });
+  const MISURA: Record<Tipo, number> = { cervo: 0.8, cerva: 0.68, cerbiatto: 0.44 };
+  const matMacchie = new THREE.PointsMaterial({ color: c.muted, size: 0.025, transparent: true, opacity: 0.9 });
+  // Fase di ogni zampa nel passo: posteriore sinistra, anteriore sinistra, posteriore destra, anteriore destra
+  const ZAMPE = [
+    { x: -0.12, z: 0.045, fase: 0, davanti: false }, { x: 0.12, z: 0.045, fase: 0.25, davanti: true },
+    { x: -0.12, z: -0.045, fase: 0.5, davanti: false }, { x: 0.12, z: -0.045, fase: 0.75, davanti: true },
+  ];
   const nuovoCervo = (tipo: Tipo) => {
     const cervo = new THREE.Group();
-    const snella = tipo === 'cerva' ? 0.85 : 1;
-    const corpo = pezzoCervo(new THREE.BoxGeometry(0.36 * snella, 0.14 * snella, 0.13 * snella));
-    corpo.position.y = 0.3;
-    // Collo e testa: girano insieme quando il cervo bruca
-    const collo = new THREE.Group();
-    collo.position.set(0.15, 0.34, 0);
-    const pezzoCollo = pezzoCervo(new THREE.BoxGeometry(0.07, 0.2, 0.07));
-    pezzoCollo.position.set(0.03, 0.09, 0);
-    pezzoCollo.rotation.z = -0.35;
-    const testa = pezzoCervo(new THREE.BoxGeometry(0.13, 0.07, 0.07));
-    testa.position.set(0.1, 0.19, 0);
-    const corna: number[] = [];
-    for (const lato of [1, -1]) corna.push(
-      0.07, 0.22, lato * 0.02, 0.05, 0.36, lato * 0.07, 0.06, 0.29, lato * 0.04, 0.12, 0.34, lato * 0.06,
-      0.05, 0.36, lato * 0.07, 0.0, 0.42, lato * 0.09, 0.05, 0.36, lato * 0.07, 0.09, 0.43, lato * 0.08,
+    const cucciolo = tipo === 'cerbiatto', snella = tipo === 'cerva' ? 0.88 : 1;
+    // Il cerbiatto ha le zampe lunghe rispetto al corpo: il corpo sta più in alto
+    const lungaZampa = cucciolo ? 1.18 : 1, alto = 0.32 * lungaZampa;
+    const corpo = new THREE.Group();
+    corpo.position.y = alto;
+    corpo.add(
+      ovale(0.17 * snella, 0.075 * snella, 0.068 * snella, 0, 0.04, 0),
+      ovale(0.085, 0.078 * snella, 0.066 * snella, -0.11, 0.045, 0),
+      ovale(0.08, 0.082 * snella, 0.066 * snella, 0.11, 0.035, 0),
     );
-    const geoCorna = new THREE.BufferGeometry();
-    geoCorna.setAttribute('position', new THREE.Float32BufferAttribute(corna, 3));
-    if (tipo === 'cervo') collo.add(new THREE.LineSegments(geoCorna, matCorna));
-    // Cerva e cerbiatti: orecchie grandi al posto delle corna
-    else collo.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0.06, 0.22, 0.03), new THREE.Vector3(0.03, 0.29, 0.07), new THREE.Vector3(0.06, 0.22, -0.03), new THREE.Vector3(0.03, 0.29, -0.07),
-    ]), matCorna));
-    if (tipo === 'cerbiatto') {
+    if (cucciolo) {
       const macchie: number[] = [];
-      for (let q = 0; q < 8; q++) macchie.push(-0.12 + (q % 4) * 0.08, 0.375, (q < 4 ? 1 : -1) * 0.04);
+      for (let q = 0; q < 10; q++) macchie.push(-0.13 + (q % 5) * 0.06, 0.1, (q < 5 ? 1 : -1) * 0.035);
       const geoMacchie = new THREE.BufferGeometry();
       geoMacchie.setAttribute('position', new THREE.Float32BufferAttribute(macchie, 3));
-      cervo.add(new THREE.Points(geoMacchie, matMacchie));
+      corpo.add(new THREE.Points(geoMacchie, matMacchie));
     }
-    collo.add(pezzoCollo, testa);
-    const coda = pezzoCervo(new THREE.BoxGeometry(0.04, 0.05, 0.04));
-    coda.position.set(-0.19, 0.34, 0);
-    // Zampe: ognuna ruota intorno all'anca
-    const geoZampa = new THREE.BoxGeometry(0.035, 0.24, 0.035);
-    geoZampa.translate(0, -0.12, 0);
-    const zampe = [[0.13, 0.04], [0.13, -0.04], [-0.13, 0.04], [-0.13, -0.04]].map(([x, z]) => {
-      const zampa = pezzoCervo(geoZampa);
-      zampa.position.set(x!, 0.25, z!);
-      cervo.add(zampa);
-      return zampa;
+    // Collo e testa: il collo ruota all'attacco sul petto, la testa ruota in cima al collo
+    const collo = new THREE.Group();
+    collo.position.set(0.14, 0.07, 0);
+    collo.add(ovale(0.038, 0.11, 0.034, 0.045, 0.085, 0));
+    collo.children[0]!.rotation.z = -0.4;
+    const testa = new THREE.Group();
+    testa.position.set(0.085, 0.18, 0);
+    const muso = ovale(0.07, 0.036, 0.033, 0.045, -0.005, 0);
+    muso.rotation.z = -0.3;
+    testa.add(muso);
+    const orecchie = [1, -1].map(lato => {
+      const o = ovale(0.012, 0.038, 0.022, -0.005, 0.035, lato * 0.03);
+      o.rotation.x = lato * 0.6;
+      testa.add(o);
+      return o;
     });
-    cervo.add(corpo, collo, coda);
+    if (tipo === 'cervo') {
+      const corna: number[] = [];
+      for (const lato of [1, -1]) corna.push(
+        0.0, 0.03, lato * 0.02, -0.03, 0.12, lato * 0.07, -0.015, 0.075, lato * 0.045, 0.04, 0.1, lato * 0.06,
+        -0.03, 0.12, lato * 0.07, -0.08, 0.18, lato * 0.09, -0.03, 0.12, lato * 0.07, 0.0, 0.19, lato * 0.08,
+        -0.055, 0.15, lato * 0.08, -0.04, 0.21, lato * 0.1,
+      );
+      const geoCorna = new THREE.BufferGeometry();
+      geoCorna.setAttribute('position', new THREE.Float32BufferAttribute(corna, 3));
+      testa.add(new THREE.LineSegments(geoCorna, matCorna));
+    }
+    collo.add(testa);
+    const coda = ovale(0.02, 0.035, 0.018, -0.2, 0.06, 0);
+    coda.rotation.z = 0.5;
+    corpo.add(collo, coda);
+    cervo.add(corpo);
+    // Zampe: anca, coscia, ginocchio e stinco con lo zoccolo; ogni pezzo ruota intorno al suo attacco
+    const zampe = ZAMPE.map(q => {
+      const anca = new THREE.Group();
+      anca.position.set(q.x * snella, alto, q.z);
+      anca.add(ovale(0.026, 0.085, 0.024, 0, -0.075, 0));
+      const ginocchio = new THREE.Group();
+      ginocchio.position.y = -0.16 * lungaZampa;
+      ginocchio.add(ovale(0.012, 0.085 * lungaZampa, 0.012, 0, -0.08 * lungaZampa, 0), ovale(0.016, 0.012, 0.014, 0.004, -0.16 * lungaZampa, 0));
+      anca.add(ginocchio);
+      cervo.add(anca);
+      return { ...q, anca, ginocchio };
+    });
     cervo.scale.setScalar(MISURA[tipo]);
-    // Il cerbiatto ha le zampe lunghe rispetto al corpo
-    if (tipo === 'cerbiatto') zampe.forEach(z => { z.scale.y = 1.25; });
     cervo.visible = false;
     gruppo.add(cervo);
     const a = r() * Math.PI * 2, d = 2 + r() * 2.5;
-    return { tipo, cervo, collo, zampe, x: Math.cos(a) * d, z: Math.sin(a) * d, verso: r() * Math.PI * 2, meta: new THREE.Vector2(), passo: r() * 10, bruca: 0, lato: 0 };
+    return {
+      tipo, alto, cervo, corpo, collo, testa, orecchie, coda, zampe,
+      x: Math.cos(a) * d, z: Math.sin(a) * d, verso: r() * Math.PI * 2, giro: 0, vel: 0, passo: r(),
+      meta: new THREE.Vector2(), stato: 'cammina' as 'cammina' | 'bruca' | 'guarda', timer: 0, sguardo: 0,
+      lato: 0, orecchio: 0, scodinzolo: 0,
+    };
   };
   const cervi = (['cervo', 'cerva', 'cerbiatto', 'cerbiatto'] as const).map(nuovoCervo);
   const mamma = cervi[1]!;
-  // I cerbiatti partono vicino alla mamma, uno per lato
-  cervi.slice(2).forEach((v, i) => { v.lato = i ? -1 : 1; v.x = mamma.x + 0.3; v.z = mamma.z + v.lato * 0.3; });
   const nuovaMeta = (v: (typeof cervi)[number]) => {
     const a = r() * Math.PI * 2, d = 1.2 + Math.sqrt(r()) * 4.4;
     v.meta.set(Math.cos(a) * d, Math.sin(a) * d);
   };
   cervi.forEach(nuovaMeta);
+  // I cerbiatti partono vicino alla mamma, uno per lato
+  cervi.slice(2).forEach((v, i) => { v.lato = i ? -1 : 1; v.x = mamma.x - 0.25; v.z = mamma.z + v.lato * 0.25; v.verso = mamma.verso; });
+  const morbido = (da: number, a: number, k: number) => da + (a - da) * Math.min(1, k);
+  const angolo = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
   let primaCervi = -1;
 
   // Vista: dispone alberi e alberi guida per competenza o per progetto, poi fa ricrescere tutto da zero
@@ -471,43 +503,79 @@ export function monta(el: HTMLElement) {
       });
 
       // Cervi: arrivano quando il bosco è cresciuto
-      const dtCervi = primaCervi < 0 || t === 0 ? 0 : Math.min(0.05, (t - primaCervi) / 1000);
+      const dtc = primaCervi < 0 || t === 0 ? 0 : Math.min(0.05, (t - primaCervi) / 1000);
       primaCervi = t;
+      // Alberi visibili: i cervi li aggirano invece di attraversarli
+      const ostacoli = [...tutti.filter(x => x.albero.visible).map(x => x.albero.position), ...gruppiAttivi.map(g => g.base.position)];
       cervi.forEach(v => {
         v.cervo.visible = tempo > 2400;
-        // I cerbiatti seguono la mamma: la meta è un punto al suo fianco, un po' dietro
         const cucciolo = v.tipo === 'cerbiatto';
+        // I cerbiatti seguono la mamma: la meta è un punto al suo fianco, un po' dietro
         if (cucciolo) {
-          const dietro = mamma.verso + Math.PI + v.lato * 0.7;
-          v.meta.set(mamma.x + Math.cos(dietro) * 0.32, mamma.z - Math.sin(dietro) * 0.32);
-          if (v.bruca > 0 && Math.hypot(v.meta.x - v.x, v.meta.y - v.z) > 0.4) v.bruca = 0;
+          const dietro = mamma.verso + Math.PI + v.lato * 0.8;
+          v.meta.set(mamma.x + Math.cos(dietro) * 0.28, mamma.z - Math.sin(dietro) * 0.28);
         }
-        if (dtCervi > 0) {
-          if (v.bruca > 0) {
-            // Fermo a brucare: la testa scende, poi riparte verso una nuova meta
-            v.bruca -= dtCervi;
-            if (v.bruca <= 0 && !cucciolo) nuovaMeta(v);
-          } else {
-            const dx = v.meta.x - v.x, dz = v.meta.y - v.z, d = Math.hypot(dx, dz);
-            if (d < 0.15) v.bruca = cucciolo ? 0.8 + r() : 3 + r() * 4;
-            else {
-              // Gira piano verso la meta e cammina in avanti
-              const voluto = Math.atan2(-dz, dx);
-              v.verso += Math.atan2(Math.sin(voluto - v.verso), Math.cos(voluto - v.verso)) * Math.min(1, dtCervi * 1.5);
-              // I cerbiatti trotterellano più veloci quando restano indietro
-              const vel = cucciolo ? Math.min(0.55, 0.2 + d * 0.5) : v.tipo === 'cervo' ? 0.26 : 0.22;
-              v.x += Math.cos(v.verso) * vel * dtCervi;
-              v.z -= Math.sin(v.verso) * vel * dtCervi;
-              v.passo += dtCervi * (cucciolo ? 11 : 7) * (vel / 0.25);
+        const dx = v.meta.x - v.x, dz = v.meta.y - v.z, d = Math.hypot(dx, dz);
+        if (dtc > 0) {
+          // Stato: cammina verso la meta; arrivato, bruca o si guarda intorno; poi sceglie una nuova meta
+          if (v.stato === 'cammina' && d < (cucciolo ? 0.1 : 0.2)) {
+            v.stato = r() < 0.6 ? 'bruca' : 'guarda';
+            v.timer = cucciolo ? 1 + r() * 1.5 : 3 + r() * 4;
+            v.sguardo = (r() - 0.5) * 1.6;
+          } else if (v.stato !== 'cammina') {
+            v.timer -= dtc;
+            if (cucciolo && d > 0.3) v.stato = 'cammina';
+            else if (v.timer <= 0) {
+              if (!cucciolo && v.stato === 'bruca' && r() < 0.5) { v.stato = 'guarda'; v.timer = 1.5 + r() * 2; v.sguardo = (r() - 0.5) * 1.6; }
+              else { v.stato = 'cammina'; if (!cucciolo) nuovaMeta(v); }
             }
           }
+          // Velocità: cresce e cala piano; i cerbiatti trottano quando restano indietro
+          const voluta = v.stato !== 'cammina' ? 0 : cucciolo ? THREE.MathUtils.clamp(0.12 + d * 0.6, 0.12, 0.5) : v.tipo === 'cervo' ? 0.24 : 0.2;
+          v.vel = morbido(v.vel, voluta, dtc * 1.4);
+          // Direzione: verso la meta, lontano dagli alberi vicini; la virata accelera e rallenta piano
+          let hx = dx / (d || 1), hz = dz / (d || 1);
+          for (const o of ostacoli) {
+            const ox = v.x - o.x, oz = v.z - o.z, od = Math.hypot(ox, oz);
+            if (od < 0.5 && od > 1e-3) { hx += (ox / od) * (0.5 - od) * 3; hz += (oz / od) * (0.5 - od) * 3; }
+          }
+          const differenza = angolo(Math.atan2(-hz, hx) - v.verso);
+          v.giro = morbido(v.giro, v.vel > 0.02 ? THREE.MathUtils.clamp(differenza * 1.5, -0.9, 0.9) : 0, dtc * 2.5);
+          v.verso += v.giro * dtc;
+          v.x += Math.cos(v.verso) * v.vel * dtc;
+          v.z -= Math.sin(v.verso) * v.vel * dtc;
+          // Passo: avanza con la strada fatta, una falcata ogni 0.4 unità della taglia del cervo
+          v.passo += (v.vel * dtc) / (0.4 * MISURA[v.tipo]);
+          // Orecchie e coda: un piccolo scatto ogni tanto
+          if (r() < dtc * 0.4) v.orecchio = 1;
+          if (r() < dtc * 0.25) v.scodinzolo = 1;
+          v.orecchio = Math.max(0, v.orecchio - dtc * 3);
+          v.scodinzolo = Math.max(0, v.scodinzolo - dtc * 2.5);
         }
-        const cammina = v.bruca > 0 ? 0 : 1;
-        v.cervo.position.set(v.x, Math.abs(Math.sin(v.passo)) * 0.012 * cammina, v.z);
+        // Ampiezza del passo: zero da fermi, piena alla velocità di marcia
+        const amp = THREE.MathUtils.clamp(v.vel / 0.2, 0, 1.3);
+        const giro2 = Math.PI * 2 * v.passo;
+        v.cervo.position.set(v.x, 0, v.z);
         v.cervo.rotation.y = v.verso;
-        v.zampe.forEach((z, i) => { z.rotation.z = Math.sin(v.passo + (i === 0 || i === 3 ? 0 : Math.PI)) * 0.4 * cammina; });
-        // Collo: giù quando bruca, su e appena oscillante quando cammina
-        v.collo.rotation.z += ((v.bruca > 0 ? -1.15 : Math.sin(v.passo * 0.5) * 0.05) - v.collo.rotation.z) * Math.min(1, dtCervi * 3);
+        // Il corpo sale e scende due volte per passo, ondeggia di lato e si inclina appena in curva
+        v.corpo.position.y = v.alto + Math.sin(giro2 * 2) * 0.006 * amp;
+        v.corpo.rotation.x = Math.sin(giro2) * 0.025 * amp - v.giro * 0.08;
+        v.corpo.rotation.z = Math.sin(giro2 * 2 + 0.6) * 0.012 * amp;
+        v.zampe.forEach(z => {
+          const fase = Math.PI * 2 * (v.passo + z.fase);
+          // Anca: avanti e indietro. Ginocchio: si piega solo mentre la zampa torna avanti (fase di volo)
+          z.anca.rotation.z = Math.sin(fase) * 0.42 * amp;
+          const volo = Math.max(0, Math.cos(fase)) ** 1.5 * amp;
+          z.ginocchio.rotation.z = (z.davanti ? -1 : 1) * volo * 0.75;
+          z.anca.position.y = v.corpo.position.y;
+        });
+        // Collo e testa: giù per brucare, alti e girati quando si guarda intorno, con un piccolo cenno a ogni passo
+        const colloVoluto = v.stato === 'bruca' ? -1.05 : v.stato === 'guarda' ? 0.18 : Math.sin(giro2 * 2 + 0.4) * 0.07 * amp;
+        v.collo.rotation.z = morbido(v.collo.rotation.z, colloVoluto, dtc * 2.2);
+        v.testa.rotation.y = morbido(v.testa.rotation.y, v.stato === 'guarda' ? v.sguardo : 0, dtc * 1.8);
+        v.testa.rotation.z = morbido(v.testa.rotation.z, v.stato === 'bruca' ? -0.4 : 0, dtc * 2);
+        v.orecchie.forEach((o, n) => { o.rotation.z = Math.sin(t * 0.03 + n) * 0.5 * v.orecchio; });
+        v.coda.rotation.x = Math.sin(t * 0.04) * 0.6 * v.scodinzolo;
       });
 
       gruppo.updateMatrixWorld();

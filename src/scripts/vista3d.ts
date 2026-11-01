@@ -14,8 +14,7 @@ export interface DatiCompetenze { competenze: Competenza[]; progetti?: Progetto[
 // Un punto cliccabile della scena. famiglia: la competenza a cui appartiene.
 // base (facoltativa): con la base, il punto si tocca lungo tutto il segmento base-ancora (per esempio un albero intero).
 // spento: il punto non si vede e non si tocca (per esempio i pali dei progetti nella vista per competenza).
-// tono (facoltativo): colore della sezione per l'etichetta (verde, azzurro, arancio), per le scene con più sezioni.
-export interface Punto { id: string; label: string; href: string; hub: boolean; famiglia: string; ancora: THREE.Object3D; base?: THREE.Object3D; spento?: boolean; tono?: string }
+export interface Punto { id: string; label: string; href: string; hub: boolean; famiglia: string; ancora: THREE.Object3D; base?: THREE.Object3D; spento?: boolean }
 
 interface Opzioni {
   camera: THREE.Vector3;
@@ -23,9 +22,6 @@ interface Opzioni {
   inclinazione: [number, number];
   // Chiamata a ogni fotogramma: muove gli oggetti e li accende o spegne
   aggiorna: (t: number, acceso: (famiglia: string, id: string) => number) => void;
-  // Rotazione iniziale intorno all'asse verticale (0.4 se manca) e rotazione lenta automatica (sì se manca)
-  giro?: number;
-  ruotaDaSola?: boolean;
   // Clic che non prende nessun punto (per esempio un sasso lanciato nello stagno): riceve il raggio dalla camera
   clicVuoto?: (raggio: THREE.Raycaster) => void;
 }
@@ -52,14 +48,13 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     const s = document.createElement('span');
     s.className = `etichetta ${p.hub ? 'skill' : 'area'}`;
     s.textContent = p.label;
-    if (p.tono) s.dataset.tono = p.tono;
     s.style.opacity = '0';
     el.appendChild(s);
     return s;
   });
 
   const larghezze: number[] = [];
-  let w = 1, h = 1, rotY = o.giro ?? 0.4, rotX = o.inclinazione[0], fermo = 0;
+  let w = 1, h = 1, rotY = 0.4, rotX = o.inclinazione[0], fermo = 0;
   let sopra = -1, esterno = -1, ruota = false, mosso = 0;
   const giu = new THREE.Vector2(), ultimo = new THREE.Vector2();
   const vettore = new THREE.Vector3();
@@ -155,7 +150,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     // Una scena in una tab nascosta non consuma risorse
     if (el.offsetParent === null) { requestAnimationFrame(disegna); return; }
     const t = ridotto ? 0 : performance.now();
-    if (fermo > 0) fermo--; else if (!ruota && !ridotto && o.ruotaDaSola !== false) rotY += 0.0012;
+    if (fermo > 0) fermo--; else if (!ruota && !ridotto) rotY += 0.0012;
     gruppo.rotation.set(rotX, rotY, 0);
 
     const fuoco = sopra >= 0 ? sopra : esterno;

@@ -9,19 +9,10 @@ const PAGINE = [
   { nome: 'knowledge', href: '/knowledge/', nota: 'notes on papers, talks and books' },
   { nome: 'rss', href: '/rss.xml', nota: 'feed of the knowledge notes' },
 ];
-// Le tre sezioni, per le scene 3D (il tono è il colore della sezione)
-const SEZIONI = [
-  { id: 'software', label: 'SW engineering', href: '/software/', tono: 'verde' },
-  { id: 'advisory', label: 'Advisory', href: '/advisory/', tono: 'azzurro' },
-  { id: 'knowledge', label: 'Knowledge', href: '/knowledge/', tono: 'arancio' },
-];
 const BIO = 'I help organisations adopt AI, and I build the tools that make it work: from research to code.';
 ---
 <Base title="About · Riccardo Mondi" description="Riccardo Mondi: AI advisor and developer at Politecnico di Milano." largo>
   <canvas class="scena" aria-hidden="true"></canvas>
-  <!-- Scene 3D: il contenitore fisso copre lo schermo; la scena sta dentro, così la vista 3D sa quando è visibile -->
-  <div class="fondo3d" data-fondo="mare" hidden><div class="scena3d" aria-hidden="true"></div></div>
-  <script type="application/json" id="dati-3d" set:html={JSON.stringify({ sezioni: SEZIONI })}></script>
   <main class="about">
     <p class="mono">~/about</p>
     <h1>Riccardo Mondi</h1>
@@ -44,7 +35,6 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
         <span>background</span>
         <button type="button" data-scena="vita">life</button>
         <button type="button" data-scena="onde">waves</button>
-        <button type="button" data-scena="mare">beach</button>
       </p>
       <p class="spiega"></p>
     </div>
@@ -58,23 +48,10 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
   const spiega = document.querySelector<HTMLElement>('.spiega')!;
   const bottoni = document.querySelectorAll<HTMLButtonElement>('[data-scena]');
 
-  // Scene 3D: ognuna si monta una volta sola; fermarla vuol dire nasconderla (la vista 3D non disegna quando è nascosta)
-  const dati3d = JSON.parse(document.getElementById('dati-3d')!.textContent!);
-  const montate = new Set<string>();
-  const scena3d = (nome: string, monta: (el: HTMLElement) => Promise<void>) => async (): Promise<Scena> => {
-    const fondo = document.querySelector<HTMLElement>(`[data-fondo="${nome}"]`)!;
-    tela.hidden = true;
-    fondo.hidden = false;
-    if (!montate.has(nome)) { montate.add(nome); await monta(fondo.querySelector<HTMLElement>('.scena3d')!); }
-    return { ferma() { fondo.hidden = true; tela.hidden = false; } };
-  };
-  const montaMare = scena3d('mare', async el => (await import('../../scripts/mare')).monta(el, dati3d.sezioni));
-
   // Ogni scena si carica solo quando serve
   const SCENE: Record<string, { aiuto: string; monta: () => Promise<Scena> }> = {
     vita: { aiuto: "Conway's game of life · move the mouse to seed cells · click for a burst", monta: async () => (await import('../../scripts/vita')).monta(tela) },
     onde: { aiuto: 'the shore seen from above · move the mouse to make ripples · click for a splash', monta: async () => (await import('../../scripts/onde')).monta(tela) },
-    mare: { aiuto: 'a small beach: a hermit crab, a starfish and a shell · click one to open its section · drag to rotate', monta: montaMare },
   };
 
   let attuale: Scena | null = null, richiesta = 0;
@@ -121,22 +98,11 @@ const BIO = 'I help organisations adopt AI, and I build the tools that make it w
   /* Testo leggibile anche quando la scena ci passa sotto */
   .about > * { text-shadow: 0 0 6px var(--bg), 0 0 12px var(--bg); }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
-  .scena[hidden], .fondo3d[hidden] { display: none; }
-  .fondo3d { position: fixed; inset: 0; z-index: 0; }
-  .scena3d { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; }
-  .scena3d:active { cursor: grabbing; }
-  /* Etichette delle scene 3D: come nelle scene di bosco e laghetto, nel colore della loro sezione */
-  .scena3d :global(.etichetta) {
-    position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;
-    padding: 1px 5px; font-family: var(--mono); font-size: 11px; color: var(--accent);
-    background: color-mix(in srgb, var(--bg) 78%, transparent); transition: opacity .15s;
-  }
-  .scena3d :global(.etichetta.attiva) { color: var(--bg); background: var(--accent); padding: 2px 7px; z-index: 2; }
   @media (max-width: 640px) {
     h1 { font-size: 33px; }
     /* Sul telefono la scena non sta dietro al testo: occupa una fascia in alto, che scorre via con la pagina.
-       Così il testo resta leggibile, i link si toccano e la pagina scorre anche dove c'è la scena 3D */
-    .scena, .fondo3d { position: absolute; top: 0; left: 0; right: 0; bottom: auto; width: 100%; height: 46vh; }
+       Così il testo resta leggibile e i link si toccano */
+    .scena { position: absolute; top: 0; left: 0; right: 0; bottom: auto; width: 100%; height: 46vh; }
     .about { padding-top: 40vh; min-height: 0; justify-content: flex-start; }
     .about > * { text-shadow: none; }
   }
