@@ -77,6 +77,11 @@ const build = new Date().toISOString().slice(0, 10);
 </html>
 
 <style is:global>
+  /* Cambio di pagina in dissolvenza (nei browser che lo supportano; altrove il cambio resta normale) */
+  @media (prefers-reduced-motion: no-preference) {
+    @view-transition { navigation: auto; }
+    ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .4s; animation-timing-function: ease; }
+  }
   /* Tema scuro (base) e tema chiaro. I tre colori delle sezioni cambiano col tema, per restare leggibili sul fondo. */
   :root {
     --bg: #0a0b0d;

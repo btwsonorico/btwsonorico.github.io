@@ -194,7 +194,17 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
   // altrimenti (per esempio nella home) va alla pagina dell'argomento
   function apri(p: Punto) {
     const voce = document.querySelector<HTMLElement>(`.competenze [data-id="${p.id}"]`);
-    if (!voce) { window.location.href = p.href; return; }
+    if (!voce) {
+      if (ridotto) { window.location.href = p.href; return; }
+      // Passaggio morbido alla pagina: la camera si avvicina al punto mentre la scena sfuma, poi la pagina cambia
+      zoomSu(p.id);
+      el.style.transition = 'opacity .5s ease';
+      el.style.opacity = '0';
+      setTimeout(() => { window.location.href = p.href; }, 480);
+      // Tornando indietro col browser la pagina riappare intatta: la scena torna visibile
+      window.addEventListener('pageshow', () => { el.style.opacity = ''; zoomSu(null); }, { once: true });
+      return;
+    }
     for (let d = voce.closest('details'); d; d = d.parentElement?.closest('details') ?? null) d.open = true;
     voce.scrollIntoView({ block: 'center', behavior: ridotto ? 'auto' : 'smooth' });
     voce.classList.remove('lampo');

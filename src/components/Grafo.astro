@@ -42,8 +42,18 @@ const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props
   setTimeout(montaScene, 30);
   document.querySelectorAll<HTMLElement>('.grafo').forEach(fig => {
     fig.querySelectorAll<HTMLButtonElement>('[data-mostra]').forEach(b => b.addEventListener('click', () => {
-      fig.querySelectorAll<HTMLElement>('[data-vista]').forEach(el => { el.hidden = el.dataset.vista !== b.dataset.mostra; montaScena(el); });
       fig.querySelectorAll('[data-mostra]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      // Dissolvenza: la vista attuale sfuma, poi entra l'altra
+      const scene = [...fig.querySelectorAll<HTMLElement>('[data-vista]')];
+      scene.forEach(el => { if (!el.hidden) el.style.opacity = '0'; });
+      setTimeout(() => {
+        scene.forEach(el => {
+          el.hidden = el.dataset.vista !== b.dataset.mostra;
+          el.style.opacity = '0';
+          montaScena(el);
+        });
+        requestAnimationFrame(() => requestAnimationFrame(() => scene.forEach(el => { el.style.opacity = ''; })));
+      }, 220);
     }));
     // Cambio di modo: la scena riceve "scena:modo" e si ridispone
     fig.querySelectorAll<HTMLButtonElement>('[data-modo]').forEach(b => b.addEventListener('click', () => {
@@ -55,7 +65,7 @@ const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props
 
 <style>
   .grafo { margin: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-  .scena { position: relative; height: var(--altezza-grafo, 440px); touch-action: none; cursor: grab; overflow: hidden; }
+  .scena { position: relative; height: var(--altezza-grafo, 440px); touch-action: none; cursor: grab; overflow: hidden; transition: opacity .22s ease; }
   .scena[hidden] { display: none; }
   .scena:active { cursor: grabbing; }
   figcaption { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 10px 0; }
