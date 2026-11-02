@@ -4,44 +4,34 @@ import Base from '../../layouts/Base.astro';
 // Rete neurale: la facciata è lo strumento (a sinistra costruisci, alleni e leggi; a destra la griglia), le spiegazioni brevi
 // sono tag che appaiono sul punto, e scorrendo sotto c'è la spiegazione completa. La rete si allena nel browser (src/lib/rete.ts)
 const COME: [string, string[]][] = [
-  ['What is this, exactly?', [
-    'A real neural network, only a small one. It reads the position of a point on the grid and answers with one number: the height of the grid at that point. The blue outline shows what the height should look like. Nobody explains the fish to the network. It sees the right answer for 1,024 points, and it has to work out the rest by itself.',
+  ['What is this?', [
+    'A small neural network that runs in your browser. It takes the position of a point on the grid and returns one number, the height of the grid at that point. During training it sees the correct height of 1,024 points, and the blue outline shows the shape they form.',
+    'It is simplified in a couple of ways. It is measured on the same points it trained on, while a real model has to handle data it has never seen. The learning rate and the other settings are also fixed for you, while in practice they take a lot of trial and error.',
   ]],
   ['What does one neuron do?', [
-    'Very little. It multiplies each input by a weight, adds the results, and squashes the sum between two limits. On this grid, that makes one straight cut: high on one side, low on the other. Start with no layers and drag the white squares. You are setting the weights by hand, and you will see that one cut cannot cover a fish.',
+    'It multiplies each input by a weight, adds the results and squashes the total between two limits. On this grid that gives one straight cut, high on one side and low on the other. With no layers you can set the weights yourself by dragging the white squares, and you will see that one cut cannot cover the fish.',
   ]],
-  ['Why do more neurons help?', [
-    'Each neuron in a layer makes its own cut, and the next neuron adds them up with its own weights. Added together, straight cuts become rounded blobs. Hover a square to see what that neuron sees, and which neurons it reads from.',
-  ]],
-  ['Why add layers, then?', [
-    'A neuron in a second layer does not read the position. It reads the cuts of the layer before, so it builds with finished pieces: corners, strips, plateaus. That is why the same effort often goes further in depth. On the fish, one layer of 6 neurons stops near 70%, two reach about 90%, and three go past 95%. Train them and compare the lines.',
+  ['What do more neurons and layers add?', [
+    'Each neuron in a layer makes its own cut, and the next layer adds them up, so straight cuts turn into rounded shapes. A neuron in a second layer reads those cuts instead of the position, which lets it combine them into corners and strips.',
+    'On the fish, one layer of 6 neurons stops near 70%, two reach about 90% and three go past 95%. Hover over a square to see what that neuron responds to and which neurons it reads from.',
   ]],
   ['How does it learn?', [
-    'It repeats one loop, hundreds of times a second. It tries some points and compares its answers with the right heights: that gap is the error. Backpropagation sends the error back through the network, and works out how much each weight is responsible. Gradient descent then moves every weight a little, in the direction that lowers the error.',
-    'One correction means almost nothing. Thousands of them draw a fish. Press one step to watch a single round, slowly.',
+    'Training repeats the same loop hundreds of times a second. The network answers for a group of points, and the difference from the correct heights is the error. Backpropagation works out how much each weight contributed to that error, and gradient descent moves each weight slightly to reduce it.',
+    'A single correction changes very little, so it takes thousands of them. Press one step to see one round slowly.',
   ]],
   ['What do the colours mean?', [
-    'In a square, orange is where that neuron answers high, and dark is where it answers low. On the lines, orange weights push up and blue weights push down, and a thick line counts more. The blue outline is the goal.',
+    'In a square, orange is where that neuron answers high and dark is where it answers low. On the lines, orange weights push up, blue weights push down, and thicker lines count more. The blue outline is the shape to reach.',
   ]],
 ];
 const GRANDI: [string, string[]][] = [
-  ['The loop is the same', [
-    'A model that writes text or makes images is trained with the moves you just saw: try, measure the error, send it back, correct the weights. It has billions of weights instead of about a hundred, but each one is still a number that gets nudged a little at a time.',
+  ['The same training loop', [
+    'Models that write text or generate images are trained in much the same way: they answer, measure the error, send it back and adjust the weights. They have billions of weights instead of about 150. Language models also use attention, which lets each word weigh the other words, but it is made of weights too and trained with the same loop.',
   ]],
-  ['Size buys ability, and it costs', [
-    'Here, more neurons add detail for a few more seconds of waiting. In a large model, every weight also costs computing power, memory and energy. That is why training takes weeks on huge machines, and why making a model bigger is a real decision.',
+  ['More weights cost more', [
+    'Here, adding neurons costs a few extra seconds. In a large model each weight also uses computing power, memory and energy, so training can take weeks on very large machines, and making a model bigger is an expensive decision.',
   ]],
-  ['Depth still builds pieces out of pieces', [
-    'The idea of the second layer scales up. In image models, early layers tend to respond to edges, and later layers to textures and objects. Nobody programs those pieces: they appear during training, as your corners do.',
-  ]],
-  ['The black box is mostly a matter of dimensions', [
-    'A large model does not read x and y. It turns words or pixels into long lists of numbers, so its cuts happen in a space with thousands of dimensions. Here you can look at what each neuron sees. There, there is no grid to look at, and a single neuron rarely means one clear thing. The mathematics is the same; the view is gone.',
-  ]],
-  ['Every run is a little different', [
-    'Press restart and train again: same network, different start, slightly different result. Large models behave the same way, which is why their builders run many trials and compare the curves, as you can in the chart.',
-  ]],
-  ['What this page leaves out', [
-    'Three big things. This network is judged on the same points it trained on, while a real model must answer things it has never seen, and it can fail by memorising instead of learning. Here the learning rate and the other settings are chosen for you, while in practice finding them takes many experiments. And modern language models add attention, a way for each word to choose which other words to read. It is made of weights too, and trained with the same loop.',
+  ['Why large models are hard to read', [
+    'A large model does not take x and y as input. It turns words or pixels into long lists of numbers, so its cuts happen in thousands of dimensions. There is no grid to look at, and a single neuron rarely has one clear meaning, which is a large part of why these models are called black boxes.',
   ]],
 ];
 ---
