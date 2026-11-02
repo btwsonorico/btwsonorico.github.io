@@ -64,7 +64,8 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   };
 
   // --- Pale eoliche sulle cime: torre sottile, gondola, tre pale lunghe
-  const eoliche = ([[3.3, -4], [5.2, 1.4], [-4.9, 3.6], [6.6, -1.6], [-4, -3.6], [0.3, -6.4]] as const).map(([x, z], k) => {
+  const POSTI_PALE = [[3.3, -4], [5.2, 1.4], [-4.9, 3.6], [6.6, -1.6], [-4, -3.6], [0.3, -6.4]] as const;
+  const eoliche = POSTI_PALE.map(([x, z], k) => {
     const o = new THREE.Group(), bianco = mat('#e8e6e0', { opacity: 0.25 });
     o.add(pezzo(new THREE.CylinderGeometry(0.02, 0.045, 1.4, 6), bianco, 0, 0.7, 0));
     o.add(pezzo(new THREE.BoxGeometry(0.12, 0.06, 0.06), bianco, 0, 1.42, 0));
@@ -420,6 +421,19 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   const geoPallone = new THREE.LatheGeometry(profilo, 12);
   const spicchi = new THREE.EdgesGeometry(geoPallone, 20);
   const GRANDE = 0.95, ACCESA = 1.12;
+  // Quota minima di un pallone in questo punto: la cesta resta sopra le colline e gli alberi, anche sotto tutta la sua
+  // larghezza, e vicino a una pala sale piano oltre la sua cima. Così non può mai incastrarsi nel terreno
+  const SOPRA_COLLE = 1.75, SOPRA_PALA = 3.1;
+  const quotaMinima = (x: number, z: number) => {
+    let suolo = altezza(x, z);
+    for (let k = 0; k < 8; k++) suolo = Math.max(suolo, altezza(x + Math.cos(k * 0.785) * 0.5, z + Math.sin(k * 0.785) * 0.5));
+    let quota = suolo + SOPRA_COLLE;
+    for (const [px, pz] of POSTI_PALE) {
+      const vicino = 1 - THREE.MathUtils.smoothstep(Math.hypot(x - px, z - pz), 0.6, 1.6);
+      if (vicino > 0) quota = Math.max(quota, quota + (altezza(px, pz) + SOPRA_PALA - quota) * vicino);
+    }
+    return quota;
+  };
   const mongolfiere = (['#e08a3a', '#5fb6d9', '#6fa646'] as const).slice(0, risorse.length).map((tinta, k) => {
     const o = new THREE.Group(), colore = tono(tinta);
     o.add(new THREE.Mesh(geoPallone, new THREE.MeshBasicMaterial({ color: colore })));
@@ -433,7 +447,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     o.scale.setScalar(GRANDE);
     g.add(o);
     const y = [3.2, 2.5, 3.7][k]!;
-    return { o, fiamma, cx: [-0.8, 3.4, -2.6][k]!, cz: [-1.4, -3.2, -3][k]!, y, fase: k * 2.1, quota: y, aDestra: k > 0 };
+    return { o, fiamma, cx: [-0.8, 2.8, -2.6][k]!, cz: [-1.4, -1.6, -3][k]!, y, fase: k * 2.1, quota: y, aDestra: k > 0 };
   });
   // Nome di ogni mongolfiera: un link vero, che segue il pallone sullo schermo
   const nomi = mongolfiere.map((_, k) => {
@@ -624,8 +638,9 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     mongolfiere.forEach((m, k) => {
       const voluta = m.y + Math.sin(s * 0.1 + m.fase) * 0.5, prima = m.quota;
       m.quota = morbido(m.quota, voluta, dt * 0.3);
-      const a = s * 0.02 + m.fase;
-      m.o.position.set(m.cx + Math.sin(a) * 2, m.quota, m.cz + Math.cos(a * 0.8) * 1.3);
+      const a = s * 0.02 + m.fase, posX = m.cx + Math.sin(a) * 2, posZ = m.cz + Math.cos(a * 0.8) * 1.3;
+      m.quota = Math.max(m.quota, quotaMinima(posX, posZ));
+      m.o.position.set(posX, m.quota, posZ);
       m.o.rotation.y += dt * 0.04;
       m.o.scale.setScalar(morbido(m.o.scale.x, k === acceso ? ACCESA : GRANDE, dt * 8));
       // Il nome sta a lato del pallone, verso l'esterno dello schermo, così i due nomi non si coprono; non esce mai dai bordi

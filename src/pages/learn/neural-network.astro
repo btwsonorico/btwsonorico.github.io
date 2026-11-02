@@ -1,104 +1,62 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// Rete neurale: una pagina che si legge dall'alto, un concetto per capitolo. La rete è vera e si allena nel browser (src/lib/rete.ts)
+// Rete neurale: una sola scena e cinque passi, tutto in una schermata. La rete è vera e si allena nel browser (src/lib/rete.ts)
+const PASSI = ['One neuron', 'More neurons', 'Layers', 'Learning', 'Your turn'];
 ---
 <Base title="Neural network · Riccardo Mondi" description="Add neurons one at a time and watch a small neural network learn to draw, in your browser." largo>
   <main class="rn" data-rete>
     <p class="mono via"><a href="/">~</a>/<a href="/learn/">learn</a>/neural-network</p>
     <h1>How does a neural network learn to draw?</h1>
-    <p class="testo">This is a real neural network, running in your browser. It is also a simplified one: it reads a position on a grid and answers with one number, a height. Its goal is to raise the shape of a fish out of a flat grid, drawn here in blue.</p>
+    <nav class="mono passi" aria-label="Steps">
+      {PASSI.map((p, k) => <button type="button">{k + 1} {p}</button>)}
+    </nav>
 
-    <section class="capitolo" data-capitolo="uno" data-invito="">
-      <h2 class="mono">1 · One neuron</h2>
-      <p class="testo">A neuron multiplies each input by a weight, adds the results, and squashes the sum between 0 and 1. On our grid, that makes one straight step. Move the two squares and try to cover the fish. One step is all that a neuron can make.</p>
-      <div class="scena">
-        <canvas class="tela-rete" role="img" aria-label="One neuron with two inputs, x and y"></canvas>
-        <canvas class="tela-terreno" role="img" aria-label="A wire grid with one straight step, and two squares that move it"></canvas>
-      </div>
-      <p class="mono comandi"><span class="lettura"></span></p>
-      <p class="mono dettaglio"></p>
-    </section>
+    <section class="banco" aria-live="off">
+      <canvas class="tela-rete" role="img" aria-label="The network: inputs on the left, output on the right. Each line is a weight."></canvas>
+      <canvas class="tela-terreno" role="img" aria-label="A wire grid. Its height is the answer of the network, and the blue outline is the shape to reach."></canvas>
 
-    <section class="capitolo" data-capitolo="neuroni">
-      <h2 class="mono">2 · More neurons</h2>
-      <p class="testo">Now each neuron makes its own step, and the last neuron adds them up. The sum is no longer straight: it starts to look like a shape. Add neurons one at a time. Each one trains together with the others.</p>
-      <div class="scena">
-        <canvas class="tela-rete" role="img" aria-label="Network with one layer of neurons"></canvas>
-        <canvas class="tela-terreno" role="img" aria-label="A wire grid where the shape rises as you add neurons"></canvas>
-      </div>
-      <p class="mono comandi">
-        <button type="button" class="meno" aria-label="Remove a neuron" disabled>−</button>
-        <span class="numero">1</span>
-        <button type="button" class="piu primo" aria-label="Add a neuron">+ neuron</button>
+      <!-- La linea di performance: sempre visibile, sotto la rete -->
+      <div class="mono andamento">
         <span class="lettura"></span>
-      </p>
-      <p class="mono dettaglio"></p>
-    </section>
-
-    <section class="capitolo" data-capitolo="strati">
-      <h2 class="mono">3 · Layers</h2>
-      <p class="testo">Same number of neurons, in a different order. A neuron in a second layer does not read the position: it reads the steps of the first layer, and combines them into corners and plateaus. Add a layer and compare the match. Then hover a neuron in the last layer: it is no longer a straight step.</p>
-      <div class="scena">
-        <canvas class="tela-rete" role="img" aria-label="Network with sixteen neurons arranged in layers"></canvas>
-        <canvas class="tela-terreno" role="img" aria-label="A wire grid with the shape made by the network"></canvas>
+        <span class="errore"></span>
+        <canvas class="curva" role="img" aria-label="How well the shape matches, over time"></canvas>
       </div>
-      <p class="mono comandi">
-        <button type="button" class="meno" aria-label="Remove a layer" disabled>−</button>
-        <span class="numero">16 neurons in 1 layer</span>
-        <button type="button" class="piu primo" aria-label="Add a layer">+ layer</button>
-        <span class="lettura"></span>
-      </p>
-      <p class="mono dettaglio"></p>
-    </section>
 
-    <section class="capitolo" data-capitolo="impara">
-      <h2 class="mono">4 · How it learns</h2>
-      <p class="testo">Nobody sets those weights by hand. The network starts at random and repeats three moves: it tries a point, compares the answer with the right one, and corrects its weights a little. Press step to see one correction, slowly. Press play to see thousands.</p>
-      <div class="scena">
-        <canvas class="tela-rete" role="img" aria-label="Network with values that travel forward and corrections that travel back"></canvas>
-        <canvas class="tela-terreno" role="img" aria-label="A wire grid that goes from random to the shape of the fish"></canvas>
+      <div class="testo">
+        <p class="frase" aria-live="polite"></p>
+        <p class="mono dettaglio"></p>
+        <div class="mono comandi">
+          <button type="button" class="gioca primo">play</button>
+          <button type="button" class="un-passo">step</button>
+          <button type="button" class="azzera">restart</button>
+          <div class="gruppo" data-comandi="1" hidden>
+            <button type="button" class="meno" aria-label="Remove a neuron">−</button>
+            <span class="numero"></span>
+            <button type="button" class="piu" aria-label="Add a neuron">+ neuron</button>
+          </div>
+          <div class="gruppo" data-comandi="2" hidden>
+            <button type="button" class="meno" aria-label="Remove a layer">−</button>
+            <span class="numero"></span>
+            <button type="button" class="piu" aria-label="Add a layer">+ layer</button>
+          </div>
+          <div class="gruppo" data-comandi="4" hidden>
+            <button type="button" data-sagoma="fish">fish</button>
+            <button type="button" data-sagoma="bird">bird</button>
+            <button type="button" class="matita">draw your own</button>
+            <button type="button" class="pulisci" hidden>clear</button>
+            <span class="etichetta-c">layers</span>
+            <button type="button" class="strati-meno" aria-label="Remove a layer">−</button><span class="strati-n"></span><button type="button" class="strati-piu" aria-label="Add a layer">+</button>
+            <span class="etichetta-c">neurons</span>
+            <button type="button" class="neuroni-meno" aria-label="Remove a neuron from each layer">−</button><span class="neuroni-n"></span><button type="button" class="neuroni-piu" aria-label="Add a neuron to each layer">+</button>
+          </div>
+          <span class="fasi" aria-hidden="true" hidden><span>1 try</span><span>2 error</span><span>3 backpropagation</span></span>
+          <button type="button" class="dopo primo">next →</button>
+        </div>
       </div>
-      <p class="mono comandi">
-        <button type="button" class="gioca primo">play</button>
-        <button type="button" class="un-passo">step</button>
-        <button type="button" class="azzera">restart</button>
-        <span class="fasi" aria-hidden="true"><span>1 try</span><span>2 compare</span><span>3 correct</span></span>
-        <span class="lettura"></span>
-      </p>
-      <p class="mono dettaglio"></p>
-      <div class="mono andamento"><span class="errore"></span><canvas class="curva" role="img" aria-label="The error over time"></canvas></div>
-      <p class="testo nota-termini">The two names you will hear: sending the error back through the network is <em>backpropagation</em>. Moving each weight in the direction that lowers the error is <em>gradient descent</em>.</p>
     </section>
 
-    <section class="capitolo" data-capitolo="libero">
-      <h2 class="mono">5 · Your turn</h2>
-      <p class="testo">Pick a shape or draw your own, then build the network. Thin shapes and corners need more neurons. Drag the grid to turn it.</p>
-      <div class="scena">
-        <canvas class="tela-rete" role="img" aria-label="The network you built"></canvas>
-        <canvas class="tela-terreno" role="img" aria-label="A wire grid with the shape you chose"></canvas>
-      </div>
-      <p class="mono comandi">
-        <button type="button" data-sagoma="fish">fish</button>
-        <button type="button" data-sagoma="fir">fir</button>
-        <button type="button" data-sagoma="bird">bird</button>
-        <button type="button" class="matita">draw your own</button>
-        <button type="button" class="pulisci" hidden>clear</button>
-      </p>
-      <p class="mono comandi">
-        <span class="etichetta-c">layers</span>
-        <button type="button" class="strati-meno" aria-label="Remove a layer">−</button><span class="strati-n"></span><button type="button" class="strati-piu" aria-label="Add a layer">+</button>
-        <span class="etichetta-c">neurons per layer</span>
-        <button type="button" class="neuroni-meno" aria-label="Remove a neuron from each layer">−</button><span class="neuroni-n"></span><button type="button" class="neuroni-piu" aria-label="Add a neuron to each layer">+</button>
-        <span class="lettura"></span>
-      </p>
-      <p class="mono dettaglio"></p>
-    </section>
-
-    <section class="capitolo chiusura">
-      <h2 class="mono">What is simplified</h2>
-      <p class="testo">This network has two inputs and at most a few dozen neurons, and it trains on one shape. A large model reads text or images, has billions of weights, and trains for weeks on huge machines. The moves are the same: weighted sums, steps, layers, an error, and small corrections.</p>
-    </section>
+    <p class="mono nota">Real training, in your browser. Simplified: two inputs and a few neurons; a large model has billions of weights, with the same moves.</p>
   </main>
 </Base>
 
@@ -108,48 +66,54 @@ import Base from '../../layouts/Base.astro';
 </script>
 
 <style>
-  .rn { max-width: 1040px; padding-top: var(--s1); }
+  .rn { max-width: 1120px; padding-top: 0; padding-bottom: var(--s1); }
   .via { margin: 0; }
   .via a { color: inherit; }
-  h1 { margin: var(--s1) 0 var(--s2); font-size: 33px; font-weight: 400; line-height: 1.1; }
-  .testo { max-width: 660px; margin: 0 0 var(--s2); font-size: 14px; line-height: 1.7; }
-  .testo em { font-style: normal; color: var(--arancio); }
-  .capitolo { padding: var(--s4) 0 var(--s2); }
-  .capitolo h2 { margin: 0 0 var(--s1); font-weight: 400; color: var(--muted); font-size: 13px; }
-  .scena { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); gap: var(--s2); align-items: stretch; }
-  .tela-rete, .tela-terreno { display: block; width: 100%; height: 400px; touch-action: pan-y; }
-  .tela-terreno { cursor: grab; }
-  .tela-terreno:active { cursor: grabbing; }
+  h1 { margin: 2px 0 var(--s1); font-size: 24px; font-weight: 400; line-height: 1.15; }
   button { padding: 1px 8px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
   button:hover:not(:disabled) { color: var(--fg); border-color: var(--muted); }
   button:disabled { opacity: .4; cursor: default; }
   button[hidden] { display: none; }
-  button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
+  button[aria-pressed="true"], button[aria-current="step"] { border-color: var(--fg); color: var(--fg); }
   .primo { border-color: var(--fg); color: var(--fg); }
   .primo:hover:not(:disabled) { background: var(--fg); color: var(--bg); }
-  .comandi { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: var(--s1) 0 0; color: var(--fg); }
-  .lettura { margin-left: auto; font-size: 15px; color: var(--fg); }
-  .etichetta-c { color: var(--muted); }
-  .etichetta-c:not(:first-child) { margin-left: var(--s1); }
-  .dettaglio { min-height: 34px; margin: var(--s1) 0 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-  .fasi { display: inline-flex; gap: 4px; margin-left: var(--s1); }
+  .passi { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--s1); }
+  /* Rete e griglia riempiono lo spazio che resta nella finestra: la pagina non deve scorrere */
+  .banco { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.75fr); grid-template-areas: "rete terreno" "andamento terreno" "testo testo"; grid-template-rows: auto auto auto; gap: var(--s1) var(--s2); --alto: clamp(280px, calc(100vh - 350px), 580px); }
+  .tela-rete { grid-area: rete; }
+  .tela-terreno { grid-area: terreno; cursor: grab; }
+  .tela-terreno:active { cursor: grabbing; }
+  .tela-rete, .tela-terreno { display: block; width: 100%; touch-action: pan-y; }
+  .tela-terreno { height: calc(var(--alto) + var(--s1)); }
+  .tela-rete { height: calc(var(--alto) - 74px); }
+  .andamento { grid-area: andamento; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 var(--s1); height: 74px; border-top: 1px solid var(--line); padding-top: 4px; }
+  .testo { grid-area: testo; }
+  .frase { max-width: 860px; min-height: 44px; margin: 0; font-size: 14px; line-height: 1.55; }
+  .dettaglio { min-height: 18px; margin: 4px 0 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+  .comandi { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; min-height: 28px; margin-top: 6px; color: var(--fg); }
+  .gruppo { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; min-width: 0; }
+  .dopo { margin-left: auto; }
+  .gruppo[hidden] { display: none; }
+  .lettura { font-size: 15px; color: var(--fg); white-space: nowrap; }
+  .etichetta-c { margin-left: var(--s1); color: var(--muted); }
+  .fasi { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+  .fasi[hidden] { display: none; }
   .fasi span { padding: 1px 6px; border: 1px solid transparent; color: var(--muted); opacity: .6; }
   .fasi span.accesa { opacity: 1; border-color: var(--fg); color: var(--fg); }
-  .andamento { display: flex; flex-wrap: wrap; gap: 4px var(--s2); align-items: center; margin-bottom: var(--s2); color: var(--muted); }
-  .curva { flex: 1 1 200px; min-width: 160px; height: 34px; border-bottom: 1px solid var(--line); }
-  .nota-termini { color: var(--muted); }
-  .chiusura { padding-bottom: 0; }
+  .errore { color: var(--muted); white-space: nowrap; }
+  .curva { display: block; flex: 1 0 100%; width: 100%; height: 44px; border-bottom: 1px solid var(--line); }
+  .nota { max-width: 860px; margin: var(--s1) 0 0; font-size: 10px; }
+  :global(.piede) { padding-top: 0; padding-bottom: var(--s1); }
   @media (max-width: 760px) {
-    /* Su telefono prima la griglia: è quella che cambia quando tocchi i comandi */
-    .scena { grid-template-columns: minmax(0, 1fr); }
-    .tela-terreno { order: -1; height: 300px; }
-    .tela-rete { height: 230px; }
+    /* Su telefono prima la griglia, poi la frase e il comando; la rete subito sotto */
+    .banco { grid-template-columns: minmax(0, 1fr); grid-template-areas: "terreno" "andamento" "testo" "rete"; }
+    .tela-terreno { height: 280px; }
+    .tela-rete { height: 220px; }
+    .frase { min-height: 0; }
   }
   @media (max-width: 640px) {
-    h1 { font-size: 24px; }
-    .capitolo { padding-top: var(--s3); }
-    button { padding: 6px 12px; }
-    .lettura { margin-left: 0; width: 100%; }
-    .fasi { width: 100%; margin-left: 0; }
+    h1 { font-size: 20px; }
+    button { padding: 5px 9px; }
+    .etichetta-c { margin-left: 0; }
   }
 </style>
