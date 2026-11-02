@@ -14,6 +14,7 @@ import Base from '../../layouts/Base.astro';
     <p class="mono scelte" role="group" aria-label="Experiment">
       <button type="button" data-scena="nuvole">valley</button>
       <button type="button" data-scena="barriera">reef</button>
+      <a class="pagina" href="/misc/glossary/">glossary</a>
     </p>
     <!-- Color editor: i tre toni chiave della scena 3D aperta; la scelta resta in questo browser -->
     <p class="mono toni" hidden>
@@ -104,6 +105,9 @@ import Base from '../../layouts/Base.astro';
   .scelte { display: flex; flex-wrap: wrap; gap: 6px var(--s2); align-items: center; }
   .scelte button { padding: 0 6px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
   .scelte button:hover { color: var(--fg); }
+  /* Il glossario è una pagina, non una scena: stesso aspetto dei bottoni */
+  .scelte .pagina { padding: 0 6px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); text-decoration: none; }
+  .scelte .pagina:hover { color: var(--fg); }
   .scelte button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
   /* Color editor: tre quadratini di colore col loro nome, e il bottone per tornare ai colori di partenza */
   .toni { display: flex; flex-wrap: wrap; gap: 6px var(--s2); align-items: center; color: var(--muted); }
@@ -125,7 +129,7 @@ import Base from '../../layouts/Base.astro';
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
   @media (max-width: 640px) {
     .fondo3d { top: 220px; bottom: 0; }
-    .scelte button, .toni button { padding: 6px 12px; }
+    .scelte button, .scelte .pagina, .toni button { padding: 6px 12px; }
     .toni input { width: 28px; height: 28px; }
   }
 </style>
