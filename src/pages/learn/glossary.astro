@@ -1,0 +1,49 @@
+---
+import Base from '../../layouts/Base.astro';
+
+// Glossario: il reef da pesca a tutto schermo. I termini stanno in src/data/glossario.json
+---
+<Base title="Glossary · Riccardo Mondi" description="The terms of AI, fished out of a reef one at a time." largo>
+  <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
+  <main class="pesca">
+    <p class="mono via"><a href="/">~</a>/<a href="/learn/">learn</a>/glossary</p>
+    <h1>Glossary</h1>
+    <p class="mono">Click the water to cast the hook. Each fish is a term.</p>
+  </main>
+</Base>
+
+<script>
+  import('../../scripts/barriera').then(m => m.monta(document.querySelector<HTMLElement>('.scena3d')!, { pesca: true }));
+</script>
+
+<style>
+  .fondo3d { position: fixed; top: 64px; bottom: 0; left: 0; right: 0; z-index: 0; }
+  .scena3d { position: absolute; inset: 0; overflow: hidden; touch-action: pan-y; }
+  .pesca { position: relative; z-index: 1; pointer-events: none; padding-top: var(--s2); }
+  .pesca a { pointer-events: auto; color: inherit; }
+  .pesca > * { max-width: 420px; margin: 0 0 var(--s1); }
+  h1 { font-size: 33px; font-weight: 400; line-height: 1.1; }
+  :global(.barra), :global(.piede) { position: relative; z-index: 1; }
+  /* Scheda con la definizione intera: sopra alla scena, il testo lungo scorre al suo interno */
+  :global(.scheda-glossario) {
+    position: fixed; top: 88px; right: 24px; bottom: 64px; z-index: 2; width: min(400px, 40vw); height: fit-content; max-height: calc(100vh - 152px);
+    overflow-y: auto; padding: var(--s2); border: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 94%, transparent);
+    font-size: 13px; line-height: 1.65; color: var(--muted); touch-action: pan-y;
+  }
+  :global(.scheda-glossario[hidden]) { display: none; }
+  :global(.scheda-glossario h2) { margin: 4px 0 var(--s1); font-size: 18px; font-weight: 400; line-height: 1.2; color: var(--fg); }
+  :global(.scheda-glossario p) { margin: 0 0 var(--s1); }
+  :global(.scheda-glossario ul) { margin: 0 0 var(--s1); padding-left: 18px; }
+  :global(.scheda-glossario li) { margin-bottom: 6px; }
+  :global(.scheda-glossario strong) { font-weight: 400; color: var(--fg); }
+  /* Il bottone resta sempre visibile, anche mentre il testo lungo scorre */
+  :global(.scheda-glossario button) { position: sticky; bottom: 0; padding: 2px 10px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); cursor: pointer; }
+  :global(.scheda-glossario button:hover) { color: var(--fg); border-color: var(--muted); }
+  :global(.conta-pesca) { position: fixed; right: 24px; bottom: 16px; z-index: 2; margin: 0; pointer-events: none; }
+  @media (max-width: 640px) {
+    .fondo3d { top: 220px; }
+    /* Su telefono la scheda sta in fondo allo schermo, e scorre col dito */
+    :global(.scheda-glossario) { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 48vh; border-width: 1px 0 0; }
+    :global(.conta-pesca) { right: 16px; bottom: auto; top: 232px; }
+  }
+</style>

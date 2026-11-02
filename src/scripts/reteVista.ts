@@ -1,555 +1,596 @@
-import { avanti, generaDati, misura, nuovaRete, passo, type Attivazione, type Punto, type Rete, type TipoDati } from '../lib/rete';
+import { avanti, copiaPesi, misura, nuovaRete, passo, type Punto, type Rete } from '../lib/rete';
 
-// Vista della rete neurale: a sinistra la rete, a destra il piano con la sua decisione. Tutti i comandi sono subito liberi;
-// la guida suggerisce una cosa alla volta e avanza da sola quando la fai, senza bloccare chi vuole fare altro.
-const G = 48, T = 12, MAX_STRATI = 4, MAX_NEURONI = 8, GRUPPO = 16, PASSI_AL_SECONDO = 200, QUANTI_PUNTI = 200, DURATA_PASSO = 2800, LEGGI_GUIDA = 5000;
-const TASSI = [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3];
+// Rete neurale a capitoli. In ogni capitolo una rete vera prova a far emergere una sagoma da una griglia a filo: l'altezza
+// della griglia è l'uscita della rete. Un neurone è un gradino dritto; più neuroni si sommano e fanno una forma.
+// Ogni capitolo ha pochi comandi, e allena la sua rete solo mentre si vede.
+const G = 32, GRUPPO = 64, TASSO = 0.03, TASSO_FINE = 0.01, RALLENTA = 14000, FINE = 30000, MS_AL_FOTOGRAMMA = 7, DURATA_PASSO = 4500;
+const ALTEZZA = 0.62, PIATTO = 0.52, RIPIDO = 7;
+
+type Sagoma = (x: number, y: number) => boolean;
+const triangolo = (x: number, y: number, cima: number, base: number, largo: number) => y < cima && y > base && Math.abs(x) < ((cima - y) / (cima - base)) * largo;
+const SAGOME: Record<string, Sagoma> = {
+  fish: (x, y) => ((x + 0.2) / 0.62) ** 2 + (y / 0.5) ** 2 < 1 || (x > 0.32 && x < 0.9 && Math.abs(y) < (x - 0.32) * 1.15 && Math.abs(y) > (x - 0.72) * 2.2),
+  fir: (x, y) => triangolo(x, y, 0.92, 0.28, 0.45) || triangolo(x, y, 0.5, -0.2, 0.65) || triangolo(x, y, 0.1, -0.62, 0.88) || (Math.abs(x) < 0.13 && y <= -0.62 && y > -0.92),
+  bird: (x, y) => Math.abs(y - (Math.abs(x) * 0.8 - 0.3)) < 0.17 && Math.abs(x) < 0.9,
+};
+const f2 = (v: number) => v.toFixed(2);
+const posto = (k: number) => ((k + 0.5) / G) * 2 - 1;
+
+const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
+const rgb = (hex: string) => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] as const; };
+const misto = (a: string, b: string, t: number) => { const A = rgb(a), B = rgb(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i]! - v) * t)).join(',')})`; };
+const FONT = "11px 'Departure Mono', ui-monospace, monospace";
+const calmo = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Quanto la forma della rete coincide con la sagoma: celle giuste su tutte le celle coinvolte
+const somiglianza = (rete: Rete, celle: Punto[]) => {
+  let e = 0, u = 0;
+  for (const q of celle) { const p = avanti(rete, q.x, q.y) >= 0.5; if (p && q.c) e++; if (p || q.c) u++; }
+  return u ? e / u : 0;
+};
 
 type Neurone = { l: number; j: number };
-type Arco = Neurone & { i: number };
-const f2 = (v: number) => v.toFixed(2);
-const rgb = (hex: string) => { const n = parseInt(hex.trim().slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] as const; };
+type Opzioni = { nascosti: number[]; sagoma?: string; allena?: boolean };
 
-export function monta(radice: HTMLElement) {
-  const $ = <E extends Element>(s: string) => radice.querySelector<E>(s)!;
-  const tela = $<HTMLCanvasElement>('.tela-rete'), telaPiano = $<HTMLCanvasElement>('.tela-piano'), telaStoria = $<HTMLCanvasElement>('.tela-storia');
-  const c = tela.getContext('2d')!, cp = telaPiano.getContext('2d')!, cs = telaStoria.getContext('2d')!;
-  const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
+function banco(el: HTMLElement, o: Opzioni) {
   const BG = tono('--bg'), FG = tono('--fg'), MUTED = tono('--muted'), LINE = tono('--line'), BLU = tono('--azzurro'), ARANCIO = tono('--arancio');
-  const [bR, bG, bB] = rgb(BG), [aR, aG, aB] = rgb(BLU), [oR, oG, oB] = rgb(ARANCIO);
-  const FONT = "11px 'Departure Mono', ui-monospace, monospace";
-  const calmo = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const scala = (fine: string) => Array.from({ length: 7 }, (_, k) => misto(misto(LINE, MUTED, 0.55), fine, k / 6));
+  const TINTE = scala(ARANCIO), TINTE_NEURONE = scala(FG);
+  const telaRete = el.querySelector<HTMLCanvasElement>('.tela-rete')!, telaTerreno = el.querySelector<HTMLCanvasElement>('.tela-terreno')!;
+  const c = telaRete.getContext('2d')!, t = telaTerreno.getContext('2d')!;
+  const lettura = el.querySelector<HTMLElement>('.lettura'), dettaglio = el.querySelector<HTMLElement>('.dettaglio');
 
-  // Stato
-  let tipo: TipoDati = 'circle', rumore = 0.02, attivazione: Attivazione = 'tanh', tasso = 3, seme = 1;
-  let nascosti: number[] = [], dati: Punto[] = generaDati(tipo, QUANTI_PUNTI, rumore, 5), rete: Rete = nuovaRete(nascosti, attivazione, seme);
-  let griglie: Float32Array[][] = [], massimi: number[] = [], valori: Float64Array[] = [];
-  let inMoto = false, passi = 0, storia: number[] = [], errore = 0, precisione = 0, esploso = false, sporco = true, residuo = 0;
-  let sonda: { x: number; y: number } | null = null, sopra: Neurone | null = null, fisso: Neurone | null = null, arco: Arco | null = null;
-  let trascina: { arco: Arco; x: number; y: number } | null = null;
-  let anima: { t0: number; q: Punto; p: number; gruppo: Punto[]; applicato: boolean } | null = null;
-  let scelto = (): Neurone | null => sopra ?? fisso;
-  let visto = false, sondato = false, passoFatto = false, passiDopoTasso = 0;
+  const s = {
+    rete: nuovaRete(o.nascosti, 'tanh', 3) as Rete, nascosti: o.nascosti, seme: 3, passi: 0, allena: o.allena !== false, visibile: false, sporco: true,
+    celle: [] as Punto[], pieni: [] as Punto[], vuoti: [] as Punto[], bordo: [] as number[],
+    giro: 0.55, sopra: null as Neurone | null, fisso: null as Neurone | null,
+    piano: false, sonda: null as (Punto & { p: number }) | null, impulso: 0, verso: 1, testo: '', errore: 0, somiglia: 0, storia: [] as number[],
+    sopraTerreno: null as null | (() => void),
+  };
+  const scelto = () => s.sopra ?? s.fisso;
 
-  const riservaGriglie = () => {
-    griglie = rete.forma.map(n => Array.from({ length: n }, () => new Float32Array(G * G)));
-    massimi = rete.forma.map(() => 1);
-    valori = rete.forma.map(n => new Float64Array(n));
-  };
-  const nuova = () => {
-    rete = nuovaRete(nascosti, attivazione, seme);
-    passi = 0; storia = []; esploso = false; anima = null;
-    sopra = fisso = arco = null;
-    riservaGriglie();
-    disegnaStrati();
-    aggiornaBottoni();
-    sporco = true;
-  };
-  const allena = (n: number) => {
-    for (let k = 0; k < n; k++) {
-      const gruppo: Punto[] = [];
-      for (let q = 0; q < GRUPPO; q++) gruppo.push(dati[Math.floor(Math.random() * dati.length)]!);
-      passo(rete, gruppo, TASSI[tasso]!);
-      passi++;
-    }
-    if (tasso >= 6) passiDopoTasso += n;
-  };
-
-  // Valore del neurone sulla scala da -1 a 1: blu negativo, arancio positivo
-  const scala = (l: number, j: number, v: number) => {
-    if (l === rete.forma.length - 1) return 2 * v - 1;
-    if (l > 0 && attivazione === 'relu') return v / massimi[l]!;
-    return v;
-  };
-  const dipingi = (d: Uint8ClampedArray, k: number, v: number) => {
-    const a = Math.min(1, Math.abs(v)) * 0.72, r = v < 0 ? aR : oR, g = v < 0 ? aG : oG, b = v < 0 ? aB : oB;
-    d[k] = bR + (r - bR) * a; d[k + 1] = bG + (g - bG) * a; d[k + 2] = bB + (b - bB) * a; d[k + 3] = 255;
-  };
-
-  // Calcola ogni neurone su tutta la griglia del piano
-  const calcolaGriglie = () => {
-    const ultimo = rete.forma.length - 1;
-    massimi.fill(1e-6);
+  function fissaSagoma(f: Sagoma | boolean[]) {
+    s.celle = [];
     for (let r = 0; r < G; r++) for (let q = 0; q < G; q++) {
-      avanti(rete, ((q + 0.5) / G) * 2 - 1, 1 - ((r + 0.5) / G) * 2);
-      for (let l = 0; l <= ultimo; l++) {
-        const u = rete.uscite[l]!, gl = griglie[l]!;
-        for (let j = 0; j < u.length; j++) {
-          gl[j]![r * G + q] = u[j]!;
-          if (u[j]! > massimi[l]!) massimi[l] = u[j]!;
+      const x = posto(q), y = -posto(r), dentro = typeof f === 'function' ? f(x, y) : f[r * G + q]!;
+      s.celle.push({ x, y, c: dentro ? 1 : 0 });
+    }
+    aggiornaSagoma();
+  }
+  // Bordo della sagoma: i lati delle celle piene che toccano una vuota; si disegna a filo, all'altezza piena
+  function aggiornaSagoma() {
+    s.pieni = s.celle.filter(q => q.c);
+    s.vuoti = s.celle.filter(q => !q.c);
+    s.bordo = [];
+    const pieno = (r: number, q: number) => r >= 0 && q >= 0 && r < G && q < G && s.celle[r * G + q]!.c === 1;
+    const lato = (a: number, b: number, c2: number, d: number) => s.bordo.push(-1 + (2 * a) / G, 1 - (2 * b) / G, -1 + (2 * c2) / G, 1 - (2 * d) / G);
+    for (let r = 0; r < G; r++) for (let q = 0; q < G; q++) {
+      if (!pieno(r, q)) continue;
+      if (!pieno(r - 1, q)) lato(q, r, q + 1, r);
+      if (!pieno(r + 1, q)) lato(q, r + 1, q + 1, r + 1);
+      if (!pieno(r, q - 1)) lato(q, r, q, r + 1);
+      if (!pieno(r, q + 1)) lato(q + 1, r, q + 1, r + 1);
+    }
+    s.passi = Math.min(s.passi, RALLENTA - 1);
+    s.sporco = true;
+  }
+  fissaSagoma(SAGOME[o.sagoma ?? 'fish']!);
+
+  function cambiaRete(nascosti: number[], tieni: boolean) {
+    const nuova = nuovaRete(nascosti, 'tanh', ++s.seme);
+    if (tieni && nascosti.length === s.nascosti.length) copiaPesi(s.rete, nuova);
+    s.rete = nuova;
+    s.nascosti = nascosti;
+    s.passi = 0;
+    s.storia = [];
+    s.sopra = s.fisso = null;
+    s.sporco = true;
+  }
+  const gruppo = () => {
+    const g: Punto[] = [];
+    for (let k = 0; k < GRUPPO; k++) {
+      const a = k % 2 ? s.pieni : s.vuoti, b = a.length ? a : s.celle;
+      g.push(b[Math.floor(Math.random() * b.length)]!);
+    }
+    return g;
+  };
+  const tasso = () => (s.passi < RALLENTA ? TASSO : TASSO_FINE);
+  function allena(ms: number) {
+    const t0 = performance.now();
+    while (s.passi < FINE && performance.now() - t0 < ms) { passo(s.rete, gruppo(), tasso()); s.passi++; }
+    s.sporco = true;
+  }
+  function unPassoSolo() {
+    passo(s.rete, gruppo(), tasso());
+    s.passi++;
+    s.sporco = true;
+  }
+
+  // --- Terreno
+  let W = 0, H = 0, Wr = 0, Hr = 0;
+  const altezze = new Float32Array((G + 1) * (G + 1)), sx = new Float32Array(altezze.length), sy = new Float32Array(altezze.length);
+  const piano = () => {
+    const S = Math.min(W / 2.95, H / (2 * Math.SQRT2 * PIATTO + ALTEZZA + 0.12));
+    return { S, cx: W / 2, cy: H / 2 + (S * ALTEZZA) / 2, co: Math.cos(s.giro), si: Math.sin(s.giro) };
+  };
+  const proietta = (u: number, v: number, h: number) => {
+    const { S, cx, cy, co, si } = piano();
+    return [cx + S * (u * co + v * si), cy - S * (-u * si + v * co) * PIATTO - S * h * ALTEZZA] as const;
+  };
+  const sulPavimento = (x: number, y: number) => {
+    const { S, cx, cy, co, si } = piano(), a = (x - cx) / S, d = (cy - y) / (S * PIATTO);
+    return [a * co - d * si, a * si + d * co] as const;
+  };
+  function calcolaAltezze() {
+    const sel = scelto(), ultimo = s.rete.forma.length - 1;
+    for (let j = 0; j <= G; j++) for (let i = 0; i <= G; i++) {
+      const p = avanti(s.rete, -1 + (2 * i) / G, 1 - (2 * j) / G);
+      altezze[j * (G + 1) + i] = !sel || sel.l === ultimo ? p : sel.l === 0 ? (s.rete.uscite[0]![sel.j]! + 1) / 2 : (s.rete.uscite[sel.l]![sel.j]! + 1) / 2;
+    }
+  }
+  function disegnaTerreno() {
+    const { S, cx, cy, co, si } = piano(), sel = scelto();
+    t.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+    t.clearRect(0, 0, W, H);
+    if (s.piano) return disegnaPiatto();
+    for (let j = 0; j <= G; j++) for (let i = 0; i <= G; i++) {
+      const u = -1 + (2 * i) / G, v = 1 - (2 * j) / G, k = j * (G + 1) + i;
+      sx[k] = cx + S * (u * co + v * si);
+      sy[k] = cy - S * (-u * si + v * co) * PIATTO - S * altezze[k]! * ALTEZZA;
+    }
+    // Dal fondo verso chi guarda, una striscia alla volta: ogni striscia copre quelle dietro, così il filo si legge.
+    // Dentro una striscia le maglie dello stesso colore si tracciano insieme: molti meno disegni, anche su telefono
+    const tinte = sel ? TINTE_NEURONE : TINTE, perRighe = Math.abs(co) >= Math.abs(si), crescente = perRighe ? co >= 0 : si >= 0;
+    const punto = (a: number, b: number) => (perRighe ? b * (G + 1) + a : a * (G + 1) + b);
+    t.lineWidth = 1;
+    t.fillStyle = BG;
+    for (let n = 0; n < G; n++) {
+      const b = crescente ? n : G - 1 - n;
+      t.beginPath();
+      t.moveTo(sx[punto(0, b)]!, sy[punto(0, b)]!);
+      for (let a = 1; a <= G; a++) t.lineTo(sx[punto(a, b)]!, sy[punto(a, b)]!);
+      for (let a = G; a >= 0; a--) t.lineTo(sx[punto(a, b + 1)]!, sy[punto(a, b + 1)]!);
+      t.closePath();
+      t.fill();
+      for (let k = 0; k < tinte.length; k++) {
+        let vuota = true;
+        for (let a = 0; a < G; a++) {
+          const p0 = punto(a, b), p1 = punto(a + 1, b), p2 = punto(a + 1, b + 1), p3 = punto(a, b + 1);
+          if (Math.round(((altezze[p0]! + altezze[p1]! + altezze[p2]! + altezze[p3]!) / 4) * 6) !== k) continue;
+          if (vuota) { t.beginPath(); vuota = false; }
+          t.moveTo(sx[p0]!, sy[p0]!); t.lineTo(sx[p1]!, sy[p1]!); t.lineTo(sx[p2]!, sy[p2]!); t.lineTo(sx[p3]!, sy[p3]!); t.closePath();
         }
+        if (!vuota) { t.strokeStyle = tinte[k]!; t.stroke(); }
       }
     }
-    if (sonda) { avanti(rete, sonda.x, sonda.y); rete.uscite.forEach((u, l) => valori[l]!.set(u)); }
-  };
-
-  // Geometria della rete
-  let W = 0, H = 0, P = 0, S = 0;
-  const ALTO = 42;
-  const colonna = (l: number) => {
-    const ultimo = rete.forma.length - 1, largo = Math.min(W - 92, ultimo * 220), via = (W - largo) / 2;
-    return via + (largo * l) / ultimo;
-  };
-  const riga = (l: number, j: number) => ALTO + ((H - ALTO - 8) * (j + 0.5)) / rete.forma[l]!;
-  const lato = () => Math.min(38, (H - ALTO - 8) / Math.max(...rete.forma) - 6);
-
-  const rampa = document.createElement('canvas');
-  rampa.width = rampa.height = T;
-  const cr = rampa.getContext('2d')!, immagineT = cr.createImageData(T, T);
-  const fondo = document.createElement('canvas');
-  fondo.width = fondo.height = G;
-  const cf = fondo.getContext('2d')!, immagineG = cf.createImageData(G, G);
-
-  const miniatura = (l: number, j: number, x: number, y: number, s: number) => {
-    const g = griglie[l]![j]!, passoT = G / T;
-    for (let r = 0; r < T; r++) for (let q = 0; q < T; q++) {
-      dipingi(immagineT.data, (r * T + q) * 4, scala(l, j, g[Math.floor((r + 0.5) * passoT) * G + Math.floor((q + 0.5) * passoT)]!));
+    // La sagoma da raggiungere: un filo all'altezza piena
+    if (!sel) {
+      t.strokeStyle = BLU;
+      t.lineWidth = 1.5;
+      t.beginPath();
+      for (let k = 0; k < s.bordo.length; k += 4) {
+        const [ax, ay] = proietta(s.bordo[k]!, s.bordo[k + 1]!, 1), [bx, by] = proietta(s.bordo[k + 2]!, s.bordo[k + 3]!, 1);
+        t.moveTo(ax, ay); t.lineTo(bx, by);
+      }
+      t.stroke();
     }
-    cr.putImageData(immagineT, 0, 0);
-    c.imageSmoothingEnabled = false;
-    c.drawImage(rampa, x, y, s, s);
-  };
+    if (s.sonda) {
+      const [ax, ay] = proietta(s.sonda.x, s.sonda.y, 0), [bx, by] = proietta(s.sonda.x, s.sonda.y, s.sonda.p);
+      t.strokeStyle = FG;
+      t.lineWidth = 2;
+      t.beginPath(); t.moveTo(ax, ay); t.lineTo(bx, by); t.stroke();
+      t.fillStyle = FG;
+      t.fillRect(bx - 4, by - 4, 8, 8);
+    }
+    disegnaVistaAlto();
+    s.sopraTerreno?.();
+  }
+  // Vista dall'alto, in un angolo: si riconosce la forma senza girare il terreno
+  function disegnaVistaAlto() {
+    const q = W < 340 ? 58 : 76, x0 = W - q - 2, y0 = 18, cella = q / G;
+    t.fillStyle = BG;
+    t.fillRect(x0, y0, q, q);
+    t.fillStyle = ARANCIO;
+    t.beginPath();
+    for (let r = 0; r < G; r++) for (let k = 0; k < G; k++) {
+      if (avanti(s.rete, posto(k), -posto(r)) >= 0.5) t.rect(x0 + k * cella, y0 + r * cella, cella, cella);
+    }
+    t.fill();
+    t.strokeStyle = BLU;
+    t.lineWidth = 1;
+    t.beginPath();
+    for (let k = 0; k < s.bordo.length; k += 4) {
+      t.moveTo(x0 + ((s.bordo[k]! + 1) / 2) * q, y0 + ((1 - s.bordo[k + 1]!) / 2) * q);
+      t.lineTo(x0 + ((s.bordo[k + 2]! + 1) / 2) * q, y0 + ((1 - s.bordo[k + 3]!) / 2) * q);
+    }
+    t.stroke();
+    t.strokeStyle = MUTED;
+    t.strokeRect(x0 + 0.5, y0 + 0.5, q, q);
+    t.font = FONT;
+    t.fillStyle = MUTED;
+    t.textAlign = 'right';
+    t.textBaseline = 'alphabetic';
+    t.fillText('from above', W - 2, y0 - 5);
+  }
+  // Modo disegno: la griglia vista dall'alto, cella per cella
+  function disegnaPiatto() {
+    const q = Math.min(W, H) - 4, x0 = (W - q) / 2, y0 = (H - q) / 2, cella = q / G;
+    t.strokeStyle = LINE;
+    t.lineWidth = 1;
+    t.beginPath();
+    for (let k = 0; k <= G; k++) { t.moveTo(x0 + k * cella, y0); t.lineTo(x0 + k * cella, y0 + q); t.moveTo(x0, y0 + k * cella); t.lineTo(x0 + q, y0 + k * cella); }
+    t.stroke();
+    t.fillStyle = BLU;
+    t.beginPath();
+    s.celle.forEach((p, k) => { if (p.c) t.rect(x0 + (k % G) * cella + 1, y0 + Math.floor(k / G) * cella + 1, cella - 1, cella - 1); });
+    t.fill();
+  }
 
-  const disegnaRete = (ora: number) => {
-    const { forma, pesi } = rete, ultimo = forma.length - 1, s = lato(), sel = scelto();
+  // --- Rete
+  const ALTO = 18;
+  const colonna = (l: number) => {
+    const ultimo = s.rete.forma.length - 1, largo = Math.min(Wr - 56, ultimo * 200);
+    return (Wr - largo) / 2 + (largo * l) / ultimo;
+  };
+  const riga = (l: number, j: number) => ALTO + ((Hr - ALTO - 6) * (j + 0.5)) / s.rete.forma[l]!;
+  const lato = () => Math.max(7, Math.min(22, (Hr - ALTO - 6) / Math.max(...s.rete.forma) - 5));
+  const nome = (l: number, j: number) => (l === 0 ? 'xy'[j]! : l === s.rete.forma.length - 1 ? 'height' : `n${l}.${j + 1}`);
+  function disegnaRete() {
+    const { forma, pesi } = s.rete, ultimo = forma.length - 1, q = lato(), sel = scelto();
     c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    c.clearRect(0, 0, W, H);
-    c.font = FONT;
-    c.lineCap = 'butt';
+    c.clearRect(0, 0, Wr, Hr);
     for (let l = 1; l <= ultimo; l++) for (let j = 0; j < forma[l]!; j++) for (let i = 0; i < forma[l - 1]!; i++) {
       const w = pesi[l - 1]![j * forma[l - 1]! + i]!, forza = Math.abs(w);
-      let a = Math.min(0.9, 0.14 + forza * 0.3);
-      if (sonda) a = Math.min(0.95, 0.06 + Math.abs(w * valori[l - 1]![i]!) * 0.7);
-      if (sel && !((l === sel.l && j === sel.j) || (l - 1 === sel.l && i === sel.j))) a *= 0.12;
-      const questo = arco && arco.l === l && arco.j === j && arco.i === i;
-      c.globalAlpha = questo ? 1 : a;
-      c.strokeStyle = questo ? FG : w > 0 ? ARANCIO : BLU;
-      c.lineWidth = Math.min(4, 0.6 + forza * 0.7);
+      c.globalAlpha = Math.min(0.9, 0.12 + forza * 0.22) * (sel && !((l === sel.l && j === sel.j) || (l - 1 === sel.l && i === sel.j)) ? 0.12 : 1);
+      c.strokeStyle = w > 0 ? ARANCIO : BLU;
+      c.lineWidth = Math.min(3.5, 0.5 + forza * 0.45);
       c.beginPath();
       c.moveTo(colonna(l - 1), riga(l - 1, i));
       c.lineTo(colonna(l), riga(l, j));
       c.stroke();
     }
     c.globalAlpha = 1;
-    if (anima) disegnaImpulsi((ora - anima.t0) / DURATA_PASSO);
+    // Durante il passo guidato i valori corrono in avanti, poi la correzione torna indietro
+    if (s.impulso > 0 && s.impulso < 1) {
+      const f = s.impulso * ultimo, k = Math.min(ultimo - 1, Math.floor(f)), fr = f - k;
+      const da = s.verso > 0 ? k : ultimo - k, a = s.verso > 0 ? k + 1 : ultimo - k - 1;
+      c.fillStyle = s.verso > 0 ? FG : ARANCIO;
+      for (let i = 0; i < forma[da]!; i++) for (let j = 0; j < forma[a]!; j++) {
+        c.fillRect(colonna(da) + (colonna(a) - colonna(da)) * fr - 2, riga(da, i) + (riga(a, j) - riga(da, i)) * fr - 2, 4, 4);
+      }
+    }
+    c.font = FONT;
     c.textBaseline = 'middle';
     for (let l = 0; l <= ultimo; l++) for (let j = 0; j < forma[l]!; j++) {
       const x = colonna(l), y = riga(l, j), attivo = sel && sel.l === l && sel.j === j;
-      miniatura(l, j, x - s / 2, y - s / 2, s);
+      c.fillStyle = BG;
+      c.fillRect(x - q / 2, y - q / 2, q, q);
       c.strokeStyle = attivo ? FG : MUTED;
       c.lineWidth = attivo ? 2 : 1;
-      c.strokeRect(Math.round(x - s / 2) + 0.5, Math.round(y - s / 2) + 0.5, Math.round(s), Math.round(s));
-      if (sonda) {
-        const t = f2(valori[l]![j]!), tw = c.measureText(t).width;
-        c.fillStyle = BG;
-        c.fillRect(x - tw / 2 - 2, y - 7, tw + 4, 14);
-        c.fillStyle = FG;
-        c.textAlign = 'center';
-        c.fillText(t, x, y);
-      }
+      c.strokeRect(Math.round(x - q / 2) + 0.5, Math.round(y - q / 2) + 0.5, Math.round(q), Math.round(q));
     }
-    c.textAlign = 'right';
     c.fillStyle = MUTED;
-    c.fillText('x1', colonna(0) - s / 2 - 6, riga(0, 0));
-    c.fillText('x2', colonna(0) - s / 2 - 6, riga(0, 1));
-    c.textAlign = 'left';
-    c.fillText('p', colonna(ultimo) + s / 2 + 6, riga(ultimo, 0));
-  };
-
-  // Durante il passo guidato: i valori corrono in avanti, poi l'errore torna indietro
-  const disegnaImpulsi = (t: number) => {
-    const ultimo = rete.forma.length - 1, avantiFase = t < 0.36, indietroFase = t >= 0.58;
-    if (!avantiFase && !indietroFase) return;
-    const f = avantiFase ? (t / 0.36) * ultimo : ((t - 0.58) / 0.42) * ultimo;
-    const k = Math.min(ultimo - 1, Math.floor(f)), frazione = f - k;
-    const da = avantiFase ? k : ultimo - k, a = avantiFase ? k + 1 : ultimo - k - 1;
-    c.fillStyle = avantiFase ? FG : ARANCIO;
-    for (let i = 0; i < rete.forma[da]!; i++) for (let j = 0; j < rete.forma[a]!; j++) {
-      const x = colonna(da) + (colonna(a) - colonna(da)) * frazione, y = riga(da, i) + (riga(a, j) - riga(da, i)) * frazione;
-      c.fillRect(Math.round(x) - 2, Math.round(y) - 2, 4, 4);
-    }
-  };
-
-  // Piano: colore per colore la decisione, una linea per il confine, i punti sopra
-  const disegnaPiano = () => {
-    const sel = scelto(), ultimo = rete.forma.length - 1, l = sel ? sel.l : ultimo, j = sel ? sel.j : 0, g = griglie[l]![j]!;
-    for (let k = 0; k < G * G; k++) dipingi(immagineG.data, k * 4, scala(l, j, g[k]!));
-    cf.putImageData(immagineG, 0, 0);
-    cp.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    cp.imageSmoothingEnabled = false;
-    cp.drawImage(fondo, 0, 0, P, P);
-    const px = (x: number) => ((x + 1) / 2) * P, py = (y: number) => ((1 - y) / 2) * P;
-    // Assi
-    cp.strokeStyle = LINE;
-    cp.lineWidth = 1;
-    cp.setLineDash([3, 4]);
-    cp.beginPath();
-    cp.moveTo(P / 2 + 0.5, 0); cp.lineTo(P / 2 + 0.5, P);
-    cp.moveTo(0, P / 2 + 0.5); cp.lineTo(P, P / 2 + 0.5);
-    cp.stroke();
-    cp.setLineDash([]);
-    // Confine: dove il valore cambia segno
-    const livello = l === ultimo ? 0.5 : l > 0 && attivazione === 'relu' ? 1e-6 : 0, passoG = P / G;
-    cp.strokeStyle = FG;
-    cp.lineWidth = 2;
-    cp.beginPath();
-    for (let r = 0; r < G - 1; r++) for (let q = 0; q < G - 1; q++) {
-      const v0 = g[r * G + q]! - livello, v1 = g[r * G + q + 1]! - livello, v2 = g[(r + 1) * G + q + 1]! - livello, v3 = g[(r + 1) * G + q]! - livello;
-      const pt: [number, number][] = [], x0 = (q + 0.5) * passoG, y0 = (r + 0.5) * passoG;
-      if (v0 > 0 !== v1 > 0) pt.push([x0 + passoG * (v0 / (v0 - v1)), y0]);
-      if (v1 > 0 !== v2 > 0) pt.push([x0 + passoG, y0 + passoG * (v1 / (v1 - v2))]);
-      if (v3 > 0 !== v2 > 0) pt.push([x0 + passoG * (v3 / (v3 - v2)), y0 + passoG]);
-      if (v0 > 0 !== v3 > 0) pt.push([x0, y0 + passoG * (v0 / (v0 - v3))]);
-      for (let k = 0; k + 1 < pt.length; k += 2) { cp.moveTo(pt[k]![0], pt[k]![1]); cp.lineTo(pt[k + 1]![0], pt[k + 1]![1]); }
-    }
-    cp.stroke();
-    // Punti: quadrati come tutto il sito; quelli sbagliati hanno il bordo chiaro
-    const s = P < 340 ? 5 : 6;
-    for (const q of dati) {
-      const sbagliato = (avanti(rete, q.x, q.y) >= 0.5 ? 1 : 0) !== q.c, x = Math.round(px(q.x) - s / 2), y = Math.round(py(q.y) - s / 2);
-      cp.fillStyle = sbagliato ? FG : BG;
-      cp.fillRect(x - 1, y - 1, s + 2, s + 2);
-      cp.fillStyle = q.c ? ARANCIO : BLU;
-      cp.fillRect(x, y, s, s);
-    }
-    cp.font = FONT;
-    cp.textBaseline = 'alphabetic';
-    cp.fillStyle = MUTED;
-    cp.textAlign = 'right';
-    cp.fillText('x1', P - 6, P / 2 - 6);
-    cp.textAlign = 'left';
-    cp.fillText('x2', P / 2 + 6, 14);
-    if (anima || sonda) {
-      const b = anima ? anima.q : sonda!, x = px(b.x), y = py(b.y);
-      cp.strokeStyle = FG;
-      cp.lineWidth = 2;
-      cp.strokeRect(Math.round(x) - 8, Math.round(y) - 8, 16, 16);
-    }
-    if (sonda && !anima) {
-      const ora = sel ? valori[sel.l]![sel.j]! : valori[ultimo]![0]!, t = `${sel ? nome(sel.l, sel.j) : 'p'} = ${f2(ora)}`, tw = cp.measureText(t).width;
-      const x = Math.min(P - tw - 8, px(sonda.x) + 12), y = Math.max(16, py(sonda.y) - 12);
-      cp.fillStyle = BG;
-      cp.fillRect(x - 3, y - 11, tw + 6, 15);
-      cp.fillStyle = FG;
-      cp.fillText(t, x, y);
-    }
-  };
-
-  const disegnaStoria = () => {
-    const w = telaStoria.clientWidth, h = telaStoria.clientHeight;
-    cs.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-    cs.clearRect(0, 0, w, h);
-    if (storia.length < 2) return;
-    const alto = Math.max(0.75, ...storia);
-    cs.strokeStyle = ARANCIO;
-    cs.lineWidth = 1.5;
-    cs.beginPath();
-    storia.forEach((v, k) => {
-      const x = (k / (storia.length - 1)) * w, y = h - 2 - (Math.min(v, alto) / alto) * (h - 4);
-      if (k) cs.lineTo(x, y); else cs.moveTo(x, y);
-    });
-    cs.stroke();
-  };
-
-  // Testi
-  const nome = (l: number, j: number) => l === 0 ? `x${j + 1}` : l === rete.forma.length - 1 ? 'p' : `n${l}.${j + 1}`;
-  const formula = $<HTMLElement>('.formula'), cartiglio = $<HTMLElement>('.cartiglio-piano'), numeri = $<HTMLElement>('.numeri');
-  const scrivi = (el: HTMLElement, t: string) => { if (el.textContent !== t) el.textContent = t; };
-  const testoFormula = () => {
-    if (esploso) return 'The weights exploded: the steps were too big. Lower the learning rate, then press reset.';
-    const sel = scelto();
-    if (arco) {
-      const w = rete.pesi[arco.l - 1]![arco.j * rete.forma[arco.l - 1]! + arco.i]!;
-      return `weight ${nome(arco.l - 1, arco.i)} → ${nome(arco.l, arco.j)} = ${f2(w)}. Drag it to change it by hand.`;
-    }
-    if (!sel) return 'Hover or tap a square to read its formula. Drag a line to change a weight.';
-    if (sel.l === 0) return `${nome(0, sel.j)} is the ${sel.j ? 'vertical' : 'horizontal'} position of the point${sonda ? ` = ${f2(valori[0]![sel.j]!)}` : ''}.`;
-    const entrate = rete.forma[sel.l - 1]!, ultimo = rete.forma.length - 1, fn = sel.l === ultimo ? 'sigmoid' : attivazione;
-    let t = '';
-    for (let i = 0; i < entrate; i++) {
-      const w = rete.pesi[sel.l - 1]![sel.j * entrate + i]!;
-      t += `${i ? (w < 0 ? ' - ' : ' + ') : w < 0 ? '-' : ''}${f2(Math.abs(w))}·${nome(sel.l - 1, i)}`;
-    }
-    const b = rete.scarti[sel.l - 1]![sel.j]!;
-    return `${nome(sel.l, sel.j)} = ${fn}(${t}${b < 0 ? ' - ' : ' + '}${f2(Math.abs(b))})${sonda ? ` = ${f2(valori[sel.l]![sel.j]!)}` : ''}`;
-  };
-  const aggiornaTesti = () => {
-    if (!anima) scrivi(formula, testoFormula());
-    const sel = scelto();
-    scrivi(cartiglio, sel && sel.l < rete.forma.length - 1 ? `${nome(sel.l, sel.j)}: what this ${sel.l ? 'neuron' : 'input'} sees` : 'p: what the network decides');
-    scrivi(numeri, `steps ${passi}  ·  loss ${esploso ? '∞' : errore.toFixed(3)}  ·  right ${Math.round(precisione * 100)}%`);
-  };
-
-  // Passo guidato: un punto entra, si misura l'errore, i pesi si spostano
-  const fasi = radice.querySelectorAll<HTMLElement>('.fasi span');
-  const segnaFase = (n: number) => fasi.forEach((f, k) => f.classList.toggle('accesa', k === n));
-  const unPasso = () => {
-    if (anima) return;
-    gioca(false);
-    const q = dati[Math.floor(Math.random() * dati.length)]!, gruppo = [q];
-    for (let k = 1; k < GRUPPO; k++) gruppo.push(dati[Math.floor(Math.random() * dati.length)]!);
-    const p = avanti(rete, q.x, q.y);
-    passoFatto = true;
-    if (calmo) {
-      passo(rete, gruppo, TASSI[tasso]!);
-      passi++;
-      scrivi(formula, `One step done. The point had p = ${f2(p)}; every weight moved a little.`);
-      sporco = true;
-      return;
-    }
-    anima = { t0: performance.now(), q, p, gruppo, applicato: false };
-    sonda = { x: q.x, y: q.y };
-    sporco = true;
-  };
-  const avanzaAnimazione = (ora: number) => {
-    if (!anima) return;
-    const t = (ora - anima.t0) / DURATA_PASSO, { q, p } = anima, colore = q.c ? 'orange' : 'blue';
-    if (t < 0.36) {
-      segnaFase(0);
-      scrivi(formula, `Predict: this point is ${colore}. The network says p(orange) = ${f2(p)}.`);
-    } else if (t < 0.58) {
-      segnaFase(1);
-      const e = -Math.log(Math.max(1e-9, q.c ? p : 1 - p));
-      scrivi(formula, `Error: -log(${q.c ? 'p' : '1 - p'}) = ${f2(e)}. Near 0 when it is sure and right, big when it is sure and wrong.`);
-    } else {
-      segnaFase(2);
-      scrivi(formula, `Adjust: the error flows back, and each weight moves against its share. Step size = learning rate = ${TASSI[tasso]}.`);
-      if (!anima.applicato) {
-        passo(rete, anima.gruppo, TASSI[tasso]!);
-        passi++;
-        anima.applicato = true;
-      }
-    }
-    if (t >= 1) { anima = null; sonda = null; segnaFase(-1); }
-    sporco = true;
-  };
-
-  // Guida: suggerisce, non obbliga. Ogni passo avanza da solo quando quel che chiede è fatto
-  const GUIDA: { testo: string; azione?: [string, () => void]; fatto?: () => boolean }[] = [
-    { testo: 'No hidden layers: this network is one neuron, and one neuron can only draw a straight line. Press train and watch it try to enclose the circle.', azione: ['train', () => gioca(true)], fatto: () => passi > 500 || nascosti.length > 0 },
-    { testo: 'It is stuck: no straight line can enclose a circle. Give the network a hidden layer.', azione: ['add 4 neurons', () => { nascosti = [4]; nuova(); gioca(true); }], fatto: () => nascosti.length > 0 },
-    { testo: 'Now the boundary bends. Hover or tap a small square: each neuron draws one line, and the output combines them.', fatto: () => visto },
-    { testo: 'Move across the plane. Every square shows its value for that point: follow the numbers from input to output.', fatto: () => sondato },
-    { testo: 'How does it learn? Press step and watch one point go through: predict, measure the error, adjust the weights.', azione: ['step', () => unPasso()], fatto: () => passoFatto },
-    { testo: 'Now break it. Start over with a big learning rate: big steps jump over the solution, and the loss chart turns jagged.', azione: ['restart at rate 3', () => { tasso = 7; seme++; nuova(); gioca(true); }], fatto: () => passiDopoTasso > 800 },
-    { testo: 'The hard one: a spiral. Restore the rate, then add layers and neurons until the network solves it.', azione: ['try spiral', () => { tasso = 3; tipo = 'spiral'; dati = generaDati(tipo, QUANTI_PUNTI, rumore, 5); nascosti = [8, 8]; nuova(); gioca(true); }] },
-    { testo: 'That is the whole idea. Everything is yours now: change the data, the noise, the activation, or drag a line to set a weight by hand.' },
-  ];
-  let guida = 0;
-  const testoGuida = $<HTMLElement>('.guida-testo'), numeroGuida = $<HTMLElement>('.guida-numero'), azioneGuida = $<HTMLButtonElement>('.guida-azione');
-  const scatola = $<HTMLElement>('.guida');
-  let daQuando = 0;
-  const mostraGuida = () => {
-    const g = GUIDA[guida]!;
-    // Vale solo quel che fai da qui in poi, e il suggerimento resta il tempo di leggerlo
-    daQuando = performance.now();
-    visto = sondato = passoFatto = false;
-    numeroGuida.textContent = `${guida + 1}/${GUIDA.length}`;
-    testoGuida.textContent = g.testo;
-    azioneGuida.hidden = !g.azione;
-    if (g.azione) azioneGuida.textContent = g.azione[0];
-    $<HTMLButtonElement>('.guida-prima').disabled = guida === 0;
-    $<HTMLButtonElement>('.guida-dopo').disabled = guida === GUIDA.length - 1;
-  };
-  azioneGuida.addEventListener('click', () => GUIDA[guida]!.azione?.[1]());
-  $('.guida-prima').addEventListener('click', () => { guida = Math.max(0, guida - 1); passiDopoTasso = 0; mostraGuida(); });
-  $('.guida-dopo').addEventListener('click', () => { guida = Math.min(GUIDA.length - 1, guida + 1); passiDopoTasso = 0; mostraGuida(); });
-  $('.guida-chiudi').addEventListener('click', () => { scatola.hidden = true; });
-  const controllaGuida = (ora: number) => {
-    if (scatola.hidden || anima || ora - daQuando < LEGGI_GUIDA) return;
-    if (GUIDA[guida]!.fatto?.() && guida < GUIDA.length - 1) { guida++; mostraGuida(); }
-  };
-
-  // Comandi
-  const bottoneGioca = $<HTMLButtonElement>('.gioca');
-  const gioca = (si: boolean) => {
-    if (si && esploso) return;
-    inMoto = si;
-    bottoneGioca.textContent = si ? 'pause' : 'train';
-    bottoneGioca.setAttribute('aria-pressed', String(si));
-    residuo = 0;
-  };
-  bottoneGioca.addEventListener('click', () => gioca(!inMoto));
-  $('.un-passo').addEventListener('click', unPasso);
-  $('.azzera').addEventListener('click', () => { seme++; nuova(); });
-  radice.querySelectorAll<HTMLButtonElement>('[data-dati]').forEach(b => b.addEventListener('click', () => {
-    tipo = b.dataset.dati as TipoDati;
-    dati = generaDati(tipo, QUANTI_PUNTI, rumore, 5);
-    nuova();
-  }));
-  radice.querySelectorAll<HTMLButtonElement>('[data-attivazione]').forEach(b => b.addEventListener('click', () => {
-    attivazione = b.dataset.attivazione as Attivazione;
-    nuova();
-  }));
-  const cursoreTasso = $<HTMLInputElement>('.cursore-tasso'), cursoreRumore = $<HTMLInputElement>('.cursore-rumore');
-  cursoreTasso.addEventListener('input', () => { tasso = Number(cursoreTasso.value); passiDopoTasso = 0; aggiornaBottoni(); });
-  cursoreRumore.addEventListener('input', () => {
-    rumore = Number(cursoreRumore.value);
-    dati = generaDati(tipo, QUANTI_PUNTI, rumore, 5);
-    aggiornaBottoni();
-    sporco = true;
-  });
-  const cambiaStrati = (d: number) => {
-    if (d > 0 && nascosti.length < MAX_STRATI) nascosti = [...nascosti, nascosti[nascosti.length - 1] ?? 4];
-    if (d < 0) nascosti = nascosti.slice(0, -1);
-    nuova();
-  };
-  $('.strati-meno').addEventListener('click', () => cambiaStrati(-1));
-  $('.strati-piu').addEventListener('click', () => cambiaStrati(1));
-  function aggiornaBottoni() {
-    radice.querySelectorAll<HTMLButtonElement>('[data-dati]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.dati === tipo)));
-    radice.querySelectorAll<HTMLButtonElement>('[data-attivazione]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.attivazione === attivazione)));
-    cursoreTasso.value = String(tasso);
-    $<HTMLElement>('.valore-tasso').textContent = String(TASSI[tasso]);
-    cursoreRumore.value = String(rumore);
-    $<HTMLElement>('.valore-rumore').textContent = rumore.toFixed(2);
-    $<HTMLElement>('.strati-numero').textContent = String(nascosti.length);
-    $<HTMLButtonElement>('.strati-meno').disabled = nascosti.length === 0;
-    $<HTMLButtonElement>('.strati-piu').disabled = nascosti.length === MAX_STRATI;
+    c.textAlign = 'right';
+    c.fillText('x', colonna(0) - q / 2 - 5, riga(0, 0));
+    c.fillText('y', colonna(0) - q / 2 - 5, riga(0, 1));
+    c.textAlign = 'center';
+    c.fillText('height', colonna(ultimo), riga(ultimo, 0) + q / 2 + 11);
   }
-  // Sopra ogni colonna nascosta, i comandi per togliere o aggiungere neuroni
-  const contenitoreStrati = $<HTMLElement>('.colonne');
-  function disegnaStrati() {
-    contenitoreStrati.replaceChildren();
-    if (!W) return;
-    const etichetta = (l: number, testo: string) => {
-      const e = document.createElement('span');
-      e.className = 'colonna';
-      e.style.left = `${colonna(l)}px`;
-      e.textContent = testo;
-      contenitoreStrati.append(e);
-    };
-    etichetta(0, 'input');
-    etichetta(rete.forma.length - 1, 'output');
-    nascosti.forEach((n, k) => {
-      const e = document.createElement('span');
-      e.className = 'colonna';
-      e.style.left = `${colonna(k + 1)}px`;
-      const bottone = (t: string, nomeAria: string, d: number, spento: boolean) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.textContent = t;
-        b.disabled = spento;
-        b.setAttribute('aria-label', `${nomeAria} in layer ${k + 1}`);
-        b.addEventListener('click', () => { nascosti = nascosti.map((v, q) => q === k ? v + d : v); nuova(); });
-        return b;
-      };
-      const conta = document.createElement('span');
-      conta.textContent = String(n);
-      e.append(bottone('−', 'Remove a neuron', -1, n <= 1), conta, bottone('+', 'Add a neuron', 1, n >= MAX_NEURONI));
-      contenitoreStrati.append(e);
-    });
+  function testoDettaglio() {
+    if (s.testo) return s.testo;
+    const sel = scelto();
+    if (!sel) return el.dataset.invito ?? 'Hover or tap a square in the network to see that neuron alone.';
+    if (sel.l === 0) return `${nome(0, sel.j)} is the ${sel.j ? 'north-south' : 'east-west'} position on the grid. It only tilts.`;
+    const entrate = s.rete.forma[sel.l - 1]!;
+    let somma = '';
+    for (let i = 0; i < Math.min(entrate, 8); i++) {
+      const w = s.rete.pesi[sel.l - 1]![sel.j * entrate + i]!;
+      somma += `${i ? (w < 0 ? ' - ' : ' + ') : w < 0 ? '-' : ''}${f2(Math.abs(w))}·${nome(sel.l - 1, i)}`;
+    }
+    if (entrate > 8) somma += ' + …';
+    const b = s.rete.scarti[sel.l - 1]![sel.j]!;
+    return `${nome(sel.l, sel.j)} = step(${somma}${b < 0 ? ' - ' : ' + '}${f2(Math.abs(b))})`;
   }
-
-  // Puntatore sulla rete: quadrati e linee
-  const trova = (x: number, y: number, dito: boolean): { n?: Neurone; a?: Arco } => {
-    const { forma } = rete, s = lato() / 2 + (dito ? 6 : 1);
-    for (let l = 0; l < forma.length; l++) for (let j = 0; j < forma[l]!; j++) {
-      if (Math.abs(x - colonna(l)) <= s && Math.abs(y - riga(l, j)) <= s) return { n: { l, j } };
-    }
-    let meglio: Arco | undefined, d = dito ? 12 : 6;
-    for (let l = 1; l < forma.length; l++) for (let j = 0; j < forma[l]!; j++) for (let i = 0; i < forma[l - 1]!; i++) {
-      const x0 = colonna(l - 1), y0 = riga(l - 1, i), x1 = colonna(l), y1 = riga(l, j), dx = x1 - x0, dy = y1 - y0;
-      const t = Math.max(0, Math.min(1, ((x - x0) * dx + (y - y0) * dy) / (dx * dx + dy * dy)));
-      const q = Math.hypot(x - x0 - dx * t, y - y0 - dy * t);
-      if (q < d) { d = q; meglio = { l, j, i }; }
-    }
-    return meglio ? { a: meglio } : {};
-  };
-  const posizione = (e: PointerEvent, t: HTMLElement) => { const r = t.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
-  tela.addEventListener('pointermove', e => {
-    if (trascina) {
-      const { x, y } = posizione(e, tela), a = trascina.arco, k = a.j * rete.forma[a.l - 1]! + a.i, p = rete.pesi[a.l - 1]!;
-      p[k] = Math.max(-6, Math.min(6, p[k]! + (x - trascina.x - (y - trascina.y)) * 0.02));
-      trascina.x = x; trascina.y = y;
-      sporco = true;
-      return;
-    }
+  function cerca(x: number, y: number, dito: boolean): Neurone | null {
+    const q = lato() / 2 + (dito ? 7 : 2), { forma } = s.rete;
+    for (let l = 0; l < forma.length; l++) for (let j = 0; j < forma[l]!; j++) if (Math.abs(x - colonna(l)) <= q && Math.abs(y - riga(l, j)) <= q) return { l, j };
+    return null;
+  }
+  const dove = (e: PointerEvent, tela: HTMLElement) => { const r = tela.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top] as const; };
+  telaRete.addEventListener('pointermove', e => {
     if (e.pointerType !== 'mouse') return;
-    const { x, y } = posizione(e, tela), v = trova(x, y, false);
-    sopra = v.n ?? null;
-    arco = v.a ?? null;
-    if (sopra) visto = true;
-    tela.style.cursor = v.a ? 'grab' : v.n ? 'pointer' : '';
-    sporco = true;
+    const [x, y] = dove(e, telaRete), n = cerca(x, y, false);
+    if (n?.l !== s.sopra?.l || n?.j !== s.sopra?.j) { s.sopra = n; s.sporco = true; }
+    telaRete.style.cursor = n ? 'pointer' : '';
   });
-  tela.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !trascina) { sopra = null; arco = null; sporco = true; } });
-  tela.addEventListener('pointerdown', e => {
-    const { x, y } = posizione(e, tela), v = trova(x, y, e.pointerType !== 'mouse');
-    if (v.a) {
-      gioca(false);
-      arco = v.a;
-      trascina = { arco: v.a, x, y };
-      tela.setPointerCapture(e.pointerId);
-    } else if (v.n) {
-      fisso = fisso && fisso.l === v.n.l && fisso.j === v.n.j ? null : v.n;
-      visto = true;
-    } else {
-      fisso = null;
-      arco = null;
-    }
-    sporco = true;
+  telaRete.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') { s.sopra = null; s.sporco = true; } });
+  telaRete.addEventListener('pointerdown', e => {
+    const [x, y] = dove(e, telaRete), n = cerca(x, y, e.pointerType !== 'mouse');
+    s.fisso = n && !(s.fisso?.l === n.l && s.fisso?.j === n.j) ? n : null;
+    s.sporco = true;
   });
-  const lascia = () => { trascina = null; };
-  tela.addEventListener('pointerup', lascia);
-  tela.addEventListener('pointercancel', lascia);
 
-  // Puntatore sul piano: la sonda
-  const muoviSonda = (e: PointerEvent) => {
-    if (anima) return;
-    const { x, y } = posizione(e, telaPiano);
-    sonda = { x: Math.max(-1, Math.min(1, (x / P) * 2 - 1)), y: Math.max(-1, Math.min(1, 1 - (y / P) * 2)) };
-    sondato = true;
-    sporco = true;
-  };
-  telaPiano.addEventListener('pointermove', muoviSonda);
-  telaPiano.addEventListener('pointerdown', muoviSonda);
-  telaPiano.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !anima) { sonda = null; sporco = true; } });
-  telaPiano.addEventListener('pointercancel', () => { if (!anima) { sonda = null; sporco = true; } });
+  // --- Trascinare il terreno lo gira. Un capitolo può prendersi il gesto (presa), per esempio per muovere le maniglie
+  const gesti = { vuole: null as null | ((x: number, y: number) => boolean), presa: null as null | ((x: number, y: number, dito: boolean) => boolean), muovi: null as null | ((x: number, y: number) => void), lascia: null as null | (() => void) };
+  let gira = false, preso = false, xPrima = 0;
+  telaTerreno.addEventListener('pointerdown', e => {
+    const [x, y] = dove(e, telaTerreno);
+    if (gesti.presa?.(x, y, e.pointerType !== 'mouse')) { preso = true; telaTerreno.setPointerCapture(e.pointerId); return; }
+    gira = true;
+    xPrima = e.clientX;
+    telaTerreno.setPointerCapture(e.pointerId);
+  });
+  // Col dito la maniglia si tiene da subito: la pagina non scorre mentre la sposti
+  telaTerreno.addEventListener('touchstart', e => {
+    const b = telaTerreno.getBoundingClientRect(), d = e.touches[0]!;
+    if (gesti.vuole?.(d.clientX - b.left, d.clientY - b.top)) e.preventDefault();
+  }, { passive: false });
+  telaTerreno.addEventListener('pointermove', e => {
+    if (preso) { const [x, y] = dove(e, telaTerreno); gesti.muovi?.(x, y); s.sporco = true; return; }
+    if (!gira) return;
+    s.giro -= (e.clientX - xPrima) * 0.008;
+    xPrima = e.clientX;
+    s.sporco = true;
+  });
+  const fine = () => { gira = false; if (preso) { preso = false; gesti.lascia?.(); } };
+  telaTerreno.addEventListener('pointerup', fine);
+  telaTerreno.addEventListener('pointercancel', fine);
 
-  // Le tele seguono la pagina
-  const misuraTele = () => {
-    W = tela.clientWidth; H = tela.clientHeight; P = telaPiano.clientWidth;
+  function misuraTele() {
+    W = telaTerreno.clientWidth; H = telaTerreno.clientHeight; Wr = telaRete.clientWidth; Hr = telaRete.clientHeight;
     const d = devicePixelRatio;
-    tela.width = W * d; tela.height = H * d;
-    telaPiano.width = telaPiano.height = P * d;
-    telaStoria.width = telaStoria.clientWidth * d; telaStoria.height = telaStoria.clientHeight * d;
-    disegnaStrati();
-    sporco = true;
-  };
-  new ResizeObserver(misuraTele).observe(radice);
-  document.fonts?.ready.then(() => { sporco = true; });
+    telaTerreno.width = W * d; telaTerreno.height = H * d;
+    telaRete.width = Wr * d; telaRete.height = Hr * d;
+    s.sporco = true;
+  }
+  new ResizeObserver(misuraTele).observe(el);
+  new IntersectionObserver(v => { s.visibile = v.some(x => x.isIntersecting); }, { rootMargin: '60px' }).observe(el);
+  misuraTele();
 
-  let prima = performance.now(), battito = 0;
+  function disegna() {
+    if (!W || !Wr) return;
+    const m = misura(s.rete, s.celle);
+    s.errore = m.errore;
+    s.somiglia = somiglianza(s.rete, s.celle);
+    calcolaAltezze();
+    disegnaTerreno();
+    disegnaRete();
+    if (lettura) { const t2 = `match ${Math.round(s.somiglia * 100)}%`; if (lettura.textContent !== t2) lettura.textContent = t2; }
+    if (dettaglio) { const t2 = testoDettaglio(); if (dettaglio.textContent !== t2) dettaglio.textContent = t2; }
+  }
+  return { s, fissaSagoma, aggiornaSagoma, cambiaRete, allena, unPassoSolo, disegna, gesti, proietta, sulPavimento, el };
+}
+type Banco = ReturnType<typeof banco>;
+
+export function monta(radice: HTMLElement) {
+  const banchi: Banco[] = [], dopo: ((ora: number) => void)[] = [];
+  const zona = (nome: string) => radice.querySelector<HTMLElement>(`[data-capitolo="${nome}"]`)!;
+  const scrivi = (el: Element | null, t: string) => { if (el && el.textContent !== t) el.textContent = t; };
+
+  // --- 1. Un neurone: la rete non si allena, le due maniglie decidono i pesi
+  {
+    const b = banco(zona('uno'), { nascosti: [], allena: false }), { s } = b;
+    banchi.push(b);
+    const man = [[-0.35, 0.8], [0.15, -0.8]] as [number, number][];
+    const fissa = () => {
+      const [ax, ay] = man[0]!, [bx, by] = man[1]!, nx = -(by - ay), ny = bx - ax, d = Math.hypot(nx, ny) || 1;
+      const prova = (verso: number) => {
+        s.rete.pesi[0]![0] = (verso * RIPIDO * nx) / d;
+        s.rete.pesi[0]![1] = (verso * RIPIDO * ny) / d;
+        s.rete.scarti[0]![0] = (-verso * RIPIDO * (nx * ax + ny * ay)) / d;
+        return somiglianza(s.rete, s.celle);
+      };
+      // Il lato alto del gradino è quello che copre di più la sagoma
+      const uno = prova(1);
+      if (prova(-1) < uno) prova(1);
+      s.sporco = true;
+    };
+    fissa();
+    let tenuta = -1;
+    b.gesti.vuole = (x, y) => man.some(m => { const [px, py] = b.proietta(m[0], m[1], 0); return Math.hypot(x - px, y - py) < 26; });
+    b.gesti.presa = (x, y, dito) => {
+      tenuta = -1;
+      man.forEach((m, k) => { const [px, py] = b.proietta(m[0], m[1], 0); if (Math.hypot(x - px, y - py) < (dito ? 26 : 14)) tenuta = k; });
+      return tenuta >= 0;
+    };
+    b.gesti.muovi = (x, y) => {
+      if (tenuta < 0) return;
+      const [u, v] = b.sulPavimento(x, y);
+      man[tenuta] = [Math.max(-1, Math.min(1, u)), Math.max(-1, Math.min(1, v))];
+      if (Math.hypot(man[0]![0] - man[1]![0], man[0]![1] - man[1]![1]) > 0.08) fissa();
+    };
+    b.gesti.lascia = () => { tenuta = -1; };
+    const riscrivi = () => {
+      const w = s.rete.pesi[0]!, q = s.rete.scarti[0]![0]!;
+      s.testo = `height = step(${f2(w[0]!)}·x ${w[1]! < 0 ? '-' : '+'} ${f2(Math.abs(w[1]!))}·y ${q < 0 ? '-' : '+'} ${f2(Math.abs(q))})   The numbers are the weights: move a square and they change.`;
+    };
+    riscrivi();
+    // Le maniglie sopra al terreno
+    const tela = zona('uno').querySelector<HTMLCanvasElement>('.tela-terreno')!, ctx = tela.getContext('2d')!;
+    s.sopraTerreno = () => {
+      riscrivi();
+      const [ax, ay] = b.proietta(man[0]![0], man[0]![1], 0), [bx, by] = b.proietta(man[1]![0], man[1]![1], 0);
+      ctx.strokeStyle = tono('--fg');
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+      ctx.setLineDash([]);
+      for (const [x, y] of [[ax, ay], [bx, by]] as const) {
+        ctx.fillStyle = tono('--bg');
+        ctx.fillRect(x - 7, y - 7, 14, 14);
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - 7, y - 7, 14, 14);
+      }
+    };
+  }
+
+  // --- 2. Più neuroni: uno strato solo; si aggiungono uno alla volta e quelli che c'erano restano
+  {
+    const z = zona('neuroni'), b = banco(z, { nascosti: [1] });
+    banchi.push(b);
+    const cambia = (d: number) => {
+      const n = Math.max(1, Math.min(16, b.s.nascosti[0]! + d));
+      if (n === b.s.nascosti[0]) return;
+      b.cambiaRete([n], true);
+      scrivi(z.querySelector('.numero'), String(n));
+      z.querySelector<HTMLButtonElement>('.meno')!.disabled = n === 1;
+      z.querySelector<HTMLButtonElement>('.piu')!.disabled = n === 16;
+    };
+    z.querySelector('.piu')!.addEventListener('click', () => cambia(1));
+    z.querySelector('.meno')!.addEventListener('click', () => cambia(-1));
+  }
+
+  // --- 3. Strati: sempre 16 neuroni, divisi in uno, due o tre strati
+  {
+    const z = zona('strati'), b = banco(z, { nascosti: [16] });
+    banchi.push(b);
+    const FORME = [[16], [8, 8], [5, 5, 6]];
+    let quale = 0;
+    const cambia = (d: number) => {
+      quale = Math.max(0, Math.min(FORME.length - 1, quale + d));
+      b.cambiaRete(FORME[quale]!, false);
+      scrivi(z.querySelector('.numero'), `16 neurons in ${quale + 1} ${quale ? 'layers' : 'layer'}`);
+      z.querySelector<HTMLButtonElement>('.meno')!.disabled = quale === 0;
+      z.querySelector<HTMLButtonElement>('.piu')!.disabled = quale === FORME.length - 1;
+    };
+    z.querySelector('.piu')!.addEventListener('click', () => cambia(1));
+    z.querySelector('.meno')!.addEventListener('click', () => cambia(-1));
+  }
+
+  // --- 4. Come impara: la rete parte a caso. Play fa migliaia di correzioni, step ne mostra una
+  {
+    const z = zona('impara'), b = banco(z, { nascosti: [8, 8], allena: false }), { s } = b;
+    banchi.push(b);
+    const gioca = z.querySelector<HTMLButtonElement>('.gioca')!, curva = z.querySelector<HTMLCanvasElement>('.curva')!, cc = curva.getContext('2d')!;
+    const fasi = z.querySelectorAll<HTMLElement>('.fasi span'), scritta = z.querySelector<HTMLElement>('.errore');
+    const accendi = (n: number) => fasi.forEach((f, k) => f.classList.toggle('accesa', k === n));
+    let inMoto = false, anima: { t0: number; q: Punto; p: number; fatto: boolean } | null = null, resto = 0, prima = 0;
+    const metti = (si: boolean) => { inMoto = si; gioca.textContent = si ? 'pause' : 'play'; };
+    gioca.addEventListener('click', () => { if (!anima) metti(!inMoto); });
+    z.querySelector('.azzera')!.addEventListener('click', () => { anima = null; s.sonda = null; s.testo = ''; s.impulso = 0; accendi(-1); metti(false); b.cambiaRete([8, 8], false); });
+    z.querySelector('.un-passo')!.addEventListener('click', () => {
+      if (anima) return;
+      metti(false);
+      const insieme = Math.random() < 0.5 && s.pieni.length ? s.pieni : s.vuoti.length ? s.vuoti : s.celle, q = insieme[Math.floor(Math.random() * insieme.length)]!;
+      const p = avanti(s.rete, q.x, q.y);
+      if (calmo) { b.unPassoSolo(); s.testo = `One correction done. This point had height ${f2(p)}, and it should be ${q.c}.`; return; }
+      anima = { t0: performance.now(), q, p, fatto: false };
+      s.sonda = { ...q, p };
+    });
+    dopo.push(ora => {
+      const dt = Math.min(0.1, (ora - prima) / 1000);
+      prima = ora;
+      if (inMoto && s.visibile && s.passi < FINE) {
+        resto += dt * 400;
+        const n = Math.floor(resto);
+        resto -= n;
+        for (let k = 0; k < n; k++) b.unPassoSolo();
+        if (n) { s.storia.push(s.errore); if (s.storia.length > 400) s.storia.shift(); }
+      }
+      if (anima) {
+        const f = (ora - anima.t0) / DURATA_PASSO, { q, p } = anima;
+        if (f < 0.34) {
+          accendi(0);
+          s.verso = 1; s.impulso = f / 0.34;
+          s.testo = `Try: at this point of the grid the network answers height ${f2(p)}.`;
+        } else if (f < 0.6) {
+          accendi(1);
+          s.impulso = 0;
+          const err = -Math.log(Math.max(1e-9, q.c ? p : 1 - p));
+          s.testo = `Compare: the height should be ${q.c}. The error is -log(${q.c ? f2(p) : f2(1 - p)}) = ${f2(err)}. Sure and right gives almost 0; sure and wrong gives a big number.`;
+        } else {
+          accendi(2);
+          s.verso = -1; s.impulso = (f - 0.6) / 0.4;
+          s.testo = 'Correct: the error travels back through the network, and each weight moves a little in the direction that lowers it.';
+          if (!anima.fatto) { b.unPassoSolo(); anima.fatto = true; s.sonda = { ...q, p: avanti(s.rete, q.x, q.y) }; }
+        }
+        s.sporco = true;
+        if (f >= 1) { anima = null; s.sonda = null; s.testo = ''; s.impulso = 0; accendi(-1); }
+      }
+      if (s.visibile && s.sporco) {
+        scrivi(scritta, `error ${s.errore.toFixed(3)}  ·  corrections ${s.passi}`);
+        const w = curva.clientWidth, h = curva.clientHeight, d = devicePixelRatio;
+        if (curva.width !== w * d) { curva.width = w * d; curva.height = h * d; }
+        cc.setTransform(d, 0, 0, d, 0, 0);
+        cc.clearRect(0, 0, w, h);
+        cc.strokeStyle = tono('--arancio');
+        cc.lineWidth = 1.5;
+        cc.beginPath();
+        const alto = Math.max(0.75, ...s.storia);
+        s.storia.forEach((v, k) => { const x = (k / Math.max(1, s.storia.length - 1)) * w, y = h - 2 - (v / alto) * (h - 4); if (k) cc.lineTo(x, y); else cc.moveTo(x, y); });
+        cc.stroke();
+      }
+    });
+  }
+
+  // --- 5. Tocca a te: sagoma a scelta o disegnata a mano, strati e neuroni liberi
+  {
+    const z = zona('libero'), b = banco(z, { nascosti: [8, 8], sagoma: 'bird' }), { s } = b;
+    banchi.push(b);
+    const sagome = z.querySelectorAll<HTMLButtonElement>('[data-sagoma]'), matita = z.querySelector<HTMLButtonElement>('.matita')!, pulisci = z.querySelector<HTMLButtonElement>('.pulisci')!;
+    const segna = (nome: string) => sagome.forEach(x => x.setAttribute('aria-pressed', String(x.dataset.sagoma === nome)));
+    segna('bird');
+    const aggiorna = () => {
+      const { nascosti } = s;
+      scrivi(z.querySelector('.strati-n'), String(nascosti.length));
+      scrivi(z.querySelector('.neuroni-n'), String(nascosti[0]));
+    };
+    const disegnando = (si: boolean) => {
+      s.piano = si;
+      matita.setAttribute('aria-pressed', String(si));
+      matita.textContent = si ? 'see it rise' : 'draw your own';
+      pulisci.hidden = !si;
+      s.sporco = true;
+    };
+    sagome.forEach(x => x.addEventListener('click', () => { disegnando(false); segna(x.dataset.sagoma!); b.fissaSagoma(SAGOME[x.dataset.sagoma!]!); s.passi = 0; }));
+    matita.addEventListener('click', () => { segna(''); disegnando(!s.piano); s.passi = 0; });
+    pulisci.addEventListener('click', () => { s.celle.forEach(q => { q.c = 0; }); b.aggiornaSagoma(); s.passi = 0; });
+    const riforma = (strati: number, neuroni: number) => { b.cambiaRete(Array.from({ length: strati }, () => neuroni), false); aggiorna(); };
+    z.querySelector('.strati-piu')!.addEventListener('click', () => riforma(Math.min(4, s.nascosti.length + 1), s.nascosti[0]!));
+    z.querySelector('.strati-meno')!.addEventListener('click', () => riforma(Math.max(1, s.nascosti.length - 1), s.nascosti[0]!));
+    z.querySelector('.neuroni-piu')!.addEventListener('click', () => riforma(s.nascosti.length, Math.min(16, s.nascosti[0]! + 1)));
+    z.querySelector('.neuroni-meno')!.addEventListener('click', () => riforma(s.nascosti.length, Math.max(1, s.nascosti[0]! - 1)));
+    aggiorna();
+    // Disegno a mano: il trascinamento dipinge invece di girare la griglia. Se parte da una cella piena, cancella
+    let colore = 1, ultimo: [number, number] | null = null;
+    const cella = (x: number, y: number) => {
+      const w = z.querySelector<HTMLCanvasElement>('.tela-terreno')!, W = w.clientWidth, H = w.clientHeight, q = Math.min(W, H) - 4;
+      return [Math.floor(((x - (W - q) / 2) / q) * G), Math.floor(((y - (H - q) / 2) / q) * G)] as const;
+    };
+    // Dipinge il tratto dall'ultimo punto a questo, anche se il puntatore si muove veloce
+    const dipingi = (x: number, y: number) => {
+      const [k, r] = cella(x, y), [k0, r0] = ultimo ?? [k, r], passi = Math.max(1, Math.abs(k - k0), Math.abs(r - r0));
+      for (let n = 0; n <= passi; n++) {
+        const qk = Math.round(k0 + ((k - k0) * n) / passi), qr = Math.round(r0 + ((r - r0) * n) / passi);
+        for (const [dr, dk] of [[0, 0], [1, 0], [0, 1], [1, 1]] as const) {
+          const a = qr + dr, c2 = qk + dk;
+          if (a >= 0 && c2 >= 0 && a < G && c2 < G) s.celle[a * G + c2]!.c = colore;
+        }
+      }
+      ultimo = [k, r];
+    };
+    b.gesti.vuole = () => s.piano;
+    b.gesti.presa = (x, y) => {
+      if (!s.piano) return false;
+      const [k, r] = cella(x, y);
+      colore = s.celle[r * G + k]?.c ? 0 : 1;
+      ultimo = null;
+      dipingi(x, y);
+      b.aggiornaSagoma();
+      return true;
+    };
+    b.gesti.muovi = (x, y) => { if (s.piano) { dipingi(x, y); b.aggiornaSagoma(); s.passi = 0; } };
+  }
+
+  document.fonts?.ready.then(() => banchi.forEach(b => { b.s.sporco = true; }));
   const ciclo = (ora: number) => {
     requestAnimationFrame(ciclo);
-    const dt = Math.min(0.1, (ora - prima) / 1000);
-    prima = ora;
-    if (inMoto) {
-      residuo += dt * PASSI_AL_SECONDO;
-      const n = Math.floor(residuo);
-      residuo -= n;
-      allena(n);
-      sporco = true;
+    const vivi = banchi.filter(b => b.s.visibile);
+    for (const b of vivi) {
+      if (b.s.allena && b.s.passi < FINE) b.allena(MS_AL_FOTOGRAMMA / vivi.length);
     }
-    avanzaAnimazione(ora);
-    controllaGuida(ora);
-    if (!sporco || !W || !P) return;
-    sporco = false;
-    const m = misura(rete, dati);
-    errore = m.errore;
-    precisione = m.precisione;
-    if (!Number.isFinite(errore)) { esploso = true; gioca(false); }
-    if (inMoto && ++battito % 3 === 0) { storia.push(errore); if (storia.length > 320) storia.shift(); }
-    calcolaGriglie();
-    disegnaRete(ora);
-    disegnaPiano();
-    disegnaStoria();
-    aggiornaTesti();
+    dopo.forEach(f => f(ora));
+    for (const b of vivi) if (b.s.sporco) { b.s.sporco = false; b.disegna(); }
   };
-  riservaGriglie();
-  aggiornaBottoni();
-  mostraGuida();
-  misuraTele();
   requestAnimationFrame(ciclo);
 }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-// Mattoni comuni delle tre scene di misc (barriera, prato dei formicai, nuvole), nello stile del bosco e del
+// Mattoni comuni delle scene di Learn (barriera, nuvole), nello stile del bosco e del
 // laghetto: forme a filo con un riempimento tenue, colori delle sezioni, dischi a strati e griglia di punti
 // come terreno, nebbia sul fondo. Sono scene per rilassarsi, senza dati.
 

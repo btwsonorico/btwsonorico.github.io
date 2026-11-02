@@ -11,14 +11,16 @@ import { casuale, mat, pezzo, sasso, linea, tono, terreno, puntiMorbidi, palco, 
 // Sopra passano nuvole morbide: dentro hanno una rete invisibile di nodi e molle, fuori una nuvola leggera di punti
 // che nascono e svaniscono come vapore. Il puntatore che passa le scosta; si possono afferrare e tirare: si allungano,
 // poi tornano; intanto cambiano forma da sole.
-// Sotto le nuvole, le mongolfiere: restano libere, un domani potranno diventare i contenuti da cliccare.
+// Sotto le nuvole, le mongolfiere: ognuna porta a una risorsa di Learn. Un clic sul pallone o sul suo nome apre la pagina.
 
 const L = 8;
 
-export function monta(el: HTMLElement) {
+export type Risorsa = { nome: string; href: string; lista?: HTMLElement | null };
+
+export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   const r = casuale(23);
   const p = palco(el, {
-    camera: new THREE.Vector3(0, 8.3, 19.2), mira: new THREE.Vector3(0, 0.4, 0.3), giro: 0.006, inclina: [-0.12, 0.8], nebbia: [1.0, 2.0], zoom: [0.3, 1.15], aggiorna,
+    camera: new THREE.Vector3(0, 8.3, 19.2), mira: new THREE.Vector3(0, 0.8, 0.3), giro: 0.006, inclina: [-0.12, 0.8], nebbia: [1.0, 2.0], zoom: [0.3, 1.15], aggiorna,
     afferra, trascina, rilascia, clic,
     scena: 'nuvole', toni: SITO,
   });
@@ -377,6 +379,8 @@ export function monta(el: HTMLElement) {
   // Presa: si afferra il nodo più vicino al raggio; lo si tira su un piano orizzontale alla sua quota
   const presa = { nuvola: -1, meta: new THREE.Vector3(), piano: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0) };
   function afferra(raggio: THREE.Raycaster) {
+    // Le mongolfiere sono link: non si afferra la nuvola che passa dietro
+    if (palloneSotto(raggio)) return false;
     // Il cane ha la precedenza: un clic su di lui lo fa sedere anche se sopra passa una nuvola
     if (raggio.ray.distanceToPoint(tmpL.set(cane.x, altezza(cane.x, cane.z) + 0.06, cane.z)) < 0.25) return false;
     let meglio = 0.6, chi = -1, quale = -1;
@@ -411,7 +415,7 @@ export function monta(el: HTMLElement) {
   });
   const geoPallone = new THREE.LatheGeometry(profilo, 12);
   const spicchi = new THREE.EdgesGeometry(geoPallone, 20);
-  const mongolfiere = (['#e08a3a', '#5fb6d9', '#6fa646'] as const).map((tinta, k) => {
+  const mongolfiere = (['#e08a3a', '#5fb6d9', '#6fa646'] as const).slice(0, risorse.length).map((tinta, k) => {
     const o = new THREE.Group(), colore = tono(tinta);
     o.add(new THREE.Mesh(geoPallone, new THREE.MeshBasicMaterial({ color: colore })));
     o.add(new THREE.LineSegments(spicchi, new THREE.LineBasicMaterial({ color: colore.clone().offsetHSL(0, 0, -0.18) })));
@@ -421,14 +425,35 @@ export function monta(el: HTMLElement) {
     o.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(funi), linea('#a07a50', 0.8)));
     const fiamma = pezzo(new THREE.ConeGeometry(0.025, 0.07, 5), mat('#f2b62f', { opacity: 0 }), 0, -0.49, 0);
     o.add(fiamma);
-    o.scale.setScalar(0.85);
+    o.scale.setScalar(1.5);
     g.add(o);
-    const y = [2.2, 3.7, 3.1][k]!;
-    return { o, fiamma, cx: [-2.6, 3.2, 0.6][k]!, cz: [1.2, -1.4, -4][k]!, y, fase: k * 2.1, quota: y };
+    const y = [3.1, 2.3, 3.7][k]!;
+    return { o, fiamma, cx: [0.5, 3.6, -2.6][k]!, cz: [2.2, -1.6, -3][k]!, y, fase: k * 2.1, quota: y };
   });
+  // Nome di ogni mongolfiera: un link vero, che segue il pallone sullo schermo
+  const nomi = mongolfiere.map((_, k) => {
+    const a = document.createElement('a');
+    a.className = 'etichetta skill nome-pallone';
+    a.href = risorse[k]!.href;
+    a.textContent = risorse[k]!.nome;
+    el.appendChild(a);
+    return a;
+  });
+  let acceso = -1, dallaLista = -1;
+  risorse.forEach((q, k) => {
+    q.lista?.addEventListener('pointerenter', () => { dallaLista = k; });
+    q.lista?.addEventListener('pointerleave', () => { dallaLista = -1; });
+  });
+  const palloneSotto = (raggio: THREE.Raycaster) => {
+    let meglio = 0.62, chi = -1;
+    mongolfiere.forEach((m, k) => { const d = raggio.ray.distanceToPoint(tmp.copy(m.o.position)); if (d < meglio) { meglio = d; chi = k; } });
+    return chi >= 0 ? chi + 1 : 0;
+  };
 
   // Clic: sul cane lo fa sedere (o ripartire)
   function clic(raggio: THREE.Raycaster) {
+    const pallone = palloneSotto(raggio);
+    if (pallone) { location.href = risorse[pallone - 1]!.href; return; }
     if (raggio.ray.distanceToPoint(tmp.set(cane.x, altezza(cane.x, cane.z) + 0.06, cane.z)) < 0.25) cane.seduto = !cane.seduto;
   }
 
@@ -450,7 +475,7 @@ export function monta(el: HTMLElement) {
   conta.style.cssText = 'position:absolute;right:16px;bottom:8px;font:13px var(--mono);color:var(--fg);pointer-events:none;opacity:0;transition:opacity .6s;white-space:pre';
   el.appendChild(conta);
   const smonta = p.distruggi;
-  p.distruggi = () => { conta.remove(); smonta(); };
+  p.distruggi = () => { conta.remove(); nomi.forEach(a => a.remove()); smonta(); };
   const nuovoCerchio = () => {
     const gx = pecore.reduce((a, q) => a + q.x, 0) / PECORE, gz = pecore.reduce((a, q) => a + q.z, 0) / PECORE;
     // Una radura a caso fra quelle lontane dal gregge
@@ -571,14 +596,20 @@ export function monta(el: HTMLElement) {
       }
     });
     nuvola.aggiorna();
-    if (presa.nuvola < 0) el.style.cursor = sopraNuvola ? 'grab' : '';
+    const sottoPallone = raggio ? palloneSotto(raggio) : 0;
+    if (presa.nuvola < 0) el.style.cursor = sottoPallone ? 'pointer' : sopraNuvola ? 'grab' : '';
+    const ora = dallaLista >= 0 ? dallaLista : sottoPallone - 1;
+    if (ora !== acceso) { nomi[acceso]?.classList.remove('attiva'); nomi[ora]?.classList.add('attiva'); acceso = ora; }
     // Mongolfiere: un lento giro largo, su e giù; la fiammella si accende quando salgono
-    mongolfiere.forEach(m => {
+    mongolfiere.forEach((m, k) => {
       const voluta = m.y + Math.sin(s * 0.1 + m.fase) * 0.5, prima = m.quota;
       m.quota = morbido(m.quota, voluta, dt * 0.3);
       const a = s * 0.02 + m.fase;
       m.o.position.set(m.cx + Math.sin(a) * 2, m.quota, m.cz + Math.cos(a * 0.8) * 1.3);
       m.o.rotation.y += dt * 0.04;
+      m.o.scale.setScalar(morbido(m.o.scale.x, k === acceso ? 1.75 : 1.5, dt * 8));
+      tmp.copy(m.o.position).setY(m.quota - 1.05).project(p.camera);
+      nomi[k]!.style.transform = `translate(${((tmp.x + 1) / 2) * el.clientWidth}px, ${((1 - tmp.y) / 2) * el.clientHeight}px) translate(-50%, 0)`;
       const fm = m.fiamma.material as THREE.MeshBasicMaterial;
       fm.opacity = morbido(fm.opacity, m.quota - prima > 0.0003 ? 0.9 : 0, dt * 4);
     });

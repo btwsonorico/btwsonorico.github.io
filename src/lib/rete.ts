@@ -1,7 +1,6 @@
 // Una piccola rete neurale vera, senza librerie e senza pagina intorno: due ingressi, strati nascosti a scelta, una uscita.
-// Calcola tutto nel browser, così gli esperimenti di Misc la allenano dal vivo su un sito statico.
+// Calcola tutto nel browser, così le pagine di Learn la allenano dal vivo su un sito statico.
 export type Attivazione = 'tanh' | 'relu';
-export type TipoDati = 'line' | 'circle' | 'xor' | 'spiral';
 export type Punto = { x: number; y: number; c: number };
 
 export type Rete = {
@@ -48,6 +47,17 @@ export function nuovaRete(nascosti: number[], attivazione: Attivazione, seme: nu
     velPesi: pesi.map(p => zeri(p.length)),
     velScarti: scarti.map(s => zeri(s.length)),
   };
+}
+
+// Rete con la stessa profondità e un neurone in più o in meno: tiene i pesi che ci sono ancora, i nuovi restano casuali
+export function copiaPesi(da: Rete, a: Rete) {
+  for (let l = 0; l < a.pesi.length; l++) {
+    const entrateDa = da.forma[l]!, entrateA = a.forma[l]!, neuroni = Math.min(da.forma[l + 1]!, a.forma[l + 1]!), entrate = Math.min(entrateDa, entrateA);
+    for (let j = 0; j < neuroni; j++) {
+      a.scarti[l]![j] = da.scarti[l]![j]!;
+      for (let i = 0; i < entrate; i++) a.pesi[l]![j * entrateA + i] = da.pesi[l]![j * entrateDa + i]!;
+    }
+  }
 }
 
 // Calcolo in avanti. Restituisce la probabilità della classe 1; i valori dei neuroni restano in rete.uscite
@@ -132,36 +142,4 @@ export function misura(rete: Rete, dati: Punto[]) {
     if ((p >= 0.5 ? 1 : 0) === q.c) giusti++;
   }
   return { errore: errore / dati.length, precisione: giusti / dati.length };
-}
-
-// Quattro problemi su un piano da -1 a 1, due classi. Il rumore sposta i punti: 0 è pulito
-export function generaDati(tipo: TipoDati, quanti: number, rumore: number, seme: number): Punto[] {
-  const r = casuale(seme), scosta = () => (r() * 2 - 1) * rumore, dati: Punto[] = [];
-  const entro = (v: number) => Math.max(-0.98, Math.min(0.98, v));
-  for (let k = 0; k < quanti; k++) {
-    const c = k % 2;
-    let x = 0, y = 0;
-    if (tipo === 'line') {
-      // Due gruppi separati da una retta inclinata
-      const lungo = r() * 1.8 - 0.9, largo = 0.15 + r() * 0.55;
-      x = (lungo * 0.8 + (c ? largo : -largo) * 0.6);
-      y = (lungo * 0.6 - (c ? largo : -largo) * 0.8);
-    } else if (tipo === 'circle') {
-      const a = r() * Math.PI * 2, d = c ? 0.62 + r() * 0.3 : r() * 0.36;
-      x = Math.cos(a) * d;
-      y = Math.sin(a) * d;
-    } else if (tipo === 'xor') {
-      // Quattro quadranti: le classi stanno agli angoli opposti
-      const sx = r() < 0.5 ? -1 : 1, sy = c ? -sx : sx;
-      x = sx * (0.12 + r() * 0.8);
-      y = sy * (0.12 + r() * 0.8);
-    } else {
-      // Due bracci di spirale, uno per classe
-      const t = Math.sqrt(r()), a = t * Math.PI * 2.6 + (c ? Math.PI : 0);
-      x = Math.cos(a) * t * 0.92;
-      y = Math.sin(a) * t * 0.92;
-    }
-    dati.push({ x: entro(x + scosta()), y: entro(y + scosta()), c });
-  }
-  return dati;
 }
