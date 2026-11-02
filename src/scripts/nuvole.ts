@@ -262,21 +262,22 @@ export function monta(el: HTMLElement) {
 
   // --- Nuvole morbide: una rete di nodi e molle (il filo che si vede) e sopra una nuvola di punti legati ai nodi.
   // I punti nascono, si allontanano appena e svaniscono, poi rinascono altrove nella nuvola: il vapore si rinnova.
+  // Punti radi e piccoli: si legge come una point cloud. Col puntatore sopra, la nuvola si allarga dal suo centro e tiene la forma.
   type Nodo = { x: number; y: number; z: number; vx: number; vy: number; vz: number; rx: number; ry: number; rz: number; fase: number };
   type Sfera = { x: number; y: number; z: number; raggio: number };
-  type Nuvola = { cx: number; cy: number; cz: number; vel: number; largo: number; nodi: Nodo[]; molle: [number, number, number][]; sfere: Sfera[]; da: number; n: number; preso: number };
+  type Nuvola = { cx: number; cy: number; cz: number; vel: number; largo: number; nodi: Nodo[]; molle: [number, number, number][]; sfere: Sfera[]; da: number; n: number; preso: number; piatta: number; allarga: number; ombraX: number; ombraZ: number };
   const nuvole: Nuvola[] = [];
-  const QUANTE = 7, PER = p.telefono ? 600 : 1100, N = QUANTE * PER;
+  const QUANTE = 7, PER = p.telefono ? 240 : 420, N = QUANTE * PER;
   const CIELO = 11, VENTO = new THREE.Vector2(0.92, 0.39), postiNuvole = benDistribuiti(QUANTE, 0, CIELO - 1.5, r);
   const nuvola = puntiMorbidi(N);
-  const legami = new Uint8Array(N * 3), pesi = new Float32Array(N * 3), offset = new Float32Array(N * 9), vita = new Float32Array(N), ritmo = new Float32Array(N), luceNuvole = new Float32Array(N);
+  const legami = new Uint8Array(N * 3), pesi = new Float32Array(N * 3), offset = new Float32Array(N * 9), vita = new Float32Array(N), ritmo = new Float32Array(N), luceNuvole = new Float32Array(N), apertura = new Float32Array(N);
   // Un punto a caso dentro la nuvola: più fitto verso il bordo degli sbuffi, la pancia piatta
   const campione = (nv: Nuvola, fuori: THREE.Vector3) => {
     const volume = nv.sfere.reduce((a, s) => a + s.raggio ** 3, 0);
     let u = r() * volume, s = nv.sfere[0]!;
     for (const q of nv.sfere) { u -= q.raggio ** 3; if (u <= 0) { s = q; break; } }
     const a = r() * Math.PI * 2, v = Math.acos(2 * r() - 1), d = s.raggio * (r() < 0.15 ? 1 + r() * 0.5 : Math.cbrt(r()));
-    fuori.set(s.x + Math.sin(v) * Math.cos(a) * d, s.y + Math.cos(v) * d * 0.75, s.z + Math.sin(v) * Math.sin(a) * d * 0.85);
+    fuori.set(s.x + Math.sin(v) * Math.cos(a) * d, s.y + Math.cos(v) * d * nv.piatta, s.z + Math.sin(v) * Math.sin(a) * d * 0.85);
     fuori.y = Math.max(fuori.y, -0.2 * nv.largo - r() * r() * 0.08);
     return fuori;
   };
@@ -296,16 +297,34 @@ export function monta(el: HTMLElement) {
   };
   for (let k = 0; k < QUANTE; k++) {
     const largo = 1.3 + r() * 1.2;
-    const sfere: Sfera[] = [];
-    const grandi = 4 + Math.floor(r() * 3);
-    for (let q = 0; q < grandi; q++) {
-      const t = q / (grandi - 1) - 0.5;
-      sfere.push({ x: t * largo * 1.9 + (r() - 0.5) * 0.3, y: (0.5 - Math.abs(t)) * 0.4 * largo, z: (r() - 0.5) * largo * 0.5, raggio: (0.45 + (0.5 - Math.abs(t)) * 0.8) * largo * 0.42 });
+    // Una forma per nuvola, a turno: cumulo allungato, torre, velo piatto, arco, due sbuffi legati da un filo
+    const sfere: Sfera[] = [], forma = k % 5;
+    const sbuffo = (x: number, y: number, z: number, raggio: number) => sfere.push({ x: x * largo, y: y * largo, z: z * largo, raggio: raggio * largo });
+    if (forma === 0) {
+      const n = 4 + Math.floor(r() * 3);
+      for (let q = 0; q < n; q++) { const t = q / (n - 1) - 0.5; sbuffo(t * 1.9 + (r() - 0.5) * 0.2, (0.5 - Math.abs(t)) * 0.4, (r() - 0.5) * 0.5, (0.45 + (0.5 - Math.abs(t)) * 0.8) * 0.42); }
+    } else if (forma === 1) {
+      for (let q = 0; q < 4; q++) sbuffo((r() - 0.5) * 0.18, q * 0.42, (r() - 0.5) * 0.18, 0.44 - q * 0.07);
+    } else if (forma === 2) {
+      for (let q = 0; q < 7; q++) sbuffo((q / 6 - 0.5) * 2.8, r() * 0.04, (r() - 0.5) * 0.9, 0.16 + r() * 0.1);
+    } else if (forma === 3) {
+      for (let q = 0; q < 6; q++) { const t = q / 5 - 0.5, a = t * 2.4; sbuffo(Math.sin(a) * 1.15, (0.5 - Math.abs(t)) * 0.2, (Math.cos(a) - 0.7) * 1.15, 0.32 - Math.abs(t) * 0.32); }
+    } else {
+      sbuffo(-0.8, 0.05, 0, 0.42); sbuffo(-0.3, 0, 0.05, 0.14); sbuffo(0.2, 0, -0.03, 0.12); sbuffo(0.7, 0.08, -0.05, 0.34); sbuffo(0.98, 0, 0.12, 0.2);
     }
-    for (let q = 0; q < 8; q++) {
+    const grandi = sfere.length, piatta = forma === 2 ? 0.3 : 0.75;
+    for (let q = 0; q < (forma === 2 ? 5 : 8); q++) {
       const m = sfere[Math.floor(r() * grandi)]!, a = r() * Math.PI * 2;
-      sfere.push({ x: m.x + Math.cos(a) * m.raggio * 0.7, y: m.y + (0.3 + r() * 0.6) * m.raggio * 0.8, z: m.z + Math.sin(a) * m.raggio * 0.6, raggio: m.raggio * (0.35 + r() * 0.25) });
+      sfere.push({ x: m.x + Math.cos(a) * m.raggio * 0.7, y: m.y + (0.3 + r() * 0.6) * m.raggio * (forma === 2 ? 0.2 : 0.8), z: m.z + Math.sin(a) * m.raggio * 0.6, raggio: m.raggio * (0.35 + r() * 0.25) });
     }
+    // Ogni nuvola ha il suo verso nel cielo; l'ombra prende la sua misura
+    const verso = r() * Math.PI * 2, cv = Math.cos(verso), sv = Math.sin(verso);
+    let ombraX = 0.3, ombraZ = 0.3;
+    sfere.forEach(q => {
+      const x = q.x * cv - q.z * sv, z = q.x * sv + q.z * cv;
+      q.x = x; q.z = z;
+      ombraX = Math.max(ombraX, Math.abs(x) + q.raggio); ombraZ = Math.max(ombraZ, Math.abs(z) + q.raggio);
+    });
     // Nodi: il centro di ogni sbuffo e qualche punto sul bordo degli sbuffi grandi
     const nodi: Nodo[] = [];
     const nodo = (x: number, y: number, z: number) => nodi.push({ x, y, z, vx: 0, vy: 0, vz: 0, rx: x, ry: y, rz: z, fase: r() * 6 });
@@ -321,13 +340,14 @@ export function monta(el: HTMLElement) {
     });
     const cx = postiNuvole[k]!.x, cy = 3.9 + r() * 2.1, cz = postiNuvole[k]!.z;
     nodi.forEach(q => { q.x += cx; q.y += cy; q.z += cz; });
-    const nv: Nuvola = { cx, cy, cz, vel: 0.1 + r() * 0.08, largo, nodi, molle, sfere, da: k * PER, n: PER, preso: -1 };
+    const nv: Nuvola = { cx, cy, cz, vel: 0.1 + r() * 0.08, largo, nodi, molle, sfere, da: k * PER, n: PER, preso: -1, piatta, allarga: 0, ombraX, ombraZ };
     nuvole.push(nv);
     for (let i = 0; i < PER; i++) {
       const j = nv.da + i;
       lega(nv, j);
       vita[j] = r(); ritmo[j] = 1 / (7 + r() * 12);
-      nuvola.dim[j] = 0.05 + r() * 0.07;
+      nuvola.dim[j] = 0.03 + r() * 0.04;
+      apertura[j] = 0.45 + r() * 0.4;
     }
   }
   g.add(nuvola.punti);
@@ -337,7 +357,7 @@ export function monta(el: HTMLElement) {
   const po = geoOmbra.attributes.position as THREE.BufferAttribute;
   for (let i = 0; i < po.count; i++) po.setY(i, altezza(po.getX(i), po.getZ(i)) + 0.03);
   const matOmbra = new THREE.ShaderMaterial({
-    uniforms: { ombre: { value: ombre }, colore: { value: p.chiaro ? new THREE.Color('#3a3530') : c.bg.clone() }, forza: { value: p.chiaro ? 0.16 : 0.55 } },
+    uniforms: { ombre: { value: ombre }, colore: { value: p.chiaro ? new THREE.Color('#7a6a52') : c.bg.clone() }, forza: { value: p.chiaro ? 0.09 : 0.55 } },
     transparent: true, depthWrite: false,
     vertexShader: 'varying vec2 vXZ; void main() { vXZ = position.xz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: `
@@ -404,7 +424,7 @@ export function monta(el: HTMLElement) {
     o.add(fiamma);
     o.scale.setScalar(0.85);
     g.add(o);
-    const y = [3.4, 3.8, 3.3][k]!;
+    const y = [2.2, 3.7, 3.1][k]!;
     return { o, fiamma, cx: [-2.6, 3.2, 0.6][k]!, cz: [1.2, -1.4, -4][k]!, y, fase: k * 2.1, quota: y };
   });
 
@@ -502,11 +522,6 @@ export function monta(el: HTMLElement) {
           const forma = 1 + 0.08 * Math.sin(s * 0.21 + n.fase), ondaX = Math.sin(s * 0.17 + n.fase * 2) * 0.08, ondaY = Math.sin(s * 0.13 + n.fase) * 0.05;
           let fx = (nv.cx + n.rx * forma + ondaX - n.x) * 0.9, fy = (nv.cy + n.ry * forma + ondaY - n.y) * 0.9, fz = (nv.cz + n.rz * forma - n.z) * 0.9;
           if (i === nv.preso) { fx += (presa.meta.x - n.x) * 30; fy += (presa.meta.y - n.y) * 30; fz += (presa.meta.z - n.z) * 30; }
-          else if (raggio && presa.nuvola < 0) {
-            tmp.set(n.x, n.y, n.z);
-            const d = raggio.ray.distanceToPoint(tmp);
-            if (d < 0.9) { raggio.ray.closestPointToPoint(tmp, tmpL); const k = ((0.9 - d) / 0.9) * 3 / (d || 1); fx += (n.x - tmpL.x) * k; fy += (n.y - tmpL.y) * k * 0.5; fz += (n.z - tmpL.z) * k; }
-          }
           n.vx += fx * h; n.vy += fy * h; n.vz += fz * h;
         });
         for (const [a, b, riposo] of nv.molle) {
@@ -518,11 +533,16 @@ export function monta(el: HTMLElement) {
         const attrito = Math.exp(-h * 2.6);
         nv.nodi.forEach(n => { n.vx *= attrito; n.vy *= attrito; n.vz *= attrito; n.x += n.vx * h; n.y += n.vy * h; n.z += n.vz * h; });
       }
-      // Centro per l'ombra: la media dei nodi
-      let mx = 0, mz = 0;
-      nv.nodi.forEach(n => { mx += n.x; mz += n.z; });
-      ombre[q]!.set(mx / nv.nodi.length + 0.8, mz / nv.nodi.length + 0.6, nv.largo * 1.2 * Math.max(vista, 0.01), nv.largo * 0.75 * Math.max(vista, 0.01));
-      if (raggio && presa.nuvola < 0 && !sopraNuvola) sopraNuvola = nv.nodi.some(n => raggio.ray.distanceToPoint(tmp.set(n.x, n.y, n.z)) < 0.6);
+      // Centro della nuvola: la media dei nodi; serve all'ombra e all'allargamento
+      let mx = 0, my = 0, mz = 0;
+      nv.nodi.forEach(n => { mx += n.x; my += n.y; mz += n.z; });
+      mx /= nv.nodi.length; my /= nv.nodi.length; mz /= nv.nodi.length;
+      // Col puntatore sopra si apre in fretta; quando esce si richiude piano. Da aperta si prende da più lontano, così non trema
+      const sopra = !!raggio && presa.nuvola < 0 && nv.nodi.some(n => raggio.ray.distanceToPoint(tmp.set(n.x, n.y, n.z)) < 0.6 + nv.allarga * 0.45);
+      nv.allarga += ((sopra ? 1 : 0) - nv.allarga) * (1 - Math.exp(-dt * (sopra ? 3.5 : 1.4)));
+      if (sopra) sopraNuvola = true;
+      const ombraPiu = 1 + nv.allarga * 0.25;
+      ombre[q]!.set(mx + 0.8, mz + 0.6, nv.ombraX * ombraPiu * Math.max(vista, 0.01), nv.ombraZ * ombraPiu * Math.max(vista, 0.01));
       // Punti: posizione dai tre nodi legati; la vita li fa comparire, salire appena e svanire
       for (let i = 0; i < nv.n; i++) {
         const j = nv.da + i;
@@ -534,8 +554,10 @@ export function monta(el: HTMLElement) {
           const w = pesi[j * 3 + k]!, n = nv.nodi[legami[j * 3 + k]!]!, o = j * 9 + k * 3;
           x += w * (n.x + offset[o]! * cresce); y += w * (n.y + offset[o + 1]! * cresce); z += w * (n.z + offset[o + 2]! * cresce);
         }
-        nuvola.pos[j * 3] = x; nuvola.pos[j * 3 + 1] = y + v * 0.08; nuvola.pos[j * 3 + 2] = z;
-        nuvola.alfa[j] = Math.sin(v * Math.PI) ** 0.7 * (p.chiaro ? 0.6 : 0.45) * vista;
+        // Allargamento: ogni punto si scosta dal centro della sua nuvola, chi più chi meno; la forma resta
+        const apre = 1 + nv.allarga * apertura[j]!;
+        nuvola.pos[j * 3] = mx + (x - mx) * apre; nuvola.pos[j * 3 + 1] = my + (y - my) * apre + v * 0.08; nuvola.pos[j * 3 + 2] = mz + (z - mz) * apre;
+        nuvola.alfa[j] = Math.sin(v * Math.PI) ** 0.7 * (p.chiaro ? 0.7 : 0.6) * vista * (1 - nv.allarga * 0.2);
         colNuvola.copy(scuroNuvola).lerp(chiaroNuvola, luceNuvole[j]!);
         nuvola.col[j * 3] = colNuvola.r; nuvola.col[j * 3 + 1] = colNuvola.g; nuvola.col[j * 3 + 2] = colNuvola.b;
       }
