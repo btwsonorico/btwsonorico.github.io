@@ -186,7 +186,7 @@ const build = new Date().toISOString().slice(0, 10);
   .cursore { color: var(--accent); animation: lampeggia 1.1s steps(1) infinite; }
   @keyframes lampeggia { 50% { opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .cursore { animation: none; } }
-  .piede { margin-top: auto; border-top: 1px solid var(--line); padding-top: var(--s2); padding-bottom: var(--s3); }
+  .piede { margin-top: auto; padding-top: var(--s2); padding-bottom: var(--s3); }
   /* Sezione: linea sopra, titolo // in mono, stessa distanza ovunque */
   .sezione { padding: var(--s3) 0; border-top: 1px solid var(--line); }
   .sezione > h2 { margin: 0 0 var(--s2); font-weight: 400; color: var(--accent); }

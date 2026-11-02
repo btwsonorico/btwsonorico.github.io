@@ -21,6 +21,9 @@ interface Opzioni {
   camera: THREE.Vector3;
   mira: THREE.Vector3;
   inclinazione: [number, number];
+  // Scena che deve entrare tutta a ogni rotazione: raggio massimo del suolo e altezza massima di ciò che vola.
+  // Se manca, la camera resta dove dice l'opzione camera
+  entra?: { raggio: number; alto: number };
   // Chiamata a ogni fotogramma: muove gli oggetti e li accende o spegne
   aggiorna: (t: number, acceso: (famiglia: string, id: string) => number) => void;
   // Chiamata subito dopo aggiorna: serve alla crescita iniziale, che ha l'ultima parola sulle scale
@@ -213,6 +216,38 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     esterno = punti.findIndex(p => p.id === id);
   });
 
+  // Inquadratura calcolata: alza la scena finché il bordo davanti, nel punto più basso che può raggiungere, sta nel riquadro.
+  // Se così la cima esce o il suolo sfora ai lati, allontana la camera. La grandezza voluta resta quando c'è spazio.
+  const miraPreferita = o.mira.y;
+  function inquadra({ raggio, alto }: { raggio: number; alto: number }) {
+    const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), margine = 1 - 2 * Math.min(0.06, 24 / h);
+    const su = new THREE.Vector3(), avanti = new THREE.Vector3(), v = new THREE.Vector3();
+    const altezzaSchermo = (cam: THREE.Vector3, mira: number, y: number, z: number) => {
+      avanti.set(0, mira - cam.y, -cam.z).normalize();
+      su.set(0, -avanti.z, avanti.y);
+      v.set(0, y - cam.y, z - cam.z);
+      return v.dot(su) / v.dot(avanti) / tan;
+    };
+    const fondo = (cam: THREE.Vector3, mira: number) => Math.min(...o.inclinazione.map(a => altezzaSchermo(cam, mira, -raggio * Math.sin(a), raggio * Math.cos(a))));
+    const cam = base.clone();
+    let mira = miraPreferita;
+    for (let giri = 0; giri < 60; giri++) {
+      mira = miraPreferita;
+      if (fondo(cam, mira) < -margine) {
+        // Più in basso guarda la camera, più in alto sale la scena
+        let entra = miraPreferita - 8, esce = miraPreferita;
+        for (let q = 0; q < 24; q++) { const m = (entra + esce) / 2; if (fondo(cam, m) < -margine) esce = m; else entra = m; }
+        mira = entra;
+      }
+      const lati = raggio / (cam.length() - raggio * 0.2) / tan / camera.aspect;
+      if (altezzaSchermo(cam, mira, alto, 0) <= margine && lati <= margine) break;
+      cam.multiplyScalar(1.02);
+    }
+    base.copy(cam);
+    o.mira.y = mira;
+    miraOra.copy(o.mira);
+  }
+
   new ResizeObserver(() => {
     w = el.clientWidth; h = el.clientHeight;
     renderer.setSize(w, h);
@@ -225,6 +260,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
       camera.setViewOffset(w, h, -w * 0.17, 0, w, h);
       base.multiplyScalar(1.25);
     } else camera.clearViewOffset();
+    if (o.entra) inquadra(o.entra);
     camera.position.copy(base);
     camera.lookAt(miraOra);
     // La nebbia segue la distanza della camera: sfuma solo il fondo della scena
