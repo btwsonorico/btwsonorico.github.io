@@ -4,19 +4,19 @@ import Base from '../../layouts/Base.astro';
 // Rete neurale: la facciata è lo strumento (a sinistra costruisci, alleni e leggi; a destra la griglia), le spiegazioni brevi
 // sono tag che appaiono sul punto, e scorrendo sotto c'è la spiegazione completa. La rete si allena nel browser (src/lib/rete.ts)
 const COME: [string, string][] = [
-  ['What is this?', 'A small neural network running in your browser. It reads a position on the grid and returns a height. It trains on 1,024 points, and the blue outline is the shape they form. Unlike a real model, it is measured on the same points it trained on, and its settings are fixed for you.'],
+  ['What is this?', 'A small neural network running in your browser. It reads a position on the grid and returns a height. It trains on 1,024 points, and the blue outline is the shape they form. Unlike with a real model, its settings are fixed for you: how fast it corrects its weights (the learning rate), how many points it looks at for each correction (64), and how many corrections it makes (20,000). In a real model these take a lot of trial and error.'],
   ['What does one neuron do?', 'It multiplies each input by a weight, adds the results and passes the total through tanh, a function that keeps the output between -1 and 1. On the grid that makes one straight cut, which cannot cover the fish.'],
   ['What do more neurons and layers add?', 'Each neuron makes its own cut, and the next layer adds them up. Neurons in a second layer read those cuts, so they can build corners and strips. On the fish, one layer of 6 stops near 70%, two reach about 90% and three go past 95%.'],
   ['How does it learn?', 'The network answers for a group of points, and the gap from the right heights is the error. Backpropagation finds how much each weight contributed, and gradient descent moves each one slightly. This repeats thousands of times.'],
   ['What about large models?', 'They train with the same loop, but with billions of weights instead of about 150, which can take weeks on very large machines. They are also harder to read: words or pixels become long lists of numbers, so the cuts happen in thousands of dimensions, with no grid to look at. That is a large part of why they are called black boxes.'],
 ];
 ---
-<Base title="Neural network · Riccardo Mondi" description="A simplified but real neural network, running in your browser. Add neurons and layers and teach it to draw." tono="neutro" largo>
+<Base title="Neural network · Riccardo Mondi" description="A small real neural network, running in your browser. Add neurons and layers and teach it to draw." tono="neutro" largo>
   <main class="rn" data-rete>
     <div class="schermo">
       <header class="testa">
-        <h1>Teach a neural network to draw</h1>
-        <p class="sotto">A simplified but real neural network, in your browser. <a href="#how-it-works" class="mono">how it works ↓</a></p>
+        <h1>Teach a (simple) neural network to draw</h1>
+        <p class="sotto">A real neural network, in your browser. <a href="#how-it-works" class="mono">how it works ↓</a></p>
       </header>
 
       <section class="banco">
