@@ -11,3 +11,4 @@
 - **Glossario: come visualizzarlo.** Oggi `/misc/glossary/` è una lista semplice; i dati stanno in `src/data/glossario.json`. Decide: Riccardo.
 - **Glossario: voci senza definizione.** 13 termini del documento non hanno testo: KV Cache, Large Action Models, Cognitive Swarm Intelligence, Multi-Agent Systems, Multi-Agent Reinforcement Learning, Graph Neural Networks, Temporal GNNs, Kubernetes, Kafka, Continual Learning, Genetic Algorithms, Distillation, Quantization. Oggi compaiono solo come nomi in «To be defined». Decide e scrive: Riccardo.
 - **Sito in italiano e in inglese.** Quando il contenuto è finale: una versione per lingua, con un comando per passare dall'una all'altra. Decide i testi italiani: Riccardo.
+- **Informazioni nel grafico a destra.** Valutare se mostrare direttamente nel grafico a destra alcune informazioni che oggi stanno nelle sottopagine. Decide quali e come: Riccardo.
