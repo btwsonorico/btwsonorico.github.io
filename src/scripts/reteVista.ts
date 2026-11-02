@@ -5,7 +5,7 @@ import { avanti, misura, nuovaRete, passo, type Punto, type Rete } from '../lib/
 // Un tag arancione accanto a un comando dice cosa fare adesso; passando su un elemento, un tag sul punto lo spiega.
 const G = 32, T = 9, PASSI_AL_SECONDO = 800, GRUPPO = 64, TASSO = 0.03, TASSO_FINE = 0.01, RALLENTA = 12000, FINE = 20000, MS_AL_FOTOGRAMMA = 7, DURATA_PASSO = 4500, DURATA_SALITA = 1300;
 const ALTEZZA = 0.62, PIATTO = 0.52, RIPIDO = 7;
-// Con queste sagome e 6 neuroni, uno strato si ferma al 65-70%, due arrivano intorno al 90%, tre oltre il 95%:
+// Con queste sagome e 6 neuroni, uno strato si ferma intorno al 70%, due arrivano oltre l'85%, tre intorno al 95%:
 // così si vede cosa aggiunge ogni strato
 const MAX_NEURONI = 6, MAX_STRATI = 4, NEURONI_INIZIALI = 3, MAX_CORSE = 3;
 
@@ -14,16 +14,14 @@ const triangolo = (x: number, y: number, ax: number, ay: number, bx: number, by:
   const d1 = lato(ax, ay, bx, by), d2 = lato(bx, by, cx, cy), d3 = lato(cx, cy, ax, ay);
   return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
 };
+const palco = (x: number, y: number, cima: number, base: number, largo: number) => y < cima && y > base && Math.abs(x) < ((cima - y) / (cima - base)) * largo;
 const SAGOME: Record<string, (x: number, y: number) => boolean> = {
-  // Corpo snello, coda a forcella, una pinna sopra e una sotto, l'occhio vuoto
-  fish: (x, y) => (((x + 0.18) / 0.58) ** 2 + (y / 0.3) ** 2 < 1
+  // Corpo snello, coda a forcella, una pinna sopra e una sotto
+  fish: (x, y) => ((x + 0.18) / 0.58) ** 2 + (y / 0.3) ** 2 < 1
     || triangolo(x, y, 0.3, 0, 0.88, 0.5, 0.62, 0) || triangolo(x, y, 0.3, 0, 0.88, -0.5, 0.62, 0)
-    || triangolo(x, y, -0.45, 0.22, 0.05, 0.22, -0.28, 0.66) || triangolo(x, y, -0.2, -0.22, 0.1, -0.22, 0.04, -0.58))
-    && (x + 0.5) ** 2 + (y - 0.07) ** 2 >= 0.075 ** 2,
-  // Ali a V, corpo e coda
-  bird: (x, y) => (Math.abs(y - (Math.abs(x) * 0.75 - 0.05)) < 0.13 && Math.abs(x) < 0.9)
-    || (Math.abs(x) < 0.1 && y < 0 && y > -0.55)
-    || (Math.abs(y - (Math.abs(x) * 0.7 - 0.72)) < 0.09 && Math.abs(x) < 0.35),
+    || triangolo(x, y, -0.45, 0.22, 0.05, 0.22, -0.28, 0.66) || triangolo(x, y, -0.2, -0.22, 0.1, -0.22, 0.04, -0.58),
+  // Abete a tre palchi staccati, con tacche fino al tronco
+  tree: (x, y) => palco(x, y, 0.94, 0.42, 0.42) || palco(x, y, 0.42, -0.1, 0.62) || palco(x, y, -0.1, -0.62, 0.84) || (Math.abs(x) < 0.09 && y <= 0.94 && y > -0.92),
 };
 const f2 = (v: number) => v.toFixed(2);
 const posto = (k: number) => ((k + 0.5) / G) * 2 - 1;
