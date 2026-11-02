@@ -5,7 +5,7 @@ export type TipoNodo = 'testo' | 'tema' | 'fonte' | 'area' | 'tech' | 'skill';
 export interface Nodo { id: string; tipo: TipoNodo; label: string; href?: string; debole?: boolean }
 // Stella: un testo meno recente. Nel grafo è un punto piccolo che gira intorno ai suoi temi, senza archi.
 export interface Stella { id: string; label: string; href: string; temi: string[] }
-export interface DatiGrafo { nodi: Nodo[]; archi: [string, string][]; stelle?: Stella[]; tour?: boolean }
+export interface DatiGrafo { nodi: Nodo[]; archi: [string, string][]; stelle?: Stella[] }
 
 // Per ogni tema, solo i testi più recenti sono nodi pieni: il grafo resta leggibile anche con molti testi.
 export const MAX_PER_TEMA = 4;
