@@ -1,0 +1,136 @@
+---
+import Base from '../../layouts/Base.astro';
+
+// Modello di diffusion: la facciata mostra una faccia che esce dal rumore; sotto c'è la spiegazione. Il modello è già allenato
+// (scripts/allena-facce.mjs) e gira nel browser (src/lib/diffusione.ts)
+const COME: [string, string][] = [
+  ['What is this?', 'A real diffusion model, very small, running in your browser. It draws faces of 16 by 16 pixels. Each pixel is one point on the grid, and its height is the value of that pixel. It was trained once, before this page was published, on 4,000 faces drawn by a small program. The model is a 75 KB file, smaller than most photos.'],
+  ['How did it learn?', 'Training takes a face and buries it under a random amount of noise. The network then has to guess the clean face from that mess. With a little noise the guess is easy, with a lot of noise it can only guess something like an average face. After thousands of examples it has learned what a face tends to look like at every level of noise.'],
+  ['How does it draw a new face?', 'It starts from pure noise, with no face in it at all. At every step the network makes its guess of the finished face, and the image moves a small part of the way towards that guess. With less noise left, the next guess is more precise. Look at the guess while the points move: it starts as a blurry average, and slowly commits to one face.'],
+  ['Why small steps?', 'Because the first guess is only a blur, jumping straight to it would give you a blur. Small steps let each guess correct the one before. Change the number of steps to see it: 50 steps take more calculations than 5, and large models make the same trade between speed and quality.'],
+  ['Why a different face each time?', 'Each face starts from different noise, and small differences early on push the guesses towards different faces. The model is not retrieving a stored picture: it holds no images, only weights. Press one of the last faces to replay it. Same noise, same face.'],
+  ['What about large image models?', 'They use the same idea on a very different scale. They work on images with millions of pixels, usually compressed first, and have billions of weights. They also read a prompt, which steers every guess towards what you asked for. This small model has no prompt, and it can only draw the kinds of faces it has seen.'],
+];
+---
+<Base title="Diffusion · Riccardo Mondi" description="Watch a small real diffusion model draw a face out of noise, in your browser." tono="neutro" largo>
+  <main class="rn" data-diffusione>
+    <div class="schermo">
+      <header class="testa">
+        <h1>Watch a diffusion model draw a face in your browser</h1>
+        <a href="#how-it-works" class="mono">how it works ↓</a>
+      </header>
+
+      <section class="banco">
+        <canvas class="tela-griglia" role="img" aria-label="A wire grid with one point for each pixel of the image. The height of a point is the value of its pixel. Noise looks like a scattered cloud, and a finished face looks like a shape in relief."></canvas>
+
+        <div class="pannello">
+          <div class="mono sezione">
+            <span class="titolino">generate</span>
+            <div class="riga">
+              <button type="button" class="gioca" data-spiega="Starts from new random noise and removes it step by step."></button>
+              <div class="passi" role="group" aria-label="Steps" data-spiega="How many steps it takes to remove the noise. More steps give a cleaner face.">
+                <span>steps</span>
+                <button type="button" data-passi="5">5</button>
+                <button type="button" data-passi="20">20</button>
+                <button type="button" data-passi="50">50</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mono sezione" data-spiega="Move through the generation, from pure noise to the finished face.">
+            <span class="titolino">time</span>
+            <input class="cursore-tempo" type="range" min="0" max="1000" value="0" aria-label="Time, from noise to face" />
+            <div class="estremi"><span>noise</span><span class="lettura"></span><span>face</span></div>
+          </div>
+
+          <div class="mono sezione">
+            <span class="titolino">what the network sees</span>
+            <div class="coppia">
+              <figure data-spiega="The image at this step: what the network reads."><canvas class="mini-ora" role="img" aria-label="The image at this step"></canvas><figcaption>now</figcaption></figure>
+              <figure data-spiega="The network's guess of the finished face at this step. It starts blurry and slowly commits."><canvas class="mini-ipotesi" role="img" aria-label="The guess of the network"></canvas><figcaption>its guess</figcaption></figure>
+            </div>
+          </div>
+
+          <div class="mono sezione">
+            <span class="titolino">last faces</span>
+            <div class="ricordi"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="spiegone" id="how-it-works">
+      <h2 class="mono">how it works</h2>
+      {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3><p>{testo}</p></article>)}
+    </section>
+  </main>
+  <div class="mono tag-punto" hidden></div>
+  <div class="mono tag-consiglio" hidden></div>
+</Base>
+
+<script>
+  import { monta } from '../../scripts/diffusioneVista';
+  monta(document.querySelector<HTMLElement>('[data-diffusione]')!);
+</script>
+
+<style>
+  :global(html) { scroll-behavior: smooth; }
+  .rn { padding: 4px 24px 0; }
+  .schermo { display: flex; flex-direction: column; gap: var(--s2); height: calc(100vh - 62px); min-height: 560px; padding-bottom: var(--s2); }
+  .testa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px var(--s2); }
+  .testa a { color: var(--fg); font-size: 12px; white-space: nowrap; }
+  h1 { margin: 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
+  button { padding: 5px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; transition: color .12s, border-color .12s; }
+  button:hover:not(:disabled) { border-color: var(--fg); color: var(--fg); }
+  button:disabled { cursor: default; }
+  button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
+  :global(.consigliato) { border-color: var(--arancio) !important; }
+  .titolino { display: block; margin-bottom: 8px; color: var(--fg); font-size: 14px; }
+  .titolino::before { content: '// '; color: var(--muted); }
+  .banco { position: relative; flex: 1 1 0; min-height: 0; }
+  .tela-griglia { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
+  .tela-griglia:active { cursor: grabbing; }
+  .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: 12px; width: clamp(320px, 30%, 400px); overflow: hidden; }
+  .sezione + .sezione { padding-top: 12px; border-top: 1px solid var(--line); }
+  .sezione { font-size: 13px; color: var(--fg); }
+  .riga { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+  .gioca { min-width: 112px; padding: 7px 16px; background: var(--fg); border-color: var(--fg); color: var(--bg); font-size: 15px; }
+  .gioca:hover:not(:disabled) { background: var(--bg); border-color: var(--fg); color: var(--fg); }
+  .gioca:disabled { background: var(--bg); border-color: var(--line); color: var(--muted); }
+  .passi { display: inline-flex; align-items: center; gap: 4px; }
+  .passi span { margin-right: 4px; color: var(--muted); font-size: 12px; }
+  .passi button { min-width: 34px; padding: 4px 6px; }
+  .cursore-tempo { display: block; width: 100%; margin: 0; accent-color: var(--fg); cursor: pointer; }
+  .estremi { display: flex; justify-content: space-between; gap: var(--s1); margin-top: 2px; color: var(--muted); font-size: 11px; }
+  .lettura { color: var(--fg); text-align: center; }
+  .coppia { display: grid; grid-template-columns: repeat(2, minmax(0, 132px)); gap: 12px; }
+  figure { margin: 0; }
+  figure canvas { display: block; width: 100%; aspect-ratio: 1; image-rendering: pixelated; outline: 1px solid var(--line); }
+  figcaption { margin-top: 4px; color: var(--muted); font-size: 11px; }
+  .ricordi { display: flex; flex-wrap: wrap; gap: 6px; min-height: 42px; }
+  .ricordi :global(button) { width: 42px; height: 42px; padding: 2px; border: 1px solid var(--line); background: var(--bg); cursor: pointer; }
+  .ricordi :global(button:hover) { border-color: var(--fg); }
+  .ricordi :global(canvas) { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+  .tag-punto, .tag-consiglio { position: fixed; left: 0; top: 0; z-index: 5; max-width: 300px; padding: 4px 8px; background: var(--bg); border: 1px solid var(--fg); color: var(--fg); font-size: 12px; line-height: 1.45; pointer-events: none; }
+  .tag-consiglio { border-color: var(--arancio); color: var(--arancio); }
+  .tag-punto[hidden], .tag-consiglio[hidden] { display: none; }
+  .spiegone { max-width: 720px; margin: 0 auto; padding: var(--s4) 0; border-top: 1px solid var(--line); scroll-margin-top: var(--s2); }
+  .spiegone h2 { margin: 0 0 var(--s3); font-size: 14px; font-weight: 400; color: var(--fg); }
+  .spiegone h2::before { content: '// '; color: var(--muted); }
+  .spiegone article { margin-bottom: var(--s3); }
+  .spiegone h3 { margin: 0 0 4px; font-size: 16px; font-weight: 400; color: var(--fg); }
+  .spiegone p { margin: 0 0 var(--s1); color: var(--muted); font-size: 14px; line-height: 1.7; }
+  @media (max-width: 760px) {
+    .rn { padding: 0 16px; }
+    .schermo { height: auto; min-height: 0; gap: var(--s1); }
+    h1 { font-size: 20px; }
+    .banco { display: contents; }
+    .testa { order: 0; }
+    .tela-griglia { position: static; display: block; order: 1; height: 300px; }
+    .pannello { position: static; order: 2; width: 100%; overflow: visible; }
+    .gioca { flex: 1 1 100%; padding: 10px; }
+    .passi button { min-width: 44px; padding: 8px; }
+    .cursore-tempo { height: 32px; }
+    .ricordi :global(button) { width: 48px; height: 48px; }
+  }
+</style>
