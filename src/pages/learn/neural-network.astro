@@ -1,15 +1,15 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// Rete neurale: una griglia a tutta pagina e la rete accanto. Due righe dicono sempre cosa sta succedendo e cosa puoi fare;
-// il pannello spiega i concetti. La rete è vera e si allena nel browser (src/lib/rete.ts)
+// Rete neurale: a sinistra si costruisce la rete, si allena e si legge il risultato, in quest'ordine; a destra la griglia.
+// Due righe dicono sempre cosa sta succedendo e cosa fare. La rete è vera e si allena nel browser (src/lib/rete.ts)
 const CONCETTI = [
   ['Neuron', 'Multiplies each input by a weight, adds them up, and squashes the sum. On the grid, that is one straight cut.'],
   ['Weight', 'A line between two neurons: how much one counts for the next. Orange pushes up, blue pushes down, thick is strong.'],
   ['Layer', 'Reads the layer before it, so it can combine cuts into corners and shapes.'],
   ['Height and match', 'The height of the grid is the answer of the network. Match says how much it overlaps the blue shape.'],
   ['Error', 'How wrong the answers are. Training exists to make this number small.'],
-  ['Backpropagation', 'Sends the error back through the network. Then gradient descent moves each weight a little, downhill. Press one correction to watch it.'],
+  ['Backpropagation', 'Sends the error back through the network. Then gradient descent moves each weight a little, downhill. Press one step to see it.'],
 ];
 ---
 <Base title="Neural network · Riccardo Mondi" description="A simplified but real neural network, running in your browser. Add neurons and layers and teach it to draw." largo>
@@ -18,24 +18,25 @@ const CONCETTI = [
       <div>
         <p class="mono via"><a href="/">~</a>/<a href="/learn/">learn</a>/neural-network</p>
         <h1>Teach a neural network to draw</h1>
-        <p class="sotto">A simplified but real neural network, running in your browser. Its answer is the height of the grid.</p>
+        <p class="sotto">A simplified but real neural network, in your browser. The height of the grid is its answer.</p>
       </div>
-      <button type="button" class="mono aiuto" aria-expanded="false" data-spiega="Opens short explanations of every concept on this page.">how it works</button>
+      <button type="button" class="mono aiuto" aria-expanded="false" data-spiega="Short explanations of every concept on this page.">how it works</button>
     </header>
 
     <section class="banco">
       <canvas class="tela-terreno" role="img" aria-label="A wire grid. Its height is the answer of the network, and the blue outline is the shape to reach."></canvas>
 
       <div class="righe" aria-live="polite">
-        <p><span class="mono cartello">Now</span><span class="riga-ora"></span></p>
-        <p><span class="mono cartello prova">Try</span><span class="riga-prova"></span></p>
+        <p class="riga-prova-box"><span class="mono cartello prova">try</span><span class="riga-prova"></span></p>
+        <p class="riga-ora-box"><span class="mono cartello">now</span><span class="riga-ora"></span></p>
       </div>
 
       <div class="mono forme">
+        <span class="titolino">shape</span>
         <button type="button" data-sagoma="fish" data-spiega="Teach the network to draw a fish.">fish</button>
         <button type="button" data-sagoma="bird" data-spiega="Teach the network to draw a bird.">bird</button>
-        <button type="button" class="matita" data-spiega="Paint your own shape directly on the grid.">draw</button>
-        <button type="button" class="pulisci" hidden data-spiega="Erase the whole shape.">clear</button>
+        <button type="button" class="matita" data-spiega="Stops the network, so you can paint your own shape on the base of the grid.">draw</button>
+        <button type="button" class="pulisci" hidden data-spiega="Erase everything you painted.">clear</button>
       </div>
 
       <aside class="pannello-aiuto" hidden>
@@ -46,24 +47,28 @@ const CONCETTI = [
       </aside>
 
       <div class="pannello">
-        <div class="mono azioni">
-          <button type="button" class="gioca primo" data-spiega="Starts or stops training: the network corrects itself hundreds of times a second."></button>
-          <button type="button" class="un-passo" data-spiega="Slows down and shows one single correction: try, error, backpropagation.">one correction</button>
-          <button type="button" class="azzera" data-spiega="Sets the weights back to random, and training starts over.">restart</button>
-        </div>
-        <div class="mono strati" data-spiega="A layer reads the layer before it, and combines its cuts into corners and shapes.">
-          <span>layers</span>
-          <button type="button" class="strati-meno" aria-label="Remove a layer">−</button><b class="strati-n"></b><button type="button" class="strati-piu" aria-label="Add a layer">+</button>
+        <div class="mono sezione-titolo">
+          <span class="titolino">build</span>
+          <div class="contatore strati" data-spiega="A layer reads the layer before it, and combines its cuts into corners and shapes.">
+            <span>layers</span>
+            <button type="button" class="strati-meno" aria-label="Remove a layer">−</button><b class="strati-n"></b><button type="button" class="strati-piu" aria-label="Add a layer">+</button>
+          </div>
         </div>
         <div class="rete-box">
           <div class="mono colonne"></div>
           <canvas class="tela-rete" role="img" aria-label="The network: inputs on the left, output on the right. Each square shows what that neuron sees, and each line is a weight."></canvas>
         </div>
-        <div class="mono andamento" data-spiega="Orange line: how the match grows over time. Grey line: the network you had before, to compare.">
-          <span class="lettura"></span>
-          <span class="prima"></span>
-          <span class="errore"></span>
-          <canvas class="curva" role="img" aria-label="How well the shape matches, over time"></canvas>
+        <div class="mono azioni">
+          <span class="titolino">train</span>
+          <button type="button" class="gioca" data-spiega="Starts or stops training: the network corrects itself hundreds of times a second."></button>
+          <button type="button" class="azzera" data-spiega="Sets the weights back to random, and training starts over.">restart</button>
+          <button type="button" class="un-passo" data-spiega="Slows down and shows one single correction: try, error, backpropagation.">one step</button>
+          <span class="nota-solo">Add a layer to start training.</span>
+        </div>
+        <div class="mono andamento">
+          <span class="titolino">result</span>
+          <div class="numeri"><span class="lettura"></span><span class="errore"></span></div>
+          <canvas class="curva" role="img" aria-label="Chart of the match over training, for this network and the one before" data-spiega="Match over training, always on the same scale. Orange is this network, grey is the one before: higher is better."></canvas>
         </div>
       </div>
     </section>
@@ -76,7 +81,7 @@ const CONCETTI = [
 </script>
 
 <style>
-  /* La pagina è lo strumento: la griglia riempie tutta la finestra, i comandi le stanno sopra, ognuno dove agisce */
+  /* La pagina è lo strumento: griglia a tutta finestra; a sinistra si lavora dall'alto in basso: costruisci, allena, leggi */
   .rn { display: flex; flex-direction: column; flex: 1; gap: var(--s1); padding: 0 24px 16px; min-height: 0; }
   :global(.piede) { display: none; }
   .testa { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s2); }
@@ -84,57 +89,74 @@ const CONCETTI = [
   .via a { color: inherit; }
   h1 { margin: 2px 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
   .sotto { margin: 0; color: var(--muted); font-size: 14px; }
-  button { padding: 4px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
-  button:hover:not(:disabled) { color: var(--fg); border-color: var(--muted); }
-  button:disabled { opacity: .35; cursor: default; }
+  button { padding: 5px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; transition: color .12s, border-color .12s; }
+  button:hover:not(:disabled) { border-color: var(--fg); color: var(--fg); }
+  button:disabled { border-color: var(--line); color: var(--line); opacity: .6; cursor: default; }
   button[hidden] { display: none; }
-  button[aria-pressed="true"], button[aria-expanded="true"] { border-color: var(--fg); color: var(--fg); }
-  .primo { border-color: var(--fg); color: var(--fg); }
-  .primo:hover:not(:disabled) { background: var(--fg); color: var(--bg); }
+  /* Selezionato: contorno chiaro. Il pieno resta solo all'azione principale */
+  button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
+  button[aria-pressed="true"]::before { content: '> '; color: var(--muted); }
+  /* Done è l'azione principale mentre si disegna */
+  .matita[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+  .matita[aria-pressed="true"]::before { content: none; }
   /* Il comando che la riga Try suggerisce */
-  :global(.consigliato) { border-color: var(--arancio) !important; color: var(--arancio) !important; }
+  :global(.consigliato) { border-color: var(--arancio) !important; box-shadow: 0 0 0 1px var(--arancio); }
+  /* Titoli di sezione: come nel resto del sito */
+  .titolino { color: var(--muted); font-size: 11px; }
+  .titolino::before { content: '// '; }
   .aiuto { flex: none; font-size: 13px; }
-  .banco { position: relative; flex: 1 1 0; min-height: 420px; }
+  .banco { position: relative; flex: 1 1 0; min-height: 480px; }
   .tela-terreno { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
   .tela-terreno:active { cursor: grabbing; }
   .tela-terreno.pennello { cursor: crosshair; }
-  /* Sopra la griglia: cosa sta succedendo e cosa puoi fare */
-  .righe { position: absolute; top: 0; left: calc(min(34%, 460px) + 32px); right: 110px; z-index: 1; pointer-events: none; font-size: 15px; line-height: 1.4; }
-  .righe p { display: flex; gap: 10px; margin: 0 0 6px; }
-  .cartello { flex: none; width: 34px; padding-top: 3px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
-  .cartello.prova { color: var(--arancio); }
-  .riga-ora { color: var(--fg); }
-  .riga-prova { color: var(--fg); }
-  .forme { position: absolute; top: 94px; right: 2px; z-index: 1; display: flex; flex-direction: column; gap: 4px; width: 84px; font-size: 13px; }
-  .forme button { padding: 4px 4px; }
-  .pannello-aiuto { position: absolute; top: 70px; right: 100px; bottom: 0; z-index: 2; width: min(340px, 40%); overflow-y: auto; padding: var(--s2); border: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 95%, transparent); }
+  /* Sopra la griglia: prima cosa fare, sotto cosa sta succedendo */
+  .righe { position: absolute; top: 0; left: calc(min(34%, 460px) + 32px); right: 110px; z-index: 1; pointer-events: none; }
+  .righe { min-height: 74px; }
+  .righe p { display: flex; gap: 10px; margin: 0; }
+  .riga-prova-box { font-size: 17px; line-height: 1.35; color: var(--fg); }
+  .riga-ora-box { margin-top: 6px !important; font-size: 13px; color: var(--muted); }
+  .cartello { flex: none; width: 36px; padding-top: 3px; color: var(--muted); font-size: 11px; }
+  .cartello.prova { color: var(--arancio); padding-top: 5px; }
+  .forme { position: absolute; top: 94px; right: 2px; z-index: 1; display: flex; flex-direction: column; gap: 6px; width: 84px; font-size: 13px; }
+  .forme button { padding: 5px 4px; }
+  .pannello-aiuto { position: absolute; top: 70px; right: 100px; bottom: 0; z-index: 2; width: min(340px, 40%); overflow-y: auto; padding: var(--s2); border: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 96%, transparent); }
   .pannello-aiuto[hidden] { display: none; }
   .chiudi { position: absolute; top: 6px; right: 6px; padding: 0 8px; }
   dl { margin: 0; }
   dt { font-size: 14px; color: var(--fg); }
   dd { margin: 2px 0 var(--s2); color: var(--muted); font-size: 13px; line-height: 1.5; }
-  /* A sinistra: la rete, con sopra i comandi che la cambiano */
-  .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--s1); width: min(34%, 460px); }
-  .azioni { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; }
-  .gioca { min-width: 72px; font-size: 15px; padding: 4px 16px; }
-  .strati { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg); }
-  .strati span { color: var(--muted); }
-  .strati b { min-width: 2ch; font-weight: 400; text-align: center; }
-  .strati button { padding: 1px 9px; }
-  .rete-box { position: relative; flex: 1 1 0; min-height: 200px; }
+  /* A sinistra, dall'alto in basso */
+  .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--s1); width: min(34%, 460px); transition: opacity .2s; }
+  .pannello.spento { opacity: .35; pointer-events: none; }
+  .sezione-titolo { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); font-size: 13px; }
+  .contatore { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); }
+  .contatore b { min-width: 2ch; font-weight: 400; font-size: 15px; text-align: center; }
+  .contatore button { width: 28px; height: 28px; padding: 0; font-size: 15px; }
+  .rete-box { position: relative; flex: 1 1 0; min-height: 170px; }
+  .azioni, .andamento { padding-top: var(--s1); border-top: 1px solid var(--line); }
   .tela-rete { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
   /* I neuroni si cambiano sopra ogni strato */
-  .colonne { position: absolute; inset: 0 0 auto; height: 30px; z-index: 1; font-size: 13px; color: var(--fg); }
+  .colonne { position: absolute; inset: 0 0 auto; height: 28px; z-index: 1; font-size: 13px; color: var(--fg); }
   .colonne :global(.colonna) { position: absolute; top: 0; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
-  .colonne :global(button) { padding: 0 5px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
-  .colonne :global(button:hover:not(:disabled)) { color: var(--fg); border-color: var(--muted); }
-  .colonne :global(button:disabled) { opacity: .35; cursor: default; }
+  .colonne :global(.nome-colonna) { position: absolute; top: 5px; left: 0; color: var(--muted); font-size: 11px; }
+  .colonne :global(button) { width: 22px; height: 24px; padding: 0; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
+  .colonne :global(button:hover:not(:disabled)) { border-color: var(--fg); color: var(--fg); }
+  .colonne :global(button:disabled) { opacity: .4; cursor: default; }
   .colonne :global(b) { min-width: 1.4ch; font-weight: 400; text-align: center; }
-  .andamento { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s1); }
-  .lettura { font-size: 20px; color: var(--fg); white-space: nowrap; }
-  .prima { color: var(--muted); white-space: nowrap; }
-  .errore { margin-left: auto; color: var(--muted); white-space: nowrap; }
-  .curva { display: block; flex: 1 0 100%; width: 100%; height: 44px; border-bottom: 1px solid var(--line); }
+  .azioni { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-height: 36px; font-size: 13px; }
+  .azioni .titolino { width: 100%; }
+  .azioni > [hidden] { display: none; }
+  .gioca { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 112px; padding: 7px 16px; background: var(--fg); border-color: var(--fg); color: var(--bg); font-size: 15px; }
+  .gioca:hover:not(:disabled) { background: var(--bg); border-color: var(--fg); color: var(--fg); }
+  .gioca::before { content: ''; width: 0; height: 0; border-style: solid; border-width: 5px 0 5px 9px; border-color: transparent transparent transparent currentColor; }
+  .gioca[data-stato="pausa"]::before { width: 9px; height: 10px; border-width: 0 3px; border-color: currentColor; }
+  .nota-solo { color: var(--muted); }
+  .nota-solo[hidden] { display: none; }
+  .numeri { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s1); }
+  .lettura { font-size: 20px; color: var(--fg); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .errore { color: var(--muted); white-space: nowrap; }
+  .curva { display: block; width: 100%; height: 112px; margin-top: 2px; }
+  .andamento .titolino { display: block; margin-bottom: 2px; }
   /* Telefono: righe, griglia e forme, poi la rete con i suoi comandi */
   @media (max-width: 760px) {
     .rn { padding: 0 16px 16px; }
@@ -143,13 +165,12 @@ const CONCETTI = [
     .testa { order: 0; }
     .righe { position: static; order: 1; }
     .tela-terreno { position: static; display: block; order: 2; height: 290px; }
-    .forme { position: static; order: 3; flex-direction: row; flex-wrap: wrap; width: auto; }
+    .forme { position: static; order: 3; flex-direction: row; flex-wrap: wrap; align-items: center; width: auto; }
+    .forme button { padding: 7px 12px; }
     .pannello-aiuto { position: static; order: 4; width: auto; max-height: none; }
     .pannello { position: static; order: 5; width: 100%; }
-    .rete-box { flex: none; height: 260px; }
-    button { padding: 6px 12px; }
-    .colonne :global(button) { padding: 3px 7px; }
-    .strati button { padding: 4px 11px; }
-    .gioca { padding: 6px 16px; }
+    .rete-box { flex: none; height: 240px; }
+    .contatore button { width: 34px; height: 34px; }
+    .colonne :global(button) { width: 26px; height: 28px; }
   }
 </style>
