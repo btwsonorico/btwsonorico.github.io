@@ -1,62 +1,54 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// Rete neurale: una sola scena e cinque passi, tutto in una schermata. La rete è vera e si allena nel browser (src/lib/rete.ts)
-const PASSI = ['One neuron', 'More neurons', 'Layers', 'Learning', 'Your turn'];
+// Rete neurale: una griglia a tutta pagina e quattro passi, con pochi comandi. La rete è vera e si allena nel browser (src/lib/rete.ts)
 ---
-<Base title="Neural network · Riccardo Mondi" description="Add neurons one at a time and watch a small neural network learn to draw, in your browser." largo>
+<Base title="Neural network · Riccardo Mondi" description="A simplified but real neural network, running in your browser. Add neurons and layers and teach it to draw." largo>
   <main class="rn" data-rete>
-    <p class="mono via"><a href="/">~</a>/<a href="/learn/">learn</a>/neural-network</p>
-    <h1>How does a neural network learn to draw?</h1>
-    <nav class="mono passi" aria-label="Steps">
-      {PASSI.map((p, k) => <button type="button">{k + 1} {p}</button>)}
-    </nav>
+    <header class="testa">
+      <p class="mono via"><a href="/">~</a>/<a href="/learn/">learn</a>/neural-network</p>
+      <h1>Teach a neural network to draw</h1>
+      <p class="sotto">A simplified but real neural network, running in your browser. Its answer is the height of the grid.</p>
+    </header>
 
-    <section class="banco" aria-live="off">
-      <canvas class="tela-rete" role="img" aria-label="The network: inputs on the left, output on the right. Each line is a weight."></canvas>
+    <section class="banco">
       <canvas class="tela-terreno" role="img" aria-label="A wire grid. Its height is the answer of the network, and the blue outline is the shape to reach."></canvas>
-
-      <!-- La linea di performance: sempre visibile, sotto la rete -->
+      <canvas class="tela-rete" role="img" aria-label="The network: inputs on the left, output on the right. Each line is a weight."></canvas>
       <div class="mono andamento">
         <span class="lettura"></span>
-        <span class="errore"></span>
+        <span class="errore" hidden></span>
         <canvas class="curva" role="img" aria-label="How well the shape matches, over time"></canvas>
       </div>
-
-      <div class="testo">
-        <p class="frase" aria-live="polite"></p>
-        <p class="mono dettaglio"></p>
-        <div class="mono comandi">
-          <button type="button" class="gioca primo">play</button>
-          <button type="button" class="un-passo">step</button>
-          <button type="button" class="azzera">restart</button>
-          <div class="gruppo" data-comandi="1" hidden>
-            <button type="button" class="meno" aria-label="Remove a neuron">−</button>
-            <span class="numero"></span>
-            <button type="button" class="piu" aria-label="Add a neuron">+ neuron</button>
-          </div>
-          <div class="gruppo" data-comandi="2" hidden>
-            <button type="button" class="meno" aria-label="Remove a layer">−</button>
-            <span class="numero"></span>
-            <button type="button" class="piu" aria-label="Add a layer">+ layer</button>
-          </div>
-          <div class="gruppo" data-comandi="4" hidden>
-            <button type="button" data-sagoma="fish">fish</button>
-            <button type="button" data-sagoma="bird">bird</button>
-            <button type="button" class="matita">draw your own</button>
-            <button type="button" class="pulisci" hidden>clear</button>
-            <span class="etichetta-c">layers</span>
-            <button type="button" class="strati-meno" aria-label="Remove a layer">−</button><span class="strati-n"></span><button type="button" class="strati-piu" aria-label="Add a layer">+</button>
-            <span class="etichetta-c">neurons</span>
-            <button type="button" class="neuroni-meno" aria-label="Remove a neuron from each layer">−</button><span class="neuroni-n"></span><button type="button" class="neuroni-piu" aria-label="Add a neuron to each layer">+</button>
-          </div>
-          <span class="fasi" aria-hidden="true" hidden><span>1 try</span><span>2 error</span><span>3 backpropagation</span></span>
-          <button type="button" class="dopo primo">next →</button>
-        </div>
-      </div>
+      <p class="mono dettaglio"></p>
     </section>
 
-    <p class="mono nota">Real training, in your browser. Simplified: two inputs and a few neurons; a large model has billions of weights, with the same moves.</p>
+    <section class="guida" aria-label="Steps">
+      <nav class="mono passi" aria-label="Step">
+        {['Neurons', 'Layers', 'Learning', 'Your turn'].map(n => <button type="button">{n}</button>)}
+      </nav>
+      <p class="frase" aria-live="polite"></p>
+      <div class="mono comandi">
+        <button type="button" class="gioca primo">play</button>
+        <button type="button" class="un-passo">one correction</button>
+        <span class="fasi" aria-hidden="true" hidden><span>try</span><span>error</span><span>backpropagation</span></span>
+        <div class="gruppo" data-comandi="4">
+          <button type="button" data-sagoma="fish">fish</button>
+          <button type="button" data-sagoma="bird">bird</button>
+          <button type="button" class="matita">draw</button>
+          <button type="button" class="pulisci" hidden>clear</button>
+        </div>
+        <div class="contatore" data-conta="neuroni">
+          <span>neurons</span>
+          <button type="button" class="neuroni-meno" aria-label="Remove a neuron">−</button><b class="neuroni-n"></b><button type="button" class="neuroni-piu" aria-label="Add a neuron">+</button>
+        </div>
+        <div class="contatore" data-conta="strati">
+          <span>layers</span>
+          <button type="button" class="strati-meno" aria-label="Remove a layer">−</button><b class="strati-n"></b><button type="button" class="strati-piu" aria-label="Add a layer">+</button>
+        </div>
+        <button type="button" class="azzera">restart</button>
+      </div>
+      <button type="button" class="mono dopo primo">next →</button>
+    </section>
   </main>
 </Base>
 
@@ -66,54 +58,61 @@ const PASSI = ['One neuron', 'More neurons', 'Layers', 'Learning', 'Your turn'];
 </script>
 
 <style>
-  .rn { max-width: 1120px; padding-top: 0; padding-bottom: var(--s1); }
+  /* La pagina è lo strumento: griglia e rete riempiono tutta la finestra, sotto restano la frase e i comandi */
+  .rn { display: flex; flex-direction: column; flex: 1; gap: var(--s1); padding: 0 24px 12px; min-height: 0; }
+  :global(.piede) { display: none; }
   .via { margin: 0; }
   .via a { color: inherit; }
-  h1 { margin: 2px 0 var(--s1); font-size: 24px; font-weight: 400; line-height: 1.15; }
-  button { padding: 1px 8px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
+  h1 { margin: 2px 0 2px; font-size: 24px; font-weight: 400; line-height: 1.15; }
+  .sotto { margin: 0; color: var(--muted); font-size: 14px; }
+  .banco { position: relative; flex: 1 1 0; min-height: 300px; }
+  .tela-terreno { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
+  .tela-terreno:active { cursor: grabbing; }
+  .tela-rete { position: absolute; left: 0; top: 0; bottom: 84px; width: min(30%, 420px); height: calc(100% - 84px); touch-action: pan-y; }
+  .andamento { position: absolute; left: 0; bottom: 0; width: min(30%, 420px); display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 var(--s1); }
+  .lettura { font-size: 20px; color: var(--fg); white-space: nowrap; }
+  .errore { color: var(--muted); white-space: nowrap; }
+  .errore[hidden] { display: none; }
+  .curva { display: block; flex: 1 0 100%; width: 100%; height: 44px; border-bottom: 1px solid var(--line); }
+  .dettaglio { position: absolute; right: 0; bottom: 0; max-width: 62%; margin: 0; padding: 3px 8px; background: var(--bg); border: 1px solid var(--line); color: var(--fg); font-size: 12px; overflow-wrap: anywhere; }
+  .dettaglio:empty { display: none; }
+  button { padding: 3px 10px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
   button:hover:not(:disabled) { color: var(--fg); border-color: var(--muted); }
-  button:disabled { opacity: .4; cursor: default; }
+  button:disabled { opacity: .35; cursor: default; }
   button[hidden] { display: none; }
-  button[aria-pressed="true"], button[aria-current="step"] { border-color: var(--fg); color: var(--fg); }
+  button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
   .primo { border-color: var(--fg); color: var(--fg); }
   .primo:hover:not(:disabled) { background: var(--fg); color: var(--bg); }
-  .passi { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--s1); }
-  /* Rete e griglia riempiono lo spazio che resta nella finestra: la pagina non deve scorrere */
-  .banco { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.75fr); grid-template-areas: "rete terreno" "andamento terreno" "testo testo"; grid-template-rows: auto auto auto; gap: var(--s1) var(--s2); --alto: clamp(280px, calc(100vh - 350px), 580px); }
-  .tela-rete { grid-area: rete; }
-  .tela-terreno { grid-area: terreno; cursor: grab; }
-  .tela-terreno:active { cursor: grabbing; }
-  .tela-rete, .tela-terreno { display: block; width: 100%; touch-action: pan-y; }
-  .tela-terreno { height: calc(var(--alto) + var(--s1)); }
-  .tela-rete { height: calc(var(--alto) - 74px); }
-  .andamento { grid-area: andamento; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 var(--s1); height: 74px; border-top: 1px solid var(--line); padding-top: 4px; }
-  .testo { grid-area: testo; }
-  .frase { max-width: 860px; min-height: 44px; margin: 0; font-size: 14px; line-height: 1.55; }
-  .dettaglio { min-height: 18px; margin: 4px 0 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-  .comandi { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; min-height: 28px; margin-top: 6px; color: var(--fg); }
-  .gruppo { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; min-width: 0; }
-  .dopo { margin-left: auto; }
-  .gruppo[hidden] { display: none; }
-  .lettura { font-size: 15px; color: var(--fg); white-space: nowrap; }
-  .etichetta-c { margin-left: var(--s1); color: var(--muted); }
-  .fasi { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-  .fasi[hidden] { display: none; }
-  .fasi span { padding: 1px 6px; border: 1px solid transparent; color: var(--muted); opacity: .6; }
+  /* Riga dei comandi: dove sei, cosa fare, con cosa, e il passo dopo */
+  .guida { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s1) var(--s3); padding-top: var(--s1); border-top: 1px solid var(--line); }
+  .passi { display: flex; gap: 4px; }
+  .passi button { padding: 3px 8px; border-color: transparent; }
+  .passi button[aria-current="step"] { background: var(--fg); color: var(--bg); }
+  .frase { flex: 1 1 280px; margin: 0; font-size: 15px; line-height: 1.4; }
+  .comandi { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 13px; color: var(--fg); }
+  .comandi > [hidden], .gruppo[hidden], .contatore[hidden], .fasi[hidden] { display: none; }
+  .gruppo { display: flex; gap: 6px; }
+  .contatore { display: inline-flex; align-items: center; gap: 6px; }
+  .contatore span { color: var(--muted); }
+  .contatore b { min-width: 2ch; font-weight: 400; text-align: center; }
+  .fasi { display: inline-flex; gap: 4px; }
+  .fasi span { padding: 3px 8px; border: 1px solid transparent; color: var(--muted); opacity: .6; }
   .fasi span.accesa { opacity: 1; border-color: var(--fg); color: var(--fg); }
-  .errore { color: var(--muted); white-space: nowrap; }
-  .curva { display: block; flex: 1 0 100%; width: 100%; height: 44px; border-bottom: 1px solid var(--line); }
-  .nota { max-width: 860px; margin: var(--s1) 0 0; font-size: 10px; }
-  :global(.piede) { padding-top: 0; padding-bottom: var(--s1); }
+  .dopo { padding: 3px 14px; font-size: 13px; }
+  .dopo[hidden] { display: none; }
+  /* Telefono: prima la griglia e subito sotto i comandi; la rete dopo, scorrendo */
   @media (max-width: 760px) {
-    /* Su telefono prima la griglia, poi la frase e il comando; la rete subito sotto */
-    .banco { grid-template-columns: minmax(0, 1fr); grid-template-areas: "terreno" "andamento" "testo" "rete"; }
-    .tela-terreno { height: 280px; }
-    .tela-rete { height: 220px; }
-    .frase { min-height: 0; }
-  }
-  @media (max-width: 640px) {
+    .rn { padding: 0 16px 16px; }
     h1 { font-size: 20px; }
-    button { padding: 5px 9px; }
-    .etichetta-c { margin-left: 0; }
+    .banco { display: contents; }
+    .testa { order: 0; }
+    .tela-terreno { position: static; display: block; order: 1; height: 300px; }
+    .dettaglio { position: static; order: 2; max-width: none; }
+    .guida { order: 3; }
+    .andamento { position: static; order: 4; width: 100%; }
+    .tela-rete { position: static; display: block; order: 5; width: 100%; height: 240px; }
+    .frase { flex-basis: 100%; order: -1; }
+    button { padding: 6px 12px; }
+    .passi button { padding: 6px 11px; }
   }
 </style>
