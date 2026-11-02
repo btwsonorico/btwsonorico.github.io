@@ -1,12 +1,13 @@
 ---
 import type { DatiGrafo } from '../lib/grafi';
 import type { DatiCompetenze } from '../scripts/vista3d';
+import type { DatiStormi } from '../scripts/stormi';
 
 // Una o più viste dello stesso grafo. Con due viste compaiono i pulsanti per passare dall'una all'altra.
 // Niente legende né istruzioni: cursore e hover bastano a capire cosa si clicca.
-// motore: "grafo" (rete a forze, Knowledge), "bosco" (Software) o "laghetto" (Advisory).
-type Motore = 'grafo' | 'bosco' | 'laghetto';
-interface Vista { nome: string; dati: DatiGrafo | DatiCompetenze }
+// motore: "grafo" (rete a forze, Knowledge), "bosco" (Software), "laghetto" (Advisory) o "stormi" (Knowledge, seconda vista).
+type Motore = 'grafo' | 'bosco' | 'laghetto' | 'stormi';
+interface Vista { nome: string; dati: DatiGrafo | DatiCompetenze | DatiStormi; motore?: Motore }
 // modi: viste della stessa scena (per esempio il bosco per competenza o per progetto). Il primo è quello iniziale.
 type Comuni = { motore?: Motore; modi?: { id: string; nome: string }[] };
 type Props = Comuni & ({ viste: Vista[] } | { dati: DatiGrafo | DatiCompetenze });
@@ -15,7 +16,7 @@ const { motore = 'grafo', modi = [] } = props;
 const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props.dati }];
 ---
 <figure class="grafo">
-  {viste.map((v, i) => <div class="scena" data-vista={i} data-grafo={JSON.stringify(v.dati)} data-motore={motore} hidden={i > 0} aria-hidden="true"></div>)}
+  {viste.map((v, i) => <div class="scena" data-vista={i} data-grafo={JSON.stringify(v.dati)} data-motore={v.motore ?? motore} hidden={i > 0} aria-hidden="true"></div>)}
   {(modi.length > 1 || viste.length > 1) && <figcaption class="mono">
     {modi.length > 1 && <span class="viste" role="group" aria-label="Group by">
       {modi.map((m, i) => <button type="button" data-modo={m.id} aria-pressed={i === 0 ? 'true' : 'false'}>{m.nome}</button>)}
@@ -28,15 +29,20 @@ const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props
 
 <script>
   // La scena e Three.js si scaricano solo dopo il primo disegno: il testo della pagina appare subito
-  const montaScene = () => document.querySelectorAll<HTMLElement>('[data-grafo]').forEach(el => {
+  // Ogni vista si scarica e parte solo la prima volta che si mostra
+  const montaScena = (el: HTMLElement) => {
+    if (el.hidden || el.dataset.montata) return;
+    el.dataset.montata = '1';
     if (el.dataset.motore === 'bosco') import('../scripts/bosco').then(m => m.monta(el));
     else if (el.dataset.motore === 'laghetto') import('../scripts/laghetto').then(m => m.monta(el));
+    else if (el.dataset.motore === 'stormi') import('../scripts/stormi').then(m => m.monta(el));
     else import('../scripts/grafo').then(m => m.monta(el));
-  });
+  };
+  const montaScene = () => document.querySelectorAll<HTMLElement>('[data-grafo]').forEach(montaScena);
   setTimeout(montaScene, 30);
   document.querySelectorAll<HTMLElement>('.grafo').forEach(fig => {
     fig.querySelectorAll<HTMLButtonElement>('[data-mostra]').forEach(b => b.addEventListener('click', () => {
-      fig.querySelectorAll<HTMLElement>('[data-vista]').forEach(el => { el.hidden = el.dataset.vista !== b.dataset.mostra; });
+      fig.querySelectorAll<HTMLElement>('[data-vista]').forEach(el => { el.hidden = el.dataset.vista !== b.dataset.mostra; montaScena(el); });
       fig.querySelectorAll('[data-mostra]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
     }));
     // Cambio di modo: la scena riceve "scena:modo" e si ridispone

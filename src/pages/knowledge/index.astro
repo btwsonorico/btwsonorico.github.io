@@ -2,11 +2,18 @@
 import Base from '../../layouts/Base.astro';
 import Grafo from '../../components/Grafo.astro';
 import Lista from '../../components/Lista.astro';
-import { grafoKnowledge, scrittiPubblici } from '../../lib/grafi';
+import { grafoKnowledge, hrefTema, scrittiPubblici } from '../../lib/grafi';
 
 const scritti = await scrittiPubblici();
 const dati = await grafoKnowledge({ fonti: false });
 const data = (d: Date) => d.toISOString().slice(0, 10);
+// Vista a stormi: ogni tema uno stormo, ogni testo un uccello; eta: 0 il più recente, 1 il più vecchio
+const inOrdine = [...scritti].sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+const nomiTemi = [...new Set(inOrdine.flatMap(s => s.data.topics))];
+const stormi = {
+  temi: nomiTemi.map(t => ({ id: t, label: t, href: hrefTema(t) })),
+  testi: inOrdine.map((s, i) => ({ id: s.id, label: s.data.title, href: `/knowledge/${s.id}/`, temi: s.data.topics, eta: inOrdine.length > 1 ? i / (inOrdine.length - 1) : 0 })),
+};
 const righe = (kind: string) => scritti.filter(s => s.data.kind === kind).map(s => ({
   id: s.id,
   data: data(s.data.date),
@@ -22,7 +29,7 @@ const righe = (kind: string) => scritti.filter(s => s.data.kind === kind).map(s 
       <h1>Knowledge</h1>
       <p>What I read, watch and think about. Each point is a piece of writing or a topic; the sources are inside each note.</p>
     </header>
-    <div class="a-grafo"><Grafo dati={dati} /></div>
+    <div class="a-grafo"><Grafo viste={[{ nome: 'graph', dati }, { nome: 'flocks', dati: stormi, motore: 'stormi' }]} /></div>
     <div class="a-resto">
       <Lista titolo="Essays" righe={righe('essay')} />
       <Lista titolo="Thoughts" righe={righe('thought')} />

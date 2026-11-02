@@ -216,17 +216,10 @@ export function monta(el: HTMLElement) {
   const pos = new Float32Array(UCCELLI * 3), vel = new Float32Array(UCCELLI * 3), fase = new Float32Array(UCCELLI), paura = new Float32Array(UCCELLI);
   // Posto di ogni uccello intorno alla guida, sparso in un volume largo e basso: lo stormo occupa un'area, non una fila
   const posto = new Float32Array(UCCELLI * 3);
-  // Partenza diversa a ogni visita (qui il caso è vero, non con il seme): tre gruppetti sparsi in punti a caso,
-  // ognuno con la sua direzione, che poi si cercano e si uniscono
+  // Lo stormo entra volando da fuori pagina, da sinistra, appena la pagina si apre: le posizioni iniziali si calcolano al
+  // primo fotogramma, quando si conosce l'orientamento della scena
   const caso = Math.random;
-  const gruppetti = [0, 1, 2].map(() => ({
-    x: CENTRO_STORMO.x + (caso() - 0.5) * 4, y: CENTRO_STORMO.y + (caso() - 0.5) * 0.6, z: CENTRO_STORMO.z + (caso() - 0.5) * 2,
-    a: caso() * Math.PI * 2, largo: 0.4 + caso() * 0.8,
-  }));
   for (let i = 0; i < UCCELLI; i++) {
-    const g = gruppetti[i % 3]!, a = caso() * Math.PI * 2, d = Math.sqrt(caso()) * g.largo;
-    pos.set([g.x + Math.cos(a) * d, g.y + (caso() - 0.5) * 0.5, g.z + Math.sin(a) * d * 0.7], i * 3);
-    vel.set([Math.cos(g.a) * 0.7 + (caso() - 0.5) * 0.2, (caso() - 0.5) * 0.1, Math.sin(g.a) * 0.7 + (caso() - 0.5) * 0.2], i * 3);
     fase[i] = r() * 6;
     const b = r() * Math.PI * 2, e = Math.cbrt(r());
     posto.set([Math.cos(b) * e * 1.8, (r() - 0.5) * 0.6, Math.sin(b) * e * 1.1], i * 3);
@@ -235,11 +228,17 @@ export function monta(el: HTMLElement) {
   const geoStormo = new THREE.BufferGeometry();
   const vertici = new Float32Array(UCCELLI * 4 * 3);
   geoStormo.setAttribute('position', new THREE.BufferAttribute(vertici, 3));
-  gruppo.add(new THREE.LineSegments(geoStormo, mat('knowledge', arancio, chiaro ? 0.95 : 0.9)));
+  const lineaStormo = new THREE.LineSegments(geoStormo, mat('knowledge', arancio, chiaro ? 0.95 : 0.9));
+  lineaStormo.frustumCulled = false;
+  gruppo.add(lineaStormo);
   const centroStormo = new THREE.Object3D();
   centroStormo.position.copy(CENTRO_STORMO).add(new THREE.Vector3(0, 0.8, 0));
   gruppo.add(centroStormo);
-  punti.push({ id: 'sezione:knowledge', label: 'Knowledge', href: '/knowledge/', hub: true, famiglia: 'knowledge', ancora: centroStormo, tono: 'arancio' });
+  // Finché lo stormo non è arrivato, l'etichetta non c'è e non si clicca
+  const puntoStormo: Punto = { id: 'sezione:knowledge', label: 'Knowledge', href: '/knowledge/', hub: true, famiglia: 'knowledge', ancora: centroStormo, tono: 'arancio', spento: true };
+  punti.push(puntoStormo);
+  const DURATA_ARRIVO = 7, partenza = new THREE.Vector3();
+  let voloInizio = -1, arrivato = false;
   // Il punto che guida: va verso una tappa a caso nel cielo sopra la scena e ogni 5-9 secondi ne sceglie un'altra
   const verso = CENTRO_STORMO.clone(), tappa = CENTRO_STORMO.clone();
   let prossimaTappa = 0;
@@ -262,12 +261,28 @@ export function monta(el: HTMLElement) {
   const chiave = (x: number, y: number, z: number) => ((Math.floor(x / VICINI) + 512) * 1024 + (Math.floor(y / VICINI) + 512)) * 1024 + (Math.floor(z / VICINI) + 512);
   const centroPrima = CENTRO_STORMO.clone(), centroLento = CENTRO_STORMO.clone(), destra = new THREE.Vector3(), rotazioneInversa = new THREE.Quaternion();
   const muoviStormo = (t: number, dt: number) => {
-    posizioneGuida(t, dt);
+    // Primo fotogramma: tutti fuori pagina a sinistra, già in volo verso destra
+    if (voloInizio < 0) {
+      voloInizio = t;
+      destra.set(1, 0, 0).applyQuaternion(rotazioneInversa.copy(gruppo.quaternion).invert());
+      partenza.copy(CENTRO_STORMO).addScaledVector(destra, -17);
+      for (let i = 0; i < UCCELLI; i++) {
+        pos.set([partenza.x + posto[i * 3]! * 1.6 + (caso() - 0.5) * 1.5, partenza.y + posto[i * 3 + 1]! + (caso() - 0.5) * 0.4, partenza.z + posto[i * 3 + 2]! * 1.6 + (caso() - 0.5) * 1.5], i * 3);
+        vel.set([destra.x * 1.5, 0, destra.z * 1.5], i * 3);
+      }
+      verso.copy(partenza); centroPrima.copy(partenza); centroLento.copy(partenza);
+    }
+    const uArrivo = t === 0 ? 1 : THREE.MathUtils.clamp((t - voloInizio) / DURATA_ARRIVO, 0, 1), inArrivo = uArrivo < 1;
+    if (inArrivo) verso.lerpVectors(partenza, CENTRO_STORMO, 1 - (1 - uArrivo) ** 2);
+    else posizioneGuida(t, dt);
+    // Arrivato: lo stormo è davvero sopra la scena. Solo allora si può cliccare
+    if (!arrivato && !inArrivo && centroPrima.distanceTo(CENTRO_STORMO) < 2.5) arrivato = true;
+    puntoStormo.spento = !arrivato;
     // Vortice leggero, che cambia verso piano: arrotola lo stormo senza chiuderlo in un tubo
     const vortice = Math.sin(t * 0.09) * 0.45;
     if (dt > 0) {
       // Il falco parte da un lato dello stormo e passa dall'altro, attraverso il centro
-      if (t > prossimoFalco) {
+      if (!inArrivo && t > prossimoFalco) {
         const a = r() * Math.PI * 2;
         falco.da.set(Math.cos(a), (r() - 0.5) * 0.6, Math.sin(a)).multiplyScalar(2.2).add(centroLento);
         falco.a.copy(centroLento).multiplyScalar(2).sub(falco.da);
@@ -288,7 +303,8 @@ export function monta(el: HTMLElement) {
         // Richiamo debole verso il proprio posto intorno alla guida (il volume ruota piano): lo stormo resta largo
         const giroPosto = t * 0.05, cg = Math.cos(giroPosto), sg = Math.sin(giroPosto);
         const px = posto[i * 3]! * cg - posto[i * 3 + 2]! * sg, pz = posto[i * 3]! * sg + posto[i * 3 + 2]! * cg;
-        let fx = (verso.x + px - x) * 0.09, fy = (verso.y + posto[i * 3 + 1]! - y) * 0.12, fz = (verso.z + pz - z) * 0.09;
+        const richiamo = inArrivo ? 0.7 : 0.09;
+        let fx = (verso.x + px - x) * richiamo, fy = (verso.y + posto[i * 3 + 1]! - y) * 0.12, fz = (verso.z + pz - z) * richiamo;
         // Vortice intorno alla guida: spinge di lato rispetto all'asse, e lo stormo si avvolge su se stesso
         const rx = x - verso.x, ry = y - verso.y, rz = z - verso.z;
         fx += (asse.y * rz - asse.z * ry) * vortice; fy += (asse.z * rx - asse.x * rz) * vortice; fz += (asse.x * ry - asse.y * rx) * vortice;
@@ -299,7 +315,7 @@ export function monta(el: HTMLElement) {
         if (y < QUOTA_MIN) fy += (QUOTA_MIN - y) * 6;
         if (y > QUOTA_MAX) fy -= (y - QUOTA_MAX) * 6;
         const fuori = Math.hypot(x - CENTRO_STORMO.x, (z - CENTRO_STORMO.z) * 1.6) - LARGO_STORMO;
-        if (fuori > 0) { fx -= (x - CENTRO_STORMO.x) * fuori * 1.5; fz -= (z - CENTRO_STORMO.z) * fuori * 1.5; }
+        if (fuori > 0 && !inArrivo) { fx -= (x - CENTRO_STORMO.x) * fuori * 1.5; fz -= (z - CENTRO_STORMO.z) * fuori * 1.5; }
         let mx = 0, my = 0, mz = 0, lx = 0, ly = 0, lz = 0, n = 0;
         const gx = Math.floor(x / VICINI), gy = Math.floor(y / VICINI), gz = Math.floor(z / VICINI);
         for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) for (let oz = -1; oz <= 1; oz++) {
@@ -333,7 +349,7 @@ export function monta(el: HTMLElement) {
         }
         paura[i] = Math.max(0, paura[i]! - dt * 0.7);
         let vx = vel[i * 3]! + fx * dt, vy = vel[i * 3 + 1]! + fy * dt, vz = vel[i * 3 + 2]! + fz * dt;
-        const v = Math.hypot(vx, vy, vz) || 1, max = VEL_MAX * (1 + paura[i]! * 0.7);
+        const v = Math.hypot(vx, vy, vz) || 1, max = VEL_MAX * (1 + paura[i]! * 0.7) * (inArrivo ? 3.2 : 1);
         const k = v > max ? max / v : v < VEL_MIN ? VEL_MIN / v : 1;
         vx *= k; vy *= k; vz *= k;
         vel.set([vx, vy, vz], i * 3);
@@ -366,7 +382,7 @@ export function monta(el: HTMLElement) {
   };
 
   // Prato e acqua ci sono subito; bosco, vita dello stagno e stormo nascono dopo
-  const nasce = crescita([...gruppo.children.slice(nPrato, nBosco), ...gruppo.children.slice(nAcqua)], punti);
+  const nasce = crescita([...gruppo.children.slice(nPrato, nBosco), ...gruppo.children.slice(nAcqua)].filter(o => o !== lineaStormo && o !== centroStormo), punti.filter(q => q !== puntoStormo));
   let primoFotogramma = -1;
   // --- Cervi: una piccola famiglia che cammina sul prato, gira intorno agli alberi e allo stagno
   const famiglia = famigliaCervi(gruppo, {
@@ -390,7 +406,9 @@ export function monta(el: HTMLElement) {
     gruppo.updateMatrixWorld();
     const r0 = raggio.ray.clone().applyMatrix4(inversaZona.copy(gruppo.matrixWorld).invert());
     // Stormo: entro 1.5 dal suo centro
-    if (r0.distanceSqToPoint(centroLento) < 1.5 * 1.5) return 'sezione:knowledge';
+    if (arrivato && r0.distanceSqToPoint(centroPrima) < 1.4 * 1.4) return 'sezione:knowledge';
+    // Bosco e stagno si cliccano solo quando la scena è formata
+    if (primoFotogramma < 0 || performance.now() - primoFotogramma < 3750) return null;
     // Alberi: un cilindro intorno a ogni tronco, alto quanto l'albero
     const vicinoAlbero = (x: number, z: number, alto: number, largo: number) =>
       r0.distanceSqToSegment(piede.set(x, 0, z), testa.set(x, alto, z)) < largo * largo;

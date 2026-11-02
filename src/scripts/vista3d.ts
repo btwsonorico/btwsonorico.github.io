@@ -39,6 +39,11 @@ interface Opzioni {
   puntatore?: (raggio: THREE.Raycaster | null) => void;
   // Clic che non prende nessun punto (per esempio un sasso lanciato nello stagno): riceve il raggio dalla camera
   clicVuoto?: (raggio: THREE.Raycaster) => void;
+  // Presa: la scena può tenere il trascinamento per sé (per esempio spostare uno stormo) invece di girare la vista.
+  // afferra risponde true se ha preso qualcosa; un clic senza spostamento resta un clic normale
+  afferra?: (raggio: THREE.Raycaster) => boolean;
+  trascina?: (raggio: THREE.Raycaster) => void;
+  rilascia?: () => void;
 }
 
 const css = (el: HTMLElement, nome: string) => new THREE.Color(getComputedStyle(el).getPropertyValue(nome).trim());
@@ -139,17 +144,25 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     }
     return best;
   };
+  let presa = false;
   const locale = (e: PointerEvent) => { const b = el.getBoundingClientRect(); return new THREE.Vector2(e.clientX - b.left, e.clientY - b.top); };
 
   el.addEventListener('pointerdown', e => {
     const m = locale(e);
     giu.copy(m); ultimo.copy(m); mosso = 0; ruota = true; fermo = 240;
+    if (o.afferra) {
+      raggio.setFromCamera(new THREE.Vector2((m.x / w) * 2 - 1, -(m.y / h) * 2 + 1), camera);
+      if (o.afferra(raggio)) { presa = true; ruota = false; }
+    }
     el.setPointerCapture(e.pointerId);
   });
   el.addEventListener('pointermove', e => {
     const m = locale(e);
     mosso = Math.max(mosso, m.distanceTo(giu));
-    if (ruota) {
+    if (presa) {
+      raggio.setFromCamera(new THREE.Vector2((m.x / w) * 2 - 1, -(m.y / h) * 2 + 1), camera);
+      if (mosso >= 4) o.trascina?.(raggio);
+    } else if (ruota) {
       rotY += (m.x - ultimo.x) * 0.006;
       if (o.giroMax !== undefined) rotY = THREE.MathUtils.clamp(rotY, (o.giro ?? 0.4) - o.giroMax, (o.giro ?? 0.4) + o.giroMax);
       rotX = THREE.MathUtils.clamp(rotX + (m.y - ultimo.y) * 0.004, o.inclinazione[0] - (o.giuMax ?? 0.25), o.inclinazione[1]);
@@ -165,6 +178,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
   });
   el.addEventListener('pointerup', e => {
     ruota = false;
+    if (presa) { presa = false; o.rilascia?.(); }
     if (mosso < 4) {
       const m = locale(e);
       const i = piuVicino(m.x, m.y);

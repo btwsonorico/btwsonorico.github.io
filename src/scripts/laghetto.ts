@@ -87,8 +87,6 @@ export function monta(el: HTMLElement) {
   };
   gruppo.add(nuvola(acqua, c.accent, 0.022, chiaro ? 0.55 : 0.35), nuvola(prato, VERDE_PROJECTS, 0.022, 0.4));
 
-  // Fin qui la base, che c'è subito: prato e acqua. Tutto il resto nasce dopo
-  const nBase = gruppo.children.length;
   // Canne lungo la riva: ciuffi di steli leggermente piegati, con la punta a spiga
   const canne: number[] = [];
   for (let k = 0; k < 46; k++) {
@@ -305,6 +303,59 @@ export function monta(el: HTMLElement) {
     gruppo.add(p.corpo);
     return { ...p, fase: r() * Math.PI * 2, vel: (0.05 + r() * 0.05) * (k % 2 ? 1 : -1), raggio: 0.6 + r() * 0.5, prof: 0.15 + r() * 0.2, colpo: r() * 6 };
   });
+  // Nascita dei pesci: il prato e la riva ci sono già. Al centro del lago si apre un cerchio, poi i pesci saltano fuori
+  // dall'acqua uno dopo l'altro, branco per branco: un arco col muso nella direzione del volo, uno spruzzo dove atterrano.
+  // Le etichette arrivano quando sono tutti in acqua.
+  const tuffatori = [...branchi.flatMap(b => b.pesci.map(q => q.corpo)), ...liberi.map(q => q.corpo)];
+  const PRIMO_SALTO = 500, TRA_SALTI = Math.min(170, 3400 / Math.max(1, tuffatori.length)), DURATA_SALTO = 1050;
+  const FINE_SALTI = PRIMO_SALTO + tuffatori.length * TRA_SALTI + DURATA_SALTO;
+  const etichetteDopo = crescita([], punti, 0, FINE_SALTI, 0);
+  const salti = tuffatori.map((corpo, k) => { const a = k * 2.39996; return { corpo, ritardo: PRIMO_SALTO + k * TRA_SALTI, da: new THREE.Vector3(Math.cos(a) * 0.35, -0.3, Math.sin(a) * 0.35), atterrato: false, scala: corpo.scale.clone() }; });
+  const cerchiNascita = Array.from({ length: 14 }, () => {
+    const m = linea(c.accent, 0), o = anello(cerchio(1, 40), m);
+    o.visible = false;
+    gruppo.add(o);
+    return { o, m, nato: -1, largo: 0.4 };
+  });
+  let prossimoCerchio = 0, inizioNascita = -1, nascitaFinita = false;
+  const onda = (x: number, z: number, largo: number, ora: number) => {
+    const q = cerchiNascita[prossimoCerchio++ % cerchiNascita.length]!;
+    q.o.position.set(x, 0.012, z); q.nato = ora; q.largo = largo; q.o.visible = true;
+  };
+  const avanti2 = new THREE.Vector3(), voloPrima = new THREE.Vector3(), voloOra = new THREE.Vector3(), arrivoSalto = new THREE.Vector3(), matriceSalto = new THREE.Matrix4(), suSalto = new THREE.Vector3(0, 1, 0);
+  const nascitaPesci = (t: number) => {
+    if (nascitaFinita) return;
+    if (t === 0) { nascitaFinita = true; return; }
+    if (inizioNascita < 0) { inizioNascita = t; onda(0, 0, 2.6, t); }
+    const tempo = t - inizioNascita;
+    salti.forEach(q => {
+      const u = THREE.MathUtils.clamp((tempo - q.ritardo) / DURATA_SALTO, 0, 1);
+      if (u <= 0) { q.corpo.visible = false; return; }
+      q.corpo.visible = true;
+      if (u >= 1) {
+        if (!q.atterrato) { q.atterrato = true; arrivoSalto.copy(q.corpo.position); onda(arrivoSalto.x, arrivoSalto.z, 0.55, t); onda(arrivoSalto.x, arrivoSalto.z, 0.28, t + 160); }
+        return;
+      }
+      // Arrivo: il punto dove il pesce sta nuotando in questo momento (aggiorna lo ha appena mosso)
+      arrivoSalto.copy(q.corpo.position);
+      const posa = (v: number, out: THREE.Vector3) => out.lerpVectors(q.da, arrivoSalto, v).setY(THREE.MathUtils.lerp(q.da.y, arrivoSalto.y, v) + Math.sin(v * Math.PI) * 1.05);
+      posa(u, voloOra); posa(Math.min(1, u + 0.02), voloPrima);
+      if (u > 0.05 && u < 0.09) onda(q.da.x, q.da.z, 0.22, t);
+      avanti2.subVectors(voloPrima, voloOra);
+      if (avanti2.lengthSq() > 1e-8) { matriceSalto.lookAt(voloPrima, voloOra, suSalto); q.corpo.quaternion.setFromRotationMatrix(matriceSalto); }
+      q.corpo.position.copy(voloOra);
+      q.corpo.scale.copy(q.scala).multiplyScalar(Math.min(1, 0.4 + u * 2));
+    });
+    cerchiNascita.forEach(q => {
+      if (q.nato < 0) return;
+      const v = (t - q.nato) / 1500;
+      if (v < 0) { q.m.opacity = 0; return; }
+      if (v >= 1) { q.nato = -1; q.o.visible = false; return; }
+      q.o.scale.setScalar(0.05 + v * q.largo);
+      q.m.opacity = (1 - v) * (chiaro ? 0.8 : 0.6);
+    });
+    if (tempo > FINE_SALTI + 1600) { nascitaFinita = true; cerchiNascita.forEach(q => { q.o.visible = false; }); }
+  };
   const libellule = Array.from({ length: 3 }, (_, k) => {
     const corpo = new THREE.Group();
     const m = linea(ARANCIO_KNOWLEDGE, 0.75);
@@ -450,7 +501,7 @@ export function monta(el: HTMLElement) {
       if (Math.hypot(colpito.x, colpito.z) > raggioRiva(Math.atan2(colpito.z, colpito.x)) - 0.12) return;
       lancia(colpito.clone(), performance.now());
     },
-    dopo: crescita(gruppo.children.slice(nBase), punti),
+    dopo: t => { etichetteDopo(t); nascitaPesci(t); },
     aggiorna: (t, acceso) => {
       // Passo di tempo in secondi, limitato: se la scheda torna visibile i pesci non saltano
       const dt = prima < 0 || t === 0 ? 0 : Math.min(0.05, (t - prima) / 1000);

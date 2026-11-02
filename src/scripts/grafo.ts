@@ -98,12 +98,12 @@ export function monta(el: HTMLElement) {
   }
   function stellaVicina(x: number, y: number) {
     let best = -1, dist = 10;
-    stelle.forEach((_, k) => { const s = schermoStella(k); const d = Math.hypot(s.x - x, s.y - y); if (d < dist) { dist = d; best = k; } });
+    stelle.forEach((st, k) => { if (!st.mesh.visible) return; const s = schermoStella(k); const d = Math.hypot(s.x - x, s.y - y); if (d < dist) { dist = d; best = k; } });
     return best;
   }
   function piuVicino(x: number, y: number) {
     let best = -1, dist = 18;
-    nodi.forEach((_, i) => { const s = schermo(i); const d = Math.hypot(s.x - x, s.y - y); if (d < dist) { dist = d; best = i; } });
+    nodi.forEach((n, i) => { if (!n.mesh.visible) return; const s = schermo(i); const d = Math.hypot(s.x - x, s.y - y); if (d < dist) { dist = d; best = i; } });
     return best;
   }
   const locale = (e: PointerEvent) => { const b = el.getBoundingClientRect(); return new THREE.Vector2(e.clientX - b.left, e.clientY - b.top); };
