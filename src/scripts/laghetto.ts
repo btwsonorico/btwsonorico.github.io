@@ -304,14 +304,18 @@ export function monta(el: HTMLElement) {
     return { ...p, fase: r() * Math.PI * 2, vel: (0.05 + r() * 0.05) * (k % 2 ? 1 : -1), raggio: 0.6 + r() * 0.5, prof: 0.15 + r() * 0.2, colpo: r() * 6 };
   });
   // Nascita dei pesci: il prato e la riva ci sono già. Al centro del lago si apre un cerchio, poi in circa due secondi
-  // un pesce su due salta dal centro (un arco col muso nella direzione del volo, uno spruzzo dove atterra)
-  // e gli altri salgono dal fondo, col muso in alto, fino al punto dove nuotano.
+  // i pesci arrivano a banchi interi: un banco salta dal centro (un arco col muso nella direzione del volo, uno spruzzo
+  // dove atterra), il banco dopo sale dal fondo, col muso in alto, fino al punto dove nuota.
   // Le etichette arrivano quando sono tutti in acqua.
-  const tuffatori = [...branchi.flatMap(b => b.pesci.map(q => q.corpo)), ...liberi.map(q => q.corpo)];
-  const PRIMO_SALTO = 200, TRA_SALTI = 1100 / Math.max(1, tuffatori.length), DURATA_SALTO = 900;
-  const FINE_SALTI = PRIMO_SALTO + tuffatori.length * TRA_SALTI + DURATA_SALTO;
+  const gruppiPesci = [...branchi.map(b => b.pesci.map(q => q.corpo)), liberi.slice(0, 5).map(q => q.corpo), liberi.slice(5).map(q => q.corpo)].filter(b => b.length);
+  const PRIMO_SALTO = 200, TRA_BANCHI = 950 / Math.max(1, gruppiPesci.length), DENTRO_BANCO = 200, DURATA_SALTO = 900;
+  const FINE_SALTI = PRIMO_SALTO + gruppiPesci.length * TRA_BANCHI + DENTRO_BANCO + DURATA_SALTO;
   const etichetteDopo = crescita([], punti, 0, FINE_SALTI, 0);
-  const salti = tuffatori.map((corpo, k) => { const a = k * 2.39996; return { corpo, sale: k % 2 === 1, ritardo: PRIMO_SALTO + k * TRA_SALTI, da: new THREE.Vector3(Math.cos(a) * 0.35, -0.3, Math.sin(a) * 0.35), atterrato: false, scala: corpo.scale.clone() }; });
+  // Un banco parte insieme, con pochi attimi fra un pesce e l'altro, dallo stesso punto dell'acqua
+  const salti = gruppiPesci.flatMap((corpi, b) => corpi.map((corpo, k) => {
+    const a = b * 2.39996, sparso = k * 2.39996;
+    return { corpo, sale: b % 2 === 1, ritardo: PRIMO_SALTO + b * TRA_BANCHI + (k / corpi.length) * DENTRO_BANCO, da: new THREE.Vector3(Math.cos(a) * 0.3 + Math.cos(sparso) * 0.07, -0.3, Math.sin(a) * 0.3 + Math.sin(sparso) * 0.07), atterrato: false, scala: corpo.scale.clone() };
+  }));
   const cerchiNascita = Array.from({ length: 36 }, () => {
     const m = linea(c.accent, 0), o = anello(cerchio(1, 40), m);
     o.visible = false;

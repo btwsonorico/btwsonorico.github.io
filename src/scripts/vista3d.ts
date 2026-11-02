@@ -216,8 +216,9 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     esterno = punti.findIndex(p => p.id === id);
   });
 
-  // Inquadratura calcolata: alza la scena finché il bordo davanti, nel punto più basso che può raggiungere, sta nel riquadro.
-  // Se così la cima esce o il suolo sfora ai lati, allontana la camera. La grandezza voluta resta quando c'è spazio.
+  // Inquadratura calcolata: parte con la camera vicina e la mira che porta il bordo davanti, nel punto più basso che può
+  // raggiungere, proprio al margine di sotto. Se così la cima esce o il suolo sfora ai lati, allontana la camera un poco
+  // alla volta: la scena è sempre la più grande che entra nel riquadro.
   const miraPreferita = o.mira.y;
   function inquadra({ raggio, alto }: { raggio: number; alto: number }) {
     const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), margine = 1 - 2 * Math.min(0.06, 24 / h);
@@ -229,16 +230,13 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
       return v.dot(su) / v.dot(avanti) / tan;
     };
     const fondo = (cam: THREE.Vector3, mira: number) => Math.min(...o.inclinazione.map(a => altezzaSchermo(cam, mira, -raggio * Math.sin(a), raggio * Math.cos(a))));
-    const cam = base.clone();
+    const cam = base.clone().multiplyScalar(0.5);
     let mira = miraPreferita;
     for (let giri = 0; giri < 60; giri++) {
-      mira = miraPreferita;
-      if (fondo(cam, mira) < -margine) {
-        // Più in basso guarda la camera, più in alto sale la scena
-        let entra = miraPreferita - 8, esce = miraPreferita;
-        for (let q = 0; q < 24; q++) { const m = (entra + esce) / 2; if (fondo(cam, m) < -margine) esce = m; else entra = m; }
-        mira = entra;
-      }
+      // Più in basso guarda la camera, più in alto sale la scena
+      let entra = miraPreferita - 8, esce = miraPreferita + 8;
+      for (let q = 0; q < 24; q++) { const m = (entra + esce) / 2; if (fondo(cam, m) < -margine) esce = m; else entra = m; }
+      mira = entra;
       const lati = raggio / (cam.length() - raggio * 0.2) / tan / camera.aspect;
       if (altezzaSchermo(cam, mira, alto, 0) <= margine && lati <= margine) break;
       cam.multiplyScalar(1.02);
