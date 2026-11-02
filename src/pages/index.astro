@@ -93,9 +93,9 @@ const PAGINE = [
   @media (max-width: 640px) {
     h1 { font-size: 33px; }
   }
-  /* Finestra stretta e alta (telefono, mezzo schermo): la scena non sta accanto al testo ma in una fascia in alto, che
+  /* Telefono: la scena non sta accanto al testo ma in una fascia in alto, che
      scorre via con la pagina. Così il mondo resta grande e centrato, il testo leggibile e i link si toccano */
-  @media (max-width: 640px), (max-aspect-ratio: 11/10) {
+  @media (max-width: 640px) {
     .fondo3d { position: absolute; top: 0; left: 0; right: 0; bottom: auto; width: 100%; height: min(50vh, 105vw); }
     .about { padding-top: calc(min(50vh, 105vw) - 66px); min-height: 0; justify-content: flex-start; }
     .link a, .pagine li a { display: inline-flex; align-items: center; min-height: 32px; }

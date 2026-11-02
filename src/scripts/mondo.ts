@@ -431,10 +431,10 @@ export function monta(el: HTMLElement) {
     // La camera guarda un po' più in basso: il mondo sale verso il centro dello schermo
     mira: largo ? new THREE.Vector3(0, 0.7, 0) : new THREE.Vector3(0, 2, 0),
     // L'isola entra tutta nello spazio libero, a ogni misura della finestra, anche col lato lungo davanti e alla massima
-    // inclinazione; sopra deve entrare lo stormo. In una finestra stretta e alta il testo sta sotto la scena: lo spazio è tutta la larghezza
+    // inclinazione; sopra deve entrare lo stormo. Sul telefono il testo sta sotto la scena: lo spazio è tutta la larghezza
     entra: {
       raggio: Math.max(...contorno.map(p => p.length())), alto: QUOTA_MAX, dietro: LARGO_STORMO / 1.6,
-      sinistra: () => window.matchMedia('(max-width: 640px), (max-aspect-ratio: 11/10)').matches ? 0 : Math.max(0, ...[...document.querySelectorAll('.about > *')].map(q => q.getBoundingClientRect().right)),
+      sinistra: () => window.matchMedia('(max-width: 640px)').matches ? 0 : Math.max(0, ...[...document.querySelectorAll('.about > *')].map(q => q.getBoundingClientRect().right)),
     },
     // Mai di lato: la vista resta sempre un po' dall'alto, così sotto il prato non si vedono i pesci
     inclinazione: [0.16, 0.3],
