@@ -5,7 +5,7 @@ import { avanti, misura, nuovaRete, passo, type Punto, type Rete } from '../lib/
 // Un tag arancione accanto a un comando dice cosa fare adesso; passando su un elemento, un tag sul punto lo spiega.
 const G = 32, T = 9, PASSI_AL_SECONDO = 800, GRUPPO = 64, TASSO = 0.03, TASSO_FINE = 0.01, RALLENTA = 12000, FINE = 20000, MS_AL_FOTOGRAMMA = 7, DURATA_PASSO = 4500, DURATA_SALITA = 1300;
 const ALTEZZA = 0.62, PIATTO = 0.52, RIPIDO = 7;
-// Con queste sagome e 6 neuroni, uno strato si ferma intorno al 70%, due arrivano oltre l'85%, tre intorno al 95%:
+// Con 6 neuroni uno strato si ferma presto: sul pesce intorno al 70%, sull'abete intorno all'80%. Due e tre strati vanno oltre:
 // così si vede cosa aggiunge ogni strato
 const MAX_NEURONI = 6, MAX_STRATI = 4, NEURONI_INIZIALI = 3, MAX_CORSE = 3;
 
@@ -20,10 +20,8 @@ const SAGOME: Record<string, (x: number, y: number) => boolean> = {
   fish: (x, y) => ((x + 0.18) / 0.58) ** 2 + (y / 0.3) ** 2 < 1
     || triangolo(x, y, 0.3, 0, 0.88, 0.5, 0.62, 0) || triangolo(x, y, 0.3, 0, 0.88, -0.5, 0.62, 0)
     || triangolo(x, y, -0.45, 0.22, 0.05, 0.22, -0.28, 0.66) || triangolo(x, y, -0.2, -0.22, 0.1, -0.22, 0.04, -0.58),
-  // Casa con tetto e porta: la forma con cui tre strati arrivano a 100
-  house: (x, y) => triangolo(x, y, -0.85, 0.08, 0.85, 0.08, 0, 0.88) || (Math.abs(x) < 0.6 && y <= 0.08 && y > -0.85 && !(Math.abs(x) < 0.17 && y < -0.3)),
-  // Abete a tre palchi staccati, con tacche fino al tronco
-  tree: (x, y) => palco(x, y, 0.94, 0.42, 0.42) || palco(x, y, 0.42, -0.1, 0.62) || palco(x, y, -0.1, -0.62, 0.84) || (Math.abs(x) < 0.09 && y <= 0.94 && y > -0.92),
+  // Abete a tre palchi, con il tronco
+  tree: (x, y) => palco(x, y, 0.92, 0.28, 0.45) || palco(x, y, 0.5, -0.2, 0.65) || palco(x, y, 0.1, -0.62, 0.88) || (Math.abs(x) < 0.13 && y <= -0.62 && y > -0.92),
 };
 const f2 = (v: number) => v.toFixed(2);
 const posto = (k: number) => ((k + 0.5) / G) * 2 - 1;
@@ -435,7 +433,7 @@ export function monta(radice: HTMLElement) {
       const w = rete.pesi[sel.l - 1]![sel.j * entrate + i]!;
       somma += `${i ? (w < 0 ? ' - ' : ' + ') : w < 0 ? '-' : ''}${f2(Math.abs(w))}·${nome(sel.l - 1, i)}`;
     }
-    return `${cosa}\n${nome(sel.l, sel.j)} = squash(${somma})`;
+    return `${cosa}\n${nome(sel.l, sel.j)} = ${sel.l === ultimo ? 'sigmoid' : 'tanh'}(${somma})`;
   };
   // Un tag accanto a un rettangolo dello schermo. Su telefono sta sotto; a schermo largo a destra, o a sinistra se non c'è posto.
   // I comandi del pannello hanno il tag fuori dal pannello, così non coprono gli altri comandi

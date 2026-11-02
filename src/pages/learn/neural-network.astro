@@ -3,36 +3,12 @@ import Base from '../../layouts/Base.astro';
 
 // Rete neurale: la facciata è lo strumento (a sinistra costruisci, alleni e leggi; a destra la griglia), le spiegazioni brevi
 // sono tag che appaiono sul punto, e scorrendo sotto c'è la spiegazione completa. La rete si allena nel browser (src/lib/rete.ts)
-const COME: [string, string[]][] = [
-  ['What is this?', [
-    'A small neural network that runs in your browser. It takes the position of a point on the grid and returns one number, the height of the grid at that point. During training it sees the correct height of 1,024 points, and the blue outline shows the shape they form.',
-    'It is simpler than a real model in two ways. First, the match is measured on the same points the network trained on, so it only tells you how well it learned those points. A real model is judged on new data it has never seen. Second, the learning rate and the other settings are fixed for you, while in practice they take a lot of trial and error.',
-  ]],
-  ['What does one neuron do?', [
-    'It multiplies each input by a weight, adds the results and squashes the total between two limits. On this grid that gives one straight cut, high on one side and low on the other. With no layers you can set the weights yourself by dragging the white squares, and you will see that one cut cannot cover the fish.',
-  ]],
-  ['What do more neurons and layers add?', [
-    'Each neuron in a layer makes its own cut, and the next layer adds them up, so straight cuts turn into rounded shapes. A neuron in a second layer reads those cuts instead of the position, which lets it combine them into corners and strips.',
-    'On the fish, one layer of 6 neurons stops near 70%, two reach about 90% and three go past 95%. Hover over a square to see what that neuron responds to and which neurons it reads from.',
-  ]],
-  ['How does it learn?', [
-    'Training repeats the same loop hundreds of times a second. The network answers for a group of points, and the difference from the correct heights is the error. Backpropagation works out how much each weight contributed to that error, and gradient descent moves each weight slightly to reduce it.',
-    'A single correction changes very little, so it takes thousands of them. Press one step to see one round slowly.',
-  ]],
-  ['What do the colours mean?', [
-    'In a square, orange is where that neuron answers high and dark is where it answers low. On the lines, orange weights push up, blue weights push down, and thicker lines count more. The blue outline is the shape to reach.',
-  ]],
-];
-const GRANDI: [string, string[]][] = [
-  ['The same training loop', [
-    'Models that write text or generate images are trained in much the same way: they answer, measure the error, send it back and adjust the weights. They have billions of weights instead of about 150. Language models also use attention, which lets each word weigh the other words, but it is made of weights too and trained with the same loop.',
-  ]],
-  ['More weights cost more', [
-    'Here, adding neurons costs a few extra seconds. In a large model each weight also uses computing power, memory and energy, so training can take weeks on very large machines, and making a model bigger is an expensive decision.',
-  ]],
-  ['Why large models are hard to read', [
-    'A large model does not take x and y as input. It turns words or pixels into long lists of numbers, so its cuts happen in thousands of dimensions. There is no grid to look at, and a single neuron rarely has one clear meaning, which is a large part of why these models are called black boxes.',
-  ]],
+const COME: [string, string][] = [
+  ['What is this?', 'A small neural network running in your browser. It reads a position on the grid and returns a height. It trains on 1,024 points, and the blue outline is the shape they form. Unlike a real model, it is measured on the same points it trained on, and its settings are fixed for you.'],
+  ['What does one neuron do?', 'It multiplies each input by a weight, adds the results and passes the total through tanh, a function that keeps the output between -1 and 1. On the grid that makes one straight cut, which cannot cover the fish.'],
+  ['What do more neurons and layers add?', 'Each neuron makes its own cut, and the next layer adds them up. Neurons in a second layer read those cuts, so they can build corners and strips. On the fish, one layer of 6 stops near 70%, two reach about 90% and three go past 95%.'],
+  ['How does it learn?', 'The network answers for a group of points, and the gap from the right heights is the error. Backpropagation finds how much each weight contributed, and gradient descent moves each one slightly. This repeats thousands of times.'],
+  ['What about large models?', 'They train with the same loop, but with billions of weights instead of about 150, which can take weeks on very large machines. They are also harder to read: words or pixels become long lists of numbers, so the cuts happen in thousands of dimensions, with no grid to look at. That is a large part of why they are called black boxes.'],
 ];
 ---
 <Base title="Neural network · Riccardo Mondi" description="A simplified but real neural network, running in your browser. Add neurons and layers and teach it to draw." tono="neutro" largo>
@@ -49,8 +25,7 @@ const GRANDI: [string, string[]][] = [
         <div class="mono forme">
           <span class="titolino">shape</span>
           <button type="button" data-sagoma="fish" data-spiega="Teach the network to draw a fish.">fish</button>
-          <button type="button" data-sagoma="tree" data-spiega="Teach the network to draw a fir tree.">tree</button>
-          <button type="button" data-sagoma="house" data-spiega="Teach the network to draw a house. Three layers can reach 100%.">house</button>
+          <button type="button" data-sagoma="tree" data-spiega="Teach the network to draw a tree.">tree</button>
           <button type="button" class="matita" data-spiega="Stops the network and lets you paint your own shape on the base of the grid.">draw</button>
           <button type="button" class="pulisci" hidden data-spiega="Erases everything you painted.">clear</button>
         </div>
@@ -85,9 +60,7 @@ const GRANDI: [string, string[]][] = [
 
     <section class="spiegone" id="how-it-works">
       <h2 class="mono">how it works</h2>
-      {COME.map(([domanda, testi]) => <article><h3>{domanda}</h3>{testi.map(t => <p>{t}</p>)}</article>)}
-      <h2 class="mono secondo">what this means for large models</h2>
-      {GRANDI.map(([domanda, testi]) => <article><h3>{domanda}</h3>{testi.map(t => <p>{t}</p>)}</article>)}
+      {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3><p>{testo}</p></article>)}
     </section>
   </main>
   <div class="mono tag-punto" hidden></div>
@@ -114,8 +87,7 @@ const GRANDI: [string, string[]][] = [
   /* Selezionato: contorno chiaro. Il pieno resta solo all'azione principale */
   button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
   button[aria-pressed="true"]::before { content: '> '; color: var(--muted); }
-  /* Done è l'azione principale mentre si disegna */
-  .matita[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+  /* Done non è una scelta: niente segno davanti */
   .matita[aria-pressed="true"]::before { content: none; }
   /* Il comando consigliato ha lo stesso colore del suo tag */
   :global(.consigliato) { border-color: var(--arancio) !important; box-shadow: 0 0 0 1px var(--arancio); }
@@ -171,7 +143,6 @@ const GRANDI: [string, string[]][] = [
   .spiegone { max-width: 720px; margin: 0 auto; padding: var(--s4) 0; border-top: 1px solid var(--line); scroll-margin-top: var(--s2); }
   .spiegone h2 { margin: 0 0 var(--s3); font-size: 14px; font-weight: 400; color: var(--fg); }
   .spiegone h2::before { content: '// '; color: var(--muted); }
-  .spiegone h2.secondo { margin-top: var(--s4); padding-top: var(--s3); border-top: 1px solid var(--line); }
   .spiegone article { margin-bottom: var(--s3); }
   .spiegone h3 { margin: 0 0 4px; font-size: 16px; font-weight: 400; color: var(--fg); }
   .spiegone p { margin: 0 0 var(--s1); color: var(--muted); font-size: 14px; line-height: 1.7; }
