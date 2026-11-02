@@ -12,3 +12,4 @@
 - **Glossario: voci senza definizione.** 13 termini del documento non hanno testo: KV Cache, Large Action Models, Cognitive Swarm Intelligence, Multi-Agent Systems, Multi-Agent Reinforcement Learning, Graph Neural Networks, Temporal GNNs, Kubernetes, Kafka, Continual Learning, Genetic Algorithms, Distillation, Quantization. Oggi stanno solo in `daDefinire` nel file dei dati e non compaiono sul sito. Decide e scrive: Riccardo.
 - **Sito in italiano e in inglese.** Quando il contenuto è finale: una versione per lingua, con un comando per passare dall'una all'altra. Decide i testi italiani: Riccardo.
 - **Informazioni nel grafico a destra.** Valutare se mostrare direttamente nel grafico a destra alcune informazioni che oggi stanno nelle sottopagine. Decide quali e come: Riccardo.
+- **Nuvole della valle.** Tolte per ora in Learn: per rimetterle basta `CON_NUVOLE = true` in `src/scripts/nuvole.ts`. Decide se e come riprenderle: Riccardo.

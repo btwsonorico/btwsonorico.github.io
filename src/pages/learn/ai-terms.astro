@@ -3,11 +3,12 @@ import Base from '../../layouts/Base.astro';
 
 // Glossario: il reef da pesca a tutto schermo. I termini stanno in src/data/glossario.json
 ---
-<Base title="AI terms · Riccardo Mondi" description="The terms of AI, fished out of a reef one at a time." largo>
+<Base title="AI terms · Riccardo Mondi" description="Take a deep dive into the AI lexicon: fish the terms out of a reef, one at a time." largo>
   <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
   <main class="pesca">
     <p class="mono via"><a href="/">~</a>/<a href="/learn/">learn</a>/ai-terms</p>
     <h1>AI terms</h1>
+    <p class="sotto">Take a deep dive into the AI lexicon.</p>
     <p class="mono">Click the water to cast the hook. Each fish is a term.</p>
   </main>
 </Base>
@@ -23,6 +24,7 @@ import Base from '../../layouts/Base.astro';
   .pesca a { pointer-events: auto; color: inherit; }
   .pesca > * { max-width: 420px; margin: 0 0 var(--s1); }
   h1 { font-size: 33px; font-weight: 400; line-height: 1.1; }
+  .sotto { color: var(--muted); }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
   /* Scheda con la definizione intera: sopra alla scena, il testo lungo scorre al suo interno */
   :global(.scheda-glossario) {

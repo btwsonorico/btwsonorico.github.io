@@ -269,6 +269,8 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   type Nodo = { x: number; y: number; z: number; vx: number; vy: number; vz: number; rx: number; ry: number; rz: number; fase: number };
   type Sfera = { x: number; y: number; z: number; raggio: number };
   type Nuvola = { cx: number; cy: number; cz: number; vel: number; largo: number; nodi: Nodo[]; molle: [number, number, number][]; sfere: Sfera[]; da: number; n: number; preso: number; piatta: number; ombraX: number; ombraZ: number };
+  // Per ora la valle è senza nuvole: l'interruttore le rimette, con le loro ombre
+  const CON_NUVOLE = false;
   const nuvole: Nuvola[] = [];
   const QUANTE = 7, PER = p.telefono ? 240 : 420, N = QUANTE * PER;
   const CIELO = 11, VENTO = new THREE.Vector2(0.92, 0.39), postiNuvole = benDistribuiti(QUANTE, 0, CIELO - 1.5, r);
@@ -352,7 +354,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
       nuvola.dim[j] = 0.03 + r() * 0.04;
     }
   }
-  g.add(nuvola.punti);
+  if (CON_NUVOLE) g.add(nuvola.punti);
   // Ombre delle nuvole: un velo sul terreno, più scuro sotto ogni nuvola, spostato un po' dalla luce del sole
   const ombre = Array.from({ length: QUANTE }, () => new THREE.Vector4());
   const geoOmbra = new THREE.PlaneGeometry(L * 2.2, L * 2.2, 70, 70).rotateX(-Math.PI / 2);
@@ -376,7 +378,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   });
   const ombra = new THREE.Mesh(geoOmbra, matOmbra);
   ombra.renderOrder = 5;
-  g.add(ombra);
+  if (CON_NUVOLE) g.add(ombra);
   // Presa: si afferra il nodo più vicino al raggio; lo si tira su un piano orizzontale alla sua quota
   const presa = { nuvola: -1, meta: new THREE.Vector3(), piano: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0) };
   function afferra(raggio: THREE.Raycaster) {
@@ -385,6 +387,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     // Il cane ha la precedenza: un clic su di lui lo fa sedere anche se sopra passa una nuvola
     if (raggio.ray.distanceToPoint(tmpL.set(cane.x, altezza(cane.x, cane.z) + 0.06, cane.z)) < 0.25) return false;
     let meglio = 0.6, chi = -1, quale = -1;
+    if (!CON_NUVOLE) return false;
     nuvole.forEach((nv, k) => nv.nodi.forEach((q, i) => { const d = raggio.ray.distanceToPoint(tmpL.set(q.x, q.y, q.z)); if (d < meglio) { meglio = d; chi = k; quale = i; } }));
     if (chi < 0) return false;
     const q = nuvole[chi]!.nodi[quale]!;
@@ -546,7 +549,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     // vicini e, se afferrato, verso il puntatore. I punti seguono i nodi, nascono e svaniscono.
     const raggio = p.raggio;
     let sopraNuvola = false;
-    nuvole.forEach((nv, q) => {
+    if (CON_NUVOLE) nuvole.forEach((nv, q) => {
       nv.cx += VENTO.x * nv.vel * dt; nv.cz += VENTO.y * nv.vel * dt;
       // Uscita dal cielo: la nuvola, ormai invisibile, riparte dal lato opposto, sulla stessa linea del vento
       if (Math.hypot(nv.cx, nv.cz) > CIELO) {
