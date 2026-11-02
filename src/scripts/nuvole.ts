@@ -416,6 +416,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   });
   const geoPallone = new THREE.LatheGeometry(profilo, 12);
   const spicchi = new THREE.EdgesGeometry(geoPallone, 20);
+  const GRANDE = 0.95, ACCESA = 1.12;
   const mongolfiere = (['#e08a3a', '#5fb6d9', '#6fa646'] as const).slice(0, risorse.length).map((tinta, k) => {
     const o = new THREE.Group(), colore = tono(tinta);
     o.add(new THREE.Mesh(geoPallone, new THREE.MeshBasicMaterial({ color: colore })));
@@ -426,10 +427,10 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     o.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(funi), linea('#a07a50', 0.8)));
     const fiamma = pezzo(new THREE.ConeGeometry(0.025, 0.07, 5), mat('#f2b62f', { opacity: 0 }), 0, -0.49, 0);
     o.add(fiamma);
-    o.scale.setScalar(1.5);
+    o.scale.setScalar(GRANDE);
     g.add(o);
-    const y = [3.1, 2.3, 3.7][k]!;
-    return { o, fiamma, cx: [0.5, 3.6, -2.6][k]!, cz: [2.2, -1.6, -3][k]!, y, fase: k * 2.1, quota: y };
+    const y = [3.2, 2.5, 3.7][k]!;
+    return { o, fiamma, cx: [-0.8, 3.4, -2.6][k]!, cz: [-1.4, -3.2, -3][k]!, y, fase: k * 2.1, quota: y, aDestra: k > 0 };
   });
   // Nome di ogni mongolfiera: un link vero, che segue il pallone sullo schermo
   const nomi = mongolfiere.map((_, k) => {
@@ -441,12 +442,13 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     return a;
   });
   let acceso = -1, dallaLista = -1;
+  const fiancoCamera = new THREE.Vector3();
   risorse.forEach((q, k) => {
     q.lista?.addEventListener('pointerenter', () => { dallaLista = k; });
     q.lista?.addEventListener('pointerleave', () => { dallaLista = -1; });
   });
   const palloneSotto = (raggio: THREE.Raycaster) => {
-    let meglio = 0.62, chi = -1;
+    let meglio = 0.42, chi = -1;
     mongolfiere.forEach((m, k) => { const d = raggio.ray.distanceToPoint(tmp.copy(m.o.position)); if (d < meglio) { meglio = d; chi = k; } });
     return chi >= 0 ? chi + 1 : 0;
   };
@@ -621,9 +623,16 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
       const a = s * 0.02 + m.fase;
       m.o.position.set(m.cx + Math.sin(a) * 2, m.quota, m.cz + Math.cos(a * 0.8) * 1.3);
       m.o.rotation.y += dt * 0.04;
-      m.o.scale.setScalar(morbido(m.o.scale.x, k === acceso ? 1.75 : 1.5, dt * 8));
-      tmp.copy(m.o.position).setY(m.quota - 1.05).project(p.camera);
-      nomi[k]!.style.transform = `translate(${((tmp.x + 1) / 2) * el.clientWidth}px, ${((1 - tmp.y) / 2) * el.clientHeight}px) translate(-50%, 0)`;
+      m.o.scale.setScalar(morbido(m.o.scale.x, k === acceso ? ACCESA : GRANDE, dt * 8));
+      // Il nome sta a lato del pallone, verso l'esterno dello schermo, così i due nomi non si coprono; non esce mai dai bordi
+      fiancoCamera.setFromMatrixColumn(p.camera.matrixWorld, 0).multiplyScalar(m.o.scale.x * 0.46);
+      tmp.copy(m.o.position).project(p.camera);
+      const x = ((tmp.x + 1) / 2) * el.clientWidth, y = ((1 - tmp.y) / 2) * el.clientHeight;
+      tmp.copy(m.o.position).add(fiancoCamera).project(p.camera);
+      const scarto = Math.abs(((tmp.x + 1) / 2) * el.clientWidth - x) + 8, largo = nomi[k]!.offsetWidth, centro = el.clientWidth / 2;
+      if (x > centro + 24) m.aDestra = true; else if (x < centro - 24) m.aDestra = false;
+      if (x + scarto + largo > el.clientWidth - 8) m.aDestra = false; else if (x - scarto - largo < 8) m.aDestra = true;
+      nomi[k]!.style.transform = `translate(${m.aDestra ? x + scarto : x - scarto}px, ${y}px) translate(${m.aDestra ? 0 : -100}%, -50%)`;
       const fm = m.fiamma.material as THREE.MeshBasicMaterial;
       fm.opacity = morbido(fm.opacity, m.quota - prima > 0.0003 ? 0.9 : 0, dt * 4);
     });

@@ -47,7 +47,7 @@ const RISORSE = [
     padding: 1px 5px; font-family: var(--mono); font-size: 11px; color: var(--fg);
     background: color-mix(in srgb, var(--bg) 78%, transparent); transition: opacity .15s;
   }
-  .scena3d :global(.nome-pallone) { pointer-events: auto; text-decoration: none; }
+  .scena3d :global(.nome-pallone) { padding: 2px 8px; border: 1px solid var(--fg); background: var(--bg); color: var(--fg); font-size: 13px; pointer-events: auto; text-decoration: none; }
   .scena3d :global(.nome-pallone:hover), .scena3d :global(.nome-pallone.attiva) { color: var(--bg); background: var(--fg); }
   .scena3d :global(.nome-pallone.attiva)::after { content: ' · open →'; }
   /* Telefono: la valle sta in una fascia in alto, il testo sotto */
@@ -55,6 +55,6 @@ const RISORSE = [
     .fondo3d { position: absolute; top: 0; left: 0; right: 0; bottom: auto; height: min(50vh, 105vw); }
     .learn { padding-top: calc(min(50vh, 105vw) - 66px); }
     .lista a { display: inline-flex; align-items: center; min-height: 32px; }
-    .scena3d :global(.nome-pallone) { padding: 5px 8px; }
+    .scena3d :global(.nome-pallone) { padding: 5px 8px; font-size: 12px; }
   }
 </style>
