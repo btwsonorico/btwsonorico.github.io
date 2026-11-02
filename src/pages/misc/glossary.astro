@@ -1,14 +1,9 @@
 ---
 import Base from '../../layouts/Base.astro';
-import dati from '../../data/glossario.json';
+import { GLOSSARIO as dati, dividi } from '../../lib/glossario';
 
 // Glossario: prima versione, una semplice lista. I dati stanno in src/data/glossario.json: la visualizzazione si decide dopo
 // e può cambiare senza toccare i testi.
-// Una voce di elenco "Nome: testo" o "Nome – testo" mostra il nome in evidenza
-const dividi = (punto: string) => {
-  const m = punto.match(/^([^:–]{2,70}?)(?::| –) (.+)$/);
-  return m ? { nome: m[1]!, testo: m[2]! } : { nome: '', testo: punto };
-};
 ---
 <Base title="Glossary · Riccardo Mondi" description="AI terms and definitions." tono="neutro">
   <main class="glossario">

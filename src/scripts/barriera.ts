@@ -1,21 +1,25 @@
 import * as THREE from 'three';
 import { casuale, mat as matSito, pezzo, scuoti, sasso, unisci, terreno, nastri, puntiMorbidi, palco, tema, type Extra, type Nastro, type Palco } from './natura';
+import { VOCI, type Voce } from '../lib/glossario';
+import { nuovaScheda } from './schedaGlossario';
 
 // Barriera corallina: un fondale aperto, tutto sott'acqua, nello stile del laghetto. Al centro una torre di rocce a
 // terrazze; intorno, da ogni lato, alghe, coralli, anemoni, ricci e vongole:
 // girando piano si scopre tutto. L'acqua è piena di particelle sospese; tre meduse diverse nuotano a quote diverse.
 // Tutto si muove con la stessa corrente: la risacca va e viene, le alghe ondeggiano, le particelle scorrono.
 // Banchi di pesciolini nuotano insieme e scappano dal puntatore; un clic sull'acqua fa cadere il mangime.
+// Con l'opzione pesca la scena è il glossario: un banco per sezione, vista più da lontano; un clic lancia l'amo e tira su
+// un pesce a caso, cioè una definizione. Con l'amo in acqua i pesci non scappano più: si avvicinano, curiosi.
 
 const LATO = 3, ACQUA = 4.8;
 const SU = new THREE.Vector3(0, 1, 0);
 
-export function monta(el: HTMLElement) {
+export function monta(el: HTMLElement, opzioni: { pesca?: boolean } = {}) {
   const r = casuale(11);
   const chiaro = tema();
   const p = palco(el, {
-    camera: new THREE.Vector3(0, 3.6, 9.6), mira: new THREE.Vector3(0, 1.9, 0), giro: 0.02, inclina: [-0.12, 0.3], aggiorna, clic,
-    scena: 'barriera', toni: [getComputedStyle(document.documentElement).getPropertyValue('--azzurro').trim(), chiaro ? '#8f8272' : '#a89a88', chiaro ? '#e0352a' : '#ff4a3d'],
+    camera: opzioni.pesca ? new THREE.Vector3(0, 4.8, 12.8) : new THREE.Vector3(0, 3.6, 9.6), mira: new THREE.Vector3(0, 1.9, 0), giro: 0.02, inclina: [-0.12, 0.3], aggiorna, clic,
+    scena: opzioni.pesca ? 'pesca' : 'barriera', toni: [getComputedStyle(document.documentElement).getPropertyValue('--azzurro').trim(), chiaro ? '#8f8272' : '#a89a88', chiaro ? '#e0352a' : '#ff4a3d'],
   });
   const g = p.gruppo;
 
@@ -262,13 +266,16 @@ export function monta(el: HTMLElement) {
   coda.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, -0.055, 0, 0.035, -0.105, 0, -0.035, -0.105], 3));
   const geoPesce = unisci([new THREE.OctahedronGeometry(1, 0).scale(0.022, 0.034, 0.07), coda]).scale(1.15, 1.15, 1.15);
   type Banco = { mesh: THREE.InstancedMesh; n: number; pos: Float32Array; vel: Float32Array; meta: THREE.Vector3; fase: number; paura: number; scala: Float32Array };
-  const quanti = p.telefono ? [58, 46, 36] : [112, 90, 70];
-  const banchi: Banco[] = (['#d9ecf2', '#f7cf4f', '#f0603f'] as const).map((c, b) => {
+  const SEZIONI = new Set(VOCI.map(v => v.indiceSezione)).size;
+  const TINTE_BANCHI = ['#d9ecf2', '#f7cf4f', '#f0603f', '#3e6795', '#f2c14e', '#ff9fb4'];
+  // Pesca: tanti banchi quante sezioni del glossario, stesso numero di pesci in tutto
+  const quanti = opzioni.pesca ? Array.from({ length: SEZIONI }, () => Math.round((p.telefono ? 140 : 272) / SEZIONI)) : p.telefono ? [58, 46, 36] : [112, 90, 70];
+  const banchi: Banco[] = (opzioni.pesca ? quanti.map((_, b) => TINTE_BANCHI[b % TINTE_BANCHI.length]!) : ['#d9ecf2', '#f7cf4f', '#f0603f']).map((c, b) => {
     const n = quanti[b]!, mesh = new THREE.InstancedMesh(geoPesce, matSito('#ffffff', { side: THREE.DoubleSide, grezzo: true, opacity: 0.85, fili: 0 }), n);
     const pos = new Float32Array(n * 3), vel = new Float32Array(n * 3), scala = new Float32Array(n);
     const base = colore(c);
     for (let i = 0; i < n; i++) {
-      pos.set([(r() - 0.5) * 1.2 + (b - 1) * 1.5, 2.2 + b * 0.5 + r() * 0.8, (r() - 0.5) * 1.2], i * 3);
+      pos.set([(r() - 0.5) * 1.2 + (b % 3 - 1) * 1.5, 2.2 + (b % 3) * 0.5 + r() * 0.8, (r() - 0.5) * 1.2 + (b > 2 ? 1.4 : 0)], i * 3);
       vel.set([(r() - 0.5) * 0.4, 0, (r() - 0.5) * 0.4], i * 3);
       scala[i] = (b === 2 ? 1.25 : 1) * (0.8 + r() * 0.4);
       mesh.setColorAt(i, base.clone().offsetHSL((r() - 0.5) * 0.03, 0, (r() - 0.5) * 0.12));
@@ -375,9 +382,80 @@ export function monta(el: HTMLElement) {
   g.add(mangime.punti);
   let prossima = 0;
 
+  // --- Amo: un clic lo lancia su un pesce a caso; scende, il pesce abbocca, sale e la sua definizione appare. Il termine è
+  // a caso nella sezione del suo banco, preferendo quelli non ancora pescati: così il contatore arriva in fondo
+  const amo = { stato: 'fermo' as 'fermo' | 'scende' | 'sale' | 'mostra', preso: false, b: 0, i: 0, t: 0, y0: 0, pos: new THREE.Vector3(), voce: null as Voce | null };
+  const QUOTA_MOSTRA = ACQUA - 1.1, SOPRA = ACQUA + 3;
+  const matAmo = new THREE.LineBasicMaterial({ color: p.colori.fg, transparent: true, opacity: 0.8 });
+  const lenza = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), matAmo);
+  const gancio = new THREE.Line(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 12 }, (_, q) => { const a = (q / 11) * Math.PI * 1.25; return new THREE.Vector3(Math.sin(a) * 0.05, -0.05 + Math.cos(a) * 0.05 - (q === 0 ? 0 : 0), 0); }).concat([new THREE.Vector3(0, 0.08, 0)]).reverse()), matAmo);
+  lenza.visible = gancio.visible = false;
+  lenza.frustumCulled = gancio.frustumCulled = false;
+  if (opzioni.pesca) g.add(lenza, gancio);
+  let presi = new Set<string>();
+  try { presi = new Set(JSON.parse(localStorage.getItem('misc-pesca-presi') ?? '[]') as string[]); } catch { /* niente */ }
+  const conta = document.createElement('p');
+  conta.className = 'mono conta-pesca';
+  const scriviConta = () => { conta.textContent = `${amo.stato === 'fermo' ? 'click to cast · ' : ''}${[...presi].filter(id => VOCI.some(v => v.id === id)).length}/${VOCI.length}`; };
+  const scheda = opzioni.pesca ? nuovaScheda(el.parentElement!, 'release ×', () => rilascia()) : null;
+  if (opzioni.pesca) { el.parentElement!.appendChild(conta); scriviConta(); }
+  function lancia() {
+    if (amo.stato === 'mostra') rilascia();
+    if (amo.stato !== 'fermo') return;
+    const nuove = VOCI.filter(v => !presi.has(v.id)), urna = nuove.length ? nuove : VOCI;
+    amo.voce = urna[Math.floor(r() * urna.length)]!;
+    amo.b = amo.voce.indiceSezione % banchi.length;
+    const b = banchi[amo.b]!;
+    amo.i = Math.floor(r() * b.n);
+    amo.pos.set(b.pos[amo.i * 3]!, SOPRA, b.pos[amo.i * 3 + 2]!);
+    amo.stato = 'scende'; amo.t = 0; amo.preso = false;
+    lenza.visible = gancio.visible = true;
+    scriviConta();
+  }
+  function rilascia() {
+    if (amo.stato !== 'mostra') return;
+    // Torna in acqua: giù verso il suo banco
+    const b = banchi[amo.b]!;
+    b.vel.set([0, -0.7, 0], amo.i * 3);
+    amo.stato = 'fermo'; amo.preso = false;
+    lenza.visible = gancio.visible = false;
+    scheda?.nascondi();
+    scriviConta();
+  }
+  const aggiornaAmo = (dt: number, ridotto: boolean, s: number) => {
+    if (amo.stato === 'fermo') return;
+    const b = banchi[amo.b]!, k = amo.i * 3;
+    if (amo.stato === 'scende') {
+      // Insegue il pesce mentre scende, così lo raggiunge sempre
+      amo.t = ridotto ? 1 : Math.min(1, amo.t + dt / 1.5);
+      const e = THREE.MathUtils.smoothstep(amo.t, 0, 1);
+      amo.pos.x += (b.pos[k]! - amo.pos.x) * Math.min(1, dt * 3 + e * 0.3);
+      amo.pos.z += (b.pos[k + 2]! - amo.pos.z) * Math.min(1, dt * 3 + e * 0.3);
+      amo.pos.y = THREE.MathUtils.lerp(SOPRA, b.pos[k + 1]! + 0.14, e);
+      if (amo.t >= 1) { amo.stato = 'sale'; amo.t = 0; amo.y0 = amo.pos.y; amo.preso = true; b.paura = 1; }
+    } else if (amo.stato === 'sale') {
+      amo.t = ridotto ? 1 : Math.min(1, amo.t + dt / 1.6);
+      amo.pos.y = THREE.MathUtils.lerp(amo.y0, QUOTA_MOSTRA, THREE.MathUtils.smoothstep(amo.t, 0, 1));
+      if (amo.t >= 1) {
+        amo.stato = 'mostra';
+        presi.add(amo.voce!.id);
+        try { localStorage.setItem('misc-pesca-presi', JSON.stringify([...presi])); } catch { /* niente */ }
+        scheda?.mostra(amo.voce!);
+        scriviConta();
+      }
+    } else amo.pos.y = QUOTA_MOSTRA + Math.sin(s * 1.3) * 0.03;
+    const q = lenza.geometry.attributes.position as THREE.BufferAttribute;
+    q.setXYZ(0, amo.pos.x, SOPRA + 2, amo.pos.z); q.setXYZ(1, amo.pos.x, amo.pos.y + 0.08, amo.pos.z);
+    q.needsUpdate = true;
+    gancio.position.copy(amo.pos);
+  };
+  const distruggi = p.distruggi;
+  p.distruggi = () => { scheda?.togli(); conta.remove(); distruggi(); };
+
   // Clic nell'acqua: una manciata di mangime cade dall'alto e i banchi vengono a mangiare
   const pianoAcqua = new THREE.Plane(SU, -ACQUA), dove = new THREE.Vector3();
   function clic(raggio: THREE.Raycaster) {
+    if (opzioni.pesca) { lancia(); return; }
     const toccata = meduse.find(m => raggio.ray.distanceToPoint(m.o.position) < 0.3 + m.scala * 0.12);
     if (toccata) { toccata.v.y += 0.9; return; }
     if (!raggio.ray.intersectPlane(pianoAcqua, dove) || Math.abs(dove.x) > LATO - 0.2 || Math.abs(dove.z) > LATO - 0.2) return;
@@ -448,14 +526,25 @@ export function monta(el: HTMLElement) {
     // Banchi: ogni pesce segue i vicini (stessa direzione, non troppo vicini, non troppo lontani), il banco va verso
     // una meta che vaga piano, o verso il mangime. Vicino al puntatore scappano e tutto il banco si allarma.
     const raggio = p.raggio;
-    banchi.forEach(b => {
+    banchi.forEach((b, nb) => {
       const f = b.fase;
       if (trovato) b.meta.copy(cibo);
-      else b.meta.set(2.2 * Math.sin(s * 0.09 + f), 2.1 + f * 0.45 + 0.9 * Math.sin(s * 0.13 + f * 2), 2.2 * Math.sin(s * 0.071 + f * 3));
+      else b.meta.set(2.2 * Math.sin(s * 0.09 + f), 2.1 + (nb % 3) * 0.945 + 0.9 * Math.sin(s * 0.13 + f * 2), 2.2 * Math.sin(s * 0.071 + f * 3));
       b.paura = Math.max(0, b.paura - dt * 0.5);
       const vMax = 0.75 + b.paura * 1.3, vMin = 0.3;
       for (let i = 0; i < b.n; i++) {
         const k = i * 3;
+        // Il pesce all'amo: appeso col muso in alto, più grande, si dimena
+        if (amo.preso && amo.b === nb && amo.i === i) {
+          b.pos[k] = amo.pos.x; b.pos[k + 1] = amo.pos.y - 0.14; b.pos[k + 2] = amo.pos.z;
+          dummy.position.set(amo.pos.x, amo.pos.y - 0.14, amo.pos.z);
+          dummy.lookAt(amo.pos.x, amo.pos.y + 1, amo.pos.z);
+          dummy.rotateY(Math.sin(s * 15) * 0.3);
+          dummy.scale.setScalar(2.6);
+          dummy.updateMatrix();
+          b.mesh.setMatrixAt(i, dummy.matrix);
+          continue;
+        }
         tmp.set(b.pos[k]!, b.pos[k + 1]!, b.pos[k + 2]!);
         media.set(0, 0, 0); centro.set(0, 0, 0); separa.set(0, 0, 0);
         let vicini = 0;
@@ -481,7 +570,12 @@ export function monta(el: HTMLElement) {
         if (tmp.x > M) acc.x -= (tmp.x - M) * 8; if (tmp.x < -M) acc.x -= (tmp.x + M) * 8;
         if (tmp.z > M) acc.z -= (tmp.z - M) * 8; if (tmp.z < -M) acc.z -= (tmp.z + M) * 8;
         if (tmp.y < fondo) acc.y += (fondo - tmp.y) * 8; if (tmp.y > ACQUA - 0.25) acc.y -= (tmp.y - ACQUA + 0.25) * 8;
-        if (raggio) {
+        // Amo in acqua: i pesci vicini vengono a curiosare, il puntatore non li spaventa
+        if (amo.stato !== 'fermo') {
+          vicino.copy(amo.pos).sub(tmp);
+          const d2 = vicino.lengthSq();
+          if (d2 < 2.2) acc.addScaledVector(vicino, 0.9 * (1 - d2 / 2.2));
+        } else if (raggio) {
           const d2 = raggio.ray.distanceSqToPoint(tmp);
           if (d2 < 0.55) {
             raggio.ray.closestPointToPoint(tmp, vicino);
@@ -520,6 +614,7 @@ export function monta(el: HTMLElement) {
       giroScoglio.setMatrixAt(k, dummy.matrix);
     }
     giroScoglio.instanceMatrix.needsUpdate = true;
+    aggiornaAmo(dt, p.ridotto, s);
     // Meduse: ognuna col suo ritmo di battito; fra un battito e l'altro scendono piano e vanno con la corrente
     meduse.forEach(m => {
       const fase = (s * m.ritmo + m.fase) % 1;
