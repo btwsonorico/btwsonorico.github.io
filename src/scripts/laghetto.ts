@@ -304,8 +304,8 @@ export function monta(el: HTMLElement) {
     return { ...p, fase: r() * Math.PI * 2, vel: (0.05 + r() * 0.05) * (k % 2 ? 1 : -1), raggio: 0.6 + r() * 0.5, prof: 0.15 + r() * 0.2, colpo: r() * 6 };
   });
   // Nascita dei pesci: il prato e la riva ci sono già. Al centro del lago si apre un cerchio, poi in circa due secondi
-  // i pesci arrivano a banchi interi: un banco salta dal centro (un arco col muso nella direzione del volo, uno spruzzo
-  // dove atterra), il banco dopo sale dal fondo, col muso in alto, fino al punto dove nuota.
+  // i pesci arrivano a banchi interi: al massimo due banchi saltano dal centro (un arco col muso nella direzione del volo,
+  // uno spruzzo dove atterrano), tutti gli altri affiorano da poco sotto il punto dove nuotano.
   // Le etichette arrivano quando sono tutti in acqua.
   const gruppiPesci = [...branchi.map(b => b.pesci.map(q => q.corpo)), liberi.slice(0, 5).map(q => q.corpo), liberi.slice(5).map(q => q.corpo)].filter(b => b.length);
   const PRIMO_SALTO = 200, TRA_BANCHI = 950 / Math.max(1, gruppiPesci.length), DENTRO_BANCO = 200, DURATA_SALTO = 900;
@@ -314,7 +314,7 @@ export function monta(el: HTMLElement) {
   // Un banco parte insieme, con pochi attimi fra un pesce e l'altro, dallo stesso punto dell'acqua
   const salti = gruppiPesci.flatMap((corpi, b) => corpi.map((corpo, k) => {
     const a = b * 2.39996, sparso = k * 2.39996;
-    return { corpo, sale: b % 2 === 1, ritardo: PRIMO_SALTO + b * TRA_BANCHI + (k / corpi.length) * DENTRO_BANCO, da: new THREE.Vector3(Math.cos(a) * 0.3 + Math.cos(sparso) * 0.07, -0.3, Math.sin(a) * 0.3 + Math.sin(sparso) * 0.07), atterrato: false, scala: corpo.scale.clone() };
+    return { corpo, sale: b !== 1 && b !== 3, ritardo: PRIMO_SALTO + b * TRA_BANCHI + (k / corpi.length) * DENTRO_BANCO, da: new THREE.Vector3(Math.cos(a) * 0.3 + Math.cos(sparso) * 0.07, -0.3, Math.sin(a) * 0.3 + Math.sin(sparso) * 0.07), atterrato: false, scala: corpo.scale.clone() };
   }));
   const cerchiNascita = Array.from({ length: 36 }, () => {
     const m = linea(c.accent, 0), o = anello(cerchio(1, 40), m);
@@ -347,10 +347,10 @@ export function monta(el: HTMLElement) {
         return;
       }
       if (q.sale) {
-        // Dal fondo: rallenta salendo e si raddrizza da solo, così arriva al nuoto senza scatti
+        // Da poco sotto: rallenta salendo e si raddrizza da solo, così arriva al nuoto senza scatti
         const resta = (1 - u) ** 3;
-        q.corpo.position.y -= resta * 1.3;
-        q.corpo.rotateX(-resta * 1.1);
+        q.corpo.position.y -= resta * 0.35;
+        q.corpo.rotateX(-resta * 0.45);
         q.corpo.scale.copy(q.scala).multiplyScalar(Math.min(1, u * 2.5));
         return;
       }
