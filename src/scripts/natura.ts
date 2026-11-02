@@ -346,6 +346,7 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
   const aNdc = (e: PointerEvent) => { const b = cv.getBoundingClientRect(); ndc.set(((e.clientX - b.left) / b.width) * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1); };
   cv.addEventListener('pointerdown', e => {
     aNdc(e);
+    dentro = true;
     raggio.setFromCamera(ndc, camera);
     if (o.afferra?.(raggio)) { presa = true; mosso = 10; try { cv.setPointerCapture(e.pointerId); } catch { /* niente */ } return; }
     dita.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -356,6 +357,7 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
   cv.addEventListener('pointercancel', e => { dita.delete(e.pointerId); });
   const lascia = () => { premuto = false; if (presa) { presa = false; o.rilascia?.(); } };
   window.addEventListener('pointerup', lascia);
+  window.addEventListener('pointercancel', lascia);
   cv.addEventListener('pointermove', e => {
     const b = cv.getBoundingClientRect();
     ndc.set(((e.clientX - b.left) / b.width) * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1);

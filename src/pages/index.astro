@@ -94,8 +94,11 @@ const PAGINE = [
     h1 { font-size: 33px; }
     /* Sul telefono la scena non sta dietro al testo: occupa una fascia in alto, che scorre via con la pagina.
        Così il testo resta leggibile e i link si toccano */
-    .fondo3d { position: absolute; top: 0; left: 0; right: 0; bottom: auto; width: 100%; height: 50vh; }
-    .about { padding-top: 45vh; min-height: 0; justify-content: flex-start; }
+    .fondo3d { position: absolute; top: 0; left: 0; right: 0; bottom: auto; width: 100%; height: min(50vh, 105vw); }
+    .about { padding-top: calc(min(50vh, 105vw) - 66px); min-height: 0; justify-content: flex-start; }
+    .link a, .pagine li a { display: inline-flex; align-items: center; min-height: 32px; }
+    .link { gap: var(--s3); }
+    .pagine li { flex-wrap: wrap; column-gap: var(--s2); }
     /* Sul telefono il trascinamento in verticale fa scorrere la pagina anche sopra il cielo */
     .scena3d { touch-action: pan-y; }
   }

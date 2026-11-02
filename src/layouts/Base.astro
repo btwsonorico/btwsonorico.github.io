@@ -108,9 +108,10 @@ const build = new Date().toISOString().slice(0, 10);
     --muted: #62594a;
     --line: #c6b9a1;
     --superficie: #d5c9b3;
-    --verde: #1a7f37;
-    --azzurro: #0969da;
-    --arancio: #bc4c00;
+    /* Più scuri che in GitHub: sul fondo caldo il testo piccolo resta leggibile (contrasto almeno 4,5) */
+    --verde: #14682c;
+    --azzurro: #0755b5;
+    --arancio: #983d00;
     color-scheme: light;
   }
   /* I componenti Arc usano i colori del sito */
@@ -178,7 +179,13 @@ const build = new Date().toISOString().slice(0, 10);
   .cambia-tema { padding: 0 5px; border: 1px solid var(--line); background: none; color: var(--muted); font: inherit; cursor: pointer; }
   .cambia-tema:hover { color: var(--fg); border-color: var(--muted); }
   /* Su schermi stretti nome e link vanno su due righe, così nessun link esce dallo schermo */
-  @media (max-width: 640px) { .barra { flex-wrap: wrap; row-gap: 10px; } .barra nav { gap: 14px; } }
+  /* Col dito i link della barra sono bersagli alti almeno 36 px */
+  @media (max-width: 640px) {
+    .barra { flex-wrap: wrap; row-gap: 0; padding-top: 10px; padding-bottom: 10px; }
+    .barra nav { gap: 14px; }
+    .barra a, .cambia-tema { display: inline-flex; align-items: center; min-height: 36px; }
+    .cambia-tema { padding: 0 10px; min-height: 30px; }
+  }
   .io { color: var(--fg); }
   /* Sito in costruzione: un'etichetta piccola accanto al nome */
   .nome { display: inline-flex; align-items: center; gap: 10px; }

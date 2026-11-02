@@ -181,6 +181,8 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
       }
     }
   });
+  // Il browser prende il gesto per scorrere la pagina: la rotazione non deve restare appesa
+  el.addEventListener('pointercancel', () => { ruota = false; });
   // Un clic mostra l'argomento: se la pagina ha la lista delle competenze, apre lì la sua voce;
   // altrimenti (per esempio nella home) va alla pagina dell'argomento
   function apri(p: Punto) {
@@ -259,7 +261,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     renderer.setSize(w, h);
     camera.aspect = w / h;
     // In un riquadro stretto o alto la camera si allontana, così la scena entra tutta
-    base.copy(o.camera).multiplyScalar(Math.max(1, 1.3 / camera.aspect));
+    base.copy(o.camera).multiplyScalar(Math.max(1, 1.3 / camera.aspect) ** 1.6);
     // Scena a tutto schermo dietro alla pagina (pagine delle sezioni su schermi larghi): il centro della scena
     // si sposta a destra, nello spazio libero accanto alla colonna di testo, e la camera si allontana un po'
     if (el.closest('.sfondo .a-grafo') && window.innerWidth >= 1080) {

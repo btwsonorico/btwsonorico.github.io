@@ -262,15 +262,15 @@ export function monta(el: HTMLElement) {
 
   // --- Nuvole morbide: una rete di nodi e molle (il filo che si vede) e sopra una nuvola di punti legati ai nodi.
   // I punti nascono, si allontanano appena e svaniscono, poi rinascono altrove nella nuvola: il vapore si rinnova.
-  // Punti radi e piccoli: si legge come una point cloud. Col puntatore sopra, la nuvola si allarga dal suo centro e tiene la forma.
+  // Punti radi e piccoli: si legge come una point cloud. Vicino al puntatore i punti si scostano; il resto della nuvola non si muove.
   type Nodo = { x: number; y: number; z: number; vx: number; vy: number; vz: number; rx: number; ry: number; rz: number; fase: number };
   type Sfera = { x: number; y: number; z: number; raggio: number };
-  type Nuvola = { cx: number; cy: number; cz: number; vel: number; largo: number; nodi: Nodo[]; molle: [number, number, number][]; sfere: Sfera[]; da: number; n: number; preso: number; piatta: number; allarga: number; ombraX: number; ombraZ: number };
+  type Nuvola = { cx: number; cy: number; cz: number; vel: number; largo: number; nodi: Nodo[]; molle: [number, number, number][]; sfere: Sfera[]; da: number; n: number; preso: number; piatta: number; ombraX: number; ombraZ: number };
   const nuvole: Nuvola[] = [];
   const QUANTE = 7, PER = p.telefono ? 240 : 420, N = QUANTE * PER;
   const CIELO = 11, VENTO = new THREE.Vector2(0.92, 0.39), postiNuvole = benDistribuiti(QUANTE, 0, CIELO - 1.5, r);
-  const nuvola = puntiMorbidi(N);
-  const legami = new Uint8Array(N * 3), pesi = new Float32Array(N * 3), offset = new Float32Array(N * 9), vita = new Float32Array(N), ritmo = new Float32Array(N), luceNuvole = new Float32Array(N), apertura = new Float32Array(N);
+  const nuvola = puntiMorbidi(N), RAGGIO_APRE = 0.6, SPINTA_APRE = 0.42;
+  const legami = new Uint8Array(N * 3), pesi = new Float32Array(N * 3), offset = new Float32Array(N * 9), vita = new Float32Array(N), ritmo = new Float32Array(N), luceNuvole = new Float32Array(N), scosta = new Float32Array(N * 3);
   // Un punto a caso dentro la nuvola: più fitto verso il bordo degli sbuffi, la pancia piatta
   const campione = (nv: Nuvola, fuori: THREE.Vector3) => {
     const volume = nv.sfere.reduce((a, s) => a + s.raggio ** 3, 0);
@@ -340,14 +340,13 @@ export function monta(el: HTMLElement) {
     });
     const cx = postiNuvole[k]!.x, cy = 3.9 + r() * 2.1, cz = postiNuvole[k]!.z;
     nodi.forEach(q => { q.x += cx; q.y += cy; q.z += cz; });
-    const nv: Nuvola = { cx, cy, cz, vel: 0.1 + r() * 0.08, largo, nodi, molle, sfere, da: k * PER, n: PER, preso: -1, piatta, allarga: 0, ombraX, ombraZ };
+    const nv: Nuvola = { cx, cy, cz, vel: 0.1 + r() * 0.08, largo, nodi, molle, sfere, da: k * PER, n: PER, preso: -1, piatta, ombraX, ombraZ };
     nuvole.push(nv);
     for (let i = 0; i < PER; i++) {
       const j = nv.da + i;
       lega(nv, j);
       vita[j] = r(); ritmo[j] = 1 / (7 + r() * 12);
       nuvola.dim[j] = 0.03 + r() * 0.04;
-      apertura[j] = 0.45 + r() * 0.4;
     }
   }
   g.add(nuvola.punti);
@@ -533,16 +532,14 @@ export function monta(el: HTMLElement) {
         const attrito = Math.exp(-h * 2.6);
         nv.nodi.forEach(n => { n.vx *= attrito; n.vy *= attrito; n.vz *= attrito; n.x += n.vx * h; n.y += n.vy * h; n.z += n.vz * h; });
       }
-      // Centro della nuvola: la media dei nodi; serve all'ombra e all'allargamento
+      // Centro della nuvola: la media dei nodi; serve all'ombra
       let mx = 0, my = 0, mz = 0;
       nv.nodi.forEach(n => { mx += n.x; my += n.y; mz += n.z; });
       mx /= nv.nodi.length; my /= nv.nodi.length; mz /= nv.nodi.length;
-      // Col puntatore sopra si apre in fretta; quando esce si richiude piano. Da aperta si prende da più lontano, così non trema
-      const sopra = !!raggio && presa.nuvola < 0 && nv.nodi.some(n => raggio.ray.distanceToPoint(tmp.set(n.x, n.y, n.z)) < 0.6 + nv.allarga * 0.45);
-      nv.allarga += ((sopra ? 1 : 0) - nv.allarga) * (1 - Math.exp(-dt * (sopra ? 3.5 : 1.4)));
-      if (sopra) sopraNuvola = true;
-      const ombraPiu = 1 + nv.allarga * 0.25;
-      ombre[q]!.set(mx + 0.8, mz + 0.6, nv.ombraX * ombraPiu * Math.max(vista, 0.01), nv.ombraZ * ombraPiu * Math.max(vista, 0.01));
+      if (raggio && presa.nuvola < 0 && !sopraNuvola) sopraNuvola = nv.nodi.some(n => raggio.ray.distanceToPoint(tmp.set(n.x, n.y, n.z)) < 0.6);
+      ombre[q]!.set(mx + 0.8, mz + 0.6, nv.ombraX * Math.max(vista, 0.01), nv.ombraZ * Math.max(vista, 0.01));
+      // Il puntatore tocca questa nuvola? Se è lontano, i punti tornano soltanto al loro posto
+      const vicinoNuvola = !!raggio && raggio.ray.distanceToPoint(tmp.set(mx, my, mz)) < Math.max(nv.ombraX, nv.ombraZ) + RAGGIO_APRE;
       // Punti: posizione dai tre nodi legati; la vita li fa comparire, salire appena e svanire
       for (let i = 0; i < nv.n; i++) {
         const j = nv.da + i;
@@ -554,10 +551,21 @@ export function monta(el: HTMLElement) {
           const w = pesi[j * 3 + k]!, n = nv.nodi[legami[j * 3 + k]!]!, o = j * 9 + k * 3;
           x += w * (n.x + offset[o]! * cresce); y += w * (n.y + offset[o + 1]! * cresce); z += w * (n.z + offset[o + 2]! * cresce);
         }
-        // Allargamento: ogni punto si scosta dal centro della sua nuvola, chi più chi meno; la forma resta
-        const apre = 1 + nv.allarga * apertura[j]!;
-        nuvola.pos[j * 3] = mx + (x - mx) * apre; nuvola.pos[j * 3 + 1] = my + (y - my) * apre + v * 0.08; nuvola.pos[j * 3 + 2] = mz + (z - mz) * apre;
-        nuvola.alfa[j] = Math.sin(v * Math.PI) ** 0.7 * (p.chiaro ? 0.7 : 0.6) * vista * (1 - nv.allarga * 0.2);
+        // Vicino al puntatore il punto si scosta dal raggio, tanto più quanto è vicino; si apre in fretta e torna piano
+        let vx = 0, vy = 0, vz = 0;
+        if (vicinoNuvola) {
+          tmp.set(x, y, z);
+          raggio!.ray.closestPointToPoint(tmp, tmpL);
+          tmp.sub(tmpL);
+          const d = tmp.length();
+          if (d < RAGGIO_APRE) { const f = (1 - d / RAGGIO_APRE) ** 1.5 * SPINTA_APRE / (d || 1); vx = tmp.x * f; vy = tmp.y * f; vz = tmp.z * f; }
+        }
+        const k3 = j * 3, passo = 1 - Math.exp(-dt * (vx || vy || vz ? 6 : 1.6));
+        scosta[k3] = scosta[k3]! + (vx - scosta[k3]!) * passo;
+        scosta[k3 + 1] = scosta[k3 + 1]! + (vy - scosta[k3 + 1]!) * passo;
+        scosta[k3 + 2] = scosta[k3 + 2]! + (vz - scosta[k3 + 2]!) * passo;
+        nuvola.pos[k3] = x + scosta[k3]!; nuvola.pos[k3 + 1] = y + v * 0.08 + scosta[k3 + 1]!; nuvola.pos[k3 + 2] = z + scosta[k3 + 2]!;
+        nuvola.alfa[j] = Math.sin(v * Math.PI) ** 0.7 * (p.chiaro ? 0.7 : 0.6) * vista;
         colNuvola.copy(scuroNuvola).lerp(chiaroNuvola, luceNuvole[j]!);
         nuvola.col[j * 3] = colNuvola.r; nuvola.col[j * 3 + 1] = colNuvola.g; nuvola.col[j * 3 + 2] = colNuvola.b;
       }

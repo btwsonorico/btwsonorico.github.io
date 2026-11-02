@@ -101,8 +101,9 @@ export function monta(el: HTMLElement) {
     stelle.forEach((st, k) => { if (!st.mesh.visible) return; const s = schermoStella(k); const d = Math.hypot(s.x - x, s.y - y); if (d < dist) { dist = d; best = k; } });
     return best;
   }
+  let raggioPresa = 18;
   function piuVicino(x: number, y: number) {
-    let best = -1, dist = 18;
+    let best = -1, dist = raggioPresa;
     nodi.forEach((n, i) => { if (!n.mesh.visible) return; const s = schermo(i); const d = Math.hypot(s.x - x, s.y - y); if (d < dist) { dist = d; best = i; } });
     return best;
   }
@@ -110,6 +111,8 @@ export function monta(el: HTMLElement) {
 
   el.addEventListener('pointerdown', e => {
     const m = locale(e);
+    // Col dito si prende da più lontano
+    raggioPresa = e.pointerType === 'touch' ? 30 : 18;
     giu.copy(m); ultimo.copy(m); mosso = 0;
     preso = piuVicino(m.x, m.y);
     presaStella = preso < 0 ? stellaVicina(m.x, m.y) : -1;
@@ -149,6 +152,8 @@ export function monta(el: HTMLElement) {
     }
     preso = -1; presaStella = -1; ruota = false;
   });
+  // Il browser prende il gesto per scorrere la pagina: niente resta appeso
+  el.addEventListener('pointercancel', () => { preso = -1; presaStella = -1; ruota = false; });
   el.addEventListener('pointerleave', () => { if (preso < 0) { sopra = -1; sopraStella = -1; } });
   window.addEventListener('grafo:evidenzia', e => {
     const id = (e as CustomEvent<string | null>).detail ?? '';
