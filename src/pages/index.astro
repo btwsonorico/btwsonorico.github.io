@@ -76,6 +76,8 @@ const PAGINE = [
   .pagine li a { min-width: 80px; padding: 0 5px; margin-left: -5px; color: var(--fg); }
   /* Al passaggio, la sezione diventa un riquadro nel suo colore, come la sua etichetta accesa nel mondo */
   .pagine li a[data-tono]:hover { color: var(--bg); background: var(--accent); text-decoration: none; }
+  /* Misc non ha un colore suo: il riquadro è nel colore del testo, bianco in dark mode */
+  .pagine li a:not([data-tono]):hover { color: var(--bg); background: var(--fg); text-decoration: none; }
   .titoletto { margin: 0 0 4px; }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
   /* Il mondo copre tutta la finestra; la barra e la scritta della build gli stanno sopra */
