@@ -2,9 +2,9 @@ import { avanti, misura, nuovaRete, passo, type Punto, type Rete } from '../lib/
 
 // Una rete vera prova a far emergere una sagoma da una griglia a filo: l'altezza della griglia è l'uscita della rete.
 // Un neurone è un taglio dritto; più neuroni si sommano, e gli strati combinano i tagli in forme.
-// Due righe dicono sempre cosa sta succedendo (Now) e cosa si può fare adesso (Try); passando su un elemento, Try lo spiega.
+// Un tag arancione accanto a un comando dice cosa fare adesso; passando su un elemento, un tag sul punto lo spiega.
 const G = 32, T = 9, PASSI_AL_SECONDO = 800, GRUPPO = 64, TASSO = 0.03, TASSO_FINE = 0.01, RALLENTA = 12000, FINE = 20000, MS_AL_FOTOGRAMMA = 7, DURATA_PASSO = 4500, DURATA_SALITA = 1300;
-const ALTEZZA = 0.62, PIATTO = 0.52, RIPIDO = 7, SPAZIO_GUIDA = 64;
+const ALTEZZA = 0.62, PIATTO = 0.52, RIPIDO = 7;
 // Con 5 neuroni uno strato si ferma intorno all'80%, due arrivano oltre il 95%: così si vede cosa aggiunge uno strato
 const MAX_NEURONI = 5, MAX_STRATI = 4, NEURONI_INIZIALI = 3, MAX_CORSE = 3;
 
@@ -35,7 +35,7 @@ export function monta(radice: HTMLElement) {
   const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
   const scrivi = (el: Element, t: string) => { if (el.textContent !== t) el.textContent = t; };
   const BG = tono('--bg'), FG = tono('--fg'), MUTED = tono('--muted'), LINE = tono('--line'), BLU = tono('--azzurro'), ARANCIO = tono('--arancio');
-  const [bR, bG, bB] = rgb(BG), [aR, aG, aB] = rgb(BLU), [oR, oG, oB] = rgb(ARANCIO);
+  const [bR, bG, bB] = rgb(BG), [oR, oG, oB] = rgb(ARANCIO);
   const scala = (fine: string) => Array.from({ length: 7 }, (_, k) => misto(misto(LINE, MUTED, 0.55), fine, k / 6));
   const TINTE = scala(ARANCIO), TINTE_NEURONE = scala(FG);
   const telaRete = $<HTMLCanvasElement>('.tela-rete'), telaTerreno = $<HTMLCanvasElement>('.tela-terreno'), curva = $<HTMLCanvasElement>('.curva');
@@ -46,7 +46,7 @@ export function monta(radice: HTMLElement) {
   // --- Stato
   let rete: Rete = nuovaRete([], 'tanh', 3), nascosti: number[] = [], seme = 3, passi = 0, visibile = false, sporco = true;
   let celle: Punto[] = [], pieni: Punto[] = [], vuoti: Punto[] = [], bordo: number[] = [], nomeSagoma = 'fish';
-  let sopra: Neurone | null = null, fisso: Neurone | null = null, arco: Arco | null = null, spiega = '', giro = 0.55;
+  let sopra: Neurone | null = null, fisso: Neurone | null = null, arco: Arco | null = null, spiegaEl: HTMLElement | null = null, xPuntatore = 0, yPuntatore = 0, giro = 0.55;
   let sonda: (Punto & { p: number }) | null = null, impulso = 0, verso = 1, testoPasso = '';
   let errore = 0, somiglia = 0, matchMostrato = 0, erroreMostrato = 0, primoDato = true, ultimoTesto = 0;
   let storia: [number, number][] = [], corse: { nome: string; dati: [number, number][] }[] = [];
@@ -132,9 +132,9 @@ export function monta(radice: HTMLElement) {
   let W = 0, H = 0, Wr = 0, Hr = 0;
   const altezze = new Float32Array((G + 1) * (G + 1)), sx = new Float32Array(altezze.length), sy = new Float32Array(altezze.length);
   const piano = () => {
-    const sinistra = W >= 760 ? Wr : 0, libero = W - sinistra, spazio = W >= 760 ? SPAZIO_GUIDA : 0;
-    const S = Math.min(libero / 2.95, (H - spazio) / (2 * Math.SQRT2 * PIATTO + ALTEZZA + 0.12));
-    return { S, cx: sinistra + libero / 2, cy: spazio + (H - spazio) / 2 + (S * ALTEZZA) / 2, co: Math.cos(giro), si: Math.sin(giro) };
+    const sinistra = W >= 760 ? Wr : 0, libero = W - sinistra - (W >= 760 ? 96 : 0);
+    const S = Math.min(libero / 2.95, H / (2 * Math.SQRT2 * PIATTO + ALTEZZA + 0.12));
+    return { S, cx: sinistra + libero / 2, cy: H / 2 + (S * ALTEZZA) / 2, co: Math.cos(giro), si: Math.sin(giro) };
   };
   const proietta = (u: number, v: number, h: number) => {
     const { S, cx, cy, co, si } = piano();
@@ -277,8 +277,8 @@ export function monta(radice: HTMLElement) {
   function mini(l: number, j: number, x: number, y: number, s: number) {
     const m = mappe[l]![j]!, d = immagine.data;
     for (let k = 0; k < T * T; k++) {
-      const v = m[k]!, a = Math.min(1, Math.abs(v)) * 0.85, r = v < 0 ? aR : oR, g = v < 0 ? aG : oG, b = v < 0 ? aB : oB;
-      d[k * 4] = bR + (r - bR) * a; d[k * 4 + 1] = bG + (g - bG) * a; d[k * 4 + 2] = bB + (b - bB) * a; d[k * 4 + 3] = 255;
+      const a = Math.max(0, Math.min(1, (m[k]! + 1) / 2)) * 0.95;
+      d[k * 4] = bR + (oR - bR) * a; d[k * 4 + 1] = bG + (oG - bG) * a; d[k * 4 + 2] = bB + (oB - bB) * a; d[k * 4 + 3] = 255;
     }
     cm.putImageData(immagine, 0, 0);
     c.imageSmoothingEnabled = false;
@@ -392,67 +392,79 @@ export function monta(radice: HTMLElement) {
     });
   }
 
-  // --- Now e Try: cosa sta succedendo, e cosa puoi fare adesso
-  const rigaOra = $<HTMLElement>('.riga-ora'), rigaProva = $<HTMLElement>('.riga-prova'), cartelloProva = $<HTMLElement>('.cartello.prova');
-  const descrizione = () => {
-    const tot = nascosti.reduce((a, b) => a + b, 0), k = nascosti.length;
-    return `${tot} ${tot === 1 ? 'neuron' : 'neurons'} in ${k} ${k === 1 ? 'layer' : 'layers'}`;
-  };
-  const cosaFa = () => {
-    if (anima) return 'Stopped, showing one correction slowly.';
-    if (disegno) return 'The network is stopped while you paint.';
-    if (salita) return 'Your shape rises to the height the network must reach.';
-    if (soloNeurone()) return 'One neuron, with weights set by you: one straight cut.';
-    const forma = nomeSagoma === 'draw' ? 'your shape' : `a ${nomeSagoma}`;
-    if (passi >= FINE) return `Finished: ${descrizione()} trained on ${forma}.`;
-    if (!passi) return `Ready: ${descrizione()}, not trained yet.`;
-    return inMoto ? `Training ${descrizione()} to draw ${forma}.` : `Stopped: ${descrizione()}, ${forma}.`;
-  };
-  // Il consiglio accende anche il comando giusto
+  // --- Tag: quello arancione dice cosa fare e sta accanto al comando; quello chiaro spiega ciò che indichi
+  const tagPunto = document.querySelector<HTMLElement>('.tag-punto')!, tagConsiglio = document.querySelector<HTMLElement>('.tag-consiglio')!, pannello = $<HTMLElement>('.pannello');
   let consigliato: Element | null = null;
   const consiglia = (el: Element | null) => { if (el !== consigliato) { consigliato?.classList.remove('consigliato'); el?.classList.add('consigliato'); consigliato = el; } };
-  const cosaProvare = (): [string, Element | null] => {
-    if (anima) return [testoPasso, null];
-    if (salita) return ['Your shape is the new goal.', null];
-    if (disegno) return ['Paint on the grid, then press done.', pieni.length ? matita : null];
-    if (soloNeurone()) return ['Drag the white squares to cover the fish, then press + next to layers.', piuStrati];
-    if (!passi && !inMoto) return ['Press train to start this run.', gioca];
-    if (inMoto) return ['Watch the match climb. Hover or tap a square to see what that neuron sees.', null];
-    if (passi < FINE) return [`Press ${gioca.textContent} to go on, or change the network and start a new run.`, gioca];
-    if (matchMostrato >= 0.95) return ['It got it. Try another shape, or draw your own.', sagome[nomeSagoma === 'fish' ? 1 : 0] ?? null];
-    if (nascosti.length === 1) return ['One layer gets stuck. Add a layer, press train and compare the lines.', piuStrati];
-    return ['Change layers or neurons, press train and compare the lines.', null];
+  const cosaProvare = (): [string, HTMLElement | null] => {
+    if (anima || salita) return ['', null];
+    if (disegno) return ['paint on the grid, then press done', pieni.length ? matita : null];
+    if (soloNeurone()) return ['drag the white squares to cover the fish, then add a layer', piuStrati];
+    if (inMoto) return ['', null];
+    if (!passi) return ['press train to start this run', gioca];
+    if (passi < FINE) return [`press ${gioca.textContent}, or change the network`, gioca];
+    if (matchMostrato >= 0.95) return ['it got it: try another shape', sagome[nomeSagoma === 'fish' ? 1 : 0] ?? null];
+    if (nascosti.length === 1) return ['one layer gets stuck: add a layer, then train and compare', piuStrati];
+    return ['change the network, then train and compare', gioca];
   };
   const spiegaNeurone = () => {
     const sel = scelto();
     if (arco) {
       const w = rete.pesi[arco.l - 1]![arco.j * rete.forma[arco.l - 1]! + arco.i]!;
-      return `This weight: ${nome(arco.l - 1, arco.i)} counts ${f2(w)} for ${nome(arco.l, arco.j)}. ${w > 0 ? 'Orange pushes up.' : 'Blue pushes down.'}`;
+      return `Weight ${f2(w)}: how much ${nome(arco.l - 1, arco.i)} counts for ${nome(arco.l, arco.j)}.\n${w > 0 ? 'Orange pushes up.' : 'Blue pushes down.'}`;
     }
     if (!sel) return '';
-    if (sel.l === 0) return `${nome(0, sel.j)} is the ${sel.j ? 'north-south' : 'east-west'} position on the grid. The grid shows it as a slope.`;
+    if (sel.l === 0) return `Input ${nome(0, sel.j)}: the ${sel.j ? 'north-south' : 'east-west'} position on the grid.`;
     const entrate = rete.forma[sel.l - 1]!, ultimo = rete.forma.length - 1;
-    const cosa = sel.l === ultimo ? (ultimo === 1 ? 'A single neuron makes one cut' : 'The output adds its inputs up') : sel.l === 1 ? 'This neuron sees one straight cut' : 'This neuron combines the cuts before it';
+    const cosa = sel.l === ultimo ? (ultimo === 1 ? 'One neuron: one straight cut.' : 'Output: adds up the layer before it.') : sel.l === 1 ? 'This neuron makes one straight cut.' : 'This neuron combines the cuts before it.';
     let somma = '';
     for (let i = 0; i < entrate; i++) {
       const w = rete.pesi[sel.l - 1]![sel.j * entrate + i]!;
       somma += `${i ? (w < 0 ? ' - ' : ' + ') : w < 0 ? '-' : ''}${f2(Math.abs(w))}·${nome(sel.l - 1, i)}`;
     }
-    return `${cosa}: squash(${somma}).`;
+    return `${cosa}\n${nome(sel.l, sel.j)} = squash(${somma})`;
   };
-  function scriviRighe() {
-    scrivi(rigaOra, cosaFa());
-    const [prova, el] = cosaProvare(), qui = spiegaNeurone() || spiega;
-    scrivi(rigaProva, qui || prova);
-    scrivi(cartelloProva, qui ? 'this' : anima ? 'step' : 'try');
-    consiglia(qui ? null : el);
+  // Un tag accanto a un rettangolo dello schermo. Su telefono sta sotto; a schermo largo a destra, o a sinistra se non c'è posto.
+  // I comandi del pannello hanno il tag fuori dal pannello, così non coprono gli altri comandi
+  const posa = (tag: HTMLElement, x0: number, y0: number, x1: number, y1: number, fuoriDa?: DOMRect) => {
+    const w = tag.offsetWidth, h = tag.offsetHeight, vw = innerWidth, vh = innerHeight;
+    let x: number, y: number;
+    if (vw < 760) { x = Math.max(8, Math.min(vw - w - 8, x0)); y = y1 + 6 + h > vh ? y0 - h - 6 : y1 + 6; }
+    else {
+      const destra = fuoriDa ? fuoriDa.right : x1;
+      x = destra + 10 + w < vw - 8 ? destra + 10 : Math.max(8, x0 - w - 10);
+      y = Math.max(8, Math.min(vh - h - 8, (y0 + y1) / 2 - h / 2));
+    }
+    tag.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+  };
+  const scrivi2 = (tag: HTMLElement, testo: string) => { tag.hidden = !testo; if (testo) scrivi(tag, testo); };
+  function aggiornaTag() {
+    const dalPannello = (el: Element) => (el.closest('.pannello') ? pannello.getBoundingClientRect() : undefined);
+    const b = telaRete.getBoundingClientRect(), sel = scelto(), testoNeurone = spiegaNeurone();
+    if (anima && sonda) {
+      const c0 = telaTerreno.getBoundingClientRect(), [x, y] = proietta(sonda.x, sonda.y, sonda.p);
+      scrivi2(tagPunto, testoPasso);
+      posa(tagPunto, c0.left + x, c0.top + y, c0.left + x, c0.top + y);
+    } else if (testoNeurone) {
+      scrivi2(tagPunto, testoNeurone);
+      if (arco) posa(tagPunto, xPuntatore, yPuntatore, xPuntatore, yPuntatore);
+      else if (sel) { const q = lato() / 2, cx = b.left + colonna(sel.l), cy = b.top + riga(sel.l, sel.j); posa(tagPunto, cx - q, cy - q, cx + q, cy + q, innerWidth >= 760 ? pannello.getBoundingClientRect() : undefined); }
+    } else if (spiegaEl) {
+      const q = spiegaEl.getBoundingClientRect();
+      scrivi2(tagPunto, spiegaEl.dataset.spiega ?? '');
+      posa(tagPunto, q.left, q.top, q.right, q.bottom, dalPannello(spiegaEl));
+    } else scrivi2(tagPunto, '');
+    const [prova, el] = cosaProvare(), mostra2 = !!prova && tagPunto.hidden && !!el;
+    consiglia(el);
+    scrivi2(tagConsiglio, mostra2 ? prova : '');
+    if (mostra2) { const q = el!.getBoundingClientRect(); posa(tagConsiglio, q.left, q.top, q.right, q.bottom, dalPannello(el!)); }
+  }
+  function scriviNumeri() {
     scrivi($('.lettura'), disegno ? 'match –' : `match ${Math.round(matchMostrato * 100)}%`);
     scrivi($('.errore'), disegno ? '' : `error ${erroreMostrato.toFixed(2)}`);
   }
-  radice.addEventListener('pointerover', e => {
-    const q = (e.target as Element).closest?.('[data-spiega]') as HTMLElement | null, nuovo = q?.dataset.spiega ?? '';
-    if (nuovo !== spiega) { spiega = nuovo; sporco = true; }
-  });
+  radice.addEventListener('pointerover', e => { spiegaEl = (e.target as Element).closest?.('[data-spiega]') as HTMLElement | null; });
+  radice.addEventListener('pointerleave', () => { spiegaEl = null; });
 
   // --- Contatori: gli strati sopra la rete, i neuroni sopra ogni strato
   const colonne = $<HTMLElement>('.colonne');
@@ -469,7 +481,7 @@ export function monta(radice: HTMLElement) {
       const e = document.createElement('span');
       e.className = 'colonna';
       e.style.left = `${colonna(l + 1)}px`;
-      e.dataset.spiega = 'Neurons in this layer. More neurons mean more cuts. Changing them resets the weights.';
+      e.dataset.spiega = `Neurons in layer ${l + 1}: more neurons, more straight cuts. At most ${MAX_NEURONI}.`;
       const bottone = (t2: string, azione: string, d: number, spento: boolean) => {
         const q = document.createElement('button');
         q.type = 'button';
@@ -534,13 +546,13 @@ export function monta(radice: HTMLElement) {
       const f = (adesso - anima.t0) / DURATA_PASSO, { q, p } = anima;
       if (f < 0.34) {
         verso = 1; impulso = f / 0.34;
-        testoPasso = `1 Try: this point gets height ${f2(p)}. It should be ${q.c}.`;
+        testoPasso = `1 try: this point gets height ${f2(p)}.\nIt should be ${q.c}.`;
       } else if (f < 0.6) {
         impulso = 0;
-        testoPasso = `2 Error: -log(${q.c ? f2(p) : f2(1 - p)}) = ${f2(-Math.log(Math.max(1e-9, q.c ? p : 1 - p)))}. Far from the right height means a big error.`;
+        testoPasso = `2 error: -log(${q.c ? f2(p) : f2(1 - p)}) = ${f2(-Math.log(Math.max(1e-9, q.c ? p : 1 - p)))}.\nFar from the right height, big error.`;
       } else {
         verso = -1; impulso = (f - 0.6) / 0.4;
-        testoPasso = '3 Backpropagation sends the error back, and gradient descent moves each weight a little.';
+        testoPasso = '3 backpropagation sends the error back.\nGradient descent moves each weight a little.';
         if (!anima.fatto) { correggi(); anima.fatto = true; sonda = { ...q, p: avanti(rete, q.x, q.y) }; }
       }
       sporco = true;
@@ -561,7 +573,6 @@ export function monta(radice: HTMLElement) {
 
   // --- Forme e disegno direttamente sul terreno
   const segna = (nomeB: string) => sagome.forEach(x => x.setAttribute('aria-pressed', String(x.dataset.sagoma === nomeB)));
-  const pannello = $<HTMLElement>('.pannello');
   const disegnando = (si: boolean) => {
     disegno = si;
     matita.setAttribute('aria-pressed', String(si));
@@ -638,6 +649,7 @@ export function monta(radice: HTMLElement) {
   }
   telaRete.addEventListener('pointermove', e => {
     if (e.pointerType !== 'mouse') return;
+    xPuntatore = e.clientX; yPuntatore = e.clientY;
     const [x, y] = dove(e, telaRete), n = cerca(x, y, false), a = n ? null : cercaArco(x, y);
     if (n?.l !== sopra?.l || n?.j !== sopra?.j || a?.l !== arco?.l || a?.j !== arco?.j || a?.i !== arco?.i) { sopra = n; arco = a; sporco = true; }
     telaRete.style.cursor = n ? 'pointer' : '';
@@ -690,12 +702,6 @@ export function monta(radice: HTMLElement) {
   telaTerreno.addEventListener('pointerup', fine);
   telaTerreno.addEventListener('pointercancel', fine);
 
-  // --- Pannello "how it works"
-  const aiuto = $<HTMLButtonElement>('.aiuto'), pannelloAiuto = $<HTMLElement>('.pannello-aiuto');
-  const apriAiuto = (si: boolean) => { pannelloAiuto.hidden = !si; aiuto.setAttribute('aria-expanded', String(si)); };
-  aiuto.addEventListener('click', () => apriAiuto(pannelloAiuto.hidden));
-  $('.chiudi').addEventListener('click', () => apriAiuto(false));
-
   // --- Misure, avvio e ciclo
   const misuraTele = () => {
     W = telaTerreno.clientWidth; H = telaTerreno.clientHeight; Wr = telaRete.clientWidth; Hr = telaRete.clientHeight;
@@ -717,6 +723,7 @@ export function monta(radice: HTMLElement) {
   const ciclo = (adesso: number) => {
     requestAnimationFrame(ciclo);
     avanza(adesso);
+    if (W && Wr) aggiornaTag();
     if (!visibile || !sporco || !W || !Wr) return;
     sporco = false;
     const m = misura(rete, celle);
@@ -731,7 +738,7 @@ export function monta(radice: HTMLElement) {
     disegnaTerreno();
     disegnaRete();
     disegnaCurva();
-    scriviRighe();
+    scriviNumeri();
   };
   requestAnimationFrame(ciclo);
 }

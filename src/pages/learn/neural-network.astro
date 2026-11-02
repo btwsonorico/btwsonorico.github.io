@@ -1,78 +1,75 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// Rete neurale: a sinistra si costruisce la rete, si allena e si legge il risultato, in quest'ordine; a destra la griglia.
-// Due righe dicono sempre cosa sta succedendo e cosa fare. La rete è vera e si allena nel browser (src/lib/rete.ts)
+// Rete neurale: la facciata è lo strumento (a sinistra costruisci, alleni e leggi; a destra la griglia), le spiegazioni brevi
+// sono tag che appaiono sul punto, e scorrendo sotto c'è la spiegazione completa. La rete si allena nel browser (src/lib/rete.ts)
 const CONCETTI = [
-  ['Neuron', 'Multiplies each input by a weight, adds them up, and squashes the sum. On the grid, that is one straight cut.'],
-  ['Weight', 'A line between two neurons: how much one counts for the next. Orange pushes up, blue pushes down, thick is strong.'],
-  ['Layer', 'Reads the layer before it, so it can combine cuts into corners and shapes.'],
-  ['Height and match', 'The height of the grid is the answer of the network. Match says how much it overlaps the blue shape.'],
-  ['Error', 'How wrong the answers are. Training exists to make this number small.'],
-  ['Backpropagation', 'Sends the error back through the network. Then gradient descent moves each weight a little, downhill. Press one step to see it.'],
+  ['Neuron', 'Multiplies each input by a weight, adds them up, and squashes the sum between two limits. On this grid, that is one straight cut.'],
+  ['Weight', 'A line between two neurons: how much one counts for the next. Orange lines push up, blue lines push down, thick lines are strong.'],
+  ['Layer', 'Reads the layer before it instead of the position. So it can combine straight cuts into corners and shapes, which one layer alone cannot do well.'],
+  ['Match', 'The height of the grid is the answer of the network. Match says how much of the blue shape it covers, and the chart keeps your last runs to compare them.'],
+  ['Error', 'How wrong the answers are, measured on every point of the grid. Training exists to make this number small.'],
+  ['Backpropagation and gradient descent', 'Backpropagation sends the error back through the network, to find how much each weight is responsible. Gradient descent then moves each weight a little, downhill. Press one step to watch it once.'],
 ];
 ---
-<Base title="Neural network · Riccardo Mondi" description="A simplified but real neural network, running in your browser. Add neurons and layers and teach it to draw." largo>
+<Base title="Neural network · Riccardo Mondi" description="A simplified but real neural network, running in your browser. Add neurons and layers and teach it to draw." tono="neutro" largo>
   <main class="rn" data-rete>
-    <header class="testa">
-      <div>
+    <div class="schermo">
+      <header class="testa">
         <p class="mono via"><a href="/">~</a>/<a href="/learn/">learn</a>/neural-network</p>
         <h1>Teach a neural network to draw</h1>
-        <p class="sotto">A simplified but real neural network, in your browser. The height of the grid is its answer.</p>
-      </div>
-      <button type="button" class="mono aiuto" aria-expanded="false" data-spiega="Short explanations of every concept on this page.">how it works</button>
-    </header>
+        <p class="sotto">A simplified but real neural network, in your browser. The height of the grid is its answer. <a href="#how-it-works" class="mono">how it works ↓</a></p>
+      </header>
 
-    <section class="banco">
-      <canvas class="tela-terreno" role="img" aria-label="A wire grid. Its height is the answer of the network, and the blue outline is the shape to reach."></canvas>
+      <section class="banco">
+        <canvas class="tela-terreno" role="img" aria-label="A wire grid. Its height is the answer of the network, and the blue outline is the shape to reach."></canvas>
 
-      <div class="righe" aria-live="polite">
-        <p class="riga-prova-box"><span class="mono cartello prova">try</span><span class="riga-prova"></span></p>
-        <p class="riga-ora-box"><span class="mono cartello">now</span><span class="riga-ora"></span></p>
-      </div>
+        <div class="mono forme">
+          <span class="titolino">shape</span>
+          <button type="button" data-sagoma="fish" data-spiega="Teach the network to draw a fish.">fish</button>
+          <button type="button" data-sagoma="bird" data-spiega="Teach the network to draw a bird.">bird</button>
+          <button type="button" class="matita" data-spiega="Stops the network and lets you paint your own shape on the base of the grid.">draw</button>
+          <button type="button" class="pulisci" hidden data-spiega="Erases everything you painted.">clear</button>
+        </div>
 
-      <div class="mono forme">
-        <span class="titolino">shape</span>
-        <button type="button" data-sagoma="fish" data-spiega="Teach the network to draw a fish.">fish</button>
-        <button type="button" data-sagoma="bird" data-spiega="Teach the network to draw a bird.">bird</button>
-        <button type="button" class="matita" data-spiega="Stops the network, so you can paint your own shape on the base of the grid.">draw</button>
-        <button type="button" class="pulisci" hidden data-spiega="Erase everything you painted.">clear</button>
-      </div>
-
-      <aside class="pannello-aiuto" hidden>
-        <button type="button" class="mono chiudi" aria-label="Close">×</button>
-        <dl>
-          {CONCETTI.map(([nome, testo]) => <div><dt>{nome}</dt><dd>{testo}</dd></div>)}
-        </dl>
-      </aside>
-
-      <div class="pannello">
-        <div class="mono sezione-titolo">
-          <span class="titolino">build</span>
-          <div class="contatore strati" data-spiega="A layer reads the layer before it, and combines its cuts into corners and shapes.">
-            <span>layers</span>
-            <button type="button" class="strati-meno" aria-label="Remove a layer">−</button><b class="strati-n"></b><button type="button" class="strati-piu" aria-label="Add a layer">+</button>
+        <div class="pannello">
+          <div class="mono costruisci">
+            <span class="titolino">build</span>
+            <div class="contatore strati" data-spiega="Layers. Each one reads the layer before it, and combines its cuts into corners and shapes.">
+              <span>layers</span>
+              <button type="button" class="strati-meno" aria-label="Remove a layer">−</button><b class="strati-n"></b><button type="button" class="strati-piu" aria-label="Add a layer">+</button>
+            </div>
+          </div>
+          <div class="rete-box">
+            <div class="mono colonne"></div>
+            <canvas class="tela-rete" role="img" aria-label="The network: inputs on the left, output on the right. Each square shows what that neuron sees, and each line is a weight."></canvas>
+          </div>
+          <div class="mono azioni">
+            <span class="titolino">train</span>
+            <button type="button" class="gioca" data-spiega="Training: the network tries points, measures the error, and corrects its weights with backpropagation."></button>
+            <button type="button" class="azzera" data-spiega="Sets the weights back to random. This run stays in the chart.">restart</button>
+            <button type="button" class="un-passo" data-spiega="Slows down and shows one correction: try, error, backpropagation.">one step</button>
+            <span class="nota-solo">add a layer to start training</span>
+          </div>
+          <div class="mono andamento">
+            <span class="titolino">result</span>
+            <div class="numeri"><span class="lettura" data-spiega="Match: how much of the blue shape the network covers."></span><span class="errore" data-spiega="Error: how wrong the answers are. Training makes it smaller."></span></div>
+            <canvas class="curva" role="img" aria-label="Chart of the match over training, for this run and the last ones" data-spiega="Your last runs, on the same scale. Orange is this one, grey the ones before. Higher is better."></canvas>
           </div>
         </div>
-        <div class="rete-box">
-          <div class="mono colonne"></div>
-          <canvas class="tela-rete" role="img" aria-label="The network: inputs on the left, output on the right. Each square shows what that neuron sees, and each line is a weight."></canvas>
-        </div>
-        <div class="mono azioni">
-          <span class="titolino">train</span>
-          <button type="button" class="gioca" data-spiega="Starts or stops this run: the network corrects itself hundreds of times a second."></button>
-          <button type="button" class="azzera" data-spiega="Sets the weights back to random. The run so far stays in the chart.">restart</button>
-          <button type="button" class="un-passo" data-spiega="Slows down and shows one single correction: try, error, backpropagation.">one step</button>
-          <span class="nota-solo">Add a layer to start training.</span>
-        </div>
-        <div class="mono andamento">
-          <span class="titolino">result</span>
-          <div class="numeri"><span class="lettura"></span><span class="errore"></span></div>
-          <canvas class="curva" role="img" aria-label="Chart of the match over training, for this run and the last ones" data-spiega="Each run stays here, always on the same scale. Orange is this run, grey are the last ones: higher is better."></canvas>
-        </div>
-      </div>
+      </section>
+    </div>
+
+    <section class="spiegone" id="how-it-works">
+      <h2 class="mono">how it works</h2>
+      <dl>
+        {CONCETTI.map(([nome, testo]) => <div><dt>{nome}</dt><dd>{testo}</dd></div>)}
+      </dl>
+      <p class="semplificato">What is simplified: this network has two inputs, at most 20 neurons, and one shape to learn. A large model reads text or images, has billions of weights, and trains for weeks. The moves are the same.</p>
     </section>
   </main>
+  <div class="mono tag-punto" hidden></div>
+  <div class="mono tag-consiglio" hidden></div>
 </Base>
 
 <script>
@@ -81,14 +78,15 @@ const CONCETTI = [
 </script>
 
 <style>
-  /* La pagina è lo strumento: griglia a tutta finestra; a sinistra si lavora dall'alto in basso: costruisci, allena, leggi */
-  .rn { display: flex; flex-direction: column; flex: 1; gap: var(--s1); padding: 0 24px 16px; min-height: 0; }
-  :global(.piede) { display: none; }
-  .testa { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s2); }
-  .via { margin: 0; }
+  /* La facciata occupa tutta la finestra: griglia a tutto spazio; a sinistra si lavora dall'alto in basso */
+  :global(html) { scroll-behavior: smooth; }
+  .rn { padding: 4px 24px 0; }
+  .schermo { display: flex; flex-direction: column; gap: var(--s2); height: calc(100vh - 62px); min-height: 600px; padding-bottom: var(--s2); }
+  .via { margin: 0 0 12px; }
   .via a { color: inherit; }
-  h1 { margin: 2px 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
+  h1 { margin: 0 0 4px; font-size: 24px; font-weight: 400; line-height: 1.15; }
   .sotto { margin: 0; color: var(--muted); font-size: 14px; }
+  .sotto a { margin-left: 6px; color: var(--fg); font-size: 12px; white-space: nowrap; }
   button { padding: 5px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; transition: color .12s, border-color .12s; }
   button:hover:not(:disabled) { border-color: var(--fg); color: var(--fg); }
   button:disabled { border-color: var(--line); color: var(--line); opacity: .6; cursor: default; }
@@ -99,43 +97,28 @@ const CONCETTI = [
   /* Done è l'azione principale mentre si disegna */
   .matita[aria-pressed="true"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
   .matita[aria-pressed="true"]::before { content: none; }
-  /* Il comando che la riga Try suggerisce */
+  /* Il comando consigliato ha lo stesso colore del suo tag */
   :global(.consigliato) { border-color: var(--arancio) !important; box-shadow: 0 0 0 1px var(--arancio); }
   /* Titoli di sezione: come nel resto del sito */
-  .titolino { color: var(--muted); font-size: 11px; }
-  .titolino::before { content: '// '; }
-  .aiuto { flex: none; font-size: 13px; }
-  .banco { position: relative; flex: 1 1 0; min-height: 480px; }
+  .titolino { color: var(--fg); font-size: 14px; }
+  .titolino::before { content: '// '; color: var(--muted); }
+  .banco { position: relative; flex: 1 1 0; min-height: 0; }
   .tela-terreno { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
   .tela-terreno:active { cursor: grabbing; }
   .tela-terreno.pennello { cursor: crosshair; }
-  /* Sopra la griglia: prima cosa fare, sotto cosa sta succedendo */
-  .righe { position: absolute; top: 0; left: calc(min(34%, 460px) + 32px); right: 110px; z-index: 1; pointer-events: none; }
-  .righe { min-height: 74px; }
-  .righe p { display: flex; gap: 10px; margin: 0; }
-  .riga-prova-box { font-size: 17px; line-height: 1.35; color: var(--fg); }
-  .riga-ora-box { margin-top: 6px !important; font-size: 13px; color: var(--muted); }
-  .cartello { flex: none; width: 36px; padding-top: 3px; color: var(--muted); font-size: 11px; }
-  .cartello.prova { color: var(--arancio); padding-top: 5px; }
   .forme { position: absolute; top: 94px; right: 2px; z-index: 1; display: flex; flex-direction: column; gap: 6px; width: 84px; font-size: 13px; }
   .forme button { padding: 5px 4px; }
-  .pannello-aiuto { position: absolute; top: 70px; right: 100px; bottom: 0; z-index: 2; width: min(340px, 40%); overflow-y: auto; padding: var(--s2); border: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 96%, transparent); }
-  .pannello-aiuto[hidden] { display: none; }
-  .chiudi { position: absolute; top: 6px; right: 6px; padding: 0 8px; }
-  dl { margin: 0; }
-  dt { font-size: 14px; color: var(--fg); }
-  dd { margin: 2px 0 var(--s2); color: var(--muted); font-size: 13px; line-height: 1.5; }
   /* A sinistra, dall'alto in basso */
-  .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--s1); width: min(34%, 460px); transition: opacity .2s; }
+  .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: 10px; width: min(34%, 460px); transition: opacity .2s; }
   .pannello.spento { opacity: .35; pointer-events: none; }
-  .sezione-titolo { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: 13px; }
+  .costruisci { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; font-size: 13px; }
   .contatore { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); }
   .contatore > span { width: 56px; color: var(--muted); font-size: 12px; }
   .contatore b { min-width: 2ch; font-weight: 400; font-size: 15px; text-align: center; }
   .contatore button { width: 28px; height: 28px; padding: 0; font-size: 15px; }
   .rete-box { position: relative; flex: 1 1 0; min-height: 170px; }
-  .azioni, .andamento { padding-top: var(--s1); border-top: 1px solid var(--line); }
   .tela-rete { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
+  .azioni, .andamento { padding-top: 10px; border-top: 1px solid var(--line); }
   /* I neuroni si cambiano sopra ogni strato */
   .colonne { position: absolute; inset: 0 0 auto; height: 28px; z-index: 1; font-size: 13px; color: var(--fg); }
   .colonne :global(.colonna) { position: absolute; top: 0; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
@@ -144,7 +127,7 @@ const CONCETTI = [
   .colonne :global(button:hover:not(:disabled)) { border-color: var(--fg); color: var(--fg); }
   .colonne :global(button:disabled) { opacity: .4; cursor: default; }
   .colonne :global(b) { min-width: 1.4ch; font-weight: 400; text-align: center; }
-  .azioni { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-height: 36px; font-size: 13px; }
+  .azioni { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 36px; font-size: 13px; }
   .azioni .titolino { width: 100%; }
   .azioni > [hidden] { display: none; }
   .gioca { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 112px; padding: 7px 16px; background: var(--fg); border-color: var(--fg); color: var(--bg); font-size: 15px; }
@@ -155,25 +138,42 @@ const CONCETTI = [
   .gioca[data-stato="pausa"]::before { width: 8px; height: 10px; border-width: 0 2px; border-style: solid; border-color: currentColor; background: none; }
   .nota-solo { color: var(--muted); }
   .nota-solo[hidden] { display: none; }
+  .andamento .titolino { display: block; margin-bottom: 4px; }
   .numeri { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s1); }
   .lettura { font-size: 20px; color: var(--fg); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .errore { color: var(--muted); white-space: nowrap; }
   .curva { display: block; width: 100%; height: 124px; margin-top: 2px; }
-  .andamento .titolino { display: block; margin-bottom: 2px; }
-  /* Telefono: righe, griglia e forme, poi la rete con i suoi comandi */
+  /* Tag sul punto: stesso stile delle etichette delle scene */
+  .tag-punto, .tag-consiglio { position: fixed; left: 0; top: 0; z-index: 5; max-width: 300px; padding: 4px 8px; background: var(--bg); border: 1px solid var(--fg); color: var(--fg); font-size: 12px; line-height: 1.45; white-space: pre-line; pointer-events: none; }
+  .tag-consiglio { border-color: var(--arancio); color: var(--arancio); }
+  .tag-punto[hidden], .tag-consiglio[hidden] { display: none; }
+  /* Sotto la facciata: la spiegazione completa */
+  .spiegone { max-width: 1040px; margin: 0 auto; padding: var(--s4) 0; border-top: 1px solid var(--line); scroll-margin-top: var(--s2); }
+  .spiegone h2 { margin: 0 0 var(--s3); font-size: 14px; font-weight: 400; color: var(--fg); }
+  .spiegone h2::before { content: '// '; color: var(--muted); }
+  dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--s3); margin: 0; }
+  dt { font-size: 15px; color: var(--fg); }
+  dd { margin: 4px 0 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .semplificato { max-width: 720px; margin: var(--s3) 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+  /* Telefono: griglia e forme subito visibili, poi costruisci, allena e leggi */
   @media (max-width: 760px) {
-    .rn { padding: 0 16px 16px; }
+    .rn { padding: 0 16px; }
+    .schermo { height: auto; min-height: 0; gap: var(--s1); }
     h1 { font-size: 20px; }
+    .via { margin-bottom: 8px; }
     .banco { display: contents; }
     .testa { order: 0; }
-    .righe { position: static; order: 1; }
-    .tela-terreno { position: static; display: block; order: 2; height: 290px; }
-    .forme { position: static; order: 3; flex-direction: row; flex-wrap: wrap; align-items: center; width: auto; }
-    .forme button { padding: 7px 12px; }
-    .pannello-aiuto { position: static; order: 4; width: auto; max-height: none; }
-    .pannello { position: static; order: 5; width: 100%; }
-    .rete-box { flex: none; height: 240px; }
-    .contatore button { width: 34px; height: 34px; }
-    .colonne :global(button) { width: 26px; height: 28px; }
+    .tela-terreno { position: static; display: block; order: 1; height: 280px; }
+    .forme { position: static; order: 2; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 8px; width: auto; }
+    .forme button { padding: 7px 14px; }
+    .pannello { position: static; order: 3; width: 100%; gap: var(--s2); }
+    .rete-box { flex: none; height: 260px; }
+    .contatore button { width: 36px; height: 36px; }
+    .colonne { height: 32px; }
+    .colonne :global(button) { width: 28px; height: 30px; }
+    .gioca { flex: 1 1 100%; padding: 10px; }
+    .azioni button:not(.gioca) { flex: 1 1 40%; padding: 9px; }
+    .curva { height: 140px; }
+    .tag-punto, .tag-consiglio { max-width: calc(100vw - 24px); }
   }
 </style>
