@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { casuale, pieno, scuoti, terreno, puntiMorbidi, palco, tema, type Palco } from './natura';
+import { casuale, filo, scuoti, terreno, curveLivello, puntiMorbidi, palco, tema, type Palco } from './natura';
 
-// Diorama polare ravvicinato: una banchisa a più livelli (riva bassa, altopiano, una piccola cima di neve), uno scivolo
+// Diorama polare ravvicinato, a filo come il bosco e il laghetto: una banchisa a più livelli (riva bassa, altopiano, una piccola cima di neve), uno scivolo
 // che scende in mare, una pozza nel ghiaccio, iceberg e lastre che galleggiano. I pinguini camminano ondeggiando, si
 // buttano sulla pancia giù per lo scivolo, nuotano a salti e risalgono; le foche riposano e alzano la testa, una spunta
 // dalla pozza. Sotto la superficie passa un'orca: emerge, soffia, e ogni tanto salta. Il puntatore increspa l'acqua;
@@ -13,14 +13,16 @@ export function monta(el: HTMLElement) {
   const azzurroSito = getComputedStyle(document.documentElement).getPropertyValue('--azzurro').trim();
   const p = palco(el, {
     camera: new THREE.Vector3(0, 5.6, 8.4), mira: new THREE.Vector3(0, 0.1, 0.2), giro: 0.012, inclina: [-0.3, 0.35], nebbia: [1.3, 2.3], zoom: [0.45, 1.2], aggiorna, clic,
-    scena: 'polare', famiglie: false, toni: [chiaro ? '#d4e3ec' : '#d7e6ef', azzurroSito, chiaro ? '#d9651a' : '#ffa45e'],
+    scena: 'polare', famiglie: false, toni: [chiaro ? '#5f7f94' : '#d7e6ef', azzurroSito, chiaro ? '#d9651a' : '#ffa45e'],
   });
   const g = p.gruppo, c = p.colori;
   const [GHIACCIO, ACQUA, ACCENTO] = p.toni as [THREE.Color, THREE.Color, THREE.Color];
   const morbido = (da: number, a: number, k: number) => da + (a - da) * Math.min(1, k);
   const angolo = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
   const liscio = THREE.MathUtils.smoothstep;
-  const NERO = new THREE.Color(chiaro ? '#22262c' : '#2c323b'), BIANCO = new THREE.Color('#f3f5f4');
+  const NERO = chiaro ? new THREE.Color('#22262c') : c.fg.clone(), BIANCO = chiaro ? new THREE.Color('#fbf9f4') : new THREE.Color('#f3f5f4');
+  // Ogni pezzo è a filo: i parametri di ombra del vecchio solido non servono più
+  const pieno = (geo: THREE.BufferGeometry, base: THREE.Color, _fili = 0, soglia = 28, _ombra = 0, _luce = 0) => filo(geo, base, 0.85, soglia);
 
   // --- Banchisa: un campo che vale più di zero sul ghiaccio; la quota sale a gradini dolci
   const CENTRO = new THREE.Vector2(-0.8, -0.5);
@@ -45,30 +47,27 @@ export function monta(el: HTMLElement) {
     return h;
   };
   {
-    const N = 120, LATO = 6, passo = (LATO * 2) / N, pos: number[] = [];
+    // Superficie tenue: solo sopra l'acqua
+    const N = 110, LATO = 6, passo = (LATO * 2) / N, pos: number[] = [], falesia: number[] = [];
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
       const x0 = -LATO + i * passo, z0 = -LATO + j * passo, x1 = x0 + passo, z1 = z0 + passo;
       const a = quota(x0, z0), b = quota(x1, z0), c2 = quota(x1, z1), d = quota(x0, z1);
-      if (Math.max(a, b, c2, d) < -0.55) continue;
-      pos.push(x0, a, z0, x0, d, z1, x1, b, z0, x1, b, z0, x0, d, z1, x1, c2, z1);
+      if (Math.max(a, b, c2, d) <= 0.005) continue;
+      pos.push(x0, Math.max(a, 0), z0, x0, Math.max(d, 0), z1, x1, Math.max(b, 0), z0, x1, Math.max(b, 0), z0, x0, Math.max(d, 0), z1, x1, Math.max(c2, 0), z1);
+      // Falesia: tratti verticali dove il ghiaccio cade in mare, uno ogni due celle
+      if ((i + j) % 2 === 0 && a > 0.12 && Math.min(b, c2, d) < 0.03) falesia.push(x0, a, z0, x0, 0, z0);
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    const banchisa = pieno(geo, GHIACCIO, 0, 28, 0.62, 0.42);
-    // Linee solo sulle pieghe sopra l'acqua: sotto si perderebbero nei bordi a gradini della griglia
-    const spigoli = new THREE.EdgesGeometry(geo, 28).attributes.position as THREE.BufferAttribute, fuori: number[] = [];
-    for (let i = 0; i < spigoli.count; i += 2) if (spigoli.getY(i) > 0.03 && spigoli.getY(i + 1) > 0.03) fuori.push(spigoli.getX(i), spigoli.getY(i), spigoli.getZ(i), spigoli.getX(i + 1), spigoli.getY(i + 1), spigoli.getZ(i + 1));
-    const geoSpigoli = new THREE.BufferGeometry();
-    geoSpigoli.setAttribute('position', new THREE.Float32BufferAttribute(fuori, 3));
-    banchisa.add(new THREE.LineSegments(geoSpigoli, new THREE.LineBasicMaterial({ color: GHIACCIO.clone().offsetHSL(0, 0.05, -0.2), transparent: true, opacity: 0.35 })));
-    const q = geo.attributes.position as THREE.BufferAttribute, tinte = geo.attributes.color as THREE.BufferAttribute, t = new THREE.Color();
-    for (let i = 0; i < q.count; i++) {
-      const y = q.getY(i);
-      if (y >= 0) continue;
-      t.setRGB(tinte.getX(i), tinte.getY(i), tinte.getZ(i)).lerp(c.bg, liscio(-y, 0.02, 0.42));
-      tinte.setXYZ(i, t.r, t.g, t.b);
-    }
-    g.add(banchisa);
+    g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: GHIACCIO, transparent: true, opacity: chiaro ? 0.16 : 0.09, depthWrite: false, side: THREE.DoubleSide })));
+    const linee = (xyz: number[], op: number) => {
+      const q = new THREE.BufferGeometry();
+      q.setAttribute('position', new THREE.Float32BufferAttribute(xyz, 3));
+      g.add(new THREE.LineSegments(q, new THREE.LineBasicMaterial({ color: GHIACCIO, transparent: true, opacity: op })));
+    };
+    // Curve di livello: la riva, le terrazze e la cima; più la falesia
+    const { minori, maggiori } = curveLivello(quota, LATO, 170, 0.1, 1, 3, 0.015);
+    linee(minori, 0.55); linee(maggiori, 0.95); linee(falesia, 0.5);
   }
 
   // --- Mare: griglia di punti come nelle altre scene, velo azzurro che sfuma verso il bordo
@@ -81,7 +80,7 @@ export function monta(el: HTMLElement) {
     ctx.fillStyle = v; ctx.fillRect(0, 0, 128, 128);
     return new THREE.CanvasTexture(tela);
   })();
-  const mare = new THREE.Mesh(new THREE.CircleGeometry(8, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: veloMare, color: ACQUA, transparent: true, opacity: chiaro ? 0.5 : 0.42, depthWrite: false }));
+  const mare = new THREE.Mesh(new THREE.CircleGeometry(8, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: veloMare, color: ACQUA, transparent: true, opacity: chiaro ? 0.14 : 0.1, depthWrite: false }));
   mare.renderOrder = 1;
   g.add(mare);
   // Trattini chiari che scorrono piano sull'acqua
@@ -223,33 +222,29 @@ export function monta(el: HTMLElement) {
   pozzaFoca.rotation.set(0, 0.8, Math.PI / 2 - 0.25);
   g.add(pozzaFoca);
 
-  // --- Orca: corpo pieno nero con pancia e macchie bianche, pinna dorsale alta, pettorali e coda che batte
+  // --- Orca: corpo a fuso a poche facce, a filo; ventre e macchia dietro l'occhio chiari, pinna dorsale alta, pettorali e coda
   const orca = (() => {
-    const o = new THREE.Group();
-    const geo = new THREE.SphereGeometry(1, 28, 14), q = geo.attributes.position as THREE.BufferAttribute, colori: number[] = [], t = new THREE.Color();
-    const nero = new THREE.Color(chiaro ? '#191c21' : '#23272e');
-    for (let i = 0; i < q.count; i++) {
-      const ny = q.getY(i), nz = q.getZ(i), nx = q.getX(i);
-      const lungo = nz, sezione = Math.sqrt(Math.max(0.0001, 1 - lungo * lungo)) * (lungo < 0 ? 0.6 + 0.4 * (1 + lungo) : 1);
-      const k = lungo > 0 ? 0.55 + sezione * 0.45 : sezione;
-      const raggio = Math.hypot(nx, ny) || 1, ux = nx / raggio, uy = ny / raggio;
-      const x = ux * k * 0.17, y = uy * k * 0.19, z = lungo * 0.72;
-      q.setXYZ(i, x, y, z);
-      const bianco = (uy < -0.45 && lungo > -0.55) || (lungo > 0.42 && lungo < 0.62 && uy > 0.05 && uy < 0.6 && Math.abs(ux) > 0.6);
-      const sella = lungo > -0.35 && lungo < -0.05 && uy > 0.55;
-      t.copy(bianco ? BIANCO : sella ? nero.clone().lerp(BIANCO, 0.45) : nero).multiplyScalar(0.8 + Math.max(0, uy) * 0.35);
-      colori.push(t.r, t.g, t.b);
-    }
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
-    o.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true })));
-    const nera = new THREE.MeshBasicMaterial({ color: nero, side: THREE.DoubleSide });
+    const o = new THREE.Group(), linea2 = chiaro ? new THREE.Color('#22262c') : c.fg.clone(), chiara = chiaro ? new THREE.Color('#fbf9f4') : new THREE.Color('#f3f5f4');
+    const fuso = (larga: number, alta: number, lunga: number) => {
+      const geo = new THREE.SphereGeometry(1, 12, 8).rotateX(Math.PI / 2), q = geo.attributes.position as THREE.BufferAttribute;
+      for (let i = 0; i < q.count; i++) {
+        const nz = q.getZ(i), rx = q.getX(i), ry = q.getY(i), coda2 = nz < 0 ? 0.55 + 0.45 * (1 + nz) : 1;
+        q.setXYZ(i, rx * larga * coda2, ry * alta * coda2, nz * lunga);
+      }
+      return geo;
+    };
+    o.add(filo(fuso(0.17, 0.19, 0.72), linea2, 0.9, 10, chiaro ? 0.45 : 0.14));
+    const ventre = filo(fuso(0.11, 0.08, 0.5), chiara, 0.7, 14, chiaro ? 0.5 : 0.35);
+    ventre.position.set(0, -0.11, 0.1);
+    o.add(ventre);
+    for (const l of [-1, 1]) { const m = filo(new THREE.SphereGeometry(0.05, 6, 4).scale(0.25, 0.6, 1.2), chiara, 0.8, 20, 0.7); m.position.set(l * 0.135, 0.06, 0.44); o.add(m); }
     const forma = new THREE.Shape();
     forma.moveTo(-0.11, 0); forma.quadraticCurveTo(-0.08, 0.2, 0.05, 0.34); forma.quadraticCurveTo(0.03, 0.16, 0.11, 0);
-    const dorsale = new THREE.Mesh(new THREE.ExtrudeGeometry(forma, { depth: 0.012, bevelEnabled: false }).translate(0, 0, -0.006).rotateY(Math.PI / 2), nera);
+    const dorsale = filo(new THREE.ShapeGeometry(forma, 5).rotateY(Math.PI / 2), linea2, 0.95, 28, chiaro ? 0.45 : 0.18);
     dorsale.position.set(0, 0.16, 0.02);
     o.add(dorsale);
     for (const l of [-1, 1]) {
-      const p2 = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 5).scale(0.17, 0.012, 0.07), nera);
+      const p2 = filo(new THREE.SphereGeometry(1, 6, 3).scale(0.17, 0.012, 0.07), linea2, 0.8, 20);
       p2.position.set(l * 0.21, -0.1, 0.28);
       p2.rotation.set(0, l * 0.3, l * -0.45);
       o.add(p2);
@@ -258,7 +253,7 @@ export function monta(el: HTMLElement) {
     coda.position.z = -0.62;
     const geoCoda = new THREE.BufferGeometry();
     geoCoda.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0.05, 0.24, 0, -0.14, 0.05, 0, -0.06, 0, 0, 0.05, 0.05, 0, -0.06, -0.05, 0, -0.06, 0, 0, 0.05, -0.05, 0, -0.06, -0.24, 0, -0.14], 3));
-    coda.add(new THREE.Mesh(geoCoda, nera));
+    coda.add(filo(geoCoda, linea2, 0.9, 5));
     o.add(coda);
     g.add(o);
     return { o, coda, x: 5, y: -0.38, z: 0, verso: 0, vel: 0.55, t: 6, salto: 0, conta: 0, soffio: 0, vy: 0, mx: 0, mz: 0, chiamata: 0 };

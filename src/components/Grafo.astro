@@ -1,13 +1,12 @@
 ---
 import type { DatiGrafo } from '../lib/grafi';
 import type { DatiCompetenze } from '../scripts/vista3d';
-import type { DatiStormi } from '../scripts/stormi';
 
 // Una o più viste dello stesso grafo. Con due viste compaiono i pulsanti per passare dall'una all'altra.
 // Niente legende né istruzioni: cursore e hover bastano a capire cosa si clicca.
-// motore: "grafo" (rete a forze, Knowledge), "bosco" (Software), "laghetto" (Advisory) o "stormi" (Knowledge, seconda vista).
-type Motore = 'grafo' | 'bosco' | 'laghetto' | 'stormi';
-interface Vista { nome: string; dati: DatiGrafo | DatiCompetenze | DatiStormi; motore?: Motore }
+// motore: "grafo" (rete a forze, Knowledge), "bosco" (Software) o "laghetto" (Advisory).
+type Motore = 'grafo' | 'bosco' | 'laghetto';
+interface Vista { nome: string; dati: DatiGrafo | DatiCompetenze; motore?: Motore }
 // modi: viste della stessa scena (per esempio il bosco per competenza o per progetto). Il primo è quello iniziale.
 type Comuni = { motore?: Motore; modi?: { id: string; nome: string }[] };
 type Props = Comuni & ({ viste: Vista[] } | { dati: DatiGrafo | DatiCompetenze });
@@ -35,7 +34,6 @@ const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props
     el.dataset.montata = '1';
     if (el.dataset.motore === 'bosco') import('../scripts/bosco').then(m => m.monta(el));
     else if (el.dataset.motore === 'laghetto') import('../scripts/laghetto').then(m => m.monta(el));
-    else if (el.dataset.motore === 'stormi') import('../scripts/stormi').then(m => m.monta(el));
     else import('../scripts/grafo').then(m => m.monta(el));
   };
   const montaScene = () => document.querySelectorAll<HTMLElement>('[data-grafo]').forEach(montaScena);

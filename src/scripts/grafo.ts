@@ -13,7 +13,7 @@ interface StellaGrezza { id: string; label: string; href: string; temi: string[]
 const css = (el: HTMLElement, nome: string) => new THREE.Color(getComputedStyle(el).getPropertyValue(nome).trim());
 
 export function monta(el: HTMLElement) {
-  const { nodi: grezzi, archi: archiId, stelle: grezzeStelle = [] } = JSON.parse(el.dataset.grafo!) as { nodi: Nodo[]; archi: [string, string][]; stelle?: StellaGrezza[] };
+  const { nodi: grezzi, archi: archiId, stelle: grezzeStelle = [], tour = false } = JSON.parse(el.dataset.grafo!) as { nodi: Nodo[]; archi: [string, string][]; stelle?: StellaGrezza[]; tour?: boolean };
   const ridotto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const colori = { fg: css(el, '--fg'), accent: css(el, '--accent'), muted: css(el, '--muted'), line: css(el, '--line'), bg: css(el, '--bg') };
 
@@ -188,6 +188,56 @@ export function monta(el: HTMLElement) {
   const rimbalzo = (x: number) => { const k = 1.4; x -= 1; return x * x * ((k + 1) * x + k) + 1; };
   let avvio = -1;
 
+  // Vita sopra il grafo, discreta: il grafo resta fermo e leggibile, gli uccelli sono solo un di più e si scostano dal puntatore.
+  // Prima versione: intorno a ogni tema gira un piccolo stormo e ogni tanto un uccello vola lungo un arco.
+  // Seconda versione (tour): un solo stormo viaggia di nodo in nodo lungo gli archi e accende il nodo che visita.
+  type Giro = { tema: number; raggio: number; vel: number; fase: number; alza: number; piega: number; battito: number };
+  const giri: Giro[] = [];
+  if (!tour) nodi.forEach((n, i) => {
+    if (!stile[n.tipo].hub) return;
+    const quanti = Math.min(14, 6 + Math.round(n.vicini.size * 1.5));
+    for (let k = 0; k < quanti; k++) giri.push({ tema: i, raggio: 0.28 + Math.random() * 0.3, vel: (0.4 + Math.random() * 0.4) * (i % 2 ? 1 : -1), fase: Math.random() * 6.28, alza: 0.06 + Math.random() * 0.16, piega: Math.random() * 6.28, battito: 8 + Math.random() * 5 });
+  });
+  const viaggi = tour ? [] : Array.from({ length: Math.min(4, archi.length) }, () => ({ arco: -1, verso: 1, via: 0, dura: 2800, battito: 7 + Math.random() * 3, fase: Math.random() * 6.28 }));
+  const STORMO_TOUR = tour ? 48 : 0;
+  const compagni = Array.from({ length: STORMO_TOUR }, () => ({ p: new THREE.Vector3(), v: new THREE.Vector3(), posto: new THREE.Vector3((Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.35, (Math.random() - 0.5) * 0.7), fase: Math.random() * 6.28, battito: 8 + Math.random() * 4, lento: 0.7 + Math.random() * 0.6 }));
+  // Rotta del tour: dal nodo attuale a un vicino poco visitato, in un arco; sosta sopra ogni nodo
+  const visite = nodi.map(() => 0), guida = new THREE.Vector3();
+  let visita = -1, tourDa = nodi.reduce((m, n, i) => (n.vicini.size > nodi[m]!.vicini.size ? i : m), 0), tourA = tourDa, tourU = 1, tourSosta = 0, tourPartito = false;
+  const totUccelli = giri.length + viaggi.length + STORMO_TOUR, posU = new Float32Array(totUccelli * 12), colU = new Float32Array(totUccelli * 12), spinta = new Float32Array(totUccelli * 3);
+  const geoU = new THREE.BufferGeometry();
+  geoU.setAttribute('position', new THREE.BufferAttribute(posU, 3));
+  geoU.setAttribute('color', new THREE.BufferAttribute(colU, 3));
+  const lineeU = new THREE.LineSegments(geoU, new THREE.LineBasicMaterial({ vertexColors: true }));
+  lineeU.frustumCulled = false;
+  gruppo.add(lineeU);
+  // Puntatore in coordinate della scena: gli uccelli vicini si scostano, poi tornano
+  let mouseU: THREE.Vector2 | null = null, tempoU = -1;
+  const rayU = new THREE.Ray(), inversaU = new THREE.Matrix4(), vicinoU = new THREE.Vector3();
+  el.addEventListener('pointermove', e => { const q = locale(e); (mouseU ??= new THREE.Vector2()).set((q.x / w) * 2 - 1, -(q.y / h) * 2 + 1); });
+  el.addEventListener('pointerleave', () => { mouseU = null; });
+  const scosta = (k: number, dt: number) => {
+    const o = k * 3;
+    if (mouseU) {
+      const d2 = rayU.distanceSqToPoint(uPos);
+      if (d2 < 0.3) {
+        rayU.closestPointToPoint(uPos, vicinoU);
+        vicinoU.subVectors(uPos, vicinoU).normalize().multiplyScalar((1 - Math.sqrt(d2) / 0.55) * dt * 2.6);
+        spinta[o] = spinta[o]! + vicinoU.x; spinta[o + 1] = spinta[o + 1]! + vicinoU.y; spinta[o + 2] = spinta[o + 2]! + vicinoU.z;
+      }
+    }
+    const torna = 1 - dt * 0.9;
+    spinta[o] = spinta[o]! * torna; spinta[o + 1] = spinta[o + 1]! * torna; spinta[o + 2] = spinta[o + 2]! * torna;
+    uPos.x += spinta[o]!; uPos.y += spinta[o + 1]!; uPos.z += spinta[o + 2]!;
+  };
+  const uPos = new THREE.Vector3(), uDir = new THREE.Vector3(), uLato = new THREE.Vector3(), uSu = new THREE.Vector3(0, 1, 0), uCol = new THREE.Color();
+  const disegnaUccello = (k: number, ali: number, grande: number, colore: THREE.Color) => {
+    uLato.crossVectors(uDir, uSu).normalize().multiplyScalar(0.05 * grande);
+    const a = ali * 0.034 * grande, o = k * 12;
+    posU.set([uPos.x - uLato.x, uPos.y + a, uPos.z - uLato.z, uPos.x, uPos.y, uPos.z, uPos.x, uPos.y, uPos.z, uPos.x + uLato.x, uPos.y + a, uPos.z + uLato.z], o);
+    for (let q = 0; q < 4; q++) colU.set([colore.r, colore.g, colore.b], o + q * 3);
+  };
+
   // Fisica: repulsione fra tutti, molle sugli archi, richiamo verso il centro, attrito
   function passo() {
     const n = nodi.length;
@@ -248,11 +298,11 @@ export function monta(el: HTMLElement) {
       nd.mesh.visible = u > 0;
       // Le fonti secondarie sono più piccole e più tenui; i nodi cliccabili respirano
       const respiro = !ridotto && nd.href && i !== fuoco ? 1 + 0.08 * Math.sin(t * 0.0022 + i * 1.7) : 1;
-      const s = (i === fuoco ? 1.7 : 1) * (nd.debole ? 0.7 : 1) * respiro;
+      const s = (i === fuoco ? 1.7 : i === visita ? 1.45 : 1) * (nd.debole ? 0.7 : 1) * respiro;
       if (u < 1) nd.mesh.scale.setScalar(Math.max(0.001, s * e)); else nd.mesh.scale.lerp(new THREE.Vector3(s, s, s), 0.2);
       (nd.mesh.material as THREE.MeshBasicMaterial).opacity = (acceso(i) ? 1 : 0.18) * (nd.debole && i !== fuoco ? 0.5 : 1);
       const sc = schermo(i);
-      const mostra = i === fuoco || (stile[nd.tipo].hub && acceso(i)) || (fuoco >= 0 && nodi[fuoco]!.vicini.has(i));
+      const mostra = i === fuoco || (i === visita && fuoco < 0) || (stile[nd.tipo].hub && acceso(i)) || (fuoco >= 0 && nodi[fuoco]!.vicini.has(i));
       nd.etichetta.style.opacity = mostra && sc.z < 1 && u >= 1 ? '1' : '0';
       nd.etichetta.classList.toggle('attiva', i === fuoco);
       nd.etichetta.style.transform = `translate(${Math.round(sc.x + 12)}px, ${Math.round(sc.y - 8)}px)`;
@@ -298,6 +348,73 @@ export function monta(el: HTMLElement) {
     });
     geoLinee.attributes.position!.needsUpdate = true;
     geoLinee.attributes.color!.needsUpdate = true;
+
+    const sec = t / 1000, dtU = tempoU < 0 ? 0 : Math.min(0.05, (t - tempoU) / 1000);
+    tempoU = t;
+    if (mouseU) { raggio.setFromCamera(mouseU, camera); rayU.copy(raggio.ray).applyMatrix4(inversaU.copy(gruppo.matrixWorld).invert()); }
+    // Stormi intorno ai temi: orbite un po' storte, ognuno la sua; si spengono con il loro tema
+    giri.forEach((u, k) => {
+      const nd = nodi[u.tema]!, nato = uscita(u.tema), a = u.fase + (ridotto ? 0 : sec * u.vel);
+      const r2 = u.raggio * (1 + Math.sin(a * 2.3 + u.piega) * 0.16) * Math.min(1, nato);
+      uPos.set(Math.cos(a) * r2, Math.sin(a + u.piega) * u.alza * Math.min(1, nato), Math.sin(a) * r2).add(nd.mesh.position);
+      scosta(k, dtU);
+      uDir.set(-Math.sin(a) * Math.sign(u.vel), 0, Math.cos(a) * Math.sign(u.vel));
+      uCol.copy(colori.accent).lerp(colori.bg, nato <= 0 ? 1 : acceso(u.tema) ? 0.3 : 0.86);
+      disegnaUccello(k, ridotto ? 0.3 : Math.sin(sec * u.battito + u.fase) + 0.4, 0.85, uCol);
+    });
+    // Uccelli di passaggio: uno per arco, in un arco alto; partono solo a grafo formato
+    viaggi.forEach((v, q) => {
+      const k = giri.length + q;
+      if (v.arco < 0 || t - v.via > v.dura) {
+        v.arco = eta > FINE_NASCITA && !ridotto && Math.random() < 0.006 ? Math.floor(Math.random() * archi.length) : -1;
+        v.via = t; v.verso = Math.random() < 0.5 ? 1 : -1;
+        if (v.arco < 0) { posU.fill(0, k * 12, (k + 1) * 12); return; }
+      }
+      const [a0, b0] = archi[v.arco]!, a = nodi[v.verso > 0 ? a0 : b0]!, b = nodi[v.verso > 0 ? b0 : a0]!, u = (t - v.via) / v.dura;
+      uPos.lerpVectors(a.p, b.p, u); uPos.y += Math.sin(u * Math.PI) * 0.16;
+      scosta(k, dtU);
+      uDir.subVectors(b.p, a.p).setY(0).normalize();
+      uCol.copy(colori.fg).lerp(colori.bg, acceso(a0) && acceso(b0) ? 0.25 : 0.86);
+      disegnaUccello(k, Math.sin(sec * v.battito + v.fase) + 0.4, 1, uCol);
+    });
+    // Tour: la guida segue la rotta lungo gli archi; lo stormo la insegue, ognuno col suo ritardo
+    if (tour) {
+      if (eta > FINE_NASCITA && !ridotto) {
+        if (tourU >= 1) {
+          visita = tourA;
+          tourSosta -= dtU;
+          if (tourSosta <= 0) {
+            visite[tourA] = visite[tourA]! + 1;
+            const vicini = [...nodi[tourA]!.vicini].sort((a, b) => visite[a]! - visite[b]! || Math.random() - 0.5);
+            if (vicini.length) { tourDa = tourA; tourA = vicini[0]!; tourU = 0; visita = -1; }
+            else tourSosta = 3;
+          }
+        } else {
+          tourU = Math.min(1, tourU + dtU / Math.max(2.2, nodi[tourDa]!.p.distanceTo(nodi[tourA]!.p) * 1.4));
+          if (tourU >= 1) tourSosta = 2.4;
+        }
+      }
+      const m = THREE.MathUtils.smootherstep(tourU, 0, 1);
+      guida.lerpVectors(nodi[tourDa]!.p, nodi[tourA]!.p, m); guida.y += Math.sin(m * Math.PI) * 0.35;
+      // Al primo fotogramma lo stormo parte già sopra il primo nodo
+      if (!tourPartito) { tourPartito = true; compagni.forEach(u => u.p.copy(guida).add(u.posto)); }
+      const nato = THREE.MathUtils.clamp((eta - FINE_NASCITA) / 800, 0, 1);
+      compagni.forEach((u, q) => {
+        const k = giri.length + viaggi.length + q, sosta = tourU >= 1 ? 1 : 0.55, a = sec * 0.7 + u.fase;
+        uDir.set(guida.x + (u.posto.x * Math.cos(a) - u.posto.z * Math.sin(a)) * sosta, guida.y + u.posto.y * sosta, guida.z + (u.posto.x * Math.sin(a) + u.posto.z * Math.cos(a)) * sosta);
+        u.v.addScaledVector(uDir.sub(u.p), dtU * 3.2 * u.lento).multiplyScalar(1 - dtU * 2);
+        u.p.addScaledVector(u.v, dtU);
+        uPos.copy(u.p);
+        scosta(k, dtU);
+        uDir.copy(u.v).setY(0);
+        if (uDir.lengthSq() < 1e-5) uDir.set(1, 0, 0);
+        uDir.normalize();
+        uCol.copy(colori.accent).lerp(colori.bg, 1 - nato * (fuoco >= 0 ? 0.3 : 0.72));
+        disegnaUccello(k, Math.sin(sec * u.battito + u.fase) + 0.4, 0.9, uCol);
+      });
+    }
+    geoU.attributes.position!.needsUpdate = true;
+    geoU.attributes.color!.needsUpdate = true;
 
     renderer.render(scene, camera);
     requestAnimationFrame(disegna);

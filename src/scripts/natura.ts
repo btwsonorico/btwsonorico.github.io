@@ -132,6 +132,12 @@ export function benDistribuiti(n: number, da: number, a: number, r: () => number
   }
   return nuovi;
 }
+// Forma a filo nello stile del bosco: riempimento tenue e spigoli netti (soglia: da quale piega si disegna la linea)
+export function filo(geo: THREE.BufferGeometry, base: THREE.Color, fili = 0.85, soglia = 28, riempi = PIENO()) {
+  const o = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: base, transparent: true, opacity: riempi, depthWrite: false, side: THREE.DoubleSide }));
+  o.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, soglia), new THREE.LineBasicMaterial({ color: base, transparent: true, opacity: fili })));
+  return o;
+}
 // Solido pieno con l'ombreggiatura dipinta sui vertici (più chiaro verso la luce, più scuro in basso) e poche linee sulle
 // pieghe nette: per rocce, ghiaccio e corpi che devono stare in primo piano sul filo
 export function pieno(geo: THREE.BufferGeometry, base: THREE.Color, fili = 0.25, soglia = 32, ombra = 0.45, luceForza = 0.55) {

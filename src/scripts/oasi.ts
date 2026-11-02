@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { casuale, pieno, nastri, puntiMorbidi, palco, curveLivello, benDistribuiti, tema, type Nastro, type Palco } from './natura';
+import { casuale, filo, nastri, puntiMorbidi, palco, curveLivello, terreno, benDistribuiti, tema, type Nastro, type Palco } from './natura';
 
-// Oasi ravvicinata: uno specchio d'acqua fra le dune, palme, canne e ninfee. Le gazzelle camminano, bevono a testa bassa e
+// Oasi ravvicinata, a filo come il bosco e il laghetto: uno specchio d'acqua fra le dune, palme, canne e ninfee. Le gazzelle camminano, bevono a testa bassa e
 // saltano sul posto se il puntatore si avvicina; le rane colorate gonfiano la gola e balzano fra riva, ninfee e acqua.
 // Passatempo: tieni premuto sulla sabbia e trascina per fare una palla; quando la lasci, uno scarabeo stercorario arriva,
 // la spinge camminando all'indietro e la porta nella sua tana. Il vento solleva granelli dalle creste delle dune.
@@ -13,7 +13,7 @@ export function monta(el: HTMLElement) {
   const p = palco(el, {
     camera: new THREE.Vector3(0, 3.8, 6.6), mira: new THREE.Vector3(0, 0.3, 0.1), giro: 0.012, inclina: [-0.28, 0.4], nebbia: [1.35, 2.4], zoom: [0.5, 1.2], aggiorna,
     afferra, trascina, rilascia,
-    scena: 'oasi', famiglie: false, toni: [chiaro ? '#dcbc7f' : '#c9a66b', azzurroSito, chiaro ? '#3f9a4a' : '#57b35f'],
+    scena: 'oasi', famiglie: false, toni: [chiaro ? '#a67c3d' : '#c9a66b', azzurroSito, chiaro ? '#2f8f40' : '#57b35f'],
   });
   const g = p.gruppo, c = p.colori;
   const [SABBIA, ACQUA, PALMA] = p.toni as [THREE.Color, THREE.Color, THREE.Color];
@@ -21,6 +21,8 @@ export function monta(el: HTMLElement) {
   const angolo = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
   const liscio = THREE.MathUtils.smoothstep;
   const L = 6.6;
+  // Ogni pezzo è a filo: i parametri di ombra del vecchio solido non servono più
+  const pieno = (geo: THREE.BufferGeometry, base: THREE.Color, _fili = 0, soglia = 28, _ombra = 0, _luce = 0) => filo(geo, base, 0.85, soglia);
 
   // --- Sabbia: conca intorno all'acqua e dune che crescono allontanandosi, con la cresta netta da un lato
   const rivaDi = (a: number) => 1.45 * (1 + 0.16 * Math.sin(a * 2 + 0.7) + 0.09 * Math.sin(a * 3 + 2) + 0.04 * Math.sin(a * 7));
@@ -38,24 +40,18 @@ export function monta(el: HTMLElement) {
     return d * 0.07 + forza * (0.22 + cresta * 0.62 + cresta2 * 0.28) + 0.008 * Math.sin(x * 15 + z * 9);
   };
   {
-    const geo = new THREE.PlaneGeometry(L * 2, L * 2, 150, 150).rotateX(-Math.PI / 2);
-    const q = geo.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < q.count; i++) q.setY(i, altezza(q.getX(i), q.getZ(i)));
-    geo.computeVertexNormals();
-    const n = geo.attributes.normal as THREE.BufferAttribute, colori: number[] = [], t = new THREE.Color(), umida = SABBIA.clone().multiplyScalar(0.62);
-    for (let i = 0; i < q.count; i++) {
-      const x = q.getX(i), z = q.getZ(i), luce = Math.max(0, n.getX(i) * 0.62 + n.getY(i) * 0.7 + n.getZ(i) * 0.35), d = distRiva(x, z);
-      t.copy(SABBIA).multiplyScalar(0.42 + luce * 0.68).lerp(umida, 1 - liscio(d, 0, 0.35));
-      t.lerp(c.bg, liscio(Math.hypot(x, z), L * 0.68, L * 0.96));
-      colori.push(t.r, t.g, t.b);
-    }
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
-    g.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true })));
-    const { minori, maggiori } = curveLivello(altezza, L * 0.72, 130, 0.09, 1.8, 4, 0.09);
-    for (const [xyz, op] of [[minori, 0.2], [maggiori, 0.38]] as const) {
+    // Velo di sabbia che segue le dune, griglia di punti, curve di livello: le dune si leggono dalle linee
+    const geo = new THREE.RingGeometry(0.01, L * 0.92, 96, 44).rotateX(-Math.PI / 2), q = geo.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < q.count; i++) q.setY(i, Math.max(0, altezza(q.getX(i), q.getZ(i))) - 0.008);
+    const velo = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: SABBIA, transparent: true, opacity: chiaro ? 0.16 : 0.07, depthWrite: false }));
+    velo.renderOrder = -1;
+    g.add(velo);
+    terreno(g, SABBIA, L * 0.92, (x, z) => Math.max(0, altezza(x, z)), false);
+    const { minori, maggiori } = curveLivello(altezza, L * 0.9, 160, 0.09, 1.8, 4, 0.09);
+    for (const [xyz, op] of [[minori, chiaro ? 0.5 : 0.36], [maggiori, chiaro ? 0.95 : 0.8]] as const) {
       const lin = new THREE.BufferGeometry();
       lin.setAttribute('position', new THREE.Float32BufferAttribute(xyz, 3));
-      g.add(new THREE.LineSegments(lin, new THREE.LineBasicMaterial({ color: SABBIA.clone().multiplyScalar(chiaro ? 0.55 : 0.5), transparent: true, opacity: op })));
+      g.add(new THREE.LineSegments(lin, new THREE.LineBasicMaterial({ color: SABBIA, transparent: true, opacity: op })));
     }
   }
 
@@ -73,20 +69,20 @@ export function monta(el: HTMLElement) {
       colori.push(t.r, t.g, t.b);
     }
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
-    const o = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.92 }));
-    o.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(riva), new THREE.LineBasicMaterial({ color: chiara.clone().lerp(new THREE.Color('#ffffff'), 0.3), transparent: true, opacity: 0.7 })));
+    const o = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: chiaro ? 0.3 : 0.22, depthWrite: false }));
+    o.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(riva), new THREE.LineBasicMaterial({ color: ACQUA, transparent: true, opacity: 0.95 })));
     o.position.y = 0.012;
     g.add(o);
   }
   const RIFLESSI = 46, riflessi = Array.from({ length: RIFLESSI }, () => { let x = 0, z = 0; do { x = (r() - 0.5) * 3.4; z = (r() - 0.5) * 2.6; } while (!nelLago(x, z, -0.15)); return { x, z, f: r() * 6, l: 0.05 + r() * 0.12 }; });
   const posRiflessi = new Float32Array(RIFLESSI * 6), geoRiflessi = new THREE.BufferGeometry();
   geoRiflessi.setAttribute('position', new THREE.BufferAttribute(posRiflessi, 3));
-  const lineeRiflessi = new THREE.LineSegments(geoRiflessi, new THREE.LineBasicMaterial({ color: '#eafcff', transparent: true, opacity: 0.4, depthWrite: false }));
+  const lineeRiflessi = new THREE.LineSegments(geoRiflessi, new THREE.LineBasicMaterial({ color: ACQUA.clone().lerp(c.fg, 0.4), transparent: true, opacity: 0.6, depthWrite: false }));
   lineeRiflessi.frustumCulled = false;
   g.add(lineeRiflessi);
   const geoAnello = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 28 }, (_, k) => new THREE.Vector3(Math.cos(k / 28 * Math.PI * 2), 0, Math.sin(k / 28 * Math.PI * 2))));
   const anelli = Array.from({ length: 14 }, () => {
-    const m = new THREE.LineBasicMaterial({ color: '#eafcff', transparent: true, opacity: 0, depthWrite: false }), l = new THREE.LineLoop(geoAnello, m);
+    const m = new THREE.LineBasicMaterial({ color: ACQUA.clone().lerp(c.fg, 0.4), transparent: true, opacity: 0, depthWrite: false }), l = new THREE.LineLoop(geoAnello, m);
     l.position.y = 0.02; g.add(l);
     return { l, m, t: 1, largo: 0.25 };
   });
@@ -156,8 +152,6 @@ export function monta(el: HTMLElement) {
     }
   }
   const canne = nastri(fili, 5, true);
-  (canne.mesh.material as THREE.MeshBasicMaterial).opacity = 0.8;
-  ((canne.mesh.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.15;
   g.add(canne.mesh);
   // Ninfee: dischi verdi sull'acqua, su cui le rane si posano
   const ninfee = ([[0.35, 0.28, 0.14], [-0.55, -0.3, 0.17], [0.7, -0.35, 0.12], [-0.25, 0.55, 0.12], [-0.85, 0.3, 0.11]] as const).map(([x, z, rr]) => {
@@ -258,7 +252,7 @@ export function monta(el: HTMLElement) {
     posa(o, q.x, q.z);
     return { x: q.x, z: q.z };
   });
-  const corazza = new THREE.Color(chiaro ? '#232027' : '#2b2733');
+  const corazza = chiaro ? new THREE.Color('#232027') : c.fg.clone();
   type Scarabeo = { o: THREE.Group; zampe: THREE.LineSegments; x: number; z: number; verso: number; stato: 'vaga' | 'va' | 'spinge' | 'tana'; palla: Palla | null; tana: { x: number; z: number }; timer: number; passo: number; fase: number };
   type Palla = { o: THREE.Mesh; x: number; z: number; r: number; scarabeo: Scarabeo | null; libera: boolean; affonda: number; rot: THREE.Quaternion };
   const scarabei: Scarabeo[] = Array.from({ length: 5 }, (_, k) => {
@@ -267,7 +261,7 @@ export function monta(el: HTMLElement) {
     o.add(pieno(new THREE.SphereGeometry(0.026, 6, 4).scale(1, 0.6, 1.1).translate(0.062, 0.022, 0), corazza, 0, 30, 0.8, 0.7));
     const seg: THREE.Vector3[] = [];
     for (const l of [-1, 1]) for (const dx of [-0.03, 0, 0.03]) seg.push(new THREE.Vector3(dx, 0.024, l * 0.038), new THREE.Vector3(dx * 1.8, 0, l * 0.075));
-    const zampe = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(seg), new THREE.LineBasicMaterial({ color: corazza }));
+    const zampe = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(seg), new THREE.LineBasicMaterial({ color: corazza, transparent: true, opacity: 0.9 }));
     o.add(zampe);
     o.scale.setScalar(1.15);
     g.add(o);
@@ -276,14 +270,14 @@ export function monta(el: HTMLElement) {
   });
   // Solco lasciato sulla sabbia
   const SOLCO = 500, solco = puntiMorbidi(SOLCO), vitaSolco = new Float32Array(SOLCO);
-  for (let i = 0; i < SOLCO; i++) { solco.alfa[i] = 0; solco.dim[i] = 0.035; solco.col.set(SABBIA.clone().multiplyScalar(0.42).toArray(), i * 3); }
+  for (let i = 0; i < SOLCO; i++) { solco.alfa[i] = 0; solco.dim[i] = 0.035; solco.col.set((chiaro ? SABBIA.clone().multiplyScalar(0.6) : SABBIA).toArray(), i * 3); }
   g.add(solco.punti);
   let prossimoSolco = 0, orologioSolco = 0;
   const lascia = (x: number, z: number, d: number) => { const i = prossimoSolco++ % SOLCO; solco.pos.set([x, altezza(x, z) + 0.006, z], i * 3); solco.dim[i] = d; vitaSolco[i] = 1; };
 
   // --- Passatempo: tieni premuto sulla sabbia e trascina per fare la palla; lasciala e uno scarabeo la porta via
   const palle: Palla[] = [];
-  const geoPalla = new THREE.IcosahedronGeometry(1, 1), tintaPalla = new THREE.Color(chiaro ? '#6c4c2e' : '#7a5935');
+  const geoPalla = new THREE.IcosahedronGeometry(1, 1), tintaPalla = new THREE.Color(chiaro ? '#6c4c2e' : '#c49a62');
   const conta = document.createElement('span');
   conta.style.cssText = 'position:absolute;right:16px;bottom:6px;font:11px var(--mono);color:var(--muted);pointer-events:none;opacity:0;transition:opacity .6s';
   el.appendChild(conta);
