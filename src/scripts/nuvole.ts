@@ -200,8 +200,9 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   });
   mucche.forEach((m, i) => { if (m.vitello) m.mamma = mucche.findIndex((q, j) => j < i && q.mandria === m.mandria && !q.vitello); });
 
+  const COLORE_PECORE = p.chiaro ? '#1f1c18' : '#f2efe8';
   // --- Gregge: tante pecore minuscole (in light mode nere, altrimenti corpo chiaro e testa scura), tutte in due forme sole
-  const corpi = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 4).scale(0.07, 0.042, 0.047), mat(p.chiaro ? '#1f1c18' : '#f2efe8', { grezzo: true, opacity: p.chiaro ? 1 : 0.9, fili: 0 }), PECORE);
+  const corpi = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 4).scale(0.07, 0.042, 0.047), mat(COLORE_PECORE, { grezzo: true, opacity: p.chiaro ? 1 : 0.9, fili: 0 }), PECORE);
   const teste = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 5, 3).scale(0.028, 0.023, 0.023), mat(p.chiaro ? '#0d0c0a' : '#3a332c', { grezzo: true, opacity: 0.9, fili: 0 }), PECORE);
   corpi.frustumCulled = teste.frustumCulled = false;
   g.add(corpi, teste);
@@ -457,18 +458,18 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     if (raggio.ray.distanceToPoint(tmp.set(cane.x, altezza(cane.x, cane.z) + 0.06, cane.z)) < 0.25) cane.seduto = !cane.seduto;
   }
 
-  // --- Passatempo: un cerchio verde tratteggiato, grande abbastanza per tutto il gregge, appare in un punto del prato
-  // con pochi ostacoli e lontano dal gregge. I trattini si accendono man mano che le pecore entrano; quando ci sono
+  // --- Passatempo: un cerchio tratteggiato del colore delle pecore, grande abbastanza per tutto il gregge, appare in un
+  // punto a caso, senza ostacoli e lontano dal gregge. I trattini si accendono man mano che le pecore entrano; quando ci sono
   // tutte fanno qualche saltello, il cerchio svanisce e dopo un po' ne appare un altro.
-  const TRATTI = 64, verdeCerchio = tono(p.chiaro ? '#1a7f37' : '#4ade80');
+  const TRATTI = 64, coloreCerchio = new THREE.Color(COLORE_PECORE);
   const posCerchio = new Float32Array(TRATTI * 6), geoCerchio = new THREE.BufferGeometry(), geoAcceso = new THREE.BufferGeometry();
   geoCerchio.setAttribute('position', new THREE.BufferAttribute(posCerchio, 3));
   geoAcceso.setAttribute('position', new THREE.BufferAttribute(posCerchio, 3));
-  const matCerchio = new THREE.LineBasicMaterial({ color: verdeCerchio, transparent: true, opacity: 0, depthWrite: false }), matAcceso = new THREE.LineBasicMaterial({ color: verdeCerchio.clone().offsetHSL(0, 0, 0.12), transparent: true, opacity: 0, depthWrite: false });
+  const matCerchio = new THREE.LineBasicMaterial({ color: coloreCerchio, transparent: true, opacity: 0, depthWrite: false }), matAcceso = new THREE.LineBasicMaterial({ color: coloreCerchio, transparent: true, opacity: 0, depthWrite: false });
   const cerchioBase = new THREE.LineSegments(geoCerchio, matCerchio), cerchioAcceso = new THREE.LineSegments(geoAcceso, matAcceso);
   cerchioBase.frustumCulled = cerchioAcceso.frustumCulled = false;
   g.add(cerchioBase, cerchioAcceso);
-  const gioco = { x: 0, z: 0, stato: 'attesa' as 'attesa' | 'aperto' | 'fatto', t: 1, luce: 0, dentro: 0, tempo: 0, record: 0 };
+  const gioco = { x: 0, z: 0, primo: true, stato: 'attesa' as 'attesa' | 'aperto' | 'fatto', t: 1, luce: 0, dentro: 0, tempo: 0, record: 0 };
   try { gioco.record = Number(localStorage.getItem('misc-gregge-record')) || 0; } catch { /* niente */ }
   const orologio = (x: number) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
   const conta = document.createElement('span');
@@ -476,11 +477,24 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   el.appendChild(conta);
   const smonta = p.distruggi;
   p.distruggi = () => { conta.remove(); nomi.forEach(a => a.remove()); smonta(); };
+  // Un punto davvero a caso a ogni giro: senza alberi né pale dentro, non troppo in salita, lontano dal gregge e dal cerchio
+  // di prima. Se non lo trova, una radura fra quelle libere
+  const postoCerchio = (gx: number, gz: number) => {
+    const lontano = (x: number, z: number) => Math.hypot(x - gx, z - gz) > RAGGIO + 1.5 && (gioco.primo || Math.hypot(x - gioco.x, z - gioco.z) > RAGGIO);
+    for (let prova = 0; prova < 80; prova++) {
+      const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * (L - RAGGIO - 0.8), x = Math.cos(a) * d, z = Math.sin(a) * d;
+      let salita = 0;
+      for (let q = 0; q < 8; q++) salita += Math.abs(altezza(x + Math.cos(q) * RAGGIO, z + Math.sin(q) * RAGGIO) - altezza(x, z));
+      if (salita < 3.2 && lontano(x, z) && libero(x, z, RAGGIO * 0.75)) return { x, z };
+    }
+    const buone = radure.filter(q => lontano(q.x, q.z)), scelte = buone.length ? buone : radure;
+    return scelte[Math.floor(Math.random() * scelte.length)]!;
+  };
   const nuovoCerchio = () => {
     const gx = pecore.reduce((a, q) => a + q.x, 0) / PECORE, gz = pecore.reduce((a, q) => a + q.z, 0) / PECORE;
-    // Una radura a caso fra quelle lontane dal gregge
-    const lontane = radure.filter(q => Math.hypot(q.x - gx, q.z - gz) > RAGGIO + 1.5), scelte = lontane.length ? lontane : radure, q0 = scelte[Math.floor(r() * scelte.length)]!;
+    const q0 = postoCerchio(gx, gz);
     gioco.x = q0.x; gioco.z = q0.z;
+    gioco.primo = false;
     for (let k = 0; k < TRATTI; k++) {
       const a = (k / TRATTI) * Math.PI * 2, b = ((k + 0.55) / TRATTI) * Math.PI * 2;
       const ax = gioco.x + Math.cos(a) * RAGGIO, az = gioco.z + Math.sin(a) * RAGGIO, bx = gioco.x + Math.cos(b) * RAGGIO, bz = gioco.z + Math.sin(b) * RAGGIO;
@@ -513,8 +527,8 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
       if (gioco.t < 1.6) gioco.luce = morbido(gioco.luce, 0, dt * 2);
       if (gioco.t <= 0) { gioco.stato = 'attesa'; gioco.t = 5; gioco.luce = 0; conta.style.opacity = '0'; }
     }
-    matCerchio.opacity = gioco.luce * (p.chiaro ? 0.6 : 0.5);
-    matAcceso.opacity = gioco.luce * 0.9;
+    matCerchio.opacity = gioco.luce * (p.chiaro ? 0.45 : 0.4);
+    matAcceso.opacity = gioco.luce;
     geoAcceso.setDrawRange(0, Math.floor((gioco.stato === 'fatto' ? 1 : gioco.dentro / PECORE) * TRATTI) * 2);
   };
 
