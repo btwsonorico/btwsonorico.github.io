@@ -14,7 +14,7 @@ const COME: [string, string[]][] = [
     'Each neuron in a layer makes its own cut, and the next neuron adds them up with its own weights. Added together, straight cuts become rounded blobs. Hover a square to see what that neuron sees, and which neurons it reads from.',
   ]],
   ['Why add layers, then?', [
-    'A neuron in a second layer does not read the position. It reads the cuts of the layer before, so it builds with finished pieces: corners, strips, plateaus. That is why the same effort often goes further in depth. On the fish, one layer of 5 neurons stops near 80%, and two layers of 5 reach about 95%. Train both and compare the lines.',
+    'A neuron in a second layer does not read the position. It reads the cuts of the layer before, so it builds with finished pieces: corners, strips, plateaus. That is why the same effort often goes further in depth. On the fish, one layer of 6 neurons stops near 70%, two reach about 90%, and three go past 95%. Train them and compare the lines.',
   ]],
   ['How does it learn?', [
     'It repeats one loop, hundreds of times a second. It tries some points and compares its answers with the right heights: that gap is the error. Backpropagation sends the error back through the network, and works out how much each weight is responsible. Gradient descent then moves every weight a little, in the direction that lowers the error.',
