@@ -47,7 +47,7 @@ export function monta(el: HTMLElement) {
     return BASE[f].clone().offsetHSL(f === 'r' ? dl * 0.15 : 0, 0, dl * (p.chiaro ? 0.7 : 1));
   };
   // Fili in primo piano, riempimenti leggeri: si vede la trama delle forme
-  const mat = (hex: string, extra: Extra = {}) => matSito(colore(hex), { grezzo: true, opacity: p.chiaro ? 0.16 : 0.12, fili: 0.95, ...extra });
+  const mat = (hex: string, extra: Extra = {}) => matSito(colore(hex), { grezzo: true, opacity: p.chiaro ? 0.2 : 0.16, fili: 0.45, ...extra });
   const linea = (hex: string, opacita = 0.9) => new THREE.LineBasicMaterial({ color: colore(hex), transparent: true, opacity: opacita });
   // --- Corrente del mare: una direzione che cambia piano e una risacca che va e viene, uguale per tutti
   const corrente = new THREE.Vector2();
@@ -66,25 +66,50 @@ export function monta(el: HTMLElement) {
   terreno(g, BASE.b, 4.6, altezza);
   // Sassi sparsi sul fondo
   const sassi = [mat('#9aa6b2'), mat('#c9b48a'), mat('#6f8db0')];
-  for (let k = 0; k < 46; k++) {
-    const x = (r() - 0.5) * 5.6, z = (r() - 0.5) * 5.6, raggio = 0.03 + r() * 0.07;
+  for (let k = 0; k < 16; k++) {
+    const x = (r() - 0.5) * 5.6, z = (r() - 0.5) * 5.6, raggio = 0.03 + r() * 0.06;
+    if (Math.hypot(x, z) < 1.7) continue;
     const s = pezzo(sasso(raggio, r), sassi[k % 3]!, x, altezza(x, z) + raggio * 0.3, z);
     s.scale.y = 0.6;
     g.add(s);
   }
 
-  // --- Rocce a terrazze: una torre al centro, che dà altezza alla scena, e mucchi più bassi tutto intorno
-  const roccia = [mat('#4f7cad'), mat('#3e6795'), mat('#6d97c4')];
-  ([[0, 0, 5, 0.7], [0.65, -0.4, 2, 0.45], [-0.6, 0.35, 3, 0.45], [2.3, 0.9, 2, 0.5], [-1.3, 2.2, 1, 0.5], [-2.4, -0.6, 2, 0.5], [-0.6, -2.4, 1, 0.45], [1.6, -1.9, 2, 0.5], [1.1, 2.6, 1, 0.4]] as const).forEach(([x, z, livelli, base], q) => {
-    for (let k = 0; k < livelli; k++) {
-      const s = pezzo(sasso(base - k * (base / (livelli + 1)), r, 1), roccia[(q + k) % 3]!, x + (r() - 0.5) * 0.2, altezza(x, z) + 0.1 + k * 0.3, z + (r() - 0.5) * 0.2);
-      s.scale.set(1.3, 0.42, 1.15);
-      s.rotation.y = r() * 6;
-      g.add(s);
+  // --- Scoglio al centro: una roccia sola, modellata con onde di rumore e strati orizzontali, piena e ombreggiata
+  // (più chiara dove guarda la luce, più scura in basso); poche linee solo dove la roccia piega di netto.
+  // Due massi più piccoli dello stesso tipo ai lati.
+  const scoglio = (scala: number, seme: number, x: number, z: number, giro: number) => {
+    const geo = new THREE.IcosahedronGeometry(1, 4), q = geo.attributes.position as THREE.BufferAttribute, v = new THREE.Vector3();
+    const rumore = (a: number, b: number, c: number) => Math.sin(a * 2.1 + b * 1.3 + seme) * Math.cos(c * 1.7 - a * 0.6 + seme) * 0.5 + Math.sin(a * 4.3 - c * 3.1 + b * 2.7 + seme * 2) * 0.25 + Math.sin(b * 7 + a * 2 + seme) * 0.08;
+    for (let i = 0; i < q.count; i++) {
+      v.fromBufferAttribute(q, i).normalize();
+      const k = 1 + rumore(v.x * 1.5, v.y * 1.5, v.z * 1.5) * 0.38;
+      v.multiplyScalar(k);
+      v.x *= 1.25;
+      v.y = v.y > 0 ? v.y * 1.5 : v.y * 0.25;
+      v.y += Math.sin(v.y * 11) * 0.025;
+      q.setXYZ(i, v.x * scala, v.y * scala, v.z * scala);
     }
-  });
+    geo.computeVertexNormals();
+    // Ombreggiatura finta: luce dall'alto e di lato, più scuro verso il fondo
+    const n = geo.attributes.normal as THREE.BufferAttribute, colori: number[] = [], luce = new THREE.Vector3(0.4, 1, 0.3).normalize(), base = colore('#3e6795').lerp(BASE.t, 0.45).offsetHSL(0, -0.15, 0), tinta = new THREE.Color();
+    for (let i = 0; i < q.count; i++) {
+      const l = Math.max(0, n.getX(i) * luce.x + n.getY(i) * luce.y + n.getZ(i) * luce.z), alto = THREE.MathUtils.clamp(q.getY(i) / (1.4 * scala), 0, 1);
+      tinta.copy(base).multiplyScalar(0.38 + l * 0.42 + alto * 0.2);
+      colori.push(tinta.r, tinta.g, tinta.b);
+    }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
+    const o = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true }));
+    o.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 32), new THREE.LineBasicMaterial({ color: colore('#6d97c4'), transparent: true, opacity: 0.25 })));
+    o.position.set(x, altezza(x, z) - 0.12 * scala, z);
+    o.rotation.y = giro;
+    g.add(o);
+    return o;
+  };
+  scoglio(1, 0.7, 0, 0, 0.4);
+  scoglio(0.42, 2.3, -2.5, -0.9, 1.2);
+  scoglio(0.32, 4.1, 2.2, 1.6, 2.2);
 
-  // --- Colonne antiche: una in piedi, una caduta a pezzi, con un po' di muschio
+  // --- Colonna antica in piedi, con un po' di muschio
   const pietra = mat('#dcd0b2'), muschio = mat('#86a85a');
   const colonna = new THREE.Group();
   colonna.add(pezzo(new THREE.BoxGeometry(0.5, 0.12, 0.5), pietra, 0, 0.06, 0));
@@ -98,25 +123,19 @@ export function monta(el: HTMLElement) {
   colonna.position.set(2.15, altezza(2.15, -1.7), -1.7);
   colonna.rotation.set(0.06, 0.4, -0.05);
   g.add(colonna);
-  ([[1.0, -2.35, 0.2], [1.45, -2.2, 0.5], [0.55, -2.45, -0.1]] as const).forEach(([x, z, ry]) => {
-    const pez = pezzo(new THREE.CylinderGeometry(0.17, 0.18, 0.4, 8), pietra, x, altezza(x, z) + 0.12, z);
-    pez.rotation.set(0, ry, Math.PI / 2);
-    g.add(pez);
-  });
-
   // --- Kelp dorato sul fondo e alghe verdi basse sparse: tutti nastri mossi dalla corrente
   const fili: Nastro[] = [];
   const kelp = ['#5aa65a', '#4a8f5c', '#7cbf5f', '#e7a83c'].map(colore);
   const verdi = ['#5aa65a', '#4a8f5c', '#7cbf5f'].map(colore);
-  for (let k = 0; k < 44; k++) {
+  for (let k = 0; k < 24; k++) {
     let x = 0, z = 0;
-    const a = r() * Math.PI * 2, d = 1.3 + Math.sqrt(r()) * 2.6;
+    const a = r() * Math.PI * 2, d = 1.8 + Math.sqrt(r()) * 2.2;
     x = Math.cos(a) * d; z = Math.sin(a) * d;
     fili.push({ x, z, y: altezza(x, z), alto: 0.8 + r() * 0.8, largo: 0.14 + r() * 0.08, angolo: r() * 6, fase: r() * 6, colore: kelp[k % 4]!, foglie: true });
   }
-  for (let k = 0; k < 34; k++) {
+  for (let k = 0; k < 16; k++) {
     const x = -2.8 + r() * 5.6, z = -2.8 + r() * 5.6;
-    if (Math.hypot(x, z) < 1) continue;
+    if (Math.hypot(x, z) < 1.7) continue;
     fili.push({ x, z, y: altezza(x, z), alto: 0.22 + r() * 0.4, largo: 0.04 + r() * 0.03, angolo: r() * 6, fase: r() * 6, colore: verdi[k % 3]! });
   }
   const alghe = nastri(fili, 12, true);
@@ -152,9 +171,10 @@ export function monta(el: HTMLElement) {
     }
     return pezzo(unisci(pezzi), mat(colore, { side: THREE.DoubleSide }));
   };
-  // Corallo cervello: una cupola con le pieghe
+  const colore2 = colore;
+  // Corallo cervello: una cupola piena con le pieghe
   const cervello = (colore: string, raggio: number) => {
-    const geo = new THREE.IcosahedronGeometry(raggio, 2);
+    const geo = new THREE.IcosahedronGeometry(raggio, 3);
     const q = geo.attributes.position as THREE.BufferAttribute, v = new THREE.Vector3();
     for (let i = 0; i < q.count; i++) {
       v.fromBufferAttribute(q, i);
@@ -162,23 +182,27 @@ export function monta(el: HTMLElement) {
       q.setXYZ(i, v.x, Math.max(0, v.y) * 0.65, v.z);
     }
     geo.computeVertexNormals();
-    return pezzo(geo, mat(colore));
+    // Pieno: ombreggiato a mano come lo scoglio, così si stacca dai coralli a filo
+    const n = geo.attributes.normal as THREE.BufferAttribute, tinte: number[] = [], base = colore2(colore), t = new THREE.Color();
+    for (let i = 0; i < q.count; i++) { t.copy(base).multiplyScalar(0.55 + Math.max(0, n.getY(i) * 0.8 + n.getX(i) * 0.3) * 0.5); tinte.push(t.r, t.g, t.b); }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(tinte, 3));
+    const o = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true }));
+    o.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 40), new THREE.LineBasicMaterial({ color: base, transparent: true, opacity: 0.3 })));
+    return o;
   };
   // Ventaglio di gorgonia: un mezzo disco sottile e irregolare
   const ventaglio = (colore: string) => pezzo(scuoti(new THREE.CircleGeometry(0.42, 10, 0, Math.PI), 0.06, r), mat(colore, { side: THREE.DoubleSide }));
-  posa(ramificato('#f2836b', 3), 1.15, 0.75);
-  posa(ramificato('#ff9fb4', 8), -1.6, 1.0).scale.setScalar(0.8);
-  posa(ramificato('#f6b24a', 21), 0.2, -1.5).scale.setScalar(0.7);
-  posa(canne('#9b72d6', 9), 1.5, -0.6);
-  posa(canne('#4fb3c9', 6), -1.3, -1.2);
-  posa(canne('#f07aa0', 7), 0.5, 1.6).scale.setScalar(0.8);
-  posa(cervello('#c3d36a', 0.34), -0.9, 1.7);
-  posa(cervello('#e7a6c9', 0.24), 2.1, -0.3);
-  const ventagli = [posa(ventaglio('#e3566f'), -0.9, -0.95), posa(ventaglio('#f08a4b'), 1.0, 1.35)];
+  posa(ramificato('#f2836b', 3), 1.75, 1.1);
+  posa(ramificato('#ff9fb4', 8), -2.0, 1.25).scale.setScalar(0.8);
+  posa(ramificato('#f6b24a', 21), 0.3, -2.0).scale.setScalar(0.7);
+  posa(canne('#9b72d6', 9), 2.0, -0.8);
+  posa(canne('#4fb3c9', 6), -1.75, -1.6);
+  posa(cervello('#c3d36a', 0.38), -1.1, 2.1);
+  const ventagli = [posa(ventaglio('#e3566f'), -1.3, -1.35), posa(ventaglio('#f08a4b'), 1.3, 1.8)];
   ventagli[1]!.rotation.y = 1.2;
 
   // --- Anemoni: tentacoli che ondeggiano con la corrente; il primo ha due pesci pagliaccio
-  const anemoni = ([[0.3, 1.15, '#ff8fb1'], [-1.9, 0.2, '#ffb36b'], [1.2, -1.2, '#c38bff']] as const).map(([x, z, c]) => {
+  const anemoni = ([[0.45, 1.75, '#ff8fb1'], [-2.2, 0.25, '#ffb36b'], [1.55, -1.55, '#c38bff']] as const).map(([x, z, c]) => {
     const o = new THREE.Group(), m = mat(c), cono = new THREE.ConeGeometry(0.02, 0.24, 4).translate(0, 0.12, 0);
     o.add(pezzo(new THREE.CylinderGeometry(0.11, 0.14, 0.12, 8), mat('#d9774f'), 0, 0.06, 0));
     const tentacoli = Array.from({ length: 20 }, (_, k) => {
@@ -194,8 +218,8 @@ export function monta(el: HTMLElement) {
   // --- Ricci viola con gli aculei
   const aculei: number[] = [];
   const corpoRiccio = mat('#5e2f8f');
-  for (let k = 0; k < 7; k++) {
-    const ar = r() * Math.PI * 2, dr = 1 + r() * 2, x = Math.cos(ar) * dr, z = Math.sin(ar) * dr, y = altezza(x, z) + 0.05;
+  for (let k = 0; k < 4; k++) {
+    const ar = r() * Math.PI * 2, dr = 1.7 + r() * 1.5, x = Math.cos(ar) * dr, z = Math.sin(ar) * dr, y = altezza(x, z) + 0.05;
     g.add(pezzo(new THREE.IcosahedronGeometry(0.07, 0), corpoRiccio, x, y, z));
     for (let q = 0; q < 22; q++) {
       const d = new THREE.Vector3(r() - 0.5, r() * 0.8, r() - 0.5).normalize().multiplyScalar(0.12 + r() * 0.05);
@@ -227,7 +251,7 @@ export function monta(el: HTMLElement) {
     for (let k = 0; k < 10; k++) { const a = (k / 10) * Math.PI * 2, d = k % 2 ? 0.035 : 0.1; if (k) forma.lineTo(Math.cos(a) * d, Math.sin(a) * d); else forma.moveTo(d, 0); }
     return new THREE.ExtrudeGeometry(forma, { depth: 0.025, bevelEnabled: false }).rotateX(-Math.PI / 2);
   })();
-  ([[0.05, 0.1, '#f08a3c', 1.55], [0.6, 2.3, '#e8505b', 0.02], [-1.2, -2.3, '#f6c14a', 0.02], [2.2, 0.9, '#f08a3c', 0.65]] as const).forEach(([x, z, c, su]) => {
+  ([[0.6, 2.3, '#e8505b', 0.02], [-1.2, -2.3, '#f6c14a', 0.02]] as const).forEach(([x, z, c, su]) => {
     const s = pezzo(stella, mat(c), x, altezza(x, z) + su, z);
     s.rotation.y = r() * 6;
     g.add(s);
@@ -339,16 +363,26 @@ export function monta(el: HTMLElement) {
     return { o, campana, v: new THREE.Vector3(), fase: k * 0.37, fili, casa: o.position.clone() };
   });
 
-  // --- Manta: ali che battono lente mentre gira largo sopra il fondo
+  // --- Manta: un corpo pieno e spesso al centro, ali a punta spinte indietro che si piegano a onda dal corpo alle
+  // punte; dorso scuro, ventre chiaro; due pinne cefaliche davanti e la coda lunga
   const manta = (() => {
-    const v = [0, 0, 0.32, 0.22, 0, 0.08, 0.6, 0, -0.08, 0.2, 0, -0.18, 0, 0, -0.26, -0.2, 0, -0.18, -0.6, 0, -0.08, -0.22, 0, 0.08, 0, 0.04, 0];
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
-    geo.setIndex([8, 0, 1, 8, 1, 3, 1, 2, 3, 8, 3, 4, 8, 4, 5, 8, 5, 7, 5, 6, 7, 8, 7, 0]);
-    const o = pezzo(geo, mat('#35587f', { side: THREE.DoubleSide }));
-    o.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, -0.26), new THREE.Vector3(0, 0, -0.7)]), linea('#35587f')));
+    const geo = new THREE.SphereGeometry(1, 32, 12), q = geo.attributes.position as THREE.BufferAttribute, base: number[] = [], spalla: number[] = [];
+    for (let i = 0; i < q.count; i++) {
+      const x = q.getX(i) * 0.62, y = q.getY(i) * 0.075, z = q.getZ(i) * 0.3, u = Math.abs(x) / 0.62;
+      const zz = z * (1 - 0.6 * u ** 1.2) - 0.1 * u * u, yy = y * (1 - 0.75 * u);
+      base.push(x, yy, zz);
+      spalla.push(u);
+      q.setXYZ(i, x, yy, zz);
+    }
+    const dorso = colore('#35587f'), ventre = colore('#d9ecf2'), colori: number[] = [], t = new THREE.Color();
+    for (let i = 0; i < q.count; i++) { t.copy(q.getY(i) >= 0 ? dorso : ventre).multiplyScalar(0.8 + (1 - spalla[i]!) * 0.25); colori.push(t.r, t.g, t.b); }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
+    const o = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+    const pinna = new THREE.ConeGeometry(0.025, 0.1, 5).rotateX(Math.PI / 2);
+    for (const l of [-1, 1]) o.add(pezzo(pinna, mat('#35587f', { opacity: 0.9 }), l * 0.08, 0, 0.3));
+    o.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, -0.26), new THREE.Vector3(0, 0.01, -0.55), new THREE.Vector3(0, 0, -0.8)]), linea('#35587f')));
     g.add(o);
-    return { o, pos: geo.attributes.position as THREE.BufferAttribute };
+    return { o, pos: q, base, spalla };
   })();
 
   // --- Granchio che cammina di lato sulla sabbia
@@ -365,7 +399,7 @@ export function monta(el: HTMLElement) {
 
   // --- Bolle, neve marina e mangime: particelle morbide
   const BOLLE = 90, FISSE = 45, bolle = puntiMorbidi(BOLLE);
-  const fonti = [new THREE.Vector3(0, 1.6, 0), new THREE.Vector3(2.1, 0.3, 0.55), new THREE.Vector3(-0.4, 0.2, 1.0)];
+  const fonti = [new THREE.Vector3(0.9, 0.55, 0.9), new THREE.Vector3(2.1, 0.3, 0.55), new THREE.Vector3(-0.4, 0.2, 1.0)];
   const statoBolle = Array.from({ length: BOLLE }, (_, i) => ({ vel: 0.25 + r() * 0.25, fase: r() * 6, viva: i < FISSE, fonte: i % 3 }));
   for (let i = 0; i < BOLLE; i++) {
     const f = fonti[i % 3]!;
@@ -405,8 +439,8 @@ export function monta(el: HTMLElement) {
   }
 
   // --- Corrente: fili sottili che scorrono nell'acqua seguendo il flusso, a tutte le altezze; mostrano il mare che si muove
-  const SCIE = p.telefono ? 40 : 70, PASSI = 6;
-  const scie = Array.from({ length: SCIE }, () => ({ x: 0, y: 0, z: 0, vita: r(), lungo: 0.5 + r() * 0.7 }));
+  const SCIE = p.telefono ? 14 : 26, PASSI = 6;
+  const scie = Array.from({ length: SCIE }, () => ({ x: 0, y: 0, z: 0, vita: r(), lungo: 0.3 + r() * 0.35 }));
   const nuovaScia = (q: (typeof scie)[number]) => {
     const a = r() * Math.PI * 2, d = Math.sqrt(r()) * 4;
     q.x = Math.cos(a) * d; q.z = Math.sin(a) * d; q.y = 0.4 + r() * 4.2; q.vita = 0;
@@ -416,7 +450,7 @@ export function monta(el: HTMLElement) {
   const geoScie = new THREE.BufferGeometry();
   geoScie.setAttribute('position', new THREE.BufferAttribute(posScie, 3));
   geoScie.setAttribute('color', new THREE.BufferAttribute(colScie, 3));
-  const scia = new THREE.LineSegments(geoScie, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: p.chiaro ? 0.55 : 0.45, depthWrite: false }));
+  const scia = new THREE.LineSegments(geoScie, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: p.chiaro ? 0.22 : 0.16, depthWrite: false }));
   scia.frustumCulled = false;
   g.add(scia);
   // Il flusso in un punto: la corrente di fondo più due vortici lenti
@@ -443,7 +477,7 @@ export function monta(el: HTMLElement) {
     // Scie della corrente: ogni filo è un pezzo di traiettoria nel flusso, chiaro al centro e sfumato ai capi
     const fl = new THREE.Vector3();
     scie.forEach((q, n) => {
-      q.vita += dt / 9;
+      q.vita += dt / 12;
       if (q.vita > 1 || Math.hypot(q.x, q.z) > 4.4) nuovaScia(q);
       flusso(q.x, q.y, q.z, s, cur, fl);
       q.x += fl.x * dt * 0.6; q.y += fl.y * dt * 0.6; q.z += fl.z * dt * 0.6;
@@ -550,7 +584,7 @@ export function monta(el: HTMLElement) {
         }
         acc.addScaledVector(vicino.copy(b.meta).sub(tmp), trovato ? 0.9 : 0.35);
         // Bordi della scena, fondale e soffitto: spinte morbide verso l'interno
-        const fondo = altezza(tmp.x, tmp.z) + 1.0 + Math.max(0, 1 - Math.hypot(tmp.x, tmp.z)) * 1.2, M = LATO - 0.35;
+        const fondo = altezza(tmp.x, tmp.z) + 1.0 + Math.max(0, 1 - Math.hypot(tmp.x, tmp.z) / 1.6) * 1.4, M = LATO - 0.35;
         if (tmp.x > M) acc.x -= (tmp.x - M) * 8; if (tmp.x < -M) acc.x -= (tmp.x + M) * 8;
         if (tmp.z > M) acc.z -= (tmp.z - M) * 8; if (tmp.z < -M) acc.z -= (tmp.z + M) * 8;
         if (tmp.y < fondo) acc.y += (fondo - tmp.y) * 8; if (tmp.y > ACQUA - 0.25) acc.y -= (tmp.y - ACQUA + 0.25) * 8;
@@ -625,9 +659,10 @@ export function monta(el: HTMLElement) {
     manta.o.position.set(Math.cos(am) * 2.3, 3.7 + Math.sin(s * 0.3) * 0.35, Math.sin(am) * 2.3);
     manta.o.lookAt(Math.cos(am + 0.1) * 2.1, manta.o.position.y, Math.sin(am + 0.1) * 2.1);
     manta.o.rotateZ(-0.25);
-    const ali = Math.sin(s * 1.9) * 0.16, dentro = Math.sin(s * 1.9 - 0.6) * 0.07;
-    [2, 6].forEach(i => manta.pos.setY(i, ali));
-    [1, 7, 3, 5].forEach(i => manta.pos.setY(i, dentro));
+    for (let i = 0; i < manta.pos.count; i++) {
+      const u = manta.spalla[i]!;
+      manta.pos.setY(i, manta.base[i * 3 + 1]! + Math.sin(s * 1.6 - u * 1.6) * 0.2 * u ** 1.6);
+    }
     manta.pos.needsUpdate = true;
     // Granchio: va avanti e indietro di lato, piano, e si ferma alle estremità
     const gx = 0.4 + Math.sin(s * 0.25) * 0.9, gz = 2.6;
