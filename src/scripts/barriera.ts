@@ -262,7 +262,7 @@ export function monta(el: HTMLElement) {
   coda.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, -0.055, 0, 0.035, -0.105, 0, -0.035, -0.105], 3));
   const geoPesce = unisci([new THREE.OctahedronGeometry(1, 0).scale(0.022, 0.034, 0.07), coda]).scale(1.15, 1.15, 1.15);
   type Banco = { mesh: THREE.InstancedMesh; n: number; pos: Float32Array; vel: Float32Array; meta: THREE.Vector3; fase: number; paura: number; scala: Float32Array };
-  const quanti = p.telefono ? [40, 32, 26] : [72, 58, 44];
+  const quanti = p.telefono ? [58, 46, 36] : [112, 90, 70];
   const banchi: Banco[] = (['#d9ecf2', '#f7cf4f', '#f0603f'] as const).map((c, b) => {
     const n = quanti[b]!, mesh = new THREE.InstancedMesh(geoPesce, matSito('#ffffff', { side: THREE.DoubleSide, grezzo: true, opacity: 0.85, fili: 0 }), n);
     const pos = new Float32Array(n * 3), vel = new Float32Array(n * 3), scala = new Float32Array(n);
@@ -467,13 +467,13 @@ export function monta(el: HTMLElement) {
           vicini++;
           media.x += b.vel[j * 3]!; media.y += b.vel[j * 3 + 1]!; media.z += b.vel[j * 3 + 2]!;
           centro.x += dx; centro.y += dy; centro.z += dz;
-          if (d2 < 0.012) { const d = Math.sqrt(d2) + 1e-4; separa.x -= dx / d; separa.y -= dy / d; separa.z -= dz / d; }
+          if (d2 < 0.024) { const d = Math.sqrt(d2) + 1e-4; separa.x -= dx / d; separa.y -= dy / d; separa.z -= dz / d; }
         }
         acc.set(0, 0, 0);
         if (vicini) {
           acc.addScaledVector(media.divideScalar(vicini).sub(vicino.set(b.vel[k]!, b.vel[k + 1]!, b.vel[k + 2]!)), 1.2);
-          acc.addScaledVector(centro.divideScalar(vicini), 1.2);
-          acc.addScaledVector(separa, 0.9);
+          acc.addScaledVector(centro.divideScalar(vicini), 0.7);
+          acc.addScaledVector(separa, 1.5);
         }
         acc.addScaledVector(vicino.copy(b.meta).sub(tmp), trovato ? 0.9 : 0.35);
         // Bordi della scena, fondale e soffitto: spinte morbide verso l'interno
