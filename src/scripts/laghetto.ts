@@ -305,7 +305,7 @@ export function monta(el: HTMLElement) {
   });
   // Nascita dei pesci: il prato e la riva ci sono già. Al centro del lago si apre un cerchio, poi in circa due secondi
   // i pesci arrivano a banchi interi: al massimo due banchi saltano dal centro (un arco col muso nella direzione del volo,
-  // uno spruzzo dove atterrano), tutti gli altri affiorano da poco sotto il punto dove nuotano.
+  // un solo spruzzo per banco, dove atterra il primo pesce), tutti gli altri affiorano in silenzio da poco sotto il punto dove nuotano.
   // Le etichette arrivano quando sono tutti in acqua.
   const gruppiPesci = [...branchi.map(b => b.pesci.map(q => q.corpo)), liberi.slice(0, 5).map(q => q.corpo), liberi.slice(5).map(q => q.corpo)].filter(b => b.length);
   const PRIMO_SALTO = 200, TRA_BANCHI = 950 / Math.max(1, gruppiPesci.length), DENTRO_BANCO = 200, DURATA_SALTO = 900;
@@ -314,7 +314,7 @@ export function monta(el: HTMLElement) {
   // Un banco parte insieme, con pochi attimi fra un pesce e l'altro, dallo stesso punto dell'acqua
   const salti = gruppiPesci.flatMap((corpi, b) => corpi.map((corpo, k) => {
     const a = b * 2.39996, sparso = k * 2.39996;
-    return { corpo, sale: b !== 1 && b !== 3, ritardo: PRIMO_SALTO + b * TRA_BANCHI + (k / corpi.length) * DENTRO_BANCO, da: new THREE.Vector3(Math.cos(a) * 0.3 + Math.cos(sparso) * 0.07, -0.3, Math.sin(a) * 0.3 + Math.sin(sparso) * 0.07), atterrato: false, scala: corpo.scale.clone() };
+    return { corpo, primo: k === 0, partito: false, sale: b !== 1 && b !== 3, ritardo: PRIMO_SALTO + b * TRA_BANCHI + (k / corpi.length) * DENTRO_BANCO, da: new THREE.Vector3(Math.cos(a) * 0.3 + Math.cos(sparso) * 0.07, -0.3, Math.sin(a) * 0.3 + Math.sin(sparso) * 0.07), atterrato: false, scala: corpo.scale.clone() };
   }));
   const cerchiNascita = Array.from({ length: 36 }, () => {
     const m = linea(c.accent, 0), o = anello(cerchio(1, 40), m);
@@ -341,8 +341,7 @@ export function monta(el: HTMLElement) {
         if (!q.atterrato) {
           q.atterrato = true;
           arrivoSalto.copy(q.corpo.position);
-          onda(arrivoSalto.x, arrivoSalto.z, q.sale ? 0.3 : 0.55, t);
-          if (!q.sale) onda(arrivoSalto.x, arrivoSalto.z, 0.28, t + 160);
+          if (!q.sale && q.primo) onda(arrivoSalto.x, arrivoSalto.z, 0.55, t);
         }
         return;
       }
@@ -358,7 +357,7 @@ export function monta(el: HTMLElement) {
       arrivoSalto.copy(q.corpo.position);
       const posa = (v: number, out: THREE.Vector3) => out.lerpVectors(q.da, arrivoSalto, v).setY(THREE.MathUtils.lerp(q.da.y, arrivoSalto.y, v) + Math.sin(v * Math.PI) * 1.05);
       posa(u, voloOra); posa(Math.min(1, u + 0.02), voloPrima);
-      if (u > 0.05 && u < 0.09) onda(q.da.x, q.da.z, 0.22, t);
+      if (q.primo && !q.partito && u > 0.05) { q.partito = true; onda(q.da.x, q.da.z, 0.22, t); }
       avanti2.subVectors(voloPrima, voloOra);
       if (avanti2.lengthSq() > 1e-8) { matriceSalto.lookAt(voloPrima, voloOra, suSalto); q.corpo.quaternion.setFromRotationMatrix(matriceSalto); }
       q.corpo.position.copy(voloOra);
