@@ -454,7 +454,8 @@ export function monta(radice: HTMLElement) {
       scrivi2(tagPunto, spiegaEl.dataset.spiega ?? '');
       posa(tagPunto, q.left, q.top, q.right, q.bottom, dalPannello(spiegaEl));
     } else scrivi2(tagPunto, '');
-    const [prova, el] = cosaProvare(), mostra2 = !!prova && tagPunto.hidden && !!el;
+    // Il comando deve essere a schermo: scorrendo sulla spiegazione il tag non resta sospeso sul testo
+    const [prova, el] = cosaProvare(), qEl = el?.getBoundingClientRect(), aSchermo = !!qEl && qEl.bottom > 0 && qEl.top < innerHeight, mostra2 = !!prova && tagPunto.hidden && aSchermo;
     consiglia(el);
     scrivi2(tagConsiglio, mostra2 ? prova : '');
     if (mostra2) { const q = el!.getBoundingClientRect(); posa(tagConsiglio, q.left, q.top, q.right, q.bottom, dalPannello(el!)); }
