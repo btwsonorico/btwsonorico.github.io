@@ -18,7 +18,7 @@ const L = 8;
 export function monta(el: HTMLElement) {
   const r = casuale(23);
   const p = palco(el, {
-    camera: new THREE.Vector3(0, 15.6, 13), mira: new THREE.Vector3(0, 0.4, 0.3), giro: 0.006, inclina: [-0.62, 0.3], nebbia: [1.0, 2.0], zoom: [0.3, 1.15], aggiorna,
+    camera: new THREE.Vector3(0, 8.3, 19.2), mira: new THREE.Vector3(0, 0.4, 0.3), giro: 0.006, inclina: [-0.12, 0.8], nebbia: [1.0, 2.0], zoom: [0.3, 1.15], aggiorna,
     afferra, trascina, rilascia, clic,
     scena: 'nuvole', toni: SITO,
   });

@@ -51,14 +51,6 @@ const PAGINE = [
 
 <script>
   // Il mondo 3D: bosco (Software), stagno (Advisory), stormo (Knowledge). Si scarica dopo il primo disegno: il testo appare subito
-  // Su schermi larghi il mondo parte sotto la barra in alto e arriva in fondo alla finestra: la misura della barra è quella vera
-  const fondo = document.querySelector<HTMLElement>('.fondo3d')!;
-  const adatta = () => {
-    if (window.innerWidth <= 640) { fondo.style.top = ''; return; }
-    fondo.style.top = `${document.querySelector<HTMLElement>('.barra')!.offsetHeight}px`;
-  };
-  adatta();
-  window.addEventListener('resize', adatta);
   setTimeout(() => import('../scripts/mondo').then(m => m.monta(document.querySelector<HTMLElement>('.scena3d')!)), 30);
   // Passare sopra una sezione nella lista accende la sua parte del mondo, come nelle liste delle altre pagine
   document.querySelectorAll<HTMLElement>('[data-sezione]').forEach(a => {
@@ -85,8 +77,8 @@ const PAGINE = [
   .pagine li a[data-tono]:hover { color: var(--bg); background: var(--accent); text-decoration: none; }
   .titoletto { margin: 0 0 4px; }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
-  /* Il mondo parte sotto la barra e arriva in fondo alla finestra; la scritta della build gli sta sopra */
-  .fondo3d { position: fixed; top: 64px; bottom: 0; left: 0; right: 0; z-index: 0; }
+  /* Il mondo copre tutta la finestra; la barra e la scritta della build gli stanno sopra */
+  .fondo3d { position: fixed; inset: 0; z-index: 0; }
   .scena3d { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
   /* Etichette del mondo: come nelle scene di bosco e laghetto, nel colore della loro sezione */
   .scena3d :global(.etichetta) {

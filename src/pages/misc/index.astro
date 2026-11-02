@@ -1,7 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// Esperimenti: scene 3D per rilassarsi (barriera, valle)
+// Esperimenti: scene 3D per rilassarsi (valle, barriera)
 ---
 <Base title="Misc · Riccardo Mondi" description="Small experiments." largo>
   <!-- Scene 3D: ognuna nel suo contenitore, montata la prima volta che si apre -->
@@ -12,8 +12,8 @@ import Base from '../../layouts/Base.astro';
     <h1>Misc</h1>
     <p class="mono">Small experiments.</p>
     <p class="mono scelte" role="group" aria-label="Experiment">
-      <button type="button" data-scena="barriera">reef</button>
       <button type="button" data-scena="nuvole">valley</button>
+      <button type="button" data-scena="barriera">reef</button>
     </p>
     <!-- Color editor: i tre toni chiave della scena 3D aperta; la scelta resta in questo browser -->
     <p class="mono toni" hidden>
@@ -78,20 +78,17 @@ import Base from '../../layouts/Base.astro';
 
   let attuale: Scena | null = null, richiesta = 0;
   const mostra = async (nome: string) => {
-    if (!SCENE[nome]) nome = 'barriera';
     const mia = ++richiesta;
     attuale?.ferma();
     attuale = null;
     bottoni.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.scena === nome)));
-    try { localStorage.setItem('misc-scena', nome); } catch {}
     const scena = await SCENE[nome]!();
     // Se nel frattempo è stato scelto un altro esperimento, questo si ferma subito
     if (mia !== richiesta) scena.ferma(); else attuale = scena;
   };
   bottoni.forEach(b => b.addEventListener('click', () => mostra(b.dataset.scena!)));
-  let ricordata = 'barriera';
-  try { ricordata = localStorage.getItem('misc-scena') ?? 'barriera'; } catch {}
-  mostra(ricordata);
+  // Si parte sempre dalla valle
+  mostra('nuvole');
 </script>
 
 <style>

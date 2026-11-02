@@ -212,7 +212,7 @@ export function monta(el: HTMLElement) {
   // L'etichetta sta di lato allo stormo e lo segue con un po' di ritardo, così si clicca anche quando scappano.
   // Meno uccelli sul telefono: lo stormo resta bello e il telefono non si scalda
   const UCCELLI = el.clientWidth < 700 ? 280 : 500, CENTRO_STORMO = new THREE.Vector3(0.2, 2.9, -0.6);
-  const VICINI = 0.42, SEPARA = 0.14, VEL_MIN = 0.5, VEL_MAX = 1, QUOTA_MIN = 2.5, QUOTA_MAX = 3.5, LARGO_STORMO = 3;
+  const VICINI = 0.42, SEPARA = 0.14, VEL_MIN = 0.5, VEL_MAX = 1, QUOTA_MIN = 2.2, QUOTA_MAX = 3, LARGO_STORMO = 3;
   const pos = new Float32Array(UCCELLI * 3), vel = new Float32Array(UCCELLI * 3), fase = new Float32Array(UCCELLI), paura = new Float32Array(UCCELLI);
   // Posto di ogni uccello intorno alla guida, sparso in un volume largo e basso: lo stormo occupa un'area, non una fila
   const posto = new Float32Array(UCCELLI * 3);
@@ -425,16 +425,16 @@ export function monta(el: HTMLElement) {
   let prima = -1;
   // Su schermi larghi il diorama sta a destra: a sinistra c'è il testo della pagina
   const largo = el.clientWidth > 700;
-  gruppo.position.x = largo ? 2 : 0;
+  gruppo.position.x = largo ? 1.5 : 0;
   vista(el, gruppo, punti, {
     // Sul telefono la camera è più vicina: il riquadro è stretto e la vista si allontana già da sola
     camera: largo ? new THREE.Vector3(0, 3.6, 12.5) : new THREE.Vector3(0, 3, 9.5),
     // La camera guarda un po' più in basso: il mondo sale verso il centro dello schermo
     mira: largo ? new THREE.Vector3(0, 0.7, 0) : new THREE.Vector3(0, 2, 0),
     // Su schermi larghi l'isola entra tutta anche col lato lungo davanti e alla massima inclinazione; sopra deve entrare lo stormo
-    ...(largo ? { entra: { raggio: Math.max(...contorno.map(p => p.length())), alto: QUOTA_MAX } } : {}),
+    ...(largo ? { entra: { raggio: Math.max(...contorno.map(p => p.length())), alto: QUOTA_MAX, scarto: gruppo.position.x } } : {}),
     // Mai di lato: la vista resta sempre un po' dall'alto, così sotto il prato non si vedono i pesci
-    inclinazione: [0.16, 0.42],
+    inclinazione: [0.16, 0.3],
     giuMax: 0,
     puntatore: nuovoPuntatore,
     zona,
