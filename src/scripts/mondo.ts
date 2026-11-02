@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { colori, tonoSezione, vista, type Punto } from './vista3d';
+import { crescita, colori, tonoSezione, vista, type Punto } from './vista3d';
 import { famigliaCervi } from './cervi';
 
 // Il mondo dell'About: le tre sezioni del sito in un solo diorama, nello stile di bosco e laghetto.
@@ -75,6 +75,7 @@ export function monta(el: HTMLElement) {
   }
   gruppo.add(nuvola(prato, c.muted, 0.024, 0.5), segmenti(erba, linea(verde.clone().lerp(c.muted, 0.35), 0.5)));
 
+  const nPrato = gruppo.children.length;
   // --- Bosco (Software): alberi con la chioma piena, e un albero guida più grande al centro
   const solido = (sezione: string, geo: THREE.BufferGeometry, colore: THREE.Color, op: number, fili: number) => {
     const g = new THREE.Group();
@@ -134,6 +135,7 @@ export function monta(el: HTMLElement) {
   guida.add(insegna);
   punti.push({ id: 'sezione:software', label: 'Software', href: '/software/', hub: true, famiglia: 'software', ancora: insegna, base: guida, tono: 'verde' });
 
+  const nBosco = gruppo.children.length;
   // --- Stagno (Advisory): acqua azzurra a strati, riva, canne, ninfee e pesci che nuotano in tondo
   const riva = Array.from({ length: 120 }, (_, i) => { const a = (i / 120) * Math.PI * 2, d = raggioStagno(a); return new THREE.Vector3(STAGNO.x + Math.cos(a) * d, 0.005, STAGNO.y + Math.sin(a) * d); });
   gruppo.add(curva(riva, mat('advisory', azzurro, chiaro ? 0.9 : 0.6), true));
@@ -148,6 +150,7 @@ export function monta(el: HTMLElement) {
   const acqua: number[] = [];
   for (let x = STAGNO.x - 2; x <= STAGNO.x + 2; x += 0.2) for (let z = STAGNO.y - 2; z <= STAGNO.y + 2; z += 0.2) if (nelloStagno(x, z, 0.1)) acqua.push(x, -0.01, z);
   gruppo.add(nuvola(acqua, azzurro, 0.02, chiaro ? 0.5 : 0.35));
+  const nAcqua = gruppo.children.length;
   const canne: number[] = [];
   for (let k = 0; k < 26; k++) {
     const a = r() * Math.PI * 2, d = raggioStagno(a) + 0.05 + r() * 0.15, x = STAGNO.x + Math.cos(a) * d, z = STAGNO.y + Math.sin(a) * d;
@@ -362,6 +365,9 @@ export function monta(el: HTMLElement) {
     raggioPuntatore = raggio.ray.clone().applyMatrix4(inversaStormo.copy(gruppo.matrixWorld).invert());
   };
 
+  // Prato e acqua ci sono subito; bosco, vita dello stagno e stormo nascono dopo
+  const nasce = crescita([...gruppo.children.slice(nPrato, nBosco), ...gruppo.children.slice(nAcqua)], punti);
+  let primoFotogramma = -1;
   // --- Cervi: una piccola famiglia che cammina sul prato, gira intorno agli alberi e allo stagno
   const famiglia = famigliaCervi(gruppo, {
     colori: c, chiaro, casuale: r, tipi: ['cervo', 'cerva', 'cerbiatto'],
@@ -412,12 +418,15 @@ export function monta(el: HTMLElement) {
     giuMax: 0,
     puntatore: nuovoPuntatore,
     zona,
+    dopo: nasce,
     aggiorna: (t, acceso) => {
       const s = t / 1000, dt = prima < 0 || t === 0 ? 0 : Math.min(0.05, (t - prima) / 1000);
       prima = t;
       gruppo.updateMatrixWorld();
       muoviStormo(s, dt);
-      famiglia.aggiorna(t, true);
+      if (primoFotogramma < 0) primoFotogramma = t;
+      // I cervi arrivano quando il bosco è cresciuto
+      famiglia.aggiorna(t, t === 0 || t - primoFotogramma > 2800);
       // Salto: un pesce esce dall'acqua con un arco e rientra poco più avanti
       if (s > 0 && s > prossimoSalto) {
         salto = { pesce: Math.floor(r() * pesci.length), nato: s };

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { colori, tonoSezione, vista, type DatiCompetenze, type Punto } from './vista3d';
+import { colori, crescita, tonoSezione, vista, type DatiCompetenze, type Punto } from './vista3d';
 import { foglia as nuovaFoglia, frutto, FRUTTI } from './frutti';
 
 // Advisory come laghetto visto dall'alto: ogni competenza chiave è un branco di pesci, ogni area è un pesce.
@@ -87,6 +87,8 @@ export function monta(el: HTMLElement) {
   };
   gruppo.add(nuvola(acqua, c.accent, 0.022, chiaro ? 0.55 : 0.35), nuvola(prato, VERDE_PROJECTS, 0.022, 0.4));
 
+  // Fin qui la base, che c'è subito: prato e acqua. Tutto il resto nasce dopo
+  const nBase = gruppo.children.length;
   // Canne lungo la riva: ciuffi di steli leggermente piegati, con la punta a spiga
   const canne: number[] = [];
   for (let k = 0; k < 46; k++) {
@@ -448,6 +450,7 @@ export function monta(el: HTMLElement) {
       if (Math.hypot(colpito.x, colpito.z) > raggioRiva(Math.atan2(colpito.z, colpito.x)) - 0.12) return;
       lancia(colpito.clone(), performance.now());
     },
+    dopo: crescita(gruppo.children.slice(nBase), punti),
     aggiorna: (t, acceso) => {
       // Passo di tempo in secondi, limitato: se la scheda torna visibile i pesci non saltano
       const dt = prima < 0 || t === 0 ? 0 : Math.min(0.05, (t - prima) / 1000);

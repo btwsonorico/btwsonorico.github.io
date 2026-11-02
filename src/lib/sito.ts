@@ -6,9 +6,9 @@ export const INDICIZZABILE = false;
 // Chi sono, in un posto solo: lo usano i dati strutturati della home e llms.txt
 export const SITO = {
   nome: 'Riccardo Mondi',
-  ruolo: 'AI Advisor and Developer',
+  ruolo: 'AI Specialist',
   ente: 'Politecnico di Milano',
-  gruppo: 'Osservatorio AI; Team R&D',
+  gruppo: 'Osservatori Digital Innovation',
   email: 'riccardo.mondi@polimi.it',
   github: 'https://github.com/btwsonorico',
   linkedin: 'https://www.linkedin.com/in/riccardo-mondi-7717181aa/',

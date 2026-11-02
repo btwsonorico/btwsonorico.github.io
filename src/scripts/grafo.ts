@@ -48,6 +48,7 @@ export function monta(el: HTMLElement) {
     const etichetta = document.createElement('span');
     etichetta.className = `etichetta ${n.tipo}`;
     etichetta.textContent = n.label;
+    etichetta.style.opacity = '0';
     el.appendChild(etichetta);
     return { ...n, p, v: new THREE.Vector3(), mesh, etichetta, vicini: new Set() };
   });
@@ -71,6 +72,7 @@ export function monta(el: HTMLElement) {
     const etichetta = document.createElement('span');
     etichetta.className = 'etichetta testo';
     etichetta.textContent = s.label;
+    etichetta.style.opacity = '0';
     el.appendChild(etichetta);
     const asse = new THREE.Vector3(Math.sin(k * 2.1 + 1), Math.cos(k * 1.3), Math.sin(k * 0.7 + 2)).normalize();
     const u = new THREE.Vector3().crossVectors(asse, new THREE.Vector3(0.3, 1, 0.2)).normalize();
@@ -162,6 +164,30 @@ export function monta(el: HTMLElement) {
     camera.updateProjectionMatrix();
   }).observe(el);
 
+  // Comparsa: all'inizio c'è solo il nodo con più collegamenti; gli altri si propagano lungo gli archi, ognuno esce dal
+  // nodo che lo ha chiamato con un piccolo rimbalzo. Gli archi si tendono mentre i nodi escono, le stelle arrivano per ultime.
+  const nascita = nodi.map(() => ({ ritardo: 0, da: -1 }));
+  {
+    const primo = nodi.reduce((m, n, i) => (n.vicini.size > nodi[m]!.vicini.size ? i : m), 0);
+    const visti = new Set([primo]), coda = [primo], ordine: number[] = [];
+    while (visti.size < nodi.length) {
+      while (coda.length) {
+        const i = coda.shift()!;
+        ordine.push(i);
+        [...nodi[i]!.vicini].forEach(j => { if (!visti.has(j)) { visti.add(j); coda.push(j); nascita[j]!.da = i; } });
+      }
+      // Nodi senza collegamenti con gli altri: partono da soli
+      const resto = nodi.findIndex((_, i) => !visti.has(i));
+      if (resto >= 0) { visti.add(resto); coda.push(resto); }
+    }
+    while (coda.length) ordine.push(coda.shift()!);
+    const passoNascita = Math.min(90, 3000 / Math.max(1, ordine.length));
+    ordine.forEach((i, k) => { nascita[i]!.ritardo = k ? 350 + k * passoNascita : 0; });
+  }
+  const FINE_NASCITA = Math.max(...nascita.map(q => q.ritardo)) + 700;
+  const rimbalzo = (x: number) => { const k = 1.4; x -= 1; return x * x * ((k + 1) * x + k) + 1; };
+  let avvio = -1;
+
   // Fisica: repulsione fra tutti, molle sugli archi, richiamo verso il centro, attrito
   function passo() {
     const n = nodi.length;
@@ -193,7 +219,7 @@ export function monta(el: HTMLElement) {
   el.appendChild(anello);
   let pingato = -1;
   if (!ridotto && cliccabili.length) setInterval(() => {
-    if (el.offsetParent === null || preso >= 0 || sopra >= 0 || esterno >= 0) return;
+    if (el.offsetParent === null || preso >= 0 || sopra >= 0 || esterno >= 0 || avvio < 0 || performance.now() - avvio < FINE_NASCITA) return;
     pingato = cliccabili[Math.floor(Math.random() * cliccabili.length)]!;
     anello.className = `anello ${nodi[pingato]!.tipo}`;
     void anello.offsetWidth; // riparte l'animazione CSS
@@ -212,16 +238,22 @@ export function monta(el: HTMLElement) {
     const acceso = (i: number) => fuoco < 0 || i === fuoco || nodi[fuoco]!.vicini.has(i);
 
     const t = performance.now();
+    if (avvio < 0) avvio = t;
+    const eta = ridotto ? Infinity : t - avvio;
+    const uscita = (i: number) => THREE.MathUtils.clamp((eta - nascita[i]!.ritardo) / 700, 0, 1);
     nodi.forEach((nd, i) => {
-      nd.mesh.position.copy(nd.p);
+      // Mentre nasce, il nodo scivola dal suo genitore al suo posto
+      const u = uscita(i), e = rimbalzo(u), genitore = nascita[i]!.da;
+      if (u < 1 && genitore >= 0) nd.mesh.position.lerpVectors(nodi[genitore]!.p, nd.p, Math.min(1, e)); else nd.mesh.position.copy(nd.p);
+      nd.mesh.visible = u > 0;
       // Le fonti secondarie sono più piccole e più tenui; i nodi cliccabili respirano
       const respiro = !ridotto && nd.href && i !== fuoco ? 1 + 0.08 * Math.sin(t * 0.0022 + i * 1.7) : 1;
       const s = (i === fuoco ? 1.7 : 1) * (nd.debole ? 0.7 : 1) * respiro;
-      nd.mesh.scale.lerp(new THREE.Vector3(s, s, s), 0.2);
+      if (u < 1) nd.mesh.scale.setScalar(Math.max(0.001, s * e)); else nd.mesh.scale.lerp(new THREE.Vector3(s, s, s), 0.2);
       (nd.mesh.material as THREE.MeshBasicMaterial).opacity = (acceso(i) ? 1 : 0.18) * (nd.debole && i !== fuoco ? 0.5 : 1);
       const sc = schermo(i);
       const mostra = i === fuoco || (stile[nd.tipo].hub && acceso(i)) || (fuoco >= 0 && nodi[fuoco]!.vicini.has(i));
-      nd.etichetta.style.opacity = mostra && sc.z < 1 ? '1' : '0';
+      nd.etichetta.style.opacity = mostra && sc.z < 1 && u >= 1 ? '1' : '0';
       nd.etichetta.classList.toggle('attiva', i === fuoco);
       nd.etichetta.style.transform = `translate(${Math.round(sc.x + 12)}px, ${Math.round(sc.y - 8)}px)`;
     });
@@ -245,7 +277,10 @@ export function monta(el: HTMLElement) {
       st.mesh.position.copy(centro).addScaledVector(st.u, Math.cos(ang) * st.raggio).addScaledVector(st.v, Math.sin(ang) * st.raggio);
       const attiva = k === sopraStella || k === presaStella || k === esternaStella;
       const s = attiva ? 2.4 : 1;
-      st.mesh.scale.lerp(new THREE.Vector3(s, s, s), 0.2);
+      // Le stelle arrivano quando il grafo è formato
+      const arriva = THREE.MathUtils.clamp((eta - FINE_NASCITA - k * 50) / 700, 0, 1);
+      st.mesh.visible = arriva > 0;
+      if (arriva < 1) st.mesh.scale.setScalar(Math.max(0.001, s * rimbalzo(arriva))); else st.mesh.scale.lerp(new THREE.Vector3(s, s, s), 0.2);
       // Brillano piano; si spengono quando il fuoco è su un nodo che non è un loro tema
       const spenta = fuoco >= 0 && !st.temi.includes(fuoco);
       (st.mesh.material as THREE.MeshBasicMaterial).opacity = attiva ? 1 : spenta ? 0.12 : 0.7 + 0.3 * Math.sin(tempo * 0.002 + st.fase * 3);
@@ -254,7 +289,9 @@ export function monta(el: HTMLElement) {
       st.etichetta.style.transform = `translate(${Math.round(sc.x + 10)}px, ${Math.round(sc.y - 8)}px)`;
     });
     archi.forEach(([a, b], k) => {
-      nodi[a]!.p.toArray(posLinee, k * 6); nodi[b]!.p.toArray(posLinee, k * 6 + 3);
+      // L'arco esiste quando sono nati tutti e due i nodi: fino ad allora i suoi capi coincidono
+      if (uscita(a) > 0 && uscita(b) > 0) { nodi[a]!.mesh.position.toArray(posLinee, k * 6); nodi[b]!.mesh.position.toArray(posLinee, k * 6 + 3); }
+      else { nodi[a]!.p.toArray(posLinee, k * 6); nodi[a]!.p.toArray(posLinee, k * 6 + 3); }
       const toccato = fuoco >= 0 && (a === fuoco || b === fuoco);
       const c = toccato ? colori.accent : fuoco >= 0 ? colori.line : colori.line.clone().lerp(colori.muted, 0.45);
       c.toArray(colLinee, k * 6); c.toArray(colLinee, k * 6 + 3);

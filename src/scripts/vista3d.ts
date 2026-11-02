@@ -23,6 +23,8 @@ interface Opzioni {
   inclinazione: [number, number];
   // Chiamata a ogni fotogramma: muove gli oggetti e li accende o spegne
   aggiorna: (t: number, acceso: (famiglia: string, id: string) => number) => void;
+  // Chiamata subito dopo aggiorna: serve alla crescita iniziale, che ha l'ultima parola sulle scale
+  dopo?: (t: number) => void;
   // Rotazione iniziale intorno all'asse verticale (0.4 se manca), rotazione lenta automatica (sì se manca)
   // e quanto si può girare la scena a destra e a sinistra della rotazione iniziale (senza limite se manca)
   giro?: number;
@@ -45,6 +47,34 @@ const css = (el: HTMLElement, nome: string) => new THREE.Color(getComputedStyle(
 export const tonoSezione = (nome: string) => css(document.documentElement, nome);
 export function colori(el: HTMLElement) {
   return { fg: css(el, '--fg'), accent: css(el, '--accent'), muted: css(el, '--muted'), line: css(el, '--line'), bg: css(el, '--bg') };
+}
+
+// Crescita iniziale, come il bosco di Software: la base c'è già, i pezzi nascono uno dopo l'altro con un piccolo rimbalzo
+// e le etichette arrivano quando è tutto cresciuto. I pezzi fermi nell'origine hanno le coordinate dentro la forma
+// (erba, canne): quelli crescono solo in altezza. Con il movimento ridotto (t = 0) è tutto già cresciuto.
+export function crescita(pezzi: THREE.Object3D[], punti: Punto[], da = 300, per = 2600, dura = 850) {
+  const ease = (x: number) => { const k = 1.4; x -= 1; return x * x * ((k + 1) * x + k) + 1; };
+  const voci = pezzi.map((p, i) => ({ p, base: p.scale.clone(), soloY: !(p as THREE.Group).isGroup && p.position.lengthSq() < 1e-6, ritardo: da + (i / Math.max(1, pezzi.length)) * per }));
+  const accese = punti.filter(q => !q.spento);
+  accese.forEach(q => { q.spento = true; });
+  let inizio = -1, finito = false;
+  return (t: number) => {
+    if (finito) return;
+    if (inizio < 0) inizio = t;
+    const tempo = t === 0 ? Infinity : t - inizio;
+    for (const v of voci) {
+      const u = THREE.MathUtils.clamp((tempo - v.ritardo) / dura, 0, 1);
+      if (u >= 1 && tempo < da + per + dura) continue;
+      const e = Math.max(0.001, ease(u));
+      if (v.soloY) v.p.scale.y = v.base.y * Math.min(1, e); else v.p.scale.copy(v.base).multiplyScalar(e);
+      v.p.visible = u > 0;
+    }
+    if (tempo >= da + per + dura) {
+      finito = true;
+      voci.forEach(v => { v.p.visible = true; if (v.soloY) v.p.scale.y = v.base.y; });
+      accese.forEach(q => { q.spento = false; });
+    }
+  };
 }
 
 export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: Opzioni) {
@@ -214,6 +244,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     // 1: in primo piano; 0.5: stessa competenza; 0.15: spento. Senza fuoco tutto a 0.5.
     const acceso = (famiglia: string, id: string) => !f ? 0.5 : id === f.id ? 1 : famiglia === f.famiglia ? 0.5 : 0.15;
     o.aggiorna(t, acceso);
+    o.dopo?.(t);
     gruppo.updateMatrixWorld();
 
     const posti = punti.map((p, i) => {
