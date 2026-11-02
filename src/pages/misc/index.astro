@@ -18,6 +18,7 @@ import Base from '../../layouts/Base.astro';
       <button type="button" data-scena="barriera">reef</button>
       <button type="button" data-scena="pesca">fishing</button>
       <button type="button" data-scena="cavi">wires</button>
+      <a class="pagina" href="/misc/neural-network/">neural network</a>
     </p>
     <!-- Color editor: i tre toni chiave della scena 3D aperta; la scelta resta in questo browser -->
     <p class="mono toni" hidden>
@@ -110,6 +111,9 @@ import Base from '../../layouts/Base.astro';
   .scelte { display: flex; flex-wrap: wrap; gap: 6px var(--s2); align-items: center; }
   .scelte button { padding: 0 6px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
   .scelte button:hover { color: var(--fg); }
+  /* Gli esperimenti con testo e comandi sono pagine, non scene: stesso aspetto dei bottoni */
+  .scelte .pagina { padding: 0 6px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); text-decoration: none; }
+  .scelte .pagina:hover { color: var(--fg); }
   .scelte button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
   /* Color editor: tre quadratini di colore col loro nome, e il bottone per tornare ai colori di partenza */
   .toni { display: flex; flex-wrap: wrap; gap: 6px var(--s2); align-items: center; color: var(--muted); }
@@ -150,7 +154,7 @@ import Base from '../../layouts/Base.astro';
     /* Su telefono la scheda sta in fondo allo schermo, e scorre col dito */
     :global(.scheda-glossario) { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 48vh; border-width: 1px 0 0; }
     :global(.conta-pesca) { right: 16px; bottom: auto; top: 232px; }
-    .scelte button, .toni button { padding: 6px 12px; }
+    .scelte button, .scelte .pagina, .toni button { padding: 6px 12px; }
     .toni input { width: 28px; height: 28px; }
   }
 </style>

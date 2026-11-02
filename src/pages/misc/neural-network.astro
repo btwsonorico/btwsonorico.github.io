@@ -1,0 +1,157 @@
+---
+import Base from '../../layouts/Base.astro';
+
+// Rete neurale: un esperimento per capire come decide e come impara. La rete è vera e si allena nel browser (src/lib/rete.ts)
+---
+<Base title="Neural network · Riccardo Mondi" description="Train a small neural network in your browser and see how it decides." largo>
+  <main class="rn" data-rete>
+    <p class="mono via"><a href="/">~</a>/<a href="/misc/">misc</a>/neural-network</p>
+    <h1>How does a neural network decide?</h1>
+    <p class="mono nota">Real computation: this network trains in your browser, no server. Simplified: two inputs and a few neurons, against billions of weights in a large model.</p>
+
+    <aside class="guida" aria-live="polite">
+      <span class="mono guida-numero"></span>
+      <p class="guida-testo"></p>
+      <div class="mono guida-comandi">
+        <button type="button" class="guida-azione primo"></button>
+        <button type="button" class="guida-prima" aria-label="Previous hint">←</button>
+        <button type="button" class="guida-dopo" aria-label="Next hint">→</button>
+        <button type="button" class="guida-chiudi" aria-label="Hide the guide">hide</button>
+      </div>
+    </aside>
+
+    <div class="mono barra-comandi">
+      <button type="button" class="gioca primo" aria-pressed="false">train</button>
+      <button type="button" class="un-passo">step</button>
+      <button type="button" class="azzera">reset</button>
+      <span class="gruppo">
+        <span class="etichetta-c">hidden layers</span>
+        <button type="button" class="strati-meno" aria-label="Remove a hidden layer">−</button>
+        <span class="strati-numero">0</span>
+        <button type="button" class="strati-piu" aria-label="Add a hidden layer">+</button>
+      </span>
+      <span class="fasi" aria-hidden="true"><span>1 predict</span><span>2 error</span><span>3 adjust</span></span>
+    </div>
+
+    <div class="banco">
+      <section class="pannello-rete">
+        <div class="rete-box">
+          <div class="mono colonne"></div>
+          <canvas class="tela-rete" role="img" aria-label="Diagram of the network: inputs on the left, output on the right. Each square shows what that neuron responds to, and each line is a weight."></canvas>
+        </div>
+        <p class="mono formula" aria-live="off"></p>
+      </section>
+      <section class="pannello-piano">
+        <p class="mono cartiglio-piano"></p>
+        <canvas class="tela-piano" role="img" aria-label="Plane with two classes of points. The colour shows the decision of the network and a line shows its boundary."></canvas>
+        <p class="mono leggenda">
+          <span><i class="q blu"></i>blue</span>
+          <span><i class="q ora"></i>orange</span>
+          <span><i class="q sbagliato"></i>wrong</span>
+          <span>p = chance of orange</span>
+        </p>
+        <div class="mono risultati">
+          <span class="numeri"></span>
+          <canvas class="tela-storia" role="img" aria-label="Loss over time"></canvas>
+        </div>
+      </section>
+    </div>
+
+    <div class="mono altri">
+      <div class="scelta" role="group" aria-label="Data">
+        <span class="etichetta-c">data</span>
+        <button type="button" data-dati="line">line</button>
+        <button type="button" data-dati="circle">circle</button>
+        <button type="button" data-dati="xor">xor</button>
+        <button type="button" data-dati="spiral">spiral</button>
+      </div>
+      <div class="scelta" role="group" aria-label="Activation">
+        <span class="etichetta-c">activation</span>
+        <button type="button" data-attivazione="tanh">tanh</button>
+        <button type="button" data-attivazione="relu">relu</button>
+      </div>
+      <label class="scelta"><span class="etichetta-c">learning rate</span><input class="cursore-tasso" type="range" min="0" max="7" step="1" /><span class="valore-tasso"></span></label>
+      <label class="scelta"><span class="etichetta-c">noise</span><input class="cursore-rumore" type="range" min="0" max="0.3" step="0.02" /><span class="valore-rumore"></span></label>
+    </div>
+  </main>
+</Base>
+
+<script>
+  import { monta } from '../../scripts/reteVista';
+  monta(document.querySelector<HTMLElement>('[data-rete]')!);
+</script>
+
+<style>
+  .rn { max-width: 1240px; padding-top: var(--s1); }
+  .via a { color: inherit; }
+  .via { margin: 0; }
+  h1 { font-size: 33px; font-weight: 400; line-height: 1.1; margin: var(--s1) 0; }
+  .nota { max-width: 640px; margin: 0 0 var(--s2); }
+  button { padding: 1px 8px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
+  button:hover:not(:disabled) { color: var(--fg); border-color: var(--muted); }
+  button:disabled { opacity: .4; cursor: default; }
+  button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
+  .primo { border-color: var(--fg); color: var(--fg); }
+  .primo:hover:not(:disabled) { background: var(--fg); color: var(--bg); }
+  .guida { display: flex; flex-wrap: wrap; gap: 6px var(--s2); align-items: center; padding: 10px var(--s2); margin-bottom: var(--s2); border: 1px solid var(--line); background: var(--superficie); }
+  .guida[hidden] { display: none; }
+  .guida-testo { flex: 1 1 320px; margin: 0; font-size: 14px; line-height: 1.5; }
+  .guida-comandi { display: flex; gap: 6px; align-items: center; }
+  .guida-azione[hidden] { display: none; }
+  .barra-comandi { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-bottom: var(--s2); color: var(--muted); }
+  .gruppo { display: inline-flex; gap: 6px; align-items: center; margin-left: var(--s1); }
+  .strati-numero { min-width: 1ch; text-align: center; color: var(--fg); }
+  .fasi { display: inline-flex; gap: var(--s1); margin-left: auto; }
+  .fasi span { padding: 1px 6px; border: 1px solid transparent; opacity: .55; }
+  .fasi span.accesa { opacity: 1; border-color: var(--fg); color: var(--fg); }
+  .banco { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(300px, 1fr); gap: var(--s3); align-items: start; }
+  .rete-box { position: relative; }
+  .tela-rete { display: block; width: 100%; height: 460px; touch-action: pan-y; }
+  .tela-piano { display: block; width: 100%; aspect-ratio: 1; border: 0; outline: 1px solid var(--line); touch-action: pan-y; cursor: crosshair; }
+  .colonne { position: absolute; inset: 0 0 auto; height: 30px; z-index: 1; color: var(--muted); }
+  .colonne :global(.colonna) { position: absolute; top: 2px; transform: translateX(-50%); display: inline-flex; gap: 3px; align-items: center; white-space: nowrap; }
+  .colonne :global(button) { padding: 0 5px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
+  .colonne :global(button:hover:not(:disabled)) { color: var(--fg); border-color: var(--muted); }
+  .colonne :global(button:disabled) { opacity: .4; cursor: default; }
+  .formula { min-height: 40px; margin: var(--s1) 0 0; color: var(--fg); font-size: 12px; overflow-wrap: anywhere; }
+  .cartiglio-piano { margin: 0 0 6px; color: var(--fg); }
+  .leggenda { display: flex; flex-wrap: wrap; gap: 2px var(--s2); margin: 6px 0 0; }
+  .leggenda span { display: inline-flex; align-items: center; gap: 5px; }
+  .q { display: inline-block; width: 8px; height: 8px; }
+  .q.blu { background: var(--azzurro); }
+  .q.ora { background: var(--arancio); }
+  .q.sbagliato { background: var(--muted); outline: 1px solid var(--fg); }
+  .risultati { display: flex; flex-wrap: wrap; gap: 4px var(--s2); align-items: center; margin-top: 6px; color: var(--fg); }
+  .numeri { white-space: pre-wrap; }
+  .tela-storia { flex: 1 1 100px; min-width: 100px; height: 28px; border-bottom: 1px solid var(--line); }
+  .altri { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s3); margin-top: var(--s2); padding-top: var(--s2); border-top: 1px solid var(--line); }
+  .scelta { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; color: var(--fg); }
+  .etichetta-c { color: var(--muted); }
+  input[type="range"] { width: 110px; accent-color: var(--fg); }
+  /* Su schermi larghi rete, piano e numeri stanno tutti in una schermata */
+  @media (min-width: 861px) {
+    .tela-rete { height: clamp(340px, calc(100vh - 340px), 620px); }
+    .tela-piano { width: min(100%, max(300px, calc(100vh - 400px))); }
+  }
+  @media (max-width: 860px) {
+    .banco { grid-template-columns: minmax(0, 1fr); }
+    /* Su telefono prima il piano: è quello che cambia quando tocchi i comandi */
+    .pannello-piano { order: -1; }
+    .tela-rete { height: 340px; }
+    .fasi { margin-left: 0; }
+  }
+  @media (max-width: 640px) {
+    /* Su telefono la nota passa in fondo: guida, comandi e piano stanno il più possibile in una schermata */
+    .rn { display: flex; flex-direction: column; }
+    .nota { order: 10; margin: var(--s2) 0 0; }
+    h1 { font-size: 22px; }
+    .guida { padding: 8px 10px; margin-bottom: 10px; }
+    .guida-testo { flex-basis: 100%; font-size: 13px; }
+    .barra-comandi { margin-bottom: 10px; }
+    button { padding: 6px 12px; }
+    input[type="range"] { height: 28px; }
+    .colonne :global(button) { min-height: 28px; padding: 3px 7px; }
+    .gruppo { margin-left: 0; }
+    .fasi { width: 100%; }
+  }
+</style>
