@@ -41,20 +41,21 @@ const RISORSE = [
   .lista a:hover { color: var(--bg); background: var(--fg); text-decoration: none; }
   .lista span { display: block; width: fit-content; background: color-mix(in srgb, var(--bg) 78%, transparent); }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
-  /* Etichette delle scene 3D, come nelle altre pagine. Il nome di una mongolfiera è un link */
+  /* Etichette come nella home, ognuna nel colore del suo pallone. Il nome di una mongolfiera è un link */
   .scena3d :global(.etichetta) {
     position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;
-    padding: 1px 5px; font-family: var(--mono); font-size: 11px; color: var(--fg);
+    padding: 1px 5px; font-family: var(--mono); font-size: 11px; color: var(--accent);
     background: color-mix(in srgb, var(--bg) 78%, transparent); transition: opacity .15s;
   }
-  .scena3d :global(.nome-pallone) { padding: 2px 8px; border: 1px solid var(--fg); background: var(--bg); color: var(--fg); font-size: 13px; pointer-events: auto; text-decoration: none; }
-  .scena3d :global(.nome-pallone:hover), .scena3d :global(.nome-pallone.attiva) { color: var(--bg); background: var(--fg); }
+  .scena3d :global(.nome-pallone) { pointer-events: auto; text-decoration: none; }
+  /* Col dito si tocca un'area più grande dell'etichetta */
+  .scena3d :global(.nome-pallone)::before { content: ''; position: absolute; inset: -9px -6px; }
+  .scena3d :global(.nome-pallone:hover), .scena3d :global(.nome-pallone.attiva) { color: var(--bg); background: var(--accent); padding: 2px 7px; z-index: 2; }
   .scena3d :global(.nome-pallone.attiva)::after { content: ' · open →'; }
   /* Telefono: la valle sta in una fascia in alto, il testo sotto */
   @media (max-width: 640px) {
     .fondo3d { position: absolute; top: 0; left: 0; right: 0; bottom: auto; height: min(50vh, 105vw); }
     .learn { padding-top: calc(min(50vh, 105vw) - 66px); }
     .lista a { display: inline-flex; align-items: center; min-height: 32px; }
-    .scena3d :global(.nome-pallone) { padding: 5px 8px; font-size: 12px; }
   }
 </style>

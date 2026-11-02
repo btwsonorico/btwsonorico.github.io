@@ -23,6 +23,8 @@ interface Opzioni {
   finito?: (cibo: Cibo) => void;
   // Zone dove i cervi non possono mettere piede (per esempio l'acqua): lì si fermano, si girano e cambiano meta
   vietato?: (x: number, z: number) => boolean;
+  // La famiglia resta unita: la cerva segue il cervo, i cerbiatti seguono la cerva
+  unita?: boolean;
 }
 
 const MISURA: Record<Tipo, number> = { cervo: 0.8, cerva: 0.68, cerbiatto: 0.44 };
@@ -149,8 +151,10 @@ export function famigliaCervi(gruppo: THREE.Group, o: Opzioni) {
   // Il secondo cervo maschio, se c'è, è più giovane: un po' più piccolo
   cervi.filter(v => v.tipo === 'cervo').slice(1).forEach(v => { v.scala *= 0.9; });
   const mamma = cervi.find(v => v.tipo === 'cerva') ?? cervi[0]!;
+  const capo = cervi.find(v => v.tipo === 'cervo') ?? cervi[0]!;
   const nuovaMeta = (v: Cervo) => o.meta(v.meta);
   cervi.forEach(nuovaMeta);
+  if (o.unita && mamma !== capo) { mamma.lato = 1; mamma.x = capo.x - 0.3; mamma.z = capo.z + 0.2; mamma.verso = capo.verso; }
   // I cerbiatti partono vicino alla mamma, uno per lato
   cervi.filter(v => v.tipo === 'cerbiatto').forEach((v, i) => { v.lato = i % 2 ? -1 : 1; v.x = mamma.x - 0.25; v.z = mamma.z + v.lato * 0.25; v.verso = mamma.verso; });
 
@@ -184,7 +188,7 @@ export function famigliaCervi(gruppo: THREE.Group, o: Opzioni) {
         // Con prefers-reduced-motion t resta 0: i cervi sono già cresciuti
         const cresce = t === 0 ? 1 : THREE.MathUtils.clamp((t - nascita - k * 280) / 800, 0, 1);
         v.cervo.scale.setScalar(Math.max(0.001, v.scala * ease(cresce)));
-        const cucciolo = v.tipo === 'cerbiatto';
+        const cucciolo = v.tipo === 'cerbiatto', segue = cucciolo || (!!o.unita && v.tipo === 'cerva' && v !== capo);
         // Chi ha del cibo va in un punto poco prima del frutto, così ci arriva con la bocca e non con il corpo;
         // i cerbiatti, altrimenti, seguono la mamma: un punto al suo fianco, un po' dietro
         if (v.cibo) {
@@ -192,9 +196,9 @@ export function famigliaCervi(gruppo: THREE.Group, o: Opzioni) {
           const bocca = 0.42 * v.scala, vx = v.cibo.x - v.x, vz = v.cibo.z - v.z, l = Math.hypot(vx, vz) || 1;
           v.meta.set(v.cibo.x - (vx / l) * bocca, v.cibo.z - (vz / l) * bocca);
         }
-        else if (cucciolo) {
-          const dietro = mamma.verso + Math.PI + v.lato * 0.8;
-          v.meta.set(mamma.x + Math.cos(dietro) * 0.28, mamma.z - Math.sin(dietro) * 0.28);
+        else if (segue) {
+          const guida = cucciolo ? mamma : capo, dietro = guida.verso + Math.PI + v.lato * 0.8, stacco = cucciolo ? 0.28 : 0.4;
+          v.meta.set(guida.x + Math.cos(dietro) * stacco, guida.z - Math.sin(dietro) * stacco);
         }
         const dx = v.meta.x - v.x, dz = v.meta.y - v.z, d = Math.hypot(dx, dz);
         if (dt > 0) {
@@ -209,21 +213,21 @@ export function famigliaCervi(gruppo: THREE.Group, o: Opzioni) {
               v.cibo.mangiata = 1 - Math.max(0, v.timer) / 2.5;
               if (v.timer <= 0) { const cibo = v.cibo; lascia(cibo); o.finito?.(cibo); }
             }
-          } else if (v.stato === 'cammina' && d < (cucciolo ? 0.1 : 0.2)) {
+          } else if (v.stato === 'cammina' && d < (segue ? 0.1 : 0.2)) {
             v.stato = r() < 0.6 ? 'bruca' : 'guarda';
-            v.timer = cucciolo ? 1 + r() * 1.5 : 3 + r() * 4;
+            v.timer = segue ? 1 + r() * 1.5 : 3 + r() * 4;
             v.sguardo = (r() - 0.5) * 1.6;
           } else if (v.stato !== 'cammina') {
             v.timer -= dt;
-            if (cucciolo && d > 0.3) v.stato = 'cammina';
+            if (segue && d > 0.3) v.stato = 'cammina';
             else if (v.timer <= 0) {
-              if (!cucciolo && v.stato === 'bruca' && r() < 0.5) { v.stato = 'guarda'; v.timer = 1.5 + r() * 2; v.sguardo = (r() - 0.5) * 1.6; }
-              else { v.stato = 'cammina'; if (!cucciolo) nuovaMeta(v); }
+              if (!segue && v.stato === 'bruca' && r() < 0.5) { v.stato = 'guarda'; v.timer = 1.5 + r() * 2; v.sguardo = (r() - 0.5) * 1.6; }
+              else { v.stato = 'cammina'; if (!segue) nuovaMeta(v); }
             }
           }
           // Velocità: cresce e cala piano; i cerbiatti trottano quando restano indietro; verso il cibo, di buon passo
           // Verso il cibo rallenta mentre si avvicina, così si ferma con la bocca sul frutto e non ci passa sopra
-          const voluta = v.stato !== 'cammina' ? 0 : v.cibo ? Math.min(0.3, 0.04 + d * 1.2) : cucciolo ? THREE.MathUtils.clamp(0.12 + d * 0.6, 0.12, 0.5) : v.tipo === 'cervo' ? 0.24 : 0.2;
+          const voluta = v.stato !== 'cammina' ? 0 : v.cibo ? Math.min(0.3, 0.04 + d * 1.2) : segue ? THREE.MathUtils.clamp(0.12 + d * 0.6, 0.12, 0.5) : v.tipo === 'cervo' ? 0.24 : 0.2;
           // Mentre mangia si ferma subito e si gira verso il frutto
           if (v.cibo && v.stato === 'bruca') {
             v.vel = 0;

@@ -6,7 +6,7 @@ import { famigliaCervi } from './cervi';
 // A terra, su un prato verde: un piccolo bosco (Software) e uno stagno con i pesci (Advisory).
 // Sopra, Knowledge: un grande stormo di uccelli arancioni che gira sul diorama, di giorno e di notte.
 // Le tre sezioni hanno lo stesso peso; un anello pulsa sotto ognuna e un clic la apre.
-// Sul prato cammina una famiglia di cervi. Di notte: lucciole nel bosco.
+// Sul prato cammina una famiglia di cervi, tutta vicina: è Learn, e un clic sui cervi la apre. Di notte: lucciole nel bosco.
 // Il diorama ruota piano.
 
 function casuale(seme: number) {
@@ -386,12 +386,19 @@ export function monta(el: HTMLElement) {
   };
 
   // Prato e acqua ci sono subito; bosco, vita dello stagno e stormo nascono dopo
-  const nasce = crescita([...gruppo.children.slice(nPrato, nBosco), ...gruppo.children.slice(nAcqua)].filter(o => o !== lineaStormo && o !== centroStormo), punti.filter(q => q !== puntoStormo));
+  // Learn: l'etichetta segue la famiglia di cervi, e appare quando i cervi sono arrivati
+  const sopraCervi = new THREE.Object3D();
+  gruppo.add(sopraCervi);
+  const puntoCervi: Punto = { id: 'sezione:learn', label: 'Learn', href: '/learn/', hub: true, famiglia: 'learn', ancora: sopraCervi, spento: true };
+  punti.push(puntoCervi);
+  const nasce = crescita([...gruppo.children.slice(nPrato, nBosco), ...gruppo.children.slice(nAcqua)].filter(o => o !== lineaStormo && o !== centroStormo && o !== sopraCervi), punti.filter(q => q !== puntoStormo && q !== puntoCervi));
   let primoFotogramma = -1;
-  // --- Cervi: una piccola famiglia che cammina sul prato, gira intorno agli alberi e allo stagno
+  // --- Cervi: una piccola famiglia unita che cammina sul prato, gira intorno agli alberi e allo stagno.
+  // Le mete stanno fuori dal bosco: i cervi lo attraversano solo di passaggio, e restano facili da vedere e da cliccare
+  const nelBosco = (x: number, z: number) => Math.hypot((x + 1.7) / 2.1, (z + 0.2) / 2.4) < 1;
   const famiglia = famigliaCervi(gruppo, {
-    colori: c, chiaro, casuale: r, tipi: ['cervo', 'cerva', 'cerbiatto'],
-    meta: out => { do { out.set((r() - 0.5) * 7, (r() - 0.5) * 6.5); } while (!sullIsola(out.x, out.y, 0.5) || nelloStagno(out.x, out.y, -0.4)); },
+    colori: c, chiaro, casuale: r, tipi: ['cervo', 'cerva', 'cerbiatto'], unita: true,
+    meta: out => { do { out.set((r() - 0.5) * 8.4, (r() - 0.5) * 7.4); } while (!sullIsola(out.x, out.y, 0.5) || nelloStagno(out.x, out.y, -0.4) || nelBosco(out.x, out.y)); },
     ostacoli: () => [...alberi.map(a => ({ x: a.position.x, z: a.position.z, raggio: 0.4 })), { x: -1.7, z: -0.2, raggio: 0.7 }, { x: STAGNO.x, z: STAGNO.y, raggio: 1.8 }],
     // Mai nell'acqua dello stagno e mai fuori dal prato
     vietato: (x, z) => nelloStagno(x, z, -0.2) || !sullIsola(x, z, 0.25),
@@ -409,6 +416,8 @@ export function monta(el: HTMLElement) {
   const zona = (raggio: THREE.Raycaster) => {
     gruppo.updateMatrixWorld();
     const r0 = raggio.ray.clone().applyMatrix4(inversaZona.copy(gruppo.matrixWorld).invert());
+    // Cervi: hanno la precedenza su tutto, anche quando passano fra gli alberi
+    if (!puntoCervi.spento && famiglia.cervi.some(v => r0.distanceSqToSegment(piede.set(v.x, 0, v.z), testa.set(v.x, 0.7, v.z)) < 0.3 * 0.3)) return 'sezione:learn';
     // Stormo: entro 1.5 dal suo centro
     if (arrivato && r0.distanceSqToPoint(centroPrima) < 1.4 * 1.4) return 'sezione:knowledge';
     // Bosco e stagno si cliccano solo quando la scena è formata
@@ -450,6 +459,8 @@ export function monta(el: HTMLElement) {
       if (primoFotogramma < 0) primoFotogramma = t;
       // I cervi arrivano quando il bosco è cresciuto
       famiglia.aggiorna(t, t === 0 || t - primoFotogramma > 2800);
+      puntoCervi.spento = t !== 0 && t - primoFotogramma < 3800;
+      sopraCervi.position.set(famiglia.cervi.reduce((a, v) => a + v.x, 0) / famiglia.cervi.length, 0.72, famiglia.cervi.reduce((a, v) => a + v.z, 0) / famiglia.cervi.length);
       // Salto: un pesce esce dall'acqua con un arco e rientra poco più avanti
       if (s > 0 && s > prossimoSalto) {
         salto = { pesce: Math.floor(r() * pesci.length), nato: s };

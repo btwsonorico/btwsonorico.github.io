@@ -440,7 +440,8 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     const a = document.createElement('a');
     a.className = 'etichetta skill nome-pallone';
     a.href = risorse[k]!.href;
-    a.textContent = risorse[k]!.nome;
+    a.textContent = risorse[k]!.nome.charAt(0).toUpperCase() + risorse[k]!.nome.slice(1);
+    a.dataset.tono = (['arancio', 'azzurro', 'verde'] as const)[k]!;
     el.appendChild(a);
     return a;
   });
