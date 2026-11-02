@@ -220,9 +220,9 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     esterno = punti.findIndex(p => p.id === id);
   });
 
-  // Inquadratura calcolata: parte con la camera vicina e la mira che porta il bordo davanti, nel punto più basso che può
-  // raggiungere, proprio al margine di sotto. Se così la cima esce o il suolo sfora ai lati, allontana la camera un poco
-  // alla volta: la scena è sempre la più grande che entra nel riquadro.
+  // Inquadratura calcolata: parte con la camera vicina e la mira che mette la scena al centro del riquadro, in verticale.
+  // Se così la cima o il bordo davanti escono, o il suolo sfora ai lati, allontana la camera un poco alla volta:
+  // la scena è sempre la più grande che entra nel riquadro.
   const miraPreferita = o.mira.y;
   function inquadra({ raggio, alto, dietro, sinistra }: { raggio: number; alto: number; dietro: number; sinistra: () => number }) {
     // Spazio libero: da dove finisce il testo al bordo destro. L'erba può passare appena sotto il testo; il centro della scena
@@ -238,17 +238,18 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
       return v.dot(su) / v.dot(avanti) / tan;
     };
     const fondo = (cam: THREE.Vector3, mira: number) => Math.min(...o.inclinazione.map(a => altezzaSchermo(cam, mira, -raggio * Math.sin(a), raggio * Math.cos(a))));
+    // Sopra resta libera la barra del sito
+    const limite = 1 - 2 * Math.min(0.12, 64 / h), centro = (limite - margine) / 2;
+    const cima = (cam: THREE.Vector3, mira: number) => Math.max(...o.inclinazione.map(a => altezzaSchermo(cam, mira, alto * Math.cos(a) + dietro * Math.sin(a), -dietro * Math.cos(a) + alto * Math.sin(a))));
     const cam = base.clone().multiplyScalar(0.5);
     let mira = miraPreferita;
     for (let giri = 0; giri < 60; giri++) {
-      // Più in basso guarda la camera, più in alto sale la scena
-      let entra = miraPreferita - 8, esce = miraPreferita + 8;
-      for (let q = 0; q < 24; q++) { const m = (entra + esce) / 2; if (fondo(cam, m) < -margine) esce = m; else entra = m; }
-      mira = entra;
+      // La scena sta al centro dello spazio fra la barra e il fondo. Più in basso guarda la camera, più in alto sale la scena
+      let sale = miraPreferita - 8, scende = miraPreferita + 8;
+      for (let q = 0; q < 24; q++) { const m = (sale + scende) / 2; if ((cima(cam, m) + fondo(cam, m)) / 2 < centro) scende = m; else sale = m; }
+      mira = sale;
       const lati = raggio / cam.length() / tan / (libero / h);
-      // Sopra resta libera la barra del sito
-      const cima = Math.max(...o.inclinazione.map(a => altezzaSchermo(cam, mira, alto * Math.cos(a) + dietro * Math.sin(a), -dietro * Math.cos(a) + alto * Math.sin(a))));
-      if (cima <= 1 - 2 * Math.min(0.12, 64 / h) && lati <= margine) break;
+      if (fondo(cam, mira) >= -margine && cima(cam, mira) <= limite && lati <= margine) break;
       cam.multiplyScalar(1.02);
     }
     base.copy(cam);
