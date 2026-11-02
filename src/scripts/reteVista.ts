@@ -6,7 +6,7 @@ import { avanti, misura, nuovaRete, passo, type Punto, type Rete } from '../lib/
 const G = 32, T = 9, PASSI_AL_SECONDO = 800, GRUPPO = 64, TASSO = 0.03, TASSO_FINE = 0.01, RALLENTA = 12000, FINE = 20000, MS_AL_FOTOGRAMMA = 7, DURATA_PASSO = 4500, DURATA_SALITA = 1300;
 const ALTEZZA = 0.62, PIATTO = 0.52, RIPIDO = 7, SPAZIO_GUIDA = 64;
 // Con 5 neuroni uno strato si ferma intorno all'80%, due arrivano oltre il 95%: così si vede cosa aggiunge uno strato
-const MAX_NEURONI = 5, MAX_STRATI = 4, NEURONI_INIZIALI = 3;
+const MAX_NEURONI = 5, MAX_STRATI = 4, NEURONI_INIZIALI = 3, MAX_CORSE = 3;
 
 const SAGOME: Record<string, (x: number, y: number) => boolean> = {
   fish: (x, y) => ((x + 0.2) / 0.62) ** 2 + (y / 0.5) ** 2 < 1 || (x > 0.32 && x < 0.9 && Math.abs(y) < (x - 0.32) * 1.15 && Math.abs(y) > (x - 0.72) * 2.2),
@@ -49,7 +49,7 @@ export function monta(radice: HTMLElement) {
   let sopra: Neurone | null = null, fisso: Neurone | null = null, arco: Arco | null = null, spiega = '', giro = 0.55;
   let sonda: (Punto & { p: number }) | null = null, impulso = 0, verso = 1, testoPasso = '';
   let errore = 0, somiglia = 0, matchMostrato = 0, erroreMostrato = 0, primoDato = true, ultimoTesto = 0;
-  let storia: [number, number][] = [], storiaPrima: [number, number][] = [], nomePrima = '';
+  let storia: [number, number][] = [], corse: { nome: string; dati: [number, number][] }[] = [];
   // alza: quota del filo blu, da 0 (sulla base) a 1. mostra: quanto la griglia segue la rete. salita: l'animazione dopo Done
   let alza = 1, mostra = 1, salita = 0;
   let inMoto = false, disegno = false, anima: { t0: number; q: Punto; p: number; fatto: boolean } | null = null, resto = 0, ultimoTempo = 0, ultimoPunto = 0;
@@ -80,17 +80,18 @@ export function monta(radice: HTMLElement) {
     sporco = true;
   }
 
-  // --- Rete. Ogni cambio riparte da pesi casuali, così le curve si confrontano; quella di prima resta in grigio
-  const nomeForma = () => nascosti.join('+');
+  // --- Rete. Ogni cambio riparte da pesi casuali e si ferma: l'allenamento parte solo con train.
+  // Ogni allenamento fatto resta nel grafico, così si confrontano configurazioni diverse
+  const nomeForma = () => nascosti.join('-');
   function cambiaRete(nuovi: number[]) {
-    if (storia.length > 1) { storiaPrima = storia; nomePrima = nomeForma(); }
+    if (storia.length > 1) { corse = [...corse, { nome: nomeForma(), dati: storia }].slice(-MAX_CORSE); }
     rete = nuovaRete(nuovi, 'tanh', ++seme);
     nascosti = nuovi;
     passi = 0;
     storia = [];
     primoDato = true;
     sopra = fisso = arco = null;
-    sporco = true;
+    metti(false);
     disegnaColonne();
     scriviComandi();
   }
@@ -103,7 +104,7 @@ export function monta(radice: HTMLElement) {
     return g;
   };
   const correggi = () => { passo(rete, gruppo(), passi < RALLENTA ? TASSO : TASSO_FINE); passi++; sporco = true; };
-  const metti = (si: boolean) => { inMoto = si; gioca.textContent = si ? 'pause' : passi > 0 && passi < FINE ? 'continue' : 'train'; gioca.dataset.stato = si ? 'pausa' : 'via'; sporco = true; };
+  const metti = (si: boolean) => { inMoto = si; gioca.textContent = si ? 'pause' : passi >= FINE ? 'train again' : passi > 0 ? 'continue' : 'train'; gioca.dataset.stato = si ? 'pausa' : 'via'; sporco = true; };
 
   // --- Un neurone solo: non si allena, le due maniglie decidono i pesi
   const fissa = () => {
@@ -336,13 +337,25 @@ export function monta(radice: HTMLElement) {
     c.textAlign = 'center';
     c.fillText('height', colonna(ultimo), riga(ultimo, 0) + q / 2 + 10);
   }
-  // Grafico del match: stessi assi per tutte le reti, così si confrontano. In basso le correzioni, a sinistra la percentuale
+  // Grafico del match: stessi assi per tutte le corse, così si confrontano. In basso le correzioni, a sinistra la percentuale
   function disegnaCurva() {
-    const w = curva.clientWidth, h = curva.clientHeight, d = devicePixelRatio, sx0 = 30, sy0 = 22, altoG = h - sy0 - 16, largoG = w - sx0 - 6;
+    const w = curva.clientWidth, h = curva.clientHeight, d = devicePixelRatio, sx0 = 30;
     if (curva.width !== w * d) { curva.width = w * d; curva.height = h * d; }
     cc.setTransform(d, 0, 0, d, 0, 0);
     cc.clearRect(0, 0, w, h);
     cc.font = FONT;
+    // Legenda: una voce per corsa, col suo risultato; va a capo se serve e il grafico le lascia il posto
+    const voci = corse.map((q, k) => ({ testo: `${q.nome}: ${Math.round(q.dati[q.dati.length - 1]![1] * 100)}%`, colore: MUTED, alfa: [0.4, 0.65, 1][k + MAX_CORSE - corse.length]!, tratto: true }));
+    if (nascosti.length) voci.push({ testo: `now ${nomeForma()}`, colore: ARANCIO, alfa: 1, tratto: false });
+    let x = sx0, righe = 0;
+    const posti = voci.map(v => {
+      const largo = 14 + cc.measureText(v.testo).width + 12;
+      if (x + largo > w && x > sx0) { x = sx0; righe++; }
+      const p = { x, y: righe * 13 };
+      x += largo;
+      return p;
+    });
+    const sy0 = (righe + 1) * 13 + 7, altoG = h - sy0 - 16, largoG = w - sx0 - 6;
     const px = (q: number) => sx0 + (q / FINE) * largoG, py = (v: number) => sy0 + (1 - v) * altoG;
     cc.textBaseline = 'middle';
     cc.textAlign = 'right';
@@ -357,27 +370,26 @@ export function monta(radice: HTMLElement) {
     cc.fillText('0', sx0, h - 6);
     cc.textAlign = 'right';
     cc.fillText(`${FINE / 1000}k corrections`, w - 6, h - 6);
-    const linea = (dati: [number, number][], colore: string) => {
+    const linea = (dati: [number, number][], colore: string, alfa: number) => {
+      cc.globalAlpha = alfa;
       cc.strokeStyle = colore;
       cc.lineWidth = 2;
       cc.beginPath();
       dati.forEach(([q, v], k) => { if (k) cc.lineTo(px(q), py(v)); else cc.moveTo(px(q), py(v)); });
       cc.stroke();
+      cc.globalAlpha = 1;
     };
-    linea(storiaPrima, MUTED);
-    linea(storia, ARANCIO);
-    // Legenda: quale rete è quale, col risultato
+    corse.forEach((q, k) => linea(q.dati, MUTED, voci[k]!.alfa));
+    linea(storia, ARANCIO, 1);
     cc.textBaseline = 'top';
     cc.textAlign = 'left';
-    let x = sx0;
-    const voce = (colore: string, testo: string) => {
-      cc.fillStyle = colore;
-      cc.fillRect(x, 3, 10, 2);
-      cc.fillText(testo, x + 14, 0);
-      x += 14 + cc.measureText(testo).width + 14;
-    };
-    if (nascosti.length) voce(ARANCIO, `now ${nomeForma()}`);
-    if (storiaPrima.length) voce(MUTED, `before ${nomePrima}: ${Math.round(storiaPrima[storiaPrima.length - 1]![1] * 100)}%`);
+    voci.forEach((v, k) => {
+      cc.globalAlpha = v.alfa;
+      cc.fillStyle = v.colore;
+      cc.fillRect(posti[k]!.x, posti[k]!.y + 4, 10, 2);
+      cc.fillText(v.testo, posti[k]!.x + 14, posti[k]!.y);
+      cc.globalAlpha = 1;
+    });
   }
 
   // --- Now e Try: cosa sta succedendo, e cosa puoi fare adesso
@@ -393,6 +405,7 @@ export function monta(radice: HTMLElement) {
     if (soloNeurone()) return 'One neuron, with weights set by you: one straight cut.';
     const forma = nomeSagoma === 'draw' ? 'your shape' : `a ${nomeSagoma}`;
     if (passi >= FINE) return `Finished: ${descrizione()} trained on ${forma}.`;
+    if (!passi) return `Ready: ${descrizione()}, not trained yet.`;
     return inMoto ? `Training ${descrizione()} to draw ${forma}.` : `Stopped: ${descrizione()}, ${forma}.`;
   };
   // Il consiglio accende anche il comando giusto
@@ -400,15 +413,15 @@ export function monta(radice: HTMLElement) {
   const consiglia = (el: Element | null) => { if (el !== consigliato) { consigliato?.classList.remove('consigliato'); el?.classList.add('consigliato'); consigliato = el; } };
   const cosaProvare = (): [string, Element | null] => {
     if (anima) return [testoPasso, null];
-    if (salita) return ['Now the network must learn your shape.', null];
+    if (salita) return ['Your shape is the new goal.', null];
     if (disegno) return ['Paint on the grid, then press done.', pieni.length ? matita : null];
     if (soloNeurone()) return ['Drag the white squares to cover the fish, then press + next to layers.', piuStrati];
-    if (!inMoto && passi < FINE) return [`Press ${gioca.textContent} to train the network.`, gioca];
+    if (!passi && !inMoto) return ['Press train to start this run.', gioca];
+    if (inMoto) return ['Watch the match climb. Hover or tap a square to see what that neuron sees.', null];
+    if (passi < FINE) return [`Press ${gioca.textContent} to go on, or change the network and start a new run.`, gioca];
     if (matchMostrato >= 0.95) return ['It got it. Try another shape, or draw your own.', sagome[nomeSagoma === 'fish' ? 1 : 0] ?? null];
-    if (nascosti.length === 1 && nascosti[0]! < MAX_NEURONI) return ['Add a neuron with + above the layer. Training starts over, so you can compare.', colonne.querySelector('button:last-child')];
-    if (nascosti.length === 1 && passi > 5000) return ['One layer gets stuck. Press + next to layers and compare the lines.', piuStrati];
-    if (passi > 4000 && matchMostrato < 0.9) return ['Add neurons or layers to do better.', null];
-    return ['Hover or tap a square in the network to see what that neuron sees.', null];
+    if (nascosti.length === 1) return ['One layer gets stuck. Add a layer, press train and compare the lines.', piuStrati];
+    return ['Change layers or neurons, press train and compare the lines.', null];
   };
   const spiegaNeurone = () => {
     const sel = scelto();
@@ -456,14 +469,14 @@ export function monta(radice: HTMLElement) {
       const e = document.createElement('span');
       e.className = 'colonna';
       e.style.left = `${colonna(l + 1)}px`;
-      e.dataset.spiega = 'Neurons in this layer. More neurons mean more cuts. Changing them starts training over.';
+      e.dataset.spiega = 'Neurons in this layer. More neurons mean more cuts. Changing them resets the weights.';
       const bottone = (t2: string, azione: string, d: number, spento: boolean) => {
         const q = document.createElement('button');
         q.type = 'button';
         q.textContent = t2;
         q.disabled = spento;
         q.setAttribute('aria-label', `${azione} layer ${l + 1}`);
-        q.addEventListener('click', () => { cambiaRete(nascosti.map((v, k) => (k === l ? n + d : v))); metti(true); });
+        q.addEventListener('click', () => cambiaRete(nascosti.map((v, k) => (k === l ? n + d : v))));
         return q;
       };
       const numero = document.createElement('b');
@@ -482,21 +495,21 @@ export function monta(radice: HTMLElement) {
   }
   piuStrati.addEventListener('click', () => {
     cambiaRete(nascosti.length ? [...nascosti, nascosti[nascosti.length - 1]!] : [NEURONI_INIZIALI]);
-    metti(true);
   });
   menoStrati.addEventListener('click', () => {
     if (nascosti.length === 1) neuroneSolo();
-    else { cambiaRete(nascosti.slice(0, -1)); metti(true); }
+    else cambiaRete(nascosti.slice(0, -1));
   });
 
   // --- Play, una correzione, ricomincia
   function fermaAnimazione() { anima = null; sonda = null; testoPasso = ''; impulso = 0; sporco = true; }
   gioca.addEventListener('click', () => {
     if (anima) return;
-    if (passi >= FINE) passi = RALLENTA;
+    // Finito: train again è una corsa nuova, e quella di prima resta nel grafico
+    if (passi >= FINE) cambiaRete(nascosti);
     metti(!inMoto);
   });
-  azzera.addEventListener('click', () => { fermaAnimazione(); cambiaRete(nascosti); metti(true); });
+  azzera.addEventListener('click', () => { fermaAnimazione(); cambiaRete(nascosti); });
   unPassoB.addEventListener('click', () => {
     if (anima) return;
     metti(false);
@@ -538,7 +551,6 @@ export function monta(radice: HTMLElement) {
       alza = morbido(f / 0.65);
       mostra = morbido((f - 0.6) / 0.4);
       sporco = true;
-      if (f >= 0.65 && !inMoto) metti(true);
       if (f >= 1) { salita = 0; alza = mostra = 1; }
     }
     if (inMoto && nascosti.length && !primoDato && adesso - ultimoPunto > 120) {
@@ -565,8 +577,9 @@ export function monta(radice: HTMLElement) {
     nomeSagoma = nomeF;
     segna(nomeF);
     fissaSagoma(SAGOME[nomeF]!);
-    storia = []; storiaPrima = []; passi = 0; primoDato = true;
-    if (soloNeurone()) fissa(); else metti(true);
+    storia = []; corse = []; passi = 0; primoDato = true;
+    if (soloNeurone()) fissa();
+    metti(false);
   };
   sagome.forEach(x => x.addEventListener('click', () => scegliForma(x.dataset.sagoma!)));
   matita.addEventListener('click', () => {
@@ -574,9 +587,10 @@ export function monta(radice: HTMLElement) {
       // Niente di dipinto: si torna al pesce. Altrimenti la sagoma sale e l'allenamento riparte
       if (!pieni.length) { scegliForma('fish'); return; }
       disegnando(false);
+      storia = [];
       cambiaRete(nascosti);
-      storiaPrima = [];
-      if (calmo) { alza = mostra = 1; metti(true); } else salita = performance.now();
+      corse = [];
+      if (calmo) alza = mostra = 1; else salita = performance.now();
       return;
     }
     fermaAnimazione();
@@ -699,7 +713,6 @@ export function monta(radice: HTMLElement) {
   fissaSagoma(SAGOME.fish!);
   segna('fish');
   neuroneSolo();
-  storiaPrima = [];
   document.fonts?.ready.then(() => { sporco = true; });
   const ciclo = (adesso: number) => {
     requestAnimationFrame(ciclo);

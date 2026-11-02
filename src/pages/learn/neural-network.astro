@@ -60,15 +60,15 @@ const CONCETTI = [
         </div>
         <div class="mono azioni">
           <span class="titolino">train</span>
-          <button type="button" class="gioca" data-spiega="Starts or stops training: the network corrects itself hundreds of times a second."></button>
-          <button type="button" class="azzera" data-spiega="Sets the weights back to random, and training starts over.">restart</button>
+          <button type="button" class="gioca" data-spiega="Starts or stops this run: the network corrects itself hundreds of times a second."></button>
+          <button type="button" class="azzera" data-spiega="Sets the weights back to random. The run so far stays in the chart.">restart</button>
           <button type="button" class="un-passo" data-spiega="Slows down and shows one single correction: try, error, backpropagation.">one step</button>
           <span class="nota-solo">Add a layer to start training.</span>
         </div>
         <div class="mono andamento">
           <span class="titolino">result</span>
           <div class="numeri"><span class="lettura"></span><span class="errore"></span></div>
-          <canvas class="curva" role="img" aria-label="Chart of the match over training, for this network and the one before" data-spiega="Match over training, always on the same scale. Orange is this network, grey is the one before: higher is better."></canvas>
+          <canvas class="curva" role="img" aria-label="Chart of the match over training, for this run and the last ones" data-spiega="Each run stays here, always on the same scale. Orange is this run, grey are the last ones: higher is better."></canvas>
         </div>
       </div>
     </section>
@@ -128,8 +128,9 @@ const CONCETTI = [
   /* A sinistra, dall'alto in basso */
   .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--s1); width: min(34%, 460px); transition: opacity .2s; }
   .pannello.spento { opacity: .35; pointer-events: none; }
-  .sezione-titolo { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); font-size: 13px; }
+  .sezione-titolo { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: 13px; }
   .contatore { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); }
+  .contatore > span { width: 56px; color: var(--muted); font-size: 12px; }
   .contatore b { min-width: 2ch; font-weight: 400; font-size: 15px; text-align: center; }
   .contatore button { width: 28px; height: 28px; padding: 0; font-size: 15px; }
   .rete-box { position: relative; flex: 1 1 0; min-height: 170px; }
@@ -138,7 +139,7 @@ const CONCETTI = [
   /* I neuroni si cambiano sopra ogni strato */
   .colonne { position: absolute; inset: 0 0 auto; height: 28px; z-index: 1; font-size: 13px; color: var(--fg); }
   .colonne :global(.colonna) { position: absolute; top: 0; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
-  .colonne :global(.nome-colonna) { position: absolute; top: 5px; left: 0; color: var(--muted); font-size: 11px; }
+  .colonne :global(.nome-colonna) { position: absolute; top: 5px; left: 0; color: var(--muted); font-size: 12px; }
   .colonne :global(button) { width: 22px; height: 24px; padding: 0; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
   .colonne :global(button:hover:not(:disabled)) { border-color: var(--fg); color: var(--fg); }
   .colonne :global(button:disabled) { opacity: .4; cursor: default; }
@@ -149,13 +150,15 @@ const CONCETTI = [
   .gioca { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 112px; padding: 7px 16px; background: var(--fg); border-color: var(--fg); color: var(--bg); font-size: 15px; }
   .gioca:hover:not(:disabled) { background: var(--bg); border-color: var(--fg); color: var(--fg); }
   .gioca::before { content: ''; width: 0; height: 0; border-style: solid; border-width: 5px 0 5px 9px; border-color: transparent transparent transparent currentColor; }
-  .gioca[data-stato="pausa"]::before { width: 9px; height: 10px; border-width: 0 3px; border-color: currentColor; }
+  .gioca[data-stato="pausa"] { background: var(--bg); color: var(--fg); }
+  .gioca[data-stato="pausa"]:hover:not(:disabled) { background: var(--bg); border-color: var(--muted); color: var(--muted); }
+  .gioca[data-stato="pausa"]::before { width: 8px; height: 10px; border-width: 0 2px; border-style: solid; border-color: currentColor; background: none; }
   .nota-solo { color: var(--muted); }
   .nota-solo[hidden] { display: none; }
   .numeri { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s1); }
   .lettura { font-size: 20px; color: var(--fg); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .errore { color: var(--muted); white-space: nowrap; }
-  .curva { display: block; width: 100%; height: 112px; margin-top: 2px; }
+  .curva { display: block; width: 100%; height: 124px; margin-top: 2px; }
   .andamento .titolino { display: block; margin-bottom: 2px; }
   /* Telefono: righe, griglia e forme, poi la rete con i suoi comandi */
   @media (max-width: 760px) {
