@@ -216,7 +216,7 @@ export function monta(el: HTMLElement) {
   const pos = new Float32Array(UCCELLI * 3), vel = new Float32Array(UCCELLI * 3), fase = new Float32Array(UCCELLI), paura = new Float32Array(UCCELLI);
   // Posto di ogni uccello intorno alla guida, sparso in un volume largo e basso: lo stormo occupa un'area, non una fila
   const posto = new Float32Array(UCCELLI * 3);
-  // Lo stormo entra volando da fuori pagina, da sinistra, appena la pagina si apre: le posizioni iniziali si calcolano al
+  // Lo stormo entra volando da fuori pagina, da destra, appena la pagina si apre: le posizioni iniziali si calcolano al
   // primo fotogramma, quando si conosce l'orientamento della scena
   const caso = Math.random;
   for (let i = 0; i < UCCELLI; i++) {
@@ -261,14 +261,14 @@ export function monta(el: HTMLElement) {
   const chiave = (x: number, y: number, z: number) => ((Math.floor(x / VICINI) + 512) * 1024 + (Math.floor(y / VICINI) + 512)) * 1024 + (Math.floor(z / VICINI) + 512);
   const centroPrima = CENTRO_STORMO.clone(), centroLento = CENTRO_STORMO.clone(), destra = new THREE.Vector3(), rotazioneInversa = new THREE.Quaternion();
   const muoviStormo = (t: number, dt: number) => {
-    // Primo fotogramma: tutti fuori pagina a sinistra, già in volo verso destra
+    // Primo fotogramma: tutti fuori pagina a destra, già in volo verso sinistra
     if (voloInizio < 0) {
       voloInizio = t;
       destra.set(1, 0, 0).applyQuaternion(rotazioneInversa.copy(gruppo.quaternion).invert());
-      partenza.copy(CENTRO_STORMO).addScaledVector(destra, -17);
+      partenza.copy(CENTRO_STORMO).addScaledVector(destra, 15);
       for (let i = 0; i < UCCELLI; i++) {
         pos.set([partenza.x + posto[i * 3]! * 1.6 + (caso() - 0.5) * 1.5, partenza.y + posto[i * 3 + 1]! + (caso() - 0.5) * 0.4, partenza.z + posto[i * 3 + 2]! * 1.6 + (caso() - 0.5) * 1.5], i * 3);
-        vel.set([destra.x * 1.5, 0, destra.z * 1.5], i * 3);
+        vel.set([-destra.x * 1.5, 0, -destra.z * 1.5], i * 3);
       }
       verso.copy(partenza); centroPrima.copy(partenza); centroLento.copy(partenza);
     }
