@@ -1,8 +1,7 @@
 import dati from '../data/glossario.json';
 
-// Glossario: i testi stanno in src/data/glossario.json. La lista, il reef da pesca e lo stormo leggono tutti da qui:
+// Glossario: i testi stanno in src/data/glossario.json. Il reef da pesca e lo stormo leggono tutti e due da qui:
 // una voce nuova nel file compare da sola ovunque (un pesce pescabile, un uccello in più).
-export const GLOSSARIO = dati;
 export type Voce = (typeof dati.sezioni)[number]['voci'][number] & { sezione: string; indiceSezione: number };
 export const VOCI: Voce[] = dati.sezioni.flatMap((s, indiceSezione) => s.voci.map(v => ({ ...v, sezione: s.titolo, indiceSezione })));
 
