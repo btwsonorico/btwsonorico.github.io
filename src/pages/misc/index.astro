@@ -1,15 +1,12 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// Esperimenti: scene a pixel e scene 3D per rilassarsi (barriera, valle, polare, oasi)
+// Esperimenti: scene 3D per rilassarsi (barriera, valle)
 ---
 <Base title="Misc · Riccardo Mondi" description="Small experiments." largo>
-  <canvas class="scena" aria-hidden="true"></canvas>
   <!-- Scene 3D: ognuna nel suo contenitore, montata la prima volta che si apre -->
   <div class="fondo3d" data-fondo="barriera" hidden><div class="scena3d" aria-hidden="true"></div></div>
   <div class="fondo3d" data-fondo="nuvole" hidden><div class="scena3d" aria-hidden="true"></div></div>
-  <div class="fondo3d" data-fondo="polare" hidden><div class="scena3d" aria-hidden="true"></div></div>
-  <div class="fondo3d" data-fondo="oasi" hidden><div class="scena3d" aria-hidden="true"></div></div>
   <main class="misc">
     <p class="mono"><a href="/">~</a>/misc</p>
     <h1>Misc</h1>
@@ -17,11 +14,6 @@ import Base from '../../layouts/Base.astro';
     <p class="mono scelte" role="group" aria-label="Experiment">
       <button type="button" data-scena="barriera">reef</button>
       <button type="button" data-scena="nuvole">valley</button>
-      <button type="button" data-scena="polare">polar</button>
-      <button type="button" data-scena="oasi">oasis</button>
-      <button type="button" data-scena="uccelli">birds</button>
-      <button type="button" data-scena="vita">life</button>
-      <button type="button" data-scena="onde">waves</button>
     </p>
     <!-- Color editor: i tre toni chiave della scena 3D aperta; la scelta resta in questo browser -->
     <p class="mono toni" hidden>
@@ -34,17 +26,16 @@ import Base from '../../layouts/Base.astro';
 </Base>
 
 <script>
-  import type { Scena } from '../../scripts/pixel';
   import type { Palco } from '../../scripts/natura';
 
-  const tela = document.querySelector<HTMLCanvasElement>('.scena')!;
+  type Scena = { ferma(): void };
   const bottoni = document.querySelectorAll<HTMLButtonElement>('[data-scena]');
 
   // Scene 3D: si montano una volta sola; fermarle vuol dire nasconderle (la vista 3D non disegna quando è nascosta)
   const montate = new Map<string, Palco>();
   const montatori: Record<string, (el: HTMLElement) => Promise<Palco>> = {};
   // Nomi dei tre toni chiave di ogni scena, per il color editor
-  const NOMI: Record<string, string[]> = { barriera: ['water', 'earth', 'coral'], nuvole: ['hills', 'sky', 'accent'], polare: ['ice', 'water', 'accent'], oasi: ['sand', 'water', 'palms'] };
+  const NOMI: Record<string, string[]> = { barriera: ['water', 'earth', 'coral'], nuvole: ['hills', 'sky', 'accent'] };
   const editor = document.querySelector<HTMLElement>('.toni')!;
   const selettori = editor.querySelectorAll<HTMLInputElement>('input[type="color"]');
   const mostraEditor = (nome: string | null) => {
@@ -56,11 +47,10 @@ import Base from '../../layouts/Base.astro';
   const scena3d = (nome: string, monta: (el: HTMLElement) => Promise<Palco>) => async (): Promise<Scena> => {
     const fondo = document.querySelector<HTMLElement>(`[data-fondo="${nome}"]`)!;
     montatori[nome] = monta;
-    tela.hidden = true;
     fondo.hidden = false;
     if (!montate.has(nome)) montate.set(nome, await monta(fondo.querySelector<HTMLElement>('.scena3d')!));
     mostraEditor(nome);
-    return { ferma() { fondo.hidden = true; tela.hidden = false; editor.hidden = true; } };
+    return { ferma() { fondo.hidden = true; editor.hidden = true; } };
   };
   // Nuovi toni: la scena si smonta e si ridisegna con i colori scelti
   const ridisegna = async (toni: string[] | null) => {
@@ -84,11 +74,6 @@ import Base from '../../layouts/Base.astro';
   const SCENE: Record<string, () => Promise<Scena>> = {
     barriera: scena3d('barriera', async el => (await import('../../scripts/barriera')).monta(el)),
     nuvole: scena3d('nuvole', async el => (await import('../../scripts/nuvole')).monta(el)),
-    polare: scena3d('polare', async el => (await import('../../scripts/polare')).monta(el)),
-    oasi: scena3d('oasi', async el => (await import('../../scripts/oasi')).monta(el)),
-    uccelli: async () => (await import('../../scripts/uccelli')).monta(tela),
-    vita: async () => (await import('../../scripts/vita')).monta(tela),
-    onde: async () => (await import('../../scripts/onde')).monta(tela),
   };
 
   let attuale: Scena | null = null, richiesta = 0;
@@ -111,9 +96,8 @@ import Base from '../../layouts/Base.astro';
 
 <style>
   /* Gli esperimenti coprono la pagina dietro al testo; il testo lascia passare il puntatore tranne su link e bottoni */
-  .scena { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; touch-action: manipulation; }
   .fondo3d { position: fixed; top: 64px; bottom: 64px; left: 0; right: 0; z-index: 0; }
-  .scena[hidden], .fondo3d[hidden] { display: none; }
+  .fondo3d[hidden] { display: none; }
   .scena3d { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
   .misc a, .misc button { pointer-events: auto; }
   .misc { position: relative; z-index: 1; pointer-events: none; padding-top: var(--s4); }
