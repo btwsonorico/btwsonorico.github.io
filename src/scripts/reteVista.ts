@@ -20,6 +20,8 @@ const SAGOME: Record<string, (x: number, y: number) => boolean> = {
   fish: (x, y) => ((x + 0.18) / 0.58) ** 2 + (y / 0.3) ** 2 < 1
     || triangolo(x, y, 0.3, 0, 0.88, 0.5, 0.62, 0) || triangolo(x, y, 0.3, 0, 0.88, -0.5, 0.62, 0)
     || triangolo(x, y, -0.45, 0.22, 0.05, 0.22, -0.28, 0.66) || triangolo(x, y, -0.2, -0.22, 0.1, -0.22, 0.04, -0.58),
+  // Casa con tetto e porta: la forma con cui tre strati arrivano a 100
+  house: (x, y) => triangolo(x, y, -0.85, 0.08, 0.85, 0.08, 0, 0.88) || (Math.abs(x) < 0.6 && y <= 0.08 && y > -0.85 && !(Math.abs(x) < 0.17 && y < -0.3)),
   // Abete a tre palchi staccati, con tacche fino al tronco
   tree: (x, y) => palco(x, y, 0.94, 0.42, 0.42) || palco(x, y, 0.42, -0.1, 0.62) || palco(x, y, -0.1, -0.62, 0.84) || (Math.abs(x) < 0.09 && y <= 0.94 && y > -0.92),
 };
