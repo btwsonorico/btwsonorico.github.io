@@ -20,7 +20,7 @@ export function monta(el: HTMLElement) {
   const morbido = (da: number, a: number, k: number) => da + (a - da) * Math.min(1, k);
   const angolo = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
   const liscio = THREE.MathUtils.smoothstep;
-  const NERO = chiaro ? new THREE.Color('#22262c') : c.fg.clone(), BIANCO = chiaro ? new THREE.Color('#fbf9f4') : new THREE.Color('#f3f5f4');
+  const NERO = chiaro ? new THREE.Color('#22262c') : c.fg.clone(), BIANCO = chiaro ? new THREE.Color('#f0e7d5') : new THREE.Color('#f3f5f4');
   // Ogni pezzo è a filo: i parametri di ombra del vecchio solido non servono più
   const pieno = (geo: THREE.BufferGeometry, base: THREE.Color, _fili = 0, soglia = 28, _ombra = 0, _luce = 0) => filo(geo, base, 0.85, soglia);
 
@@ -224,7 +224,7 @@ export function monta(el: HTMLElement) {
 
   // --- Orca: corpo a fuso a poche facce, a filo; ventre e macchia dietro l'occhio chiari, pinna dorsale alta, pettorali e coda
   const orca = (() => {
-    const o = new THREE.Group(), linea2 = chiaro ? new THREE.Color('#22262c') : c.fg.clone(), chiara = chiaro ? new THREE.Color('#fbf9f4') : new THREE.Color('#f3f5f4');
+    const o = new THREE.Group(), linea2 = chiaro ? new THREE.Color('#22262c') : c.fg.clone(), chiara = chiaro ? new THREE.Color('#f0e7d5') : new THREE.Color('#f3f5f4');
     const fuso = (larga: number, alta: number, lunga: number) => {
       const geo = new THREE.SphereGeometry(1, 12, 8).rotateX(Math.PI / 2), q = geo.attributes.position as THREE.BufferAttribute;
       for (let i = 0; i < q.count; i++) {

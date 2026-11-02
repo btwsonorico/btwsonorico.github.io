@@ -303,15 +303,16 @@ export function monta(el: HTMLElement) {
     gruppo.add(p.corpo);
     return { ...p, fase: r() * Math.PI * 2, vel: (0.05 + r() * 0.05) * (k % 2 ? 1 : -1), raggio: 0.6 + r() * 0.5, prof: 0.15 + r() * 0.2, colpo: r() * 6 };
   });
-  // Nascita dei pesci: il prato e la riva ci sono già. Al centro del lago si apre un cerchio, poi i pesci saltano fuori
-  // dall'acqua uno dopo l'altro, branco per branco: un arco col muso nella direzione del volo, uno spruzzo dove atterrano.
+  // Nascita dei pesci: il prato e la riva ci sono già. Al centro del lago si apre un cerchio, poi in circa due secondi
+  // un pesce su due salta dal centro (un arco col muso nella direzione del volo, uno spruzzo dove atterra)
+  // e gli altri salgono dal fondo, col muso in alto, fino al punto dove nuotano.
   // Le etichette arrivano quando sono tutti in acqua.
   const tuffatori = [...branchi.flatMap(b => b.pesci.map(q => q.corpo)), ...liberi.map(q => q.corpo)];
-  const PRIMO_SALTO = 500, TRA_SALTI = Math.min(170, 3400 / Math.max(1, tuffatori.length)), DURATA_SALTO = 1050;
+  const PRIMO_SALTO = 200, TRA_SALTI = 1100 / Math.max(1, tuffatori.length), DURATA_SALTO = 900;
   const FINE_SALTI = PRIMO_SALTO + tuffatori.length * TRA_SALTI + DURATA_SALTO;
   const etichetteDopo = crescita([], punti, 0, FINE_SALTI, 0);
-  const salti = tuffatori.map((corpo, k) => { const a = k * 2.39996; return { corpo, ritardo: PRIMO_SALTO + k * TRA_SALTI, da: new THREE.Vector3(Math.cos(a) * 0.35, -0.3, Math.sin(a) * 0.35), atterrato: false, scala: corpo.scale.clone() }; });
-  const cerchiNascita = Array.from({ length: 14 }, () => {
+  const salti = tuffatori.map((corpo, k) => { const a = k * 2.39996; return { corpo, sale: k % 2 === 1, ritardo: PRIMO_SALTO + k * TRA_SALTI, da: new THREE.Vector3(Math.cos(a) * 0.35, -0.3, Math.sin(a) * 0.35), atterrato: false, scala: corpo.scale.clone() }; });
+  const cerchiNascita = Array.from({ length: 36 }, () => {
     const m = linea(c.accent, 0), o = anello(cerchio(1, 40), m);
     o.visible = false;
     gruppo.add(o);
@@ -333,7 +334,20 @@ export function monta(el: HTMLElement) {
       if (u <= 0) { q.corpo.visible = false; return; }
       q.corpo.visible = true;
       if (u >= 1) {
-        if (!q.atterrato) { q.atterrato = true; arrivoSalto.copy(q.corpo.position); onda(arrivoSalto.x, arrivoSalto.z, 0.55, t); onda(arrivoSalto.x, arrivoSalto.z, 0.28, t + 160); }
+        if (!q.atterrato) {
+          q.atterrato = true;
+          arrivoSalto.copy(q.corpo.position);
+          onda(arrivoSalto.x, arrivoSalto.z, q.sale ? 0.3 : 0.55, t);
+          if (!q.sale) onda(arrivoSalto.x, arrivoSalto.z, 0.28, t + 160);
+        }
+        return;
+      }
+      if (q.sale) {
+        // Dal fondo: rallenta salendo e si raddrizza da solo, così arriva al nuoto senza scatti
+        const resta = (1 - u) ** 3;
+        q.corpo.position.y -= resta * 1.3;
+        q.corpo.rotateX(-resta * 1.1);
+        q.corpo.scale.copy(q.scala).multiplyScalar(Math.min(1, u * 2.5));
         return;
       }
       // Arrivo: il punto dove il pesce sta nuotando in questo momento (aggiorna lo ha appena mosso)

@@ -11,7 +11,7 @@ import { casuale, mat, pezzo, sasso, linea, tono, terreno, puntiMorbidi, palco, 
 // Sopra passano nuvole morbide: dentro hanno una rete invisibile di nodi e molle, fuori una nuvola leggera di punti
 // che nascono e svaniscono come vapore. Il puntatore che passa le scosta; si possono afferrare e tirare: si allungano,
 // poi tornano; intanto cambiano forma da sole.
-// Sopra le nuvole, le mongolfiere.
+// Sotto le nuvole, le mongolfiere: restano libere, un domani potranno diventare i contenuti da cliccare.
 
 const L = 8;
 
@@ -155,7 +155,7 @@ export function monta(el: HTMLElement) {
     for (let k = 0; k < adulte + vitelli; k++) {
       const vitello = k >= adulte, scala = vitello ? 0.6 : 1;
       const o = new THREE.Group(), corpo = new THREE.Group(), collo = new THREE.Group();
-      const bianco = p.chiaro ? '#fbf9f4' : '#f2efe8';
+      const bianco = p.chiaro ? '#f0e7d5' : '#f2efe8';
       const pelo = mat(bianco, { grezzo: true, opacity: p.chiaro ? 0.9 : 0.55, fili: 0.9 }), scuro = mat('#2a2622', { grezzo: true, opacity: 0.85, fili: 0 });
       const linee = linea(p.chiaro ? '#3a332c' : '#cfcac0', 0.9);
       corpo.position.y = 0.1;
@@ -198,9 +198,9 @@ export function monta(el: HTMLElement) {
   });
   mucche.forEach((m, i) => { if (m.vitello) m.mamma = mucche.findIndex((q, j) => j < i && q.mandria === m.mandria && !q.vitello); });
 
-  // --- Gregge: tante pecore minuscole (corpo chiaro, testa scura), tutte in due forme sole
-  const corpi = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 4).scale(0.07, 0.042, 0.047), mat(p.chiaro ? '#fbf9f4' : '#f2efe8', { grezzo: true, opacity: p.chiaro ? 1 : 0.9, fili: 0 }), PECORE);
-  const teste = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 5, 3).scale(0.028, 0.023, 0.023), mat('#3a332c', { grezzo: true, opacity: 0.9, fili: 0 }), PECORE);
+  // --- Gregge: tante pecore minuscole (in light mode nere, altrimenti corpo chiaro e testa scura), tutte in due forme sole
+  const corpi = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 4).scale(0.07, 0.042, 0.047), mat(p.chiaro ? '#1f1c18' : '#f2efe8', { grezzo: true, opacity: p.chiaro ? 1 : 0.9, fili: 0 }), PECORE);
+  const teste = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 5, 3).scale(0.028, 0.023, 0.023), mat(p.chiaro ? '#0d0c0a' : '#3a332c', { grezzo: true, opacity: 0.9, fili: 0 }), PECORE);
   corpi.frustumCulled = teste.frustumCulled = false;
   g.add(corpi, teste);
   type Pecora = { x: number; z: number; vx: number; vz: number; verso: number; calma: number; timer: number; voglia: number; testa: number; fase: number; spazio: number; salto: number };
@@ -385,7 +385,7 @@ export function monta(el: HTMLElement) {
     el.style.cursor = '';
   }
 
-  // --- Mongolfiere: palloni pieni di colore, gli spicchi segnati da fili più scuri; volano sopra le nuvole
+  // --- Mongolfiere: palloni pieni di colore, gli spicchi segnati da fili più scuri; volano sotto le nuvole
   const profilo = Array.from({ length: 12 }, (_, k) => {
     const t = k / 11, a = t * Math.PI;
     return new THREE.Vector2(Math.max(0.06, Math.sin(a * 0.92 + 0.12) * (0.3 + 0.12 * Math.sin(a * 0.5))) * (t < 0.3 ? 0.5 + t * 1.6 : 1), -0.38 + t * 0.78);
@@ -404,7 +404,7 @@ export function monta(el: HTMLElement) {
     o.add(fiamma);
     o.scale.setScalar(0.85);
     g.add(o);
-    const y = [6.4, 7.2, 6.0][k]!;
+    const y = [3.4, 3.8, 3.3][k]!;
     return { o, fiamma, cx: [-2.6, 3.2, 0.6][k]!, cz: [1.2, -1.4, -4][k]!, y, fase: k * 2.1, quota: y };
   });
 
@@ -413,14 +413,14 @@ export function monta(el: HTMLElement) {
     if (raggio.ray.distanceToPoint(tmp.set(cane.x, altezza(cane.x, cane.z) + 0.06, cane.z)) < 0.25) cane.seduto = !cane.seduto;
   }
 
-  // --- Passatempo: un cerchio azzurro tratteggiato, grande abbastanza per tutto il gregge, appare in un punto del prato
+  // --- Passatempo: un cerchio verde tratteggiato, grande abbastanza per tutto il gregge, appare in un punto del prato
   // con pochi ostacoli e lontano dal gregge. I trattini si accendono man mano che le pecore entrano; quando ci sono
   // tutte fanno qualche saltello, il cerchio svanisce e dopo un po' ne appare un altro.
-  const TRATTI = 64, azzurro = tono('#58a6ff');
+  const TRATTI = 64, verdeCerchio = tono(p.chiaro ? '#1a7f37' : '#4ade80');
   const posCerchio = new Float32Array(TRATTI * 6), geoCerchio = new THREE.BufferGeometry(), geoAcceso = new THREE.BufferGeometry();
   geoCerchio.setAttribute('position', new THREE.BufferAttribute(posCerchio, 3));
   geoAcceso.setAttribute('position', new THREE.BufferAttribute(posCerchio, 3));
-  const matCerchio = new THREE.LineBasicMaterial({ color: azzurro, transparent: true, opacity: 0, depthWrite: false }), matAcceso = new THREE.LineBasicMaterial({ color: azzurro.clone().offsetHSL(0, 0, 0.12), transparent: true, opacity: 0, depthWrite: false });
+  const matCerchio = new THREE.LineBasicMaterial({ color: verdeCerchio, transparent: true, opacity: 0, depthWrite: false }), matAcceso = new THREE.LineBasicMaterial({ color: verdeCerchio.clone().offsetHSL(0, 0, 0.12), transparent: true, opacity: 0, depthWrite: false });
   const cerchioBase = new THREE.LineSegments(geoCerchio, matCerchio), cerchioAcceso = new THREE.LineSegments(geoAcceso, matAcceso);
   cerchioBase.frustumCulled = cerchioAcceso.frustumCulled = false;
   g.add(cerchioBase, cerchioAcceso);
@@ -476,7 +476,7 @@ export function monta(el: HTMLElement) {
 
   // --- Ciclo
   const tmp = new THREE.Vector3(), dummy = new THREE.Object3D();
-  const chiaroNuvola = new THREE.Color(p.chiaro ? '#fbf9f4' : '#e8e6e0'), scuroNuvola = new THREE.Color(p.chiaro ? '#b9b2a4' : '#8d8a84'), colNuvola = new THREE.Color();
+  const chiaroNuvola = new THREE.Color(p.chiaro ? '#f0e7d5' : '#e8e6e0'), scuroNuvola = new THREE.Color(p.chiaro ? '#b9b2a4' : '#8d8a84'), colNuvola = new THREE.Color();
   const griglia = new Map<number, number[]>();
   const cella = (x: number, z: number) => Math.floor((x + L) / 0.5) * 100 + Math.floor((z + L) / 0.5);
   function aggiorna(s: number, dt: number, p: Palco) {

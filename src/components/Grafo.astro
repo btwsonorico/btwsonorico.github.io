@@ -78,7 +78,8 @@ const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props
     pointer-events: none;
     white-space: nowrap;
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: 14px;
+    line-height: 1.3;
     color: var(--muted);
     transition: opacity .15s;
   }
@@ -99,8 +100,9 @@ const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props
   .scena :global(.anello.tema), .scena :global(.anello.skill) { border-color: var(--accent); }
   .scena :global(.anello.via) { animation: anello 1.8s cubic-bezier(.2, .7, .3, 1) both; }
   @keyframes anello { from { transform: scale(.35); opacity: .7; } to { transform: scale(2.4); opacity: 0; } }
-  .scena :global(.etichetta.attiva) { color: var(--bg); background: var(--fg); padding: 2px 7px; font-size: 11px; z-index: 2; }
+  .scena :global(.etichetta.attiva) { color: var(--bg); background: var(--fg); padding: 2px 7px; font-size: 14px; z-index: 2; }
   @media (max-width: 640px) {
     .scena { height: 360px; }
+    .scena :global(.etichetta), .scena :global(.etichetta.attiva) { font-size: 12px; }
   }
 </style>
