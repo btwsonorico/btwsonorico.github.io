@@ -248,6 +248,7 @@ export function monta(el: HTMLElement) {
     if (t > prossimaTappa) {
       tappa.set(CENTRO_STORMO.x + (caso() - 0.5) * 3.4, QUOTA_MIN + 0.25 + caso() * (QUOTA_MAX - QUOTA_MIN - 0.5), CENTRO_STORMO.z + (caso() - 0.5) * 1.8);
       prossimaTappa = t + 5 + r() * 4;
+      if (t - voloInizio < DURATA_ARRIVO * 1.7) { tappa.copy(CENTRO_STORMO); prossimaTappa = voloInizio + DURATA_ARRIVO * 1.7; }
     }
     verso.lerp(tappa, Math.min(1, dt * 0.35));
     asse.set(Math.sin(t * 0.17), 0.6 + Math.sin(t * 0.11) * 0.4, Math.cos(t * 0.13)).normalize();
@@ -265,7 +266,7 @@ export function monta(el: HTMLElement) {
     if (voloInizio < 0) {
       voloInizio = t;
       destra.set(1, 0, 0).applyQuaternion(rotazioneInversa.copy(gruppo.quaternion).invert());
-      partenza.copy(CENTRO_STORMO).addScaledVector(destra, 15);
+      partenza.copy(CENTRO_STORMO).addScaledVector(destra, t === 0 ? 0 : 15);
       for (let i = 0; i < UCCELLI; i++) {
         pos.set([partenza.x + posto[i * 3]! * 1.6 + (caso() - 0.5) * 1.5, partenza.y + posto[i * 3 + 1]! + (caso() - 0.5) * 0.4, partenza.z + posto[i * 3 + 2]! * 1.6 + (caso() - 0.5) * 1.5], i * 3);
         vel.set([-destra.x * 1.5, 0, -destra.z * 1.5], i * 3);
@@ -275,14 +276,17 @@ export function monta(el: HTMLElement) {
     const uArrivo = t === 0 ? 1 : THREE.MathUtils.clamp((t - voloInizio) / DURATA_ARRIVO, 0, 1), inArrivo = uArrivo < 1;
     if (inArrivo) verso.lerpVectors(partenza, CENTRO_STORMO, 1 - (1 - uArrivo) ** 2);
     else posizioneGuida(t, dt);
+    // Calma: da 0 (in viaggio) a 1 (stormo normale). Sale piano, dalla seconda metà del viaggio ai secondi dopo l'arrivo:
+    // velocità, richiamo, vortice e confini cambiano gradualmente, così non c'è nessuno scatto
+    const calma = t === 0 ? 1 : THREE.MathUtils.smootherstep(t - voloInizio, DURATA_ARRIVO * 0.45, DURATA_ARRIVO * 1.7);
     // Arrivato: lo stormo è davvero sopra la scena. Solo allora si può cliccare
     if (!arrivato && !inArrivo && centroPrima.distanceTo(CENTRO_STORMO) < 2.5) arrivato = true;
     puntoStormo.spento = !arrivato;
     // Vortice leggero, che cambia verso piano: arrotola lo stormo senza chiuderlo in un tubo
-    const vortice = Math.sin(t * 0.09) * 0.45;
+    const vortice = Math.sin(t * 0.09) * 0.45 * calma;
     if (dt > 0) {
       // Il falco parte da un lato dello stormo e passa dall'altro, attraverso il centro
-      if (!inArrivo && t > prossimoFalco) {
+      if (calma >= 1 && t > prossimoFalco) {
         const a = r() * Math.PI * 2;
         falco.da.set(Math.cos(a), (r() - 0.5) * 0.6, Math.sin(a)).multiplyScalar(2.2).add(centroLento);
         falco.a.copy(centroLento).multiplyScalar(2).sub(falco.da);
@@ -303,19 +307,19 @@ export function monta(el: HTMLElement) {
         // Richiamo debole verso il proprio posto intorno alla guida (il volume ruota piano): lo stormo resta largo
         const giroPosto = t * 0.05, cg = Math.cos(giroPosto), sg = Math.sin(giroPosto);
         const px = posto[i * 3]! * cg - posto[i * 3 + 2]! * sg, pz = posto[i * 3]! * sg + posto[i * 3 + 2]! * cg;
-        const richiamo = inArrivo ? 0.7 : 0.09;
+        const richiamo = THREE.MathUtils.lerp(0.7, 0.09, calma);
         let fx = (verso.x + px - x) * richiamo, fy = (verso.y + posto[i * 3 + 1]! - y) * 0.12, fz = (verso.z + pz - z) * richiamo;
         // Vortice intorno alla guida: spinge di lato rispetto all'asse, e lo stormo si avvolge su se stesso
         const rx = x - verso.x, ry = y - verso.y, rz = z - verso.z;
         fx += (asse.y * rz - asse.z * ry) * vortice; fy += (asse.z * rx - asse.x * rz) * vortice; fz += (asse.x * ry - asse.y * rx) * vortice;
         // Gruppi staccati: chi è lontano dal centro dello stormo viene richiamato piano, così i pezzi si riuniscono
         const gx0 = centroPrima.x - x, gy0 = centroPrima.y - y, gz0 = centroPrima.z - z, lontano = Math.hypot(gx0, gy0, gz0);
-        if (lontano > 1.9) { const f = (lontano - 1.9) * 0.35 / lontano; fx += gx0 * f; fy += gy0 * f; fz += gz0 * f; }
+        if (lontano > 1.9) { const f = (lontano - 1.9) * 0.35 * calma / lontano; fx += gx0 * f; fy += gy0 * f; fz += gz0 * f; }
         // Sempre sopra la scena e non troppo lontano: sotto la quota minima risale, fuori dal cerchio rientra
         if (y < QUOTA_MIN) fy += (QUOTA_MIN - y) * 6;
         if (y > QUOTA_MAX) fy -= (y - QUOTA_MAX) * 6;
         const fuori = Math.hypot(x - CENTRO_STORMO.x, (z - CENTRO_STORMO.z) * 1.6) - LARGO_STORMO;
-        if (fuori > 0 && !inArrivo) { fx -= (x - CENTRO_STORMO.x) * fuori * 1.5; fz -= (z - CENTRO_STORMO.z) * fuori * 1.5; }
+        if (fuori > 0) { fx -= (x - CENTRO_STORMO.x) * fuori * 1.5 * calma; fz -= (z - CENTRO_STORMO.z) * fuori * 1.5 * calma; }
         let mx = 0, my = 0, mz = 0, lx = 0, ly = 0, lz = 0, n = 0;
         const gx = Math.floor(x / VICINI), gy = Math.floor(y / VICINI), gz = Math.floor(z / VICINI);
         for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) for (let oz = -1; oz <= 1; oz++) {
@@ -349,7 +353,7 @@ export function monta(el: HTMLElement) {
         }
         paura[i] = Math.max(0, paura[i]! - dt * 0.7);
         let vx = vel[i * 3]! + fx * dt, vy = vel[i * 3 + 1]! + fy * dt, vz = vel[i * 3 + 2]! + fz * dt;
-        const v = Math.hypot(vx, vy, vz) || 1, max = VEL_MAX * (1 + paura[i]! * 0.7) * (inArrivo ? 3.2 : 1);
+        const v = Math.hypot(vx, vy, vz) || 1, max = VEL_MAX * (1 + paura[i]! * 0.7) * THREE.MathUtils.lerp(3.2, 1, calma);
         const k = v > max ? max / v : v < VEL_MIN ? VEL_MIN / v : 1;
         vx *= k; vy *= k; vz *= k;
         vel.set([vx, vy, vz], i * 3);
