@@ -603,8 +603,8 @@ export function monta(radice: HTMLElement) {
     segna(nomeF);
     fissaSagoma(SAGOME[nomeF]!);
     storia = []; corse = []; passi = 0; primoDato = true;
-    if (soloNeurone()) fissa();
-    metti(false);
+    // Una forma nuova riparte da pesi casuali: non eredita quello che la rete sa della forma di prima
+    if (soloNeurone()) { fissa(); metti(false); } else cambiaRete(nascosti);
   };
   sagome.forEach(x => x.addEventListener('click', () => scegliForma(x.dataset.sagoma!)));
   matita.addEventListener('click', () => {
