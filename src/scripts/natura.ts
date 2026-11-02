@@ -93,6 +93,61 @@ export function unisci(geos: THREE.BufferGeometry[]) {
 }
 export const sasso = (raggio: number, r: () => number, dettaglio = 0) => scuoti(new THREE.IcosahedronGeometry(raggio, dettaglio), raggio * 0.45, r);
 
+// Curve di livello di un terreno (marching squares): segmenti minori e, ogni tanto, maggiori
+export function curveLivello(altezza: (x: number, z: number) => number, L: number, N: number, passoQuota: number, quotaMax: number, ogni = 5, quotaMin = passoQuota) {
+  const passo = (L * 2) / N, H: number[] = [], minori: number[] = [], maggiori: number[] = [];
+  for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) H.push(altezza(-L + i * passo, -L + j * passo));
+  let n = 1;
+  for (let livello = quotaMin; livello < quotaMax; livello += passoQuota, n++) {
+    const dove = n % ogni === 0 ? maggiori : minori;
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const x0 = -L + i * passo, z0 = -L + j * passo;
+      if (Math.hypot(x0, z0) > L) continue;
+      const v = [H[j * (N + 1) + i]!, H[j * (N + 1) + i + 1]!, H[(j + 1) * (N + 1) + i + 1]!, H[(j + 1) * (N + 1) + i]!];
+      const angoli = [[x0, z0], [x0 + passo, z0], [x0 + passo, z0 + passo], [x0, z0 + passo]];
+      const tagli: number[][] = [];
+      for (let k = 0; k < 4; k++) {
+        const a = v[k]!, b = v[(k + 1) % 4]!;
+        if ((a < livello) !== (b < livello)) {
+          const t = (livello - a) / (b - a), [ax, az] = angoli[k]!, [bx, bz] = angoli[(k + 1) % 4]!;
+          tagli.push([ax! + (bx! - ax!) * t, az! + (bz! - az!) * t]);
+        }
+      }
+      for (let k = 0; k + 1 < tagli.length; k += 2) dove.push(tagli[k]![0]!, livello + 0.01, tagli[k]![1]!, tagli[k + 1]![0]!, livello + 0.01, tagli[k + 1]![1]!);
+    }
+  }
+  return { minori, maggiori };
+}
+// Punti ben distribuiti in un anello: ogni nuovo punto è, fra alcuni candidati, il più lontano da quelli già presi
+export function benDistribuiti(n: number, da: number, a: number, r: () => number, presi: { x: number; z: number }[] = []) {
+  const nuovi: { x: number; z: number }[] = [];
+  for (let k = 0; k < n; k++) {
+    let meglio = { x: 0, z: 0 }, dm = -1;
+    for (let q = 0; q < 14; q++) {
+      const ang = r() * Math.PI * 2, d = Math.sqrt(da * da + r() * (a * a - da * da)), x = Math.cos(ang) * d, z = Math.sin(ang) * d;
+      const dist = Math.min(...[...presi, ...nuovi].map(c => Math.hypot(c.x - x, c.z - z)), 99);
+      if (dist > dm) { dm = dist; meglio = { x, z }; }
+    }
+    nuovi.push(meglio);
+  }
+  return nuovi;
+}
+// Solido pieno con l'ombreggiatura dipinta sui vertici (più chiaro verso la luce, più scuro in basso) e poche linee sulle
+// pieghe nette: per rocce, ghiaccio e corpi che devono stare in primo piano sul filo
+export function pieno(geo: THREE.BufferGeometry, base: THREE.Color, fili = 0.25, soglia = 32, ombra = 0.45, luceForza = 0.55) {
+  geo.computeVertexNormals();
+  const q = geo.attributes.position as THREE.BufferAttribute, n = geo.attributes.normal as THREE.BufferAttribute, colori: number[] = [], t = new THREE.Color();
+  const lx = 0.33, ly = 0.87, lz = 0.36;
+  for (let i = 0; i < q.count; i++) {
+    t.copy(base).multiplyScalar(ombra + Math.max(0, n.getX(i) * lx + n.getY(i) * ly + n.getZ(i) * lz) * luceForza);
+    colori.push(t.r, t.g, t.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
+  const o = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true }));
+  if (fili > 0) o.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, soglia), new THREE.LineBasicMaterial({ color: base.clone().offsetHSL(0, 0, -0.15), transparent: true, opacity: fili })));
+  return o;
+}
+
 // Terreno come nelle altre scene: dischi del tono a strati, più intensi verso il centro, e una griglia di punti
 // che segue l'altezza del suolo
 export function terreno(gruppo: THREE.Group, colore: THREE.Color, raggio: number, altezza: (x: number, z: number) => number = () => 0, dischi = true) {
@@ -286,7 +341,7 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
   cv.addEventListener('pointerdown', e => {
     aNdc(e);
     raggio.setFromCamera(ndc, camera);
-    if (o.afferra?.(raggio)) { presa = true; cv.setPointerCapture(e.pointerId); return; }
+    if (o.afferra?.(raggio)) { presa = true; mosso = 10; try { cv.setPointerCapture(e.pointerId); } catch { /* niente */ } return; }
     dita.set(e.pointerId, { x: e.clientX, y: e.clientY });
     premuto = true; mosso = 0; px = e.clientX; py = e.clientY; velGiro = 0;
     if (dita.size === 2) { const [a, b] = [...dita.values()]; pinza = Math.hypot(a!.x - b!.x, a!.y - b!.y); }

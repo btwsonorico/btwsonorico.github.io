@@ -1,11 +1,13 @@
 import * as THREE from 'three';
-import { casuale, mat, pezzo, sasso, linea, tono, terreno, puntiMorbidi, palco, SITO, type Palco } from './natura';
+import { casuale, mat, pezzo, sasso, linea, tono, terreno, puntiMorbidi, palco, curveLivello, benDistribuiti, SITO, type Palco } from './natura';
 
 // Una valle di colline vista da un drone, nello stile del sito: le colline sono curve di livello con un velo verde
 // che le segue, fra le curve la griglia di punti. Sulle colline girano le pale eoliche, boschi e cespugli stanno
 // tutto intorno, sui pendii; il fondovalle resta libero per il pascolo. Tre piccole mandrie di mucche coi vitelli
 // pascolano, si sdraiano a ruminare, guardano il cane. Un gregge di pecore minuscole si muove come una massa: il cane
 // segue il puntatore sul prato e lo raduna; un clic sul cane lo fa sedere, un altro clic lo fa ripartire.
+// Passatempo a tempo: un cerchio tratteggiato appare in un punto libero del prato; il cronometro parte e si ferma quando
+// tutte le pecore sono dentro. Il tempo migliore resta in questo browser; poi appare un altro cerchio.
 // Sopra passano nuvole morbide: dentro hanno una rete invisibile di nodi e molle, fuori una nuvola leggera di punti
 // che nascono e svaniscono come vapore. Il puntatore che passa le scosta; si possono afferrare e tirare: si allungano,
 // poi tornano; intanto cambiano forma da sole.
@@ -31,8 +33,6 @@ export function monta(el: HTMLElement) {
     for (const [cx, cz, alto, largo] of COLLI) h += alto * Math.exp(-((x - cx) ** 2 + (z - cz) ** 2) / (2 * largo * largo));
     return h;
   };
-  // Pendenza: quanto è ripido il terreno in un punto (per mettere i boschi sui pendii)
-  const pendenza = (x: number, z: number) => Math.hypot(altezza(x + 0.1, z) - altezza(x - 0.1, z), altezza(x, z + 0.1) - altezza(x, z - 0.1)) / 0.2;
   terreno(g, c.verde, L + 0.5, altezza, false);
   // Velo verde che segue le colline (non un disco piatto sotto)
   {
@@ -43,29 +43,9 @@ export function monta(el: HTMLElement) {
     velo.renderOrder = -1;
     g.add(velo);
   }
-  // Curve di livello (marching squares sulla griglia delle altezze): una ogni 0,2 di quota, più marcata ogni 1
+  // Curve di livello: una ogni 0,2 di quota, più marcata ogni 1
   {
-    const N = 150, passo = (L * 2) / N, H: number[] = [];
-    for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) H.push(altezza(-L + i * passo, -L + j * passo));
-    const minori: number[] = [], maggiori: number[] = [];
-    for (let livello = 0.2, n = 1; livello < 3.5; livello += 0.2, n++) {
-      const dove = n % 5 === 0 ? maggiori : minori;
-      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
-        const x0 = -L + i * passo, z0 = -L + j * passo;
-        if (Math.hypot(x0, z0) > L) continue;
-        const v = [H[j * (N + 1) + i]!, H[j * (N + 1) + i + 1]!, H[(j + 1) * (N + 1) + i + 1]!, H[(j + 1) * (N + 1) + i]!];
-        const angoli = [[x0, z0], [x0 + passo, z0], [x0 + passo, z0 + passo], [x0, z0 + passo]];
-        const tagli: number[][] = [];
-        for (let k = 0; k < 4; k++) {
-          const a = v[k]!, b = v[(k + 1) % 4]!;
-          if ((a < livello) !== (b < livello)) {
-            const t = (livello - a) / (b - a), [ax, az] = angoli[k]!, [bx, bz] = angoli[(k + 1) % 4]!;
-            tagli.push([ax! + (bx! - ax!) * t, az! + (bz! - az!) * t]);
-          }
-        }
-        for (let k = 0; k + 1 < tagli.length; k += 2) dove.push(tagli[k]![0]!, livello + 0.01, tagli[k]![1]!, tagli[k + 1]![0]!, livello + 0.01, tagli[k + 1]![1]!);
-      }
-    }
+    const { minori, maggiori } = curveLivello(altezza, L, 150, 0.2, 3.5);
     for (const [xyz, op] of [[minori, 0.32], [maggiori, 0.75]] as const) {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(xyz, 3));
@@ -100,11 +80,25 @@ export function monta(el: HTMLElement) {
   });
 
   // --- Boschi e cespugli: macchie di alberi sui pendii, tutto intorno al pascolo; i cespugli stanno al margine dei
-  // boschi (dove il bosco finisce e comincia il prato) e in fila lungo le siepi; il pascolo al centro resta libero
+  // boschi (dove il bosco finisce e comincia il prato) e a piccoli ciuffi; il pascolo al centro resta libero
   const chiome = [mat('#6fa646'), mat('#5f9c45'), mat('#4f8a3c')];
   const PASCOLO = 2;
+  // Radure per il passatempo: punti pianeggianti lontani dalle pale, abbastanza grandi per tutto il gregge; qui non crescono
+  // né alberi né cespugli, e il cerchio appare solo qui
+  const PECORE = p.telefono ? 110 : 180, RAGGIO = 1.3 + PECORE * 0.0028;
+  const radure: { x: number; z: number }[] = [];
+  {
+    const candidati = Array.from({ length: 220 }, () => {
+      const a = r() * Math.PI * 2, d = Math.sqrt(r()) * (L - RAGGIO - 1.4), x = Math.cos(a) * d, z = Math.sin(a) * d;
+      let salita = 0;
+      for (let q = 0; q < 8; q++) salita += Math.abs(altezza(x + Math.cos(q) * RAGGIO, z + Math.sin(q) * RAGGIO) - altezza(x, z));
+      return { x, z, salita };
+    }).filter(q => libero(q.x, q.z, RAGGIO)).sort((a, b) => a.salita - b.salita);
+    for (const q of candidati) if (radure.length < 6 && radure.every(o => Math.hypot(o.x - q.x, o.z - q.z) > RAGGIO * 1.6)) radure.push({ x: q.x, z: q.z });
+  }
+  const inRadura = (x: number, z: number) => radure.some(q => Math.hypot(q.x - x, q.z - z) < RAGGIO + 0.1);
   const cespuglio = (x: number, z: number, rr: number, k: number) => {
-    if (Math.hypot(x, z) < PASCOLO || Math.hypot(x, z) > L - 0.6 || !libero(x, z, 0.03)) return;
+    if (inRadura(x, z) || Math.hypot(x, z) < PASCOLO || Math.hypot(x, z) > L - 0.6 || !libero(x, z, 0.03)) return;
     const o = pezzo(sasso(rr, r), chiome[k % 3]!);
     o.scale.y = 0.75;
     posa(o, x, z, rr + 0.03).position.y += rr * 0.5;
@@ -128,33 +122,28 @@ export function monta(el: HTMLElement) {
     }
     posa(o, x, z, h * 0.28);
   };
-  for (let m = 0; m < 11; m++) {
-    // Centro della macchia: su un anello largo, dove il terreno pende; macchie diverse per forma e densità
-    let cx = 0, cz = 0, prova = 0;
-    do { const a = (m / 11) * Math.PI * 2 + (r() - 0.5) * 0.5, d = 2.3 + r() * 3; cx = Math.cos(a) * d; cz = Math.sin(a) * d; } while ((pendenza(cx, cz) < 0.12 || !libero(cx, cz, 0.6)) && ++prova < 25);
-    const n = 4 + Math.floor(r() * 6), allunga = 0.6 + r() * 0.9, giro = r() * 6;
-    const punto2 = (u: number, v: number) => [cx + u * Math.cos(giro) - v * Math.sin(giro), cz + u * Math.sin(giro) + v * Math.cos(giro)] as const;
+  // Macchie di bosco ben distanziate fra loro su tutto l'anello intorno al pascolo; alcune più grandi, altre appena due
+  // o tre alberi. Ai margini qualche cespuglio.
+  const macchie = benDistribuiti(13, 2.7, 7, r, ostacoli);
+  macchie.forEach((m, q) => {
+    const n = q % 4 === 0 ? 8 : q % 2 ? 3 + Math.floor(r() * 2) : 5 + Math.floor(r() * 2), largo = 0.28 + n * 0.055, giro = r() * 6, allunga = 0.2 + r() * 0.6;
+    const punto2 = (u: number, v: number) => [m.x + u * Math.cos(giro) - v * Math.sin(giro), m.z + u * Math.sin(giro) + v * Math.cos(giro)] as const;
     for (let k = 0; k < n; k++) {
-      const a = r() * 6, d = Math.sqrt(r()) * 0.6, [x, z] = punto2(Math.cos(a) * d * (1 + allunga), Math.sin(a) * d);
-      if (Math.hypot(x, z) < PASCOLO || Math.hypot(x, z) > L - 0.5 || !libero(x, z, 0.02)) continue;
+      const a = r() * 6, d = Math.sqrt(r()) * largo, [x, z] = punto2(Math.cos(a) * d * (1 + allunga), Math.sin(a) * d);
+      if (inRadura(x, z) || Math.hypot(x, z) < PASCOLO || Math.hypot(x, z) > L - 0.5 || !libero(x, z, 0.03)) continue;
       albero(x, z, 0.5 + r() * 0.25, k);
     }
-    // Cespugli sul margine del bosco, dal lato del pascolo
-    const verso = Math.atan2(-cz, -cx);
-    for (let k = 0; k < 3 + Math.floor(r() * 3); k++) {
-      const a = verso + (r() - 0.5) * 1.6, d = 0.75 + r() * 0.35;
-      cespuglio(cx + Math.cos(a) * d * (1 + allunga * 0.5), cz + Math.sin(a) * d, 0.05 + r() * 0.04, k);
+    for (let k = 0; k < 2 + q % 3; k++) {
+      const a = r() * 6, d = largo * 1.25 + 0.12 + r() * 0.2, [x, z] = punto2(Math.cos(a) * d * (1 + allunga), Math.sin(a) * d);
+      cespuglio(x, z, 0.05 + r() * 0.04, k);
     }
-  }
-  // Alberi isolati nel pascolo, che danno ombra alle mucche
-  for (const [x, z] of [[1.6, -1.8], [-0.6, 2.6], [3.2, 2.9]]) if (libero(x!, z!, 0.3)) albero(x!, z!, 0.7, 1);
-  // Siepi: archi di cespugli lungo il bordo della valle, come confini fra i pascoli
-  for (const [da, a2, raggio] of [[2.6, 3.3, 5.6], [5.2, 5.8, 5.2], [0.4, 1.0, 6.0]] as const) {
-    for (let t = 0; t <= 1; t += 0.06) {
-      const a = da + (a2 - da) * t, d = raggio + Math.sin(t * 7) * 0.12;
-      cespuglio(Math.cos(a) * d, Math.sin(a) * d, 0.055 + r() * 0.03, Math.floor(t * 30));
-    }
-  }
+  });
+  // Alberi isolati: danno ritmo fra una macchia e l'altra, e ombra alle mucche
+  benDistribuiti(9, 2.2, 7.2, r, [...macchie, ...ostacoli]).forEach((q, k) => { if (!inRadura(q.x, q.z) && libero(q.x, q.z, 0.25)) albero(q.x, q.z, 0.62 + r() * 0.15, k); });
+  // Ciuffi di due o tre cespugli sparsi
+  benDistribuiti(11, 2.3, 7.3, r, [...macchie, ...ostacoli]).forEach((q, k) => {
+    for (let i = 0; i < 2 + k % 2; i++) cespuglio(q.x + (r() - 0.5) * 0.28, q.z + (r() - 0.5) * 0.28, 0.05 + r() * 0.035, i + k);
+  });
 
   // --- Mucche: tre mandrie con i vitelli. Brucano, camminano piano vicine fra loro, si sdraiano a ruminare,
   // girano la testa verso il cane; se arriva troppo vicino si alzano e si spostano con calma.
@@ -202,22 +191,22 @@ export function monta(el: HTMLElement) {
       o.add(corpo, zampe);
       o.scale.setScalar(scala);
       g.add(o);
-      const a = r() * 6, d = 0.2 + r() * 0.5;
-      mucche.push({ o, corpo, collo, coda, zampe, x: m.x + Math.cos(a) * d, z: m.y + Math.sin(a) * d, verso: r() * 6, vel: 0, timer: r() * 8, stato: r() < 0.3 ? 'sdraiata' : 'bruca', mandria: mi, vitello, mamma: -1, fase: r() * 6, giu: 0 });
+      let mx = m.x, mz = m.y, prova = 0;
+      do { const a = r() * 6, d = 0.2 + prova * 0.08 + r() * 0.5; mx = m.x + Math.cos(a) * d; mz = m.y + Math.sin(a) * d; } while (!libero(mx, mz, 0.12) && ++prova < 30);
+      mucche.push({ o, corpo, collo, coda, zampe, x: mx, z: mz, verso: r() * 6, vel: 0, timer: r() * 8, stato: r() < 0.3 ? 'sdraiata' : 'bruca', mandria: mi, vitello, mamma: -1, fase: r() * 6, giu: 0 });
     }
   });
   mucche.forEach((m, i) => { if (m.vitello) m.mamma = mucche.findIndex((q, j) => j < i && q.mandria === m.mandria && !q.vitello); });
 
   // --- Gregge: tante pecore minuscole (corpo chiaro, testa scura), tutte in due forme sole
-  const PECORE = p.telefono ? 110 : 180;
   const corpi = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 4).scale(0.07, 0.042, 0.047), mat(p.chiaro ? '#fbf9f4' : '#f2efe8', { grezzo: true, opacity: p.chiaro ? 1 : 0.9, fili: 0 }), PECORE);
   const teste = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 5, 3).scale(0.028, 0.023, 0.023), mat('#3a332c', { grezzo: true, opacity: 0.9, fili: 0 }), PECORE);
   corpi.frustumCulled = teste.frustumCulled = false;
   g.add(corpi, teste);
-  type Pecora = { x: number; z: number; vx: number; vz: number; verso: number; calma: number; timer: number; voglia: number; testa: number; fase: number };
+  type Pecora = { x: number; z: number; vx: number; vz: number; verso: number; calma: number; timer: number; voglia: number; testa: number; fase: number; spazio: number; salto: number };
   const pecore: Pecora[] = Array.from({ length: PECORE }, () => {
     const a = r() * 6, d = Math.sqrt(r()) * 1.3;
-    return { x: -0.2 + Math.cos(a) * d, z: 0.2 + Math.sin(a) * d * 0.8, vx: 0, vz: 0, verso: r() * 6, calma: 1, timer: r() * 6, voglia: 0, testa: 1, fase: r() * 6 };
+    return { x: -0.2 + Math.cos(a) * d, z: 0.2 + Math.sin(a) * d * 0.8, vx: 0, vz: 0, verso: r() * 6, calma: 1, timer: r() * 6, voglia: 0, testa: 1, fase: r() * 6, spazio: 0.11 + r() * 0.08, salto: 0 };
   });
 
   // --- Cane: un quadrupede vero, arancio. Corpo, petto, testa col muso e le orecchie, coda; quattro zampe con anca e
@@ -277,7 +266,8 @@ export function monta(el: HTMLElement) {
   type Sfera = { x: number; y: number; z: number; raggio: number };
   type Nuvola = { cx: number; cy: number; cz: number; vel: number; largo: number; nodi: Nodo[]; molle: [number, number, number][]; sfere: Sfera[]; da: number; n: number; preso: number };
   const nuvole: Nuvola[] = [];
-  const QUANTE = 6, PER = p.telefono ? 600 : 1100, N = QUANTE * PER;
+  const QUANTE = 7, PER = p.telefono ? 600 : 1100, N = QUANTE * PER;
+  const CIELO = 11, VENTO = new THREE.Vector2(0.92, 0.39), postiNuvole = benDistribuiti(QUANTE, 0, CIELO - 1.5, r);
   const nuvola = puntiMorbidi(N);
   const legami = new Uint8Array(N * 3), pesi = new Float32Array(N * 3), offset = new Float32Array(N * 9), vita = new Float32Array(N), ritmo = new Float32Array(N), luceNuvole = new Float32Array(N);
   // Un punto a caso dentro la nuvola: più fitto verso il bordo degli sbuffi, la pancia piatta
@@ -329,7 +319,7 @@ export function monta(el: HTMLElement) {
         if (!viste.has(chiave)) { viste.add(chiave); molle.push([i, q.j, q.d]); }
       });
     });
-    const cx = -12 + k * 4.2 + r() * 1.2, cy = 4.3 + r() * 1, cz = -3.5 + r() * 8;
+    const cx = postiNuvole[k]!.x, cy = 3.9 + r() * 2.1, cz = postiNuvole[k]!.z;
     nodi.forEach(q => { q.x += cx; q.y += cy; q.z += cz; });
     const nv: Nuvola = { cx, cy, cz, vel: 0.1 + r() * 0.08, largo, nodi, molle, sfere, da: k * PER, n: PER, preso: -1 };
     nuvole.push(nv);
@@ -368,7 +358,9 @@ export function monta(el: HTMLElement) {
   // Presa: si afferra il nodo più vicino al raggio; lo si tira su un piano orizzontale alla sua quota
   const presa = { nuvola: -1, meta: new THREE.Vector3(), piano: new THREE.Plane(new THREE.Vector3(0, 1, 0), 0) };
   function afferra(raggio: THREE.Raycaster) {
-    let meglio = 0.75, chi = -1, quale = -1;
+    // Il cane ha la precedenza: un clic su di lui lo fa sedere anche se sopra passa una nuvola
+    if (raggio.ray.distanceToPoint(tmpL.set(cane.x, altezza(cane.x, cane.z) + 0.06, cane.z)) < 0.25) return false;
+    let meglio = 0.6, chi = -1, quale = -1;
     nuvole.forEach((nv, k) => nv.nodi.forEach((q, i) => { const d = raggio.ray.distanceToPoint(tmpL.set(q.x, q.y, q.z)); if (d < meglio) { meglio = d; chi = k; quale = i; } }));
     if (chi < 0) return false;
     const q = nuvole[chi]!.nodi[quale]!;
@@ -421,6 +413,67 @@ export function monta(el: HTMLElement) {
     if (raggio.ray.distanceToPoint(tmp.set(cane.x, altezza(cane.x, cane.z) + 0.06, cane.z)) < 0.25) cane.seduto = !cane.seduto;
   }
 
+  // --- Passatempo: un cerchio azzurro tratteggiato, grande abbastanza per tutto il gregge, appare in un punto del prato
+  // con pochi ostacoli e lontano dal gregge. I trattini si accendono man mano che le pecore entrano; quando ci sono
+  // tutte fanno qualche saltello, il cerchio svanisce e dopo un po' ne appare un altro.
+  const TRATTI = 64, azzurro = tono('#58a6ff');
+  const posCerchio = new Float32Array(TRATTI * 6), geoCerchio = new THREE.BufferGeometry(), geoAcceso = new THREE.BufferGeometry();
+  geoCerchio.setAttribute('position', new THREE.BufferAttribute(posCerchio, 3));
+  geoAcceso.setAttribute('position', new THREE.BufferAttribute(posCerchio, 3));
+  const matCerchio = new THREE.LineBasicMaterial({ color: azzurro, transparent: true, opacity: 0, depthWrite: false }), matAcceso = new THREE.LineBasicMaterial({ color: azzurro.clone().offsetHSL(0, 0, 0.12), transparent: true, opacity: 0, depthWrite: false });
+  const cerchioBase = new THREE.LineSegments(geoCerchio, matCerchio), cerchioAcceso = new THREE.LineSegments(geoAcceso, matAcceso);
+  cerchioBase.frustumCulled = cerchioAcceso.frustumCulled = false;
+  g.add(cerchioBase, cerchioAcceso);
+  const gioco = { x: 0, z: 0, stato: 'attesa' as 'attesa' | 'aperto' | 'fatto', t: 1, luce: 0, dentro: 0, tempo: 0, record: 0 };
+  try { gioco.record = Number(localStorage.getItem('misc-gregge-record')) || 0; } catch { /* niente */ }
+  const orologio = (x: number) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
+  const conta = document.createElement('span');
+  conta.style.cssText = 'position:absolute;right:16px;bottom:8px;font:13px var(--mono);color:var(--fg);pointer-events:none;opacity:0;transition:opacity .6s;white-space:pre';
+  el.appendChild(conta);
+  const smonta = p.distruggi;
+  p.distruggi = () => { conta.remove(); smonta(); };
+  const nuovoCerchio = () => {
+    const gx = pecore.reduce((a, q) => a + q.x, 0) / PECORE, gz = pecore.reduce((a, q) => a + q.z, 0) / PECORE;
+    // Una radura a caso fra quelle lontane dal gregge
+    const lontane = radure.filter(q => Math.hypot(q.x - gx, q.z - gz) > RAGGIO + 1.5), scelte = lontane.length ? lontane : radure, q0 = scelte[Math.floor(r() * scelte.length)]!;
+    gioco.x = q0.x; gioco.z = q0.z;
+    for (let k = 0; k < TRATTI; k++) {
+      const a = (k / TRATTI) * Math.PI * 2, b = ((k + 0.55) / TRATTI) * Math.PI * 2;
+      const ax = gioco.x + Math.cos(a) * RAGGIO, az = gioco.z + Math.sin(a) * RAGGIO, bx = gioco.x + Math.cos(b) * RAGGIO, bz = gioco.z + Math.sin(b) * RAGGIO;
+      posCerchio.set([ax, altezza(ax, az) + 0.05, az, bx, altezza(bx, bz) + 0.05, bz], k * 6);
+    }
+    geoCerchio.attributes.position!.needsUpdate = true;
+    geoAcceso.attributes.position!.needsUpdate = true;
+    gioco.stato = 'aperto';
+    gioco.tempo = 0;
+  };
+  const aggiornaGioco = (dt: number) => {
+    if (gioco.stato === 'attesa') { gioco.t -= dt; if (gioco.t <= 0) nuovoCerchio(); }
+    else if (gioco.stato === 'aperto') {
+      gioco.luce = morbido(gioco.luce, 1, dt * 0.8);
+      gioco.dentro = pecore.filter(q => Math.hypot(q.x - gioco.x, q.z - gioco.z) < RAGGIO).length;
+      gioco.tempo += dt;
+      conta.textContent = `${gioco.dentro}/${PECORE}   ${orologio(gioco.tempo)}${gioco.record ? `   best ${orologio(gioco.record)}` : ''}`;
+      conta.style.opacity = '1';
+      if (gioco.dentro === PECORE) {
+        gioco.stato = 'fatto'; gioco.t = 4;
+        if (!gioco.record || gioco.tempo < gioco.record) {
+          gioco.record = gioco.tempo;
+          try { localStorage.setItem('misc-gregge-record', String(gioco.record)); } catch { /* niente */ }
+        }
+        conta.textContent = `${PECORE}/${PECORE}   ${orologio(gioco.tempo)}   best ${orologio(gioco.record)}`;
+        pecore.forEach(q => { q.salto = 1 + r() * 0.6; });
+      }
+    } else {
+      gioco.t -= dt;
+      if (gioco.t < 1.6) gioco.luce = morbido(gioco.luce, 0, dt * 2);
+      if (gioco.t <= 0) { gioco.stato = 'attesa'; gioco.t = 5; gioco.luce = 0; conta.style.opacity = '0'; }
+    }
+    matCerchio.opacity = gioco.luce * (p.chiaro ? 0.6 : 0.5);
+    matAcceso.opacity = gioco.luce * 0.9;
+    geoAcceso.setDrawRange(0, Math.floor((gioco.stato === 'fatto' ? 1 : gioco.dentro / PECORE) * TRATTI) * 2);
+  };
+
   // --- Ciclo
   const tmp = new THREE.Vector3(), dummy = new THREE.Object3D();
   const chiaroNuvola = new THREE.Color(p.chiaro ? '#fbf9f4' : '#e8e6e0'), scuroNuvola = new THREE.Color(p.chiaro ? '#b9b2a4' : '#8d8a84'), colNuvola = new THREE.Color();
@@ -434,8 +487,15 @@ export function monta(el: HTMLElement) {
     const raggio = p.raggio;
     let sopraNuvola = false;
     nuvole.forEach((nv, q) => {
-      nv.cx += nv.vel * dt;
-      if (nv.cx > 12) { nv.cx -= 24; nv.nodi.forEach(n => { n.x -= 24; }); }
+      nv.cx += VENTO.x * nv.vel * dt; nv.cz += VENTO.y * nv.vel * dt;
+      // Uscita dal cielo: la nuvola, ormai invisibile, riparte dal lato opposto, sulla stessa linea del vento
+      if (Math.hypot(nv.cx, nv.cz) > CIELO) {
+        const salto = -2 * (nv.cx * VENTO.x + nv.cz * VENTO.y), sx = VENTO.x * salto, sz = VENTO.y * salto;
+        nv.cx += sx; nv.cz += sz;
+        nv.nodi.forEach(n => { n.x += sx; n.z += sz; });
+      }
+      // Sfuma piano verso il bordo del cielo, da ogni lato: la scena si può girare
+      const lontana = THREE.MathUtils.smoothstep(Math.hypot(nv.cx, nv.cz), CIELO - 4, CIELO), vista = 1 - lontana;
       const passi = 2, h = dt / passi;
       for (let pp = 0; pp < passi; pp++) {
         nv.nodi.forEach((n, i) => {
@@ -461,8 +521,8 @@ export function monta(el: HTMLElement) {
       // Centro per l'ombra: la media dei nodi
       let mx = 0, mz = 0;
       nv.nodi.forEach(n => { mx += n.x; mz += n.z; });
-      ombre[q]!.set(mx / nv.nodi.length + 0.8, mz / nv.nodi.length + 0.6, nv.largo * 1.2, nv.largo * 0.75);
-      if (raggio && presa.nuvola < 0 && !sopraNuvola) sopraNuvola = nv.nodi.some(n => raggio.ray.distanceToPoint(tmp.set(n.x, n.y, n.z)) < 0.75);
+      ombre[q]!.set(mx / nv.nodi.length + 0.8, mz / nv.nodi.length + 0.6, nv.largo * 1.2 * Math.max(vista, 0.01), nv.largo * 0.75 * Math.max(vista, 0.01));
+      if (raggio && presa.nuvola < 0 && !sopraNuvola) sopraNuvola = nv.nodi.some(n => raggio.ray.distanceToPoint(tmp.set(n.x, n.y, n.z)) < 0.6);
       // Punti: posizione dai tre nodi legati; la vita li fa comparire, salire appena e svanire
       for (let i = 0; i < nv.n; i++) {
         const j = nv.da + i;
@@ -475,7 +535,7 @@ export function monta(el: HTMLElement) {
           x += w * (n.x + offset[o]! * cresce); y += w * (n.y + offset[o + 1]! * cresce); z += w * (n.z + offset[o + 2]! * cresce);
         }
         nuvola.pos[j * 3] = x; nuvola.pos[j * 3 + 1] = y + v * 0.08; nuvola.pos[j * 3 + 2] = z;
-        nuvola.alfa[j] = Math.sin(v * Math.PI) ** 0.7 * (p.chiaro ? 0.6 : 0.45);
+        nuvola.alfa[j] = Math.sin(v * Math.PI) ** 0.7 * (p.chiaro ? 0.6 : 0.45) * vista;
         colNuvola.copy(scuroNuvola).lerp(chiaroNuvola, luceNuvole[j]!);
         nuvola.col[j * 3] = colNuvola.r; nuvola.col[j * 3 + 1] = colNuvola.g; nuvola.col[j * 3 + 2] = colNuvola.b;
       }
@@ -494,7 +554,7 @@ export function monta(el: HTMLElement) {
     });
 
     // Cane: segue il puntatore sul prato (non mentre tiri una nuvola); seduto resta dov'è e guarda il gregge
-    if (!cane.seduto && raggio && presa.nuvola < 0 && !sopraNuvola && sulTerreno(raggio) && Math.hypot(punto.x, punto.z) < L - 0.8) metaCane.set(punto.x, punto.z);
+    if (!cane.seduto && raggio && presa.nuvola < 0 && sulTerreno(raggio) && Math.hypot(punto.x, punto.z) < L - 0.8) metaCane.set(punto.x, punto.z);
     if (cane.seduto) metaCane.set(cane.x, cane.z);
     {
       const k = cane, dx = metaCane.x - k.x, dz = metaCane.y - k.z, d = Math.hypot(dx, dz);
@@ -571,6 +631,8 @@ export function monta(el: HTMLElement) {
       m.corpo.rotation.x = m.vel > 0.02 ? Math.sin(s * 9 + m.fase) * 0.03 : 0;
     });
 
+    aggiornaGioco(dt);
+    const quasiTutte = gioco.stato === 'aperto' && gioco.dentro > PECORE * 0.85;
     // Pascolo del gregge: un punto che gira lento nella valle; le pecore calme ci vanno piano, così il gregge si sposta
     const pascolo = tmp.set(Math.sin(s * 0.025) * 2.4, 0, Math.sin(s * 0.019 + 1) * 2);
     // Gregge: ogni pecora si tiene a distanza dalle vicine, resta col gruppo, scappa dal cane; quando è calma bruca
@@ -585,7 +647,7 @@ export function monta(el: HTMLElement) {
         const o = pecore[j]!, dx = q.x - o.x, dz = q.z - o.z, d = Math.hypot(dx, dz);
         if (d > 0.7 || d < 1e-4) continue;
         n++; mx += o.vx; mz += o.vz; cx += o.x; cz += o.z;
-        if (d < 0.15) { ax += (dx / d) * (0.15 - d) * 22; az += (dz / d) * (0.15 - d) * 22; }
+        if (d < q.spazio) { ax += (dx / d) * (q.spazio - d) * 22; az += (dz / d) * (q.spazio - d) * 22; }
         paura = Math.max(paura, (1 - o.calma) * (1 - d / 0.7));
       }
       const dc = Math.hypot(q.x - cane.x, q.z - cane.z) || 1e-3;
@@ -602,7 +664,11 @@ export function monta(el: HTMLElement) {
       if (q.timer <= 0) { q.voglia = q.voglia ? 0 : 1; q.timer = q.voglia ? 1.5 + r() * 2.5 : 2.5 + r() * 5; if (q.voglia) q.verso += (r() - 0.5) * 2; }
       if (q.voglia && agitata < 0.3) { ax += Math.cos(q.verso) * 0.6; az -= Math.sin(q.verso) * 0.6; }
       // Verso il pascolo, piano, solo da calme
-      if (agitata < 0.3) { const px = pascolo.x - q.x, pz = pascolo.z - q.z, d = Math.hypot(px, pz) || 1; ax += (px / d) * Math.min(1, d) * 0.12; az += (pz / d) * Math.min(1, d) * 0.12; }
+      // Dentro il cerchio stanno bene e non ne escono da sole; le ultime rimaste fuori raggiungono le compagne
+      const gx = gioco.x - q.x, gz = gioco.z - q.z, dg = Math.hypot(gx, gz) || 1, inGioco = gioco.stato !== 'attesa';
+      if (agitata < 0.3 && inGioco && dg < RAGGIO) { if (dg > RAGGIO - 0.4) { ax += (gx / dg) * 1.2; az += (gz / dg) * 1.2; } }
+      else if (agitata < 0.3 && quasiTutte) { ax += (gx / dg) * 0.7; az += (gz / dg) * 0.7; }
+      else if (agitata < 0.3) { const px = pascolo.x - q.x, pz = pascolo.z - q.z, d = Math.hypot(px, pz) || 1; ax += (px / d) * Math.min(1, d) * 0.12; az += (pz / d) * Math.min(1, d) * 0.12; }
       for (const o of ostacoli) {
         const dx = q.x - o.x, dz = q.z - o.z, d = Math.hypot(dx, dz), giro = o.r + 0.07;
         if (d < giro && d > 1e-4) { ax += (dx / d) * (giro - d) * 30; az += (dz / d) * (giro - d) * 30; }
@@ -616,19 +682,22 @@ export function monta(el: HTMLElement) {
       q.vx += ax * dt; q.vz += az * dt;
       const attrito = Math.exp(-dt * (agitata > 0.2 ? 1.2 : 3.5));
       q.vx *= attrito; q.vz *= attrito;
-      const v = Math.hypot(q.vx, q.vz), vMax = 0.15 + agitata * 0.9;
+      const v = Math.hypot(q.vx, q.vz), vMax = (quasiTutte ? 0.3 : 0.15) + agitata * 0.9;
       if (v > vMax) { q.vx *= vMax / v; q.vz *= vMax / v; }
       q.x += q.vx * dt; q.z += q.vz * dt;
       if (v > 0.03) q.verso += angolo(Math.atan2(-q.vz, q.vx) - q.verso) * Math.min(1, dt * 4);
       q.testa = morbido(q.testa, v < 0.04 ? 1 : 0, dt * 2);
       const y = altezza(q.x, q.z), passo = v > 0.03 ? Math.abs(Math.sin(s * 14 + q.fase)) * 0.01 : 0;
-      dummy.position.set(q.x, y + 0.042 + passo, q.z);
+      // Festa quando il cerchio è pieno: qualche saltello
+      q.salto = Math.max(0, q.salto - dt);
+      const festa = q.salto > 0 ? Math.abs(Math.sin(q.salto * 9 + q.fase)) * 0.07 : 0;
+      dummy.position.set(q.x, y + 0.042 + passo + festa, q.z);
       dummy.rotation.set(0, q.verso, 0);
       dummy.scale.setScalar(1);
       dummy.updateMatrix();
       corpi.setMatrixAt(i, dummy.matrix);
       const giu = q.testa * (0.025 + Math.abs(Math.sin(s * 3 + q.fase)) * 0.008);
-      dummy.position.set(q.x + Math.cos(q.verso) * 0.08, y + 0.056 - giu, q.z - Math.sin(q.verso) * 0.08);
+      dummy.position.set(q.x + Math.cos(q.verso) * 0.08, y + 0.056 - giu + festa, q.z - Math.sin(q.verso) * 0.08);
       dummy.updateMatrix();
       teste.setMatrixAt(i, dummy.matrix);
     });

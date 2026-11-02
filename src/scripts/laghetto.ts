@@ -28,7 +28,8 @@ export function monta(el: HTMLElement) {
   // uso le competenze tecniche e quello che studio. Stessi valori di --accent nelle due sezioni (Base.astro).
   // Smorzati (verso il grigio, semitrasparenti): l'azzurro del laghetto resta il protagonista
   const SMORZA = 0.3;
-  const VERDE_PROJECTS = tonoSezione('--verde').lerp(c.muted, SMORZA), ARANCIO_KNOWLEDGE = tonoSezione('--arancio').lerp(c.muted, SMORZA);
+  // Sul fondo chiaro il verde resta acceso: mescolato al grigio si spegne
+  const VERDE_PROJECTS = document.documentElement.dataset.theme === 'light' ? tonoSezione('--verde').offsetHSL(0, 0.15, 0.1) : tonoSezione('--verde').lerp(c.muted, SMORZA), ARANCIO_KNOWLEDGE = tonoSezione('--arancio').lerp(c.muted, SMORZA);
   const gruppo = new THREE.Group();
   const punti: Punto[] = [];
   const r = casuale(5);
@@ -66,7 +67,7 @@ export function monta(el: HTMLElement) {
   // Prato intorno al lago: dischi verdi tenui a strati, più intensi verso il centro, che sfumano verso i bordi
   // come il prato del bosco (di notte appena accennati)
   for (const [raggio, op] of [[5.6, 0.07], [4.2, 0.045]] as const) {
-    const disco = new THREE.Mesh(new THREE.CircleGeometry(raggio, 64), new THREE.MeshBasicMaterial({ color: VERDE_PROJECTS, transparent: true, opacity: op * (chiaro ? 1 : 0.45), depthWrite: false }));
+    const disco = new THREE.Mesh(new THREE.CircleGeometry(raggio, 64), new THREE.MeshBasicMaterial({ color: VERDE_PROJECTS, transparent: true, opacity: op * (chiaro ? 2 : 0.45), depthWrite: false }));
     disco.rotation.x = -Math.PI / 2;
     disco.position.y = -0.04;
     disco.renderOrder = -2;

@@ -50,8 +50,7 @@ const PAGINE = [
 </Base>
 
 <script>
-  // Il mondo 3D: bosco (Software), stagno (Advisory), stormo (Knowledge)
-  import { monta } from '../scripts/mondo';
+  // Il mondo 3D: bosco (Software), stagno (Advisory), stormo (Knowledge). Si scarica dopo il primo disegno: il testo appare subito
   // Su schermi larghi il mondo sta esattamente tra la barra in alto e la linea del footer: le misure sono quelle vere
   const fondo = document.querySelector<HTMLElement>('.fondo3d')!;
   const adatta = () => {
@@ -61,7 +60,7 @@ const PAGINE = [
   };
   adatta();
   window.addEventListener('resize', adatta);
-  monta(document.querySelector<HTMLElement>('.scena3d')!);
+  setTimeout(() => import('../scripts/mondo').then(m => m.monta(document.querySelector<HTMLElement>('.scena3d')!)), 30);
   // Passare sopra una sezione nella lista accende la sua parte del mondo, come nelle liste delle altre pagine
   document.querySelectorAll<HTMLElement>('[data-sezione]').forEach(a => {
     a.addEventListener('mouseenter', () => window.dispatchEvent(new CustomEvent('grafo:evidenzia', { detail: a.dataset.sezione })));

@@ -27,13 +27,13 @@ const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props
 </figure>
 
 <script>
-  import { monta } from '../scripts/grafo';
-  // Bosco e laghetto si caricano solo nelle pagine che li usano
-  document.querySelectorAll<HTMLElement>('[data-grafo]').forEach(el => {
+  // La scena e Three.js si scaricano solo dopo il primo disegno: il testo della pagina appare subito
+  const montaScene = () => document.querySelectorAll<HTMLElement>('[data-grafo]').forEach(el => {
     if (el.dataset.motore === 'bosco') import('../scripts/bosco').then(m => m.monta(el));
     else if (el.dataset.motore === 'laghetto') import('../scripts/laghetto').then(m => m.monta(el));
-    else monta(el);
+    else import('../scripts/grafo').then(m => m.monta(el));
   });
+  setTimeout(montaScene, 30);
   document.querySelectorAll<HTMLElement>('.grafo').forEach(fig => {
     fig.querySelectorAll<HTMLButtonElement>('[data-mostra]').forEach(b => b.addEventListener('click', () => {
       fig.querySelectorAll<HTMLElement>('[data-vista]').forEach(el => { el.hidden = el.dataset.vista !== b.dataset.mostra; });

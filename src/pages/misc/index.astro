@@ -1,13 +1,15 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// Esperimenti: due sfondi a pixel e due scene 3D per rilassarsi (barriera, valle con le nuvole)
+// Esperimenti: scene a pixel e scene 3D per rilassarsi (barriera, valle, polare, oasi)
 ---
 <Base title="Misc · Riccardo Mondi" description="Small experiments." largo>
   <canvas class="scena" aria-hidden="true"></canvas>
   <!-- Scene 3D: ognuna nel suo contenitore, montata la prima volta che si apre -->
   <div class="fondo3d" data-fondo="barriera" hidden><div class="scena3d" aria-hidden="true"></div></div>
   <div class="fondo3d" data-fondo="nuvole" hidden><div class="scena3d" aria-hidden="true"></div></div>
+  <div class="fondo3d" data-fondo="polare" hidden><div class="scena3d" aria-hidden="true"></div></div>
+  <div class="fondo3d" data-fondo="oasi" hidden><div class="scena3d" aria-hidden="true"></div></div>
   <main class="misc">
     <p class="mono"><a href="/">~</a>/misc</p>
     <h1>Misc</h1>
@@ -15,6 +17,9 @@ import Base from '../../layouts/Base.astro';
     <p class="mono scelte" role="group" aria-label="Experiment">
       <button type="button" data-scena="barriera">reef</button>
       <button type="button" data-scena="nuvole">valley</button>
+      <button type="button" data-scena="polare">polar</button>
+      <button type="button" data-scena="oasi">oasis</button>
+      <button type="button" data-scena="uccelli">birds</button>
       <button type="button" data-scena="vita">life</button>
       <button type="button" data-scena="onde">waves</button>
     </p>
@@ -39,7 +44,7 @@ import Base from '../../layouts/Base.astro';
   const montate = new Map<string, Palco>();
   const montatori: Record<string, (el: HTMLElement) => Promise<Palco>> = {};
   // Nomi dei tre toni chiave di ogni scena, per il color editor
-  const NOMI: Record<string, string[]> = { barriera: ['water', 'earth', 'coral'], nuvole: ['hills', 'sky', 'accent'] };
+  const NOMI: Record<string, string[]> = { barriera: ['water', 'earth', 'coral'], nuvole: ['hills', 'sky', 'accent'], polare: ['ice', 'water', 'accent'], oasi: ['sand', 'water', 'palms'] };
   const editor = document.querySelector<HTMLElement>('.toni')!;
   const selettori = editor.querySelectorAll<HTMLInputElement>('input[type="color"]');
   const mostraEditor = (nome: string | null) => {
@@ -79,6 +84,9 @@ import Base from '../../layouts/Base.astro';
   const SCENE: Record<string, () => Promise<Scena>> = {
     barriera: scena3d('barriera', async el => (await import('../../scripts/barriera')).monta(el)),
     nuvole: scena3d('nuvole', async el => (await import('../../scripts/nuvole')).monta(el)),
+    polare: scena3d('polare', async el => (await import('../../scripts/polare')).monta(el)),
+    oasi: scena3d('oasi', async el => (await import('../../scripts/oasi')).monta(el)),
+    uccelli: async () => (await import('../../scripts/uccelli')).monta(tela),
     vita: async () => (await import('../../scripts/vita')).monta(tela),
     onde: async () => (await import('../../scripts/onde')).monta(tela),
   };
