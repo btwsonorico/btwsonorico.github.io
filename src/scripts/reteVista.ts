@@ -20,6 +20,8 @@ const SAGOME: Record<string, (x: number, y: number) => boolean> = {
   fish: (x, y) => ((x + 0.18) / 0.58) ** 2 + (y / 0.3) ** 2 < 1
     || triangolo(x, y, 0.3, 0, 0.88, 0.5, 0.62, 0) || triangolo(x, y, 0.3, 0, 0.88, -0.5, 0.62, 0)
     || triangolo(x, y, -0.45, 0.22, 0.05, 0.22, -0.28, 0.66) || triangolo(x, y, -0.2, -0.22, 0.1, -0.22, 0.04, -0.58),
+  // Casa con tetto e porta
+  house: (x, y) => triangolo(x, y, -0.85, 0.08, 0.85, 0.08, 0, 0.88) || (Math.abs(x) < 0.6 && y <= 0.08 && y > -0.85 && !(Math.abs(x) < 0.17 && y < -0.3)),
   // Abete a tre palchi, con il tronco
   tree: (x, y) => palco(x, y, 0.92, 0.28, 0.45) || palco(x, y, 0.5, -0.2, 0.65) || palco(x, y, 0.1, -0.62, 0.88) || (Math.abs(x) < 0.13 && y <= -0.62 && y > -0.92),
 };
@@ -414,7 +416,7 @@ export function monta(radice: HTMLElement) {
     if (inMoto) return ['', null];
     if (!passi) return ['press train to start this run', gioca];
     if (passi < FINE) return [`press ${gioca.textContent}, or change the network`, gioca];
-    if (matchMostrato >= 0.95) return ['it got it: try another shape', sagome[nomeSagoma === 'fish' ? 1 : 0] ?? null];
+    if (matchMostrato >= 0.95) return ['it got it: try another shape', sagome[([...sagome].findIndex(b => b.dataset.sagoma === nomeSagoma) + 1) % sagome.length] ?? null];
     if (nascosti.length === 1) return ['one layer gets stuck: add a layer, then train and compare', piuStrati];
     return ['change the network, then train and compare', gioca];
   };
