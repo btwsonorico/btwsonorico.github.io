@@ -4,7 +4,7 @@ import Base from '../../layouts/Base.astro';
 // Rete neurale: la facciata è lo strumento (a sinistra costruisci, alleni e leggi; a destra la griglia), le spiegazioni brevi
 // sono tag che appaiono sul punto, e scorrendo sotto c'è la spiegazione completa. La rete si allena nel browser (src/lib/rete.ts)
 const COME: [string, string][] = [
-  ['What is this?', 'A small neural network running in your browser. It reads a position on the grid and returns a height. It trains on 1,024 points, and the blue outline is the shape they form. Unlike with a real model, its settings are fixed for you: how fast it corrects its weights (the learning rate), how many points it looks at for each correction (64), and how many corrections it makes (20,000). In a real model these take a lot of trial and error.'],
+  ['What is this?', 'A real neural network, small and simple, running in your browser. It reads a position on the grid and returns a height. It trains on 1,024 points, and the blue outline is the shape they form. Unlike with a real model, its settings are fixed for you: how fast it corrects its weights (the learning rate), how many points it looks at for each correction (64), and how many corrections it makes (20,000). In a real model these take a lot of trial and error.'],
   ['What does one neuron do?', 'A neuron does three things. It multiplies each input by a weight, adds the results, and limits the total to a fixed range, so the answer cannot grow without end.\nOn this grid the result is one straight cut: the height is high on one side of a line and low on the other. The weights decide where that line goes. With 0 layers you can drag it yourself, and you will see that one straight cut cannot cover a shape like the fish.'],
   ['What do more neurons and layers add?', 'More neurons in a layer give you more cuts. Each neuron makes its own straight cut, and the output adds them up, so the straight lines combine into a rounded shape. The shape stays rough, because all these neurons can look only at the position.\nA second layer reads the cuts of the first layer instead of the position. So it can combine them into new pieces, such as corners and strips, and a third layer can combine those pieces again.\nThat is why layers help. On the fish, one layer of 6 neurons stops near 70%, two reach about 90% and three go past 95%.'],
   ['How does it learn?', 'The network starts with random weights, so its first answers are wrong. It answers for a group of points, and the gap from the right heights is the error. Backpropagation goes back through the network to find how much each weight contributed to that error, and gradient descent moves each weight a little in the direction that lowers it.\nOne correction changes very little, so this repeats thousands of times, and the match line rises as it does.'],
@@ -15,8 +15,8 @@ const COME: [string, string][] = [
   <main class="rn" data-rete>
     <div class="schermo">
       <header class="testa">
-        <h1>Teach a (simple) neural network to draw</h1>
-        <p class="sotto">A real neural network, in your browser. <a href="#how-it-works" class="mono">how it works ↓</a></p>
+        <h1>Teach a neural network to draw in your browser</h1>
+        <a href="#how-it-works" class="mono">how it works ↓</a>
       </header>
 
       <section class="banco">
@@ -79,8 +79,8 @@ const COME: [string, string][] = [
   .rn { padding: 4px 24px 0; }
   .schermo { display: flex; flex-direction: column; gap: var(--s2); height: calc(100vh - 62px); min-height: 600px; padding-bottom: var(--s2); }
   h1 { margin: 0 0 4px; font-size: 24px; font-weight: 400; line-height: 1.15; }
-  .sotto { margin: 0; color: var(--muted); font-size: 14px; }
-  .sotto a { margin-left: 6px; color: var(--fg); font-size: 12px; white-space: nowrap; }
+  .testa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px var(--s2); }
+  .testa a { color: var(--fg); font-size: 12px; white-space: nowrap; }
   button { padding: 5px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; transition: color .12s, border-color .12s; }
   button:hover:not(:disabled) { border-color: var(--fg); color: var(--fg); }
   button:disabled { border-color: var(--line); color: var(--line); opacity: .6; cursor: default; }
