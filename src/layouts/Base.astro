@@ -9,6 +9,10 @@ const { title, description = 'Riccardo Mondi: AI advisor and developer at Polite
 // Indirizzo canonico della pagina, per i motori di ricerca e per le anteprime quando la pagina si condivide
 const canonico = new URL(Astro.url.pathname, Astro.site).href;
 const build = new Date().toISOString().slice(0, 10);
+// Il percorso della pagina sta nell'intestazione, dopo il nome: ogni pezzo porta alla sua pagina
+const pezzi = Astro.url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+// I tag di Knowledge stanno sotto /knowledge/t/, che non è una pagina: quel pezzo resta testo
+const SENZA_PAGINA = new Set(['/knowledge/t/']);
 ---
 <!doctype html>
 <html lang={lang} data-theme="dark" data-cyber data-tono={tono}>
@@ -45,7 +49,7 @@ const build = new Date().toISOString().slice(0, 10);
   </head>
   <body class:list={{ largo }}>
     <header class="barra">
-      <span class="nome"><a href="/" class="io">~/riccardomondi<span class="cursore" aria-hidden="true">_</span></a><span class="wip" title="Work in progress: the site is still being built">wip</span></span>
+      <span class="nome"><span class="percorso"><a href="/" class="io">~/riccardomondi</a>{pezzi.map((p, k) => { const dove = `/${pezzi.slice(0, k + 1).join('/')}/`; return <><span class="sep">/</span><wbr />{SENZA_PAGINA.has(dove) ? <span class="sep">{p}</span> : <a href={dove} class:list={{ qui: k === pezzi.length - 1 }}>{p}</a>}</>; })}<span class="cursore" aria-hidden="true">_</span></span><span class="wip" title="Work in progress: the site is still being built">wip</span></span>
       <nav>
         <a href="/software/">software</a>
         <a href="/advisory/">advisory</a>
@@ -183,12 +187,18 @@ const build = new Date().toISOString().slice(0, 10);
   @media (max-width: 640px) {
     .barra { flex-wrap: wrap; row-gap: 0; padding-top: 10px; padding-bottom: 10px; }
     .barra nav { gap: 14px; }
-    .barra a, .cambia-tema { display: inline-flex; align-items: center; min-height: 36px; }
+    .barra nav a, .cambia-tema { display: inline-flex; align-items: center; min-height: 36px; }
+    .nome { padding: 8px 0; }
     .cambia-tema { padding: 0 10px; min-height: 30px; }
   }
   .io { color: var(--fg); }
   /* Sito in costruzione: un'etichetta piccola accanto al nome */
-  .nome { display: inline-flex; align-items: center; gap: 10px; }
+  .nome { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+  .percorso { overflow-wrap: anywhere; }
+  .percorso a { color: var(--muted); }
+  .percorso a:hover { color: var(--fg); }
+  .percorso a.io, .percorso a.qui { color: var(--fg); }
+  .sep { color: var(--muted); }
   .wip { padding: 0 5px; border: 1px solid var(--accent); color: var(--accent); font-size: 10px; line-height: 15px; text-transform: uppercase; letter-spacing: 0.06em; }
   .cursore { color: var(--accent); animation: lampeggia 1.1s steps(1) infinite; }
   @keyframes lampeggia { 50% { opacity: 0; } }
