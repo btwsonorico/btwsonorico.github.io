@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import { casuale, mat as matSito, pezzo, scuoti, sasso, unisci, terreno, nastri, puntiMorbidi, palco, tema, type Extra, type Nastro, type Palco } from './natura';
 
 // Barriera corallina: un fondale aperto, tutto sott'acqua, nello stile del laghetto. Al centro una torre di rocce a
-// terrazze; intorno, da ogni lato, alghe, coralli, anemoni, ricci, vongole e un forziere:
-// girando piano si scopre tutto. L'acqua è piena di particelle sospese e di meduse diverse, sparse a ogni quota.
+// terrazze; intorno, da ogni lato, alghe, coralli, anemoni, ricci e vongole:
+// girando piano si scopre tutto. L'acqua è piena di particelle sospese; tre meduse diverse nuotano a quote diverse.
 // Tutto si muove con la stessa corrente: la risacca va e viene, le alghe ondeggiano, le particelle scorrono.
 // Banchi di pesciolini nuotano insieme e scappano dal puntatore; un clic sull'acqua fa cadere il mangime.
 
@@ -20,7 +20,7 @@ export function monta(el: HTMLElement) {
   const g = p.gruppo;
 
   // --- Tavolozza a tre colori: 60% blu-azzurro (acqua, alghe, rocce, meduse, quasi tutti i pesci), 30% grigio terra
-  // un po' aranciato (sabbia, pietre, coralli duri, forziere), 10% rosso acceso (un banco,
+  // un po' aranciato (sabbia, pietre, coralli duri), 10% rosso acceso (un banco,
   // il granchio, una stella, un corallo, un ventaglio, un anemone, il mangime).
   // Ogni colore della scena ha la sua famiglia e una sfumatura (più chiaro o più scuro della base).
   const BASE = { b: p.toni[0]!.clone(), t: p.toni[1]!.clone(), r: p.toni[2]!.clone() };
@@ -255,21 +255,6 @@ export function monta(el: HTMLElement) {
     g.add(s);
   });
 
-  // --- Forziere mezzo sepolto: ogni tanto si apre, luccica e libera bolle
-  const forziere = new THREE.Group();
-  const legno = mat('#8a5a2b'), oro = mat('#f2c14e', { opacity: 0.5 });
-  forziere.add(pezzo(new THREE.BoxGeometry(0.5, 0.26, 0.32), legno, 0, 0.13, 0));
-  [-0.17, 0.17].forEach(x => forziere.add(pezzo(new THREE.BoxGeometry(0.04, 0.27, 0.33), oro, x, 0.13, 0)));
-  const monete = pezzo(new THREE.BoxGeometry(0.44, 0.04, 0.26), mat('#ffd75e', { opacity: 0.4 }), 0, 0.25, 0);
-  forziere.add(monete);
-  const coperchio = new THREE.Group();
-  coperchio.position.set(0, 0.26, -0.16);
-  const geoCop = new THREE.CylinderGeometry(0.16, 0.16, 0.5, 8, 1, false, 0, Math.PI).rotateZ(Math.PI / 2).rotateX(Math.PI / 2);
-  coperchio.add(pezzo(geoCop, legno, 0, 0, 0.16));
-  forziere.add(coperchio);
-  forziere.rotation.set(0.12, -0.6, 0.08);
-  posa(forziere, -0.5, 2.7).position.y -= 0.06;
-
   const luce = BASE.b.clone().offsetHSL(0, 0, p.chiaro ? -0.05 : 0.18);
 
   // --- Pesci: tutti dalla stessa forma piccola (corpo a rombo e coda), in banchi
@@ -299,7 +284,7 @@ export function monta(el: HTMLElement) {
   g.add(giroScoglio);
 
   // --- Meduse: campana che pulsa e spinge in su, tentacoli che seguono in ritardo. Quattro specie (forma della campana,
-  // numero e lunghezza dei tentacoli), ognuna con la sua grandezza e il suo ritmo; sparse in tutta l'acqua, a quote diverse
+  // numero e lunghezza dei tentacoli), ognuna con la sua grandezza, il suo ritmo e la sua quota
   const SPECIE = [
     { apre: 0.5, alta: 1, fili: 8, nodi: 10, passo: 0.065, interni: 0 },     // A cupola
     { apre: 0.32, alta: 1, fili: 14, nodi: 14, passo: 0.07, interni: 0 },    // Piatta, con una lunga frangia
@@ -307,18 +292,18 @@ export function monta(el: HTMLElement) {
     { apre: 0.62, alta: 0.9, fili: 6, nodi: 8, passo: 0.05, interni: 4 },    // Tonda, con braccia al centro
   ];
   const TINTE_MEDUSE = ['#ff9ec7', '#ffc2a0', '#c9a6ff', '#d9ecf2', '#6d97c4', '#ff8fb1'];
-  const QUANTE_MEDUSE = p.telefono ? 6 : 11;
+  const QUANTE_MEDUSE = 3, QUOTE_MEDUSE = [3.2, 1.9, 4.0], GRANDEZZE_MEDUSE = [1, 0.75, 1.2];
   const campane = SPECIE.map(q => new THREE.SphereGeometry(0.17, 10, 4, 0, Math.PI * 2, 0, Math.PI * q.apre).scale(1, q.alta, 1));
   const meduse = Array.from({ length: QUANTE_MEDUSE }, (_, k) => {
-    const specie = SPECIE[k % SPECIE.length]!, tinta = TINTE_MEDUSE[k % TINTE_MEDUSE.length]!, scala = 0.5 + r() * 0.9;
+    const specie = SPECIE[k % SPECIE.length]!, tinta = TINTE_MEDUSE[k % TINTE_MEDUSE.length]!, scala = GRANDEZZE_MEDUSE[k]!;
     const o = new THREE.Group();
     const campana = pezzo(campane[k % SPECIE.length]!, mat(tinta, { opacity: 0.3, side: THREE.DoubleSide }));
     campana.add(pezzo(new THREE.SphereGeometry(0.08, 6, 3, 0, Math.PI * 2, 0, Math.PI * 0.5), mat(tinta, { opacity: 0.45 })));
     o.add(campana);
     o.scale.setScalar(scala);
-    // Una spirale dal centro al bordo; vicino allo scoglio stanno sopra la guglia
+    // Una spirale dal centro al bordo, ognuna alla sua quota; quella vicina allo scoglio sta sopra la guglia
     const a = k * 2.4, d = 1.25 + ((k * 7) % QUANTE_MEDUSE) / QUANTE_MEDUSE * 1.85;
-    o.position.set(Math.cos(a) * d, d < 1.7 ? 2.9 + r() * 1.1 : 1.3 + r() * 2.8, Math.sin(a) * d);
+    o.position.set(Math.cos(a) * d, QUOTE_MEDUSE[k]!, Math.sin(a) * d);
     g.add(o);
     const lineaMat = linea(tinta, 0.75), tutti = specie.fili + specie.interni;
     const fili = Array.from({ length: tutti }, (_, q) => {
@@ -363,15 +348,15 @@ export function monta(el: HTMLElement) {
   g.add(granchio);
 
   // --- Bolle, neve marina e mangime: particelle morbide
-  const BOLLE = 22, FISSE = 10, bolle = puntiMorbidi(BOLLE);
+  const BOLLE = 10, bolle = puntiMorbidi(BOLLE);
   const fonti = [new THREE.Vector3(0.9, 0.55, 0.9), new THREE.Vector3(2.1, 0.3, 0.55), new THREE.Vector3(-0.4, 0.2, 1.0)];
-  const statoBolle = Array.from({ length: BOLLE }, (_, i) => ({ vel: 0.28 + r() * 0.12, fase: r() * 6, viva: i < FISSE, fonte: i % 2 }));
+  const statoBolle = Array.from({ length: BOLLE }, (_, i) => ({ vel: 0.28 + r() * 0.12, fase: r() * 6, fonte: i % 2 }));
   for (let i = 0; i < BOLLE; i++) {
     const f = fonti[i % 3]!;
     bolle.pos.set([f.x, f.y + r() * (ACQUA - f.y), f.z], i * 3);
     bolle.dim[i] = 0.022 + r() * 0.018;
     bolle.col.set(BASE.b.clone().lerp(p.colori.fg, 0.4).toArray(), i * 3);
-    bolle.alfa[i] = statoBolle[i]!.viva ? 0.4 : 0;
+    bolle.alfa[i] = 0.4;
   }
   g.add(bolle.punti);
   const NEVE = p.telefono ? 380 : 900, neve = puntiMorbidi(NEVE), luccica = new Float32Array(NEVE);
@@ -424,25 +409,13 @@ export function monta(el: HTMLElement) {
       t.rotation.z = -cur.x * 2 + Math.cos(s * 1.0 + f) * 0.25;
     }));
     vongole.forEach(v => { v.cerniera.rotation.x = -(0.08 + 0.45 * Math.max(0, Math.sin(s * 0.25 + v.fase)) ** 3); });
-    // Forziere: si apre ogni 16 secondi e libera una nuvola di bolle
-    const ciclo = (s % 16) / 16, apre = ciclo > 0.7 ? Math.sin(((ciclo - 0.7) / 0.3) * Math.PI) : 0;
-    coperchio.rotation.x = -apre * 0.7;
-    (monete.material as THREE.MeshBasicMaterial).opacity = 0.4 + apre * 0.5;
-
-    // Bolle: salgono ondeggiando; quelle del forziere partono solo quando si apre
-    forziere.getWorldPosition(tmp);
+    // Bolle: salgono ondeggiando e ripartono dalla loro fonte
     for (let i = 0; i < BOLLE; i++) {
       const b = statoBolle[i]!, k = i * 3;
-      if (!b.viva) {
-        if (apre > 0.5 && r() < 0.05) { b.viva = true; bolle.pos.set([tmp.x + (r() - 0.5) * 0.3, tmp.y + 0.3, tmp.z + (r() - 0.5) * 0.2], k); bolle.alfa[i] = 0.4; }
-        continue;
-      }
       bolle.pos[k] = bolle.pos[k]! + cur.x * dt * 0.3;
       bolle.pos[k + 1] = bolle.pos[k + 1]! + b.vel * dt;
       bolle.pos[k + 2] = bolle.pos[k + 2]! + cur.y * dt * 0.3;
-      if (bolle.pos[k + 1]! > ACQUA) {
-        if (i < FISSE) { const f = fonti[b.fonte]!; bolle.pos.set([f.x, f.y, f.z], k); } else { b.viva = false; bolle.alfa[i] = 0; }
-      }
+      if (bolle.pos[k + 1]! > ACQUA) { const f = fonti[b.fonte]!; bolle.pos.set([f.x, f.y, f.z], k); }
     }
     bolle.aggiorna();
     // Neve marina: scivola con la corrente e scende piano; chi esce dal cubo rientra dall'altra parte
