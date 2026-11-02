@@ -21,9 +21,10 @@ interface Opzioni {
   camera: THREE.Vector3;
   mira: THREE.Vector3;
   inclinazione: [number, number];
-  // Scena che deve entrare tutta a ogni rotazione: raggio massimo del suolo, altezza massima di ciò che vola e quanto il
-  // centro sta a destra del centro del riquadro. Se manca, la camera resta dove dice l'opzione camera
-  entra?: { raggio: number; alto: number; scarto: number };
+  // Scena che deve entrare tutta a ogni rotazione: raggio massimo del suolo, punto più alto e più arretrato di ciò che vola
+  // e dove inizia lo spazio libero a sinistra, in pixel (misurato a ogni cambio di misura). Se manca, la camera resta dove
+  // dice l'opzione camera
+  entra?: { raggio: number; alto: number; dietro: number; sinistra: () => number };
   // Chiamata a ogni fotogramma: muove gli oggetti e li accende o spegne
   aggiorna: (t: number, acceso: (famiglia: string, id: string) => number) => void;
   // Chiamata subito dopo aggiorna: serve alla crescita iniziale, che ha l'ultima parola sulle scale
@@ -92,7 +93,8 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
   el.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
   scene.add(gruppo);
-  const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 60);
+  // Scena inquadrata a calcolo: obiettivo stretto da più lontano, così il bordo davanti non diventa ripido
+  const camera = new THREE.PerspectiveCamera(o.entra ? 28 : 40, 1, 0.1, 60);
 
   const etichette = punti.map(p => {
     const s = document.createElement('span');
@@ -220,7 +222,11 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
   // raggiungere, proprio al margine di sotto. Se così la cima esce o il suolo sfora ai lati, allontana la camera un poco
   // alla volta: la scena è sempre la più grande che entra nel riquadro.
   const miraPreferita = o.mira.y;
-  function inquadra({ raggio, alto, scarto }: { raggio: number; alto: number; scarto: number }) {
+  function inquadra({ raggio, alto, dietro, sinistra }: { raggio: number; alto: number; dietro: number; sinistra: () => number }) {
+    // Spazio libero: da dove finisce il testo al bordo destro. L'erba può passare appena sotto il testo; il centro della scena
+    // va al centro di questo spazio. Con una finestra stretta il testo non si prende mai più di metà larghezza
+    const occupato = Math.min(sinistra(), w * 0.5) * 0.85, libero = w - occupato;
+    camera.setViewOffset(w, h, -occupato / 2, 0, w, h);
     const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), margine = 1 - 2 * Math.min(0.06, 24 / h);
     const su = new THREE.Vector3(), avanti = new THREE.Vector3(), v = new THREE.Vector3();
     const altezzaSchermo = (cam: THREE.Vector3, mira: number, y: number, z: number) => {
@@ -237,8 +243,10 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
       let entra = miraPreferita - 8, esce = miraPreferita + 8;
       for (let q = 0; q < 24; q++) { const m = (entra + esce) / 2; if (fondo(cam, m) < -margine) esce = m; else entra = m; }
       mira = entra;
-      const lati = (raggio + scarto) / cam.length() / tan / camera.aspect;
-      if (altezzaSchermo(cam, mira, alto, 0) <= margine && lati <= margine) break;
+      const lati = raggio / cam.length() / tan / (libero / h);
+      // Sopra resta libera la barra del sito
+      const cima = Math.max(...o.inclinazione.map(a => altezzaSchermo(cam, mira, alto * Math.cos(a) + dietro * Math.sin(a), -dietro * Math.cos(a) + alto * Math.sin(a))));
+      if (cima <= 1 - 2 * Math.min(0.12, 64 / h) && lati <= margine) break;
       cam.multiplyScalar(1.02);
     }
     base.copy(cam);
@@ -246,7 +254,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     miraOra.copy(o.mira);
   }
 
-  new ResizeObserver(() => {
+  const misura = () => {
     w = el.clientWidth; h = el.clientHeight;
     renderer.setSize(w, h);
     camera.aspect = w / h;
@@ -266,7 +274,10 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     // Con la camera vicina il fondo della scena è più lontano in proporzione: la nebbia parte più in là
     scene.fog = o.entra ? new THREE.Fog(c.bg, d, d * 2.4) : new THREE.Fog(c.bg, d * 0.75, d * 1.7);
     camera.updateProjectionMatrix();
-  }).observe(el);
+  };
+  new ResizeObserver(misura).observe(el);
+  // Il testo cambia larghezza quando arriva il suo font: lo spazio libero va rimisurato
+  if (o.entra) document.fonts?.ready.then(misura);
 
   function disegna() {
     // Una scena in una tab nascosta non consuma risorse
