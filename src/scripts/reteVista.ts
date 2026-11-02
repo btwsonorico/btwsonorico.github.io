@@ -435,7 +435,7 @@ export function monta(radice: HTMLElement) {
       const w = rete.pesi[sel.l - 1]![sel.j * entrate + i]!;
       somma += `${i ? (w < 0 ? ' - ' : ' + ') : w < 0 ? '-' : ''}${f2(Math.abs(w))}·${nome(sel.l - 1, i)}`;
     }
-    return `${cosa}\n${nome(sel.l, sel.j)} = ${sel.l === ultimo ? 'sigmoid' : 'tanh'}(${somma})`;
+    return `${cosa}\nWeighted sum: ${somma}`;
   };
   // Un tag accanto a un rettangolo dello schermo. Su telefono sta sotto; a schermo largo a destra, o a sinistra se non c'è posto.
   // I comandi del pannello hanno il tag fuori dal pannello, così non coprono gli altri comandi
