@@ -143,7 +143,7 @@ export function monta(radice: HTMLElement) {
   let W = 0, H = 0, Wr = 0, Hr = 0;
   const altezze = new Float32Array((G + 1) * (G + 1)), sx = new Float32Array(altezze.length), sy = new Float32Array(altezze.length);
   const piano = () => {
-    const sinistra = W >= 760 ? Wr : 0, libero = W - sinistra - (W >= 760 ? 96 : 0);
+    const sinistra = innerWidth > 760 ? Wr : 0, libero = W - sinistra - (innerWidth > 760 ? 96 : 0);
     const S = Math.min(libero / 2.95, H / (2 * Math.SQRT2 * PIATTO + ALTEZZA + 0.12));
     return { S, cx: sinistra + libero / 2, cy: H / 2 + (S * ALTEZZA) / 2, co: Math.cos(giro), si: Math.sin(giro) };
   };

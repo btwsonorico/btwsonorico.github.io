@@ -6,7 +6,7 @@ import Base from '../../layouts/Base.astro';
 const COME: [string, string[]][] = [
   ['What is this?', [
     'A small neural network that runs in your browser. It takes the position of a point on the grid and returns one number, the height of the grid at that point. During training it sees the correct height of 1,024 points, and the blue outline shows the shape they form.',
-    'It is simplified in a couple of ways. It is measured on the same points it trained on, while a real model has to handle data it has never seen. The learning rate and the other settings are also fixed for you, while in practice they take a lot of trial and error.',
+    'It is simpler than a real model in two ways. First, the match is measured on the same points the network trained on, so it only tells you how well it learned those points. A real model is judged on new data it has never seen. Second, the learning rate and the other settings are fixed for you, while in practice they take a lot of trial and error.',
   ]],
   ['What does one neuron do?', [
     'It multiplies each input by a weight, adds the results and squashes the total between two limits. On this grid that gives one straight cut, high on one side and low on the other. With no layers you can set the weights yourself by dragging the white squares, and you will see that one cut cannot cover the fish.',
@@ -131,7 +131,7 @@ const GRANDI: [string, string[]][] = [
   .forme { position: absolute; top: 94px; right: 2px; z-index: 1; display: flex; flex-direction: column; gap: 6px; width: 84px; font-size: 13px; }
   .forme button { padding: 5px 4px; }
   /* A sinistra, dall'alto in basso */
-  .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: 10px; width: min(34%, 460px); transition: opacity .2s; }
+  .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: 10px; width: clamp(390px, 34%, 460px); transition: opacity .2s; }
   .pannello.spento { opacity: .35; pointer-events: none; }
   .costruisci { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; font-size: 13px; }
   .contatore { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); }
@@ -193,6 +193,7 @@ const GRANDI: [string, string[]][] = [
     .contatore button { width: 36px; height: 36px; }
     .colonne { height: 32px; }
     .colonne :global(button) { width: 22px; height: 30px; }
+    .colonne :global(.colonna) { gap: 0; }
     .gioca { flex: 1 1 100%; padding: 10px; }
     .azioni button:not(.gioca) { flex: 1 1 40%; padding: 9px; }
     .curva { height: 140px; }
