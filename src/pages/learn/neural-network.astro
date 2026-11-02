@@ -1,58 +1,71 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// Rete neurale: griglia a tutta pagina e tre passi. Ogni comando sta dove agisce: play e strati sopra la rete, i neuroni sopra
-// ogni strato, le forme accanto alla griglia. La rete è vera e si allena nel browser (src/lib/rete.ts)
+// Rete neurale: una griglia a tutta pagina e la rete accanto. Due righe dicono sempre cosa sta succedendo e cosa puoi fare;
+// il pannello spiega i concetti. La rete è vera e si allena nel browser (src/lib/rete.ts)
+const CONCETTI = [
+  ['Neuron', 'Multiplies each input by a weight, adds them up, and squashes the sum. On the grid, that is one straight cut.'],
+  ['Weight', 'A line between two neurons: how much one counts for the next. Orange pushes up, blue pushes down, thick is strong.'],
+  ['Layer', 'Reads the layer before it, so it can combine cuts into corners and shapes.'],
+  ['Height and match', 'The height of the grid is the answer of the network. Match says how much it overlaps the blue shape.'],
+  ['Error', 'How wrong the answers are. Training exists to make this number small.'],
+  ['Backpropagation', 'Sends the error back through the network. Then gradient descent moves each weight a little, downhill. Press one correction to watch it.'],
+];
 ---
 <Base title="Neural network · Riccardo Mondi" description="A simplified but real neural network, running in your browser. Add neurons and layers and teach it to draw." largo>
   <main class="rn" data-rete>
     <header class="testa">
-      <p class="mono via"><a href="/">~</a>/<a href="/learn/">learn</a>/neural-network</p>
-      <h1>Teach a neural network to draw</h1>
-      <p class="sotto">A simplified but real neural network, running in your browser. Its answer is the height of the grid.</p>
+      <div>
+        <p class="mono via"><a href="/">~</a>/<a href="/learn/">learn</a>/neural-network</p>
+        <h1>Teach a neural network to draw</h1>
+        <p class="sotto">A simplified but real neural network, running in your browser. Its answer is the height of the grid.</p>
+      </div>
+      <button type="button" class="mono aiuto" aria-expanded="false" data-spiega="Opens short explanations of every concept on this page.">how it works</button>
     </header>
 
     <section class="banco">
       <canvas class="tela-terreno" role="img" aria-label="A wire grid. Its height is the answer of the network, and the blue outline is the shape to reach."></canvas>
 
-      <div class="guida">
-        <nav class="mono passi" aria-label="Step">
-          {['Neurons', 'Layers', 'Your turn'].map(n => <button type="button">{n}</button>)}
-          <button type="button" class="dopo primo">next →</button>
-        </nav>
-        <p class="frase" aria-live="polite"></p>
+      <div class="righe" aria-live="polite">
+        <p><span class="mono cartello">Now</span><span class="riga-ora"></span></p>
+        <p><span class="mono cartello prova">Try</span><span class="riga-prova"></span></p>
       </div>
 
-      <div class="mono forme" hidden>
-        <button type="button" data-sagoma="fish">fish</button>
-        <button type="button" data-sagoma="bird">bird</button>
-        <button type="button" class="matita">draw</button>
-        <button type="button" class="pulisci" hidden>clear</button>
+      <div class="mono forme">
+        <button type="button" data-sagoma="fish" data-spiega="Teach the network to draw a fish.">fish</button>
+        <button type="button" data-sagoma="bird" data-spiega="Teach the network to draw a bird.">bird</button>
+        <button type="button" class="matita" data-spiega="Paint your own shape directly on the grid.">draw</button>
+        <button type="button" class="pulisci" hidden data-spiega="Erase the whole shape.">clear</button>
       </div>
+
+      <aside class="pannello-aiuto" hidden>
+        <button type="button" class="mono chiudi" aria-label="Close">×</button>
+        <dl>
+          {CONCETTI.map(([nome, testo]) => <div><dt>{nome}</dt><dd>{testo}</dd></div>)}
+        </dl>
+      </aside>
 
       <div class="pannello">
         <div class="mono azioni">
-          <button type="button" class="gioca primo">play</button>
-          <button type="button" class="un-passo">one correction</button>
-          <button type="button" class="azzera">restart</button>
-          <span class="fasi" aria-hidden="true" hidden><span>try</span><span>error</span><span>backpropagation</span></span>
+          <button type="button" class="gioca primo" data-spiega="Starts or stops training: the network corrects itself hundreds of times a second."></button>
+          <button type="button" class="un-passo" data-spiega="Slows down and shows one single correction: try, error, backpropagation.">one correction</button>
+          <button type="button" class="azzera" data-spiega="Sets the weights back to random, and training starts over.">restart</button>
         </div>
-        <div class="mono strati">
+        <div class="mono strati" data-spiega="A layer reads the layer before it, and combines its cuts into corners and shapes.">
           <span>layers</span>
           <button type="button" class="strati-meno" aria-label="Remove a layer">−</button><b class="strati-n"></b><button type="button" class="strati-piu" aria-label="Add a layer">+</button>
         </div>
         <div class="rete-box">
           <div class="mono colonne"></div>
-          <canvas class="tela-rete" role="img" aria-label="The network: inputs on the left, output on the right. Each line is a weight."></canvas>
+          <canvas class="tela-rete" role="img" aria-label="The network: inputs on the left, output on the right. Each square shows what that neuron sees, and each line is a weight."></canvas>
         </div>
-        <div class="mono andamento">
+        <div class="mono andamento" data-spiega="Orange line: how the match grows over time. Grey line: the network you had before, to compare.">
           <span class="lettura"></span>
+          <span class="prima"></span>
           <span class="errore"></span>
           <canvas class="curva" role="img" aria-label="How well the shape matches, over time"></canvas>
         </div>
       </div>
-
-      <p class="mono dettaglio"></p>
     </section>
   </main>
 </Base>
@@ -66,40 +79,45 @@ import Base from '../../layouts/Base.astro';
   /* La pagina è lo strumento: la griglia riempie tutta la finestra, i comandi le stanno sopra, ognuno dove agisce */
   .rn { display: flex; flex-direction: column; flex: 1; gap: var(--s1); padding: 0 24px 16px; min-height: 0; }
   :global(.piede) { display: none; }
+  .testa { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s2); }
   .via { margin: 0; }
   .via a { color: inherit; }
   h1 { margin: 2px 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
   .sotto { margin: 0; color: var(--muted); font-size: 14px; }
-  .banco { position: relative; flex: 1 1 0; min-height: 420px; }
-  .tela-terreno { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
-  .tela-terreno:active { cursor: grabbing; }
   button { padding: 4px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
   button:hover:not(:disabled) { color: var(--fg); border-color: var(--muted); }
   button:disabled { opacity: .35; cursor: default; }
   button[hidden] { display: none; }
-  button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
+  button[aria-pressed="true"], button[aria-expanded="true"] { border-color: var(--fg); color: var(--fg); }
   .primo { border-color: var(--fg); color: var(--fg); }
   .primo:hover:not(:disabled) { background: var(--fg); color: var(--bg); }
-  /* Sopra la griglia: dove sei e cosa fare */
-  .guida { position: absolute; top: 0; left: calc(min(34%, 460px) + 32px); right: 110px; z-index: 1; pointer-events: none; }
-  .guida > * { pointer-events: auto; }
-  .passi { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; }
-  .passi button[aria-current="step"] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
-  .dopo { margin-left: var(--s1); }
-  .frase { width: fit-content; max-width: 620px; margin: var(--s1) 0 0; font-size: 15px; line-height: 1.45; }
-  /* Accanto alla vista dall'alto: le forme */
+  /* Il comando che la riga Try suggerisce */
+  :global(.consigliato) { border-color: var(--arancio) !important; color: var(--arancio) !important; }
+  .aiuto { flex: none; font-size: 13px; }
+  .banco { position: relative; flex: 1 1 0; min-height: 420px; }
+  .tela-terreno { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
+  .tela-terreno:active { cursor: grabbing; }
+  .tela-terreno.pennello { cursor: crosshair; }
+  /* Sopra la griglia: cosa sta succedendo e cosa puoi fare */
+  .righe { position: absolute; top: 0; left: calc(min(34%, 460px) + 32px); right: 110px; z-index: 1; pointer-events: none; font-size: 15px; line-height: 1.4; }
+  .righe p { display: flex; gap: 10px; margin: 0 0 6px; }
+  .cartello { flex: none; width: 34px; padding-top: 3px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .cartello.prova { color: var(--arancio); }
+  .riga-ora { color: var(--fg); }
+  .riga-prova { color: var(--fg); }
   .forme { position: absolute; top: 94px; right: 2px; z-index: 1; display: flex; flex-direction: column; gap: 4px; width: 84px; font-size: 13px; }
-  .forme[hidden] { display: none; }
+  .forme button { padding: 4px 4px; }
+  .pannello-aiuto { position: absolute; top: 70px; right: 100px; bottom: 0; z-index: 2; width: min(340px, 40%); overflow-y: auto; padding: var(--s2); border: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 95%, transparent); }
+  .pannello-aiuto[hidden] { display: none; }
+  .chiudi { position: absolute; top: 6px; right: 6px; padding: 0 8px; }
+  dl { margin: 0; }
+  dt { font-size: 14px; color: var(--fg); }
+  dd { margin: 2px 0 var(--s2); color: var(--muted); font-size: 13px; line-height: 1.5; }
   /* A sinistra: la rete, con sopra i comandi che la cambiano */
   .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--s1); width: min(34%, 460px); }
   .azioni { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; }
-  .azioni > [hidden] { display: none; }
   .gioca { min-width: 72px; font-size: 15px; padding: 4px 16px; }
-  .fasi { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-  .fasi span { padding: 2px 6px; border: 1px solid transparent; color: var(--muted); opacity: .6; }
-  .fasi span.accesa { opacity: 1; border-color: var(--fg); color: var(--fg); }
   .strati { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg); }
-  .strati[hidden] { display: none; }
   .strati span { color: var(--muted); }
   .strati b { min-width: 2ch; font-weight: 400; text-align: center; }
   .strati button { padding: 1px 9px; }
@@ -112,22 +130,21 @@ import Base from '../../layouts/Base.astro';
   .colonne :global(button:hover:not(:disabled)) { color: var(--fg); border-color: var(--muted); }
   .colonne :global(button:disabled) { opacity: .35; cursor: default; }
   .colonne :global(b) { min-width: 1.4ch; font-weight: 400; text-align: center; }
-  .andamento { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 var(--s1); }
+  .andamento { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--s1); }
   .lettura { font-size: 20px; color: var(--fg); white-space: nowrap; }
-  .errore { color: var(--muted); white-space: nowrap; }
+  .prima { color: var(--muted); white-space: nowrap; }
+  .errore { margin-left: auto; color: var(--muted); white-space: nowrap; }
   .curva { display: block; flex: 1 0 100%; width: 100%; height: 44px; border-bottom: 1px solid var(--line); }
-  .dettaglio { position: absolute; right: 0; bottom: 0; z-index: 1; max-width: calc(100% - min(34%, 460px) - 48px); margin: 0; padding: 3px 8px; background: var(--bg); border: 1px solid var(--line); color: var(--fg); font-size: 12px; overflow-wrap: anywhere; }
-  .dettaglio:empty { display: none; }
-  /* Telefono: passi e frase, poi griglia e forme, poi la rete con i suoi comandi */
+  /* Telefono: righe, griglia e forme, poi la rete con i suoi comandi */
   @media (max-width: 760px) {
     .rn { padding: 0 16px 16px; }
     h1 { font-size: 20px; }
     .banco { display: contents; }
     .testa { order: 0; }
-    .guida { position: static; order: 1; }
+    .righe { position: static; order: 1; }
     .tela-terreno { position: static; display: block; order: 2; height: 290px; }
     .forme { position: static; order: 3; flex-direction: row; flex-wrap: wrap; width: auto; }
-    .dettaglio { position: static; order: 4; max-width: none; }
+    .pannello-aiuto { position: static; order: 4; width: auto; max-height: none; }
     .pannello { position: static; order: 5; width: 100%; }
     .rete-box { flex: none; height: 260px; }
     button { padding: 6px 12px; }
