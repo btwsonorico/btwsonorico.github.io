@@ -195,14 +195,14 @@ export function agisci(m: Mondo, a: number, dgx: number, dgz: number) {
 
 // La rete dell'agente: 18 numeri entrano, 64 e 64 neuroni, 9 punteggi escono
 export const STRATI = [N_VISTA, 64, 64, N_AZIONI];
-export function punteggi(pesi: ArrayLike<number>, o: ArrayLike<number>, u = new Float64Array(N_AZIONI)) {
+export function punteggi(pesi: ArrayLike<number>, o: ArrayLike<number>, u = new Float64Array(N_AZIONI), strati = STRATI) {
   let k = 0, prima: ArrayLike<number> = o;
-  for (let l = 1; l < STRATI.length; l++) {
-    const e = STRATI[l - 1]!, n = STRATI[l]!, ora = l === STRATI.length - 1 ? u : new Float64Array(n);
+  for (let l = 1; l < strati.length; l++) {
+    const e = strati[l - 1]!, n = strati[l]!, ora = l === strati.length - 1 ? u : new Float64Array(n);
     for (let j = 0; j < n; j++) {
       let s = pesi[k + e]!;
       for (let i = 0; i < e; i++) s += pesi[k + i]! * prima[i]!;
-      ora[j] = l === STRATI.length - 1 ? s : Math.tanh(s);
+      ora[j] = l === strati.length - 1 ? s : Math.tanh(s);
       k += e + 1;
     }
     prima = ora;
@@ -211,17 +211,56 @@ export function punteggi(pesi: ArrayLike<number>, o: ArrayLike<number>, u = new 
 }
 export const N_PESI = STRATI.slice(1).reduce((a, n, l) => a + n * (STRATI[l]! + 1), 0);
 
-// --- Il premio: premia l'avvicinamento di tutte e la fine, e toglie punti per ogni pecora che esce
-export type Prima = { l: number; d: number };
-function lontananza(m: Mondo) {
-  let s = 0;
-  for (let i = 0; i < PECORE; i++) s += Math.min(6, Math.max(0, Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) - RAGGIO));
-  return s / PECORE / 6;
+// La mappa del gregge: i 18 numeri, più una griglia 16 per 16 centrata sul cane, con quante pecore fuori dal cerchio stanno in ogni cella.
+// È girata come il resto, con "avanti" dal gregge verso il cerchio. Una cella è larga 1; chi è più lontano finisce sul bordo
+export const LATO_MAPPA = 16, N_VISTA_MAPPA = N_VISTA + LATO_MAPPA * LATO_MAPPA, STRATI_MAPPA = [N_VISTA_MAPPA, 64, 64, N_AZIONI];
+export function vediMappa(m: Mondo) {
+  const { o: base, dgx, dgz } = vedi(m), o = new Float32Array(N_VISTA_MAPPA);
+  o.set(base);
+  for (let i = 0; i < PECORE; i++) {
+    if (Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) < RAGGIO) continue;
+    const dx = m.x[i]! - m.cane.x, dz = m.z[i]! - m.cane.z, u = dx * dgx + dz * dgz, w = -dx * dgz + dz * dgx;
+    const a = Math.max(0, Math.min(LATO_MAPPA - 1, Math.floor(u + LATO_MAPPA / 2))), b = Math.max(0, Math.min(LATO_MAPPA - 1, Math.floor(w + LATO_MAPPA / 2)));
+    o[N_VISTA + a * LATO_MAPPA + b] = o[N_VISTA + a * LATO_MAPPA + b]! + 0.05;
+  }
+  return { o, dgx, dgz };
 }
-const quante = (m: Mondo) => { let d = 0; for (let i = 0; i < PECORE; i++) if (Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) < RAGGIO) d++; return d; };
-export const inizioPremio = (m: Mondo): Prima => ({ l: lontananza(m), d: quante(m) });
-export function premio(prima: Prima, m: Mondo) {
-  const l = lontananza(m), d = quante(m), r = 8 * (prima.l - l) + 3 * (d - prima.d) / PECORE - 0.003 + (m.finito ? 3 + 2 * (1 - m.tempo / LIMITE) : 0);
-  prima.l = l; prima.d = d;
+
+// --- Il premio. v1 è la prima run. M è uguale, con più premio se finisce presto e un piccolo costo se scade il tempo con pecore fuori.
+// Nessuna punizione per chi spinge: con troppe punizioni il cane smette di toccare le pecore
+export const PREMI: Record<string, { scadenza: number; finaleVel: number }> = { v1: { scadenza: 0, finaleVel: 2 }, M: { scadenza: 1, finaleVel: 4 } };
+export type Prima = { l: number; d: number };
+function misure(m: Mondo) {
+  let s = 0, d = 0;
+  for (let i = 0; i < PECORE; i++) {
+    const q = Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz);
+    s += Math.min(6, Math.max(0, q - RAGGIO));
+    if (q < RAGGIO) d++;
+  }
+  return { l: s / PECORE / 6, d };
+}
+export const inizioPremio = (m: Mondo): Prima => misure(m);
+export function premio(nome: string, prima: Prima, m: Mondo) {
+  const f = PREMI[nome] ?? PREMI.v1!, q = misure(m);
+  let r = 8 * (prima.l - q.l) + 3 * (q.d - prima.d) / PECORE - 0.003;
+  if (m.finito) r += 3 + f.finaleVel * (1 - m.tempo / LIMITE);
+  else if (m.tempo >= LIMITE) r -= f.scadenza * (1 - q.d / PECORE);
+  prima.l = q.l; prima.d = q.d;
   return r;
+}
+
+// --- Una policy: cosa legge, e la mossa che sceglie. Tiene anche quanto vuole ogni mossa, per la bussola
+export type Tipo = 'v1' | 'M';
+export function scegli(tipo: Tipo, pesi: ArrayLike<number>, m: Mondo, pr?: Float64Array, caso = false) {
+  const { o, dgx, dgz } = tipo === 'M' ? vediMappa(m) : vedi(m), u = punteggi(pesi, o, undefined, tipo === 'M' ? STRATI_MAPPA : STRATI);
+  let mx = -Infinity, a = 0, tot = 0;
+  for (let k = 0; k < N_AZIONI; k++) if (u[k]! > mx) { mx = u[k]!; a = k; }
+  if (pr || caso) {
+    const q = pr ?? new Float64Array(N_AZIONI);
+    for (let k = 0; k < N_AZIONI; k++) { q[k] = Math.exp(u[k]! - mx); tot += q[k]!; }
+    for (let k = 0; k < N_AZIONI; k++) q[k] = q[k]! / tot;
+    if (caso) { let z = m.r(); a = 0; while (a < N_AZIONI - 1 && z >= q[a]!) { z -= q[a]!; a++; } }
+  }
+  agisci(m, a, dgx, dgz);
+  return { a, dgx, dgz };
 }

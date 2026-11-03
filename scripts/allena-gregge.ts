@@ -1,12 +1,14 @@
 // @ts-nocheck
 // Allena il cane del gregge con PPO e salva le tappe. Il gregge è src/lib/gregge.ts, lo stesso della pagina /learn/reinforcement/.
-// Si lancia con: npx tsx scripts/allena-gregge.ts <cartella di uscita> [decisioni totali] [processi]
+// Si lancia con: npx tsx scripts/allena-gregge.ts <cartella di uscita> <run: v1|M> [decisioni totali] [processi]
 import { isMainThread, parentPort, Worker, workerData } from 'node:worker_threads';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { agisci, avanza, inizioPremio, LIMITE, N_AZIONI, N_PESI, N_VISTA, nuovoMondo, OGNI, premio, punteggi, STRATI, vedi } from '../src/lib/gregge';
+import { agisci, avanza, inizioPremio, LIMITE, N_AZIONI, N_VISTA, N_VISTA_MAPPA, nuovoMondo, OGNI, premio, punteggi, vedi, vediMappa, type Mondo } from '../src/lib/gregge';
 
-const STRATI_V = [N_VISTA, 64, 64, 1], PER_PROCESSO = 1024, GAMMA = 0.995, LAMBDA = 0.95, CLIP = 0.2, ENTROPIA = 0.01, EPOCHE = 4, GRUPPO = 512, LR = 3e-4;
+// Run M: il cane vede anche la mappa del gregge
+const CON_MAPPA = (isMainThread ? process.argv[3] : workerData.run) === 'M', N_V = CON_MAPPA ? N_VISTA_MAPPA : N_VISTA, vista = (m: Mondo) => (CON_MAPPA ? vediMappa(m) : vedi(m));
+const STRATI = [N_V, 64, 64, N_AZIONI], STRATI_V = [N_V, 64, 64, 1], PER_PROCESSO = 1024, LAMBDA = 0.95, CLIP = 0.2, EPOCHE = 4, GRUPPO = 512, LR = 3e-4;
 const contaPesi = (s: number[]) => s.slice(1).reduce((a, n, l) => a + n * (s[l]! + 1), 0);
 
 const avantiV = (pesi: ArrayLike<number>, o: ArrayLike<number>) => {
@@ -21,12 +23,15 @@ const avantiV = (pesi: ArrayLike<number>, o: ArrayLike<number>) => {
 
 if (!isMainThread) {
   // --- Un processo gioca: raccoglie quello che vede, le azioni e i premi con la rete del momento
-  let seme: number = workerData.seme, m = nuovoMondo(seme++), prima = inizioPremio(m);
+  const { run } = workerData;
+  let seme: number = workerData.seme;
+  const nuovo = () => nuovoMondo(seme++);
+  let m = nuovo(), prima = inizioPremio(m);
   parentPort!.on('message', ({ pp, pv }: { pp: Float32Array; pv: Float64Array }) => {
-    const obs = new Float32Array(PER_PROCESSO * N_VISTA), az = new Uint8Array(PER_PROCESSO), lp = new Float32Array(PER_PROCESSO), val = new Float32Array(PER_PROCESSO + 1), rew = new Float32Array(PER_PROCESSO), fine = new Uint8Array(PER_PROCESSO);
+    const obs = new Float32Array(PER_PROCESSO * N_V), az = new Uint8Array(PER_PROCESSO), lp = new Float32Array(PER_PROCESSO), val = new Float32Array(PER_PROCESSO + 1), rew = new Float32Array(PER_PROCESSO), fine = new Uint8Array(PER_PROCESSO);
     const tempi: number[] = [];
     for (let t = 0; t < PER_PROCESSO; t++) {
-      const { o, dgx, dgz } = vedi(m), u = punteggi(pp, o);
+      const { o, dgx, dgz } = vista(m), u = punteggi(pp, o, undefined, STRATI);
       let mx = -Infinity;
       for (let a = 0; a < N_AZIONI; a++) if (u[a]! > mx) mx = u[a]!;
       let tot = 0;
@@ -34,24 +39,25 @@ if (!isMainThread) {
       for (let a = 0; a < N_AZIONI; a++) { pr[a] = Math.exp(u[a]! - mx); tot += pr[a]!; }
       let q = Math.random() * tot, a = 0;
       while (a < N_AZIONI - 1 && q >= pr[a]!) { q -= pr[a]!; a++; }
-      obs.set(o, t * N_VISTA); az[t] = a; lp[t] = Math.log(pr[a]! / tot); val[t] = avantiV(pv, o);
+      obs.set(o, t * N_V); az[t] = a; lp[t] = Math.log(pr[a]! / tot); val[t] = avantiV(pv, o);
       agisci(m, a, dgx, dgz);
       for (let k = 0; k < OGNI && !m.finito; k++) avanza(m);
-      rew[t] = premio(prima, m);
+      rew[t] = premio(run, prima, m);
       if (m.finito || m.tempo >= LIMITE) {
         fine[t] = 1;
         if (m.finito) tempi.push(m.tempo);
-        m = nuovoMondo(seme++); prima = inizioPremio(m);
+        m = nuovo(); prima = inizioPremio(m);
       }
     }
-    val[PER_PROCESSO] = avantiV(pv, vedi(m).o);
+    val[PER_PROCESSO] = avantiV(pv, vista(m).o);
     parentPort!.postMessage({ obs, az, lp, val, rew, fine, tempi });
   });
 } else {
-  const [uscita, totale = '4000000', processi = '10'] = process.argv.slice(2);
+  const [uscita, run = 'M', totale = '4000000', processi = '10'] = process.argv.slice(2);
+  const ENTROPIA = 0.01, GAMMA = 0.995;
   mkdirSync(uscita!, { recursive: true });
   const TAPPE = [0, 20000, 60000, 150000, 400000, 800000, 1500000, 3000000, 6000000];
-  const nP = N_PESI, nV = contaPesi(STRATI_V);
+  const nP = contaPesi(STRATI), nV = contaPesi(STRATI_V);
   // Pesi di partenza: piccoli sull'ultimo strato, così all'inizio l'agente sceglie a caso
   const pesiNuovi = (s: number[], ultimo: number) => {
     const o = new Float64Array(contaPesi(s));
@@ -104,7 +110,7 @@ if (!isMainThread) {
     for (let s = 0; s < semi; s++) {
       const m = nuovoMondo(1000 + s);
       while (!m.finito && m.tempo < LIMITE) {
-        const { o, dgx, dgz } = vedi(m), u = punteggi(pesi, o);
+        const { o, dgx, dgz } = vista(m), u = punteggi(pesi, o, undefined, STRATI);
         let a = 0;
         for (let q = 1; q < N_AZIONI; q++) if (u[q]! > u[a]!) a = q;
         agisci(m, a, dgx, dgz);
@@ -122,13 +128,13 @@ if (!isMainThread) {
     writeFileSync(`${uscita}/${nome}.json`, JSON.stringify({ passi, ...e }));
     console.log('TAPPA', nome, JSON.stringify(e));
   };
-  const lavoratori = Array.from({ length: Number(processi) }, (_, i) => new Worker(fileURLToPath(import.meta.url), { workerData: { seme: 100000 + i * 100000 } }));
+  const lavoratori = Array.from({ length: Number(processi) }, (_, i) => new Worker(fileURLToPath(import.meta.url), { workerData: { run, seme: 100000 + i * 100000 } }));
   const raccogli = () => Promise.all(lavoratori.map(w => new Promise<any>(ok => { w.once('message', ok); w.postMessage({ pp: Float32Array.from(P), pv: V }); })));
   const t0 = Date.now(), fino = Number(totale);
   let fatti = 0, tappa = 1;
   salva('t0', 0);
   while (fatti < fino) {
-    const dati = await raccogli(), N = PER_PROCESSO * dati.length, obs = new Float32Array(N * N_VISTA), az = new Uint8Array(N), lp = new Float32Array(N), adv = new Float32Array(N), ret = new Float32Array(N);
+    const dati = await raccogli(), N = PER_PROCESSO * dati.length, obs = new Float32Array(N * N_V), az = new Uint8Array(N), lp = new Float32Array(N), adv = new Float32Array(N), ret = new Float32Array(N);
     let riga = 0, somma = 0;
     const tempi: number[] = [];
     for (const d of dati) {
@@ -138,7 +144,7 @@ if (!isMainThread) {
         g = de + GAMMA * LAMBDA * nz * g;
         adv[riga + t] = g; ret[riga + t] = g + d.val[t]; somma += d.rew[t];
       }
-      obs.set(d.obs, riga * N_VISTA); az.set(d.az, riga); lp.set(d.lp, riga);
+      obs.set(d.obs, riga * N_V); az.set(d.az, riga); lp.set(d.lp, riga);
       tempi.push(...d.tempi);
       riga += PER_PROCESSO;
     }
@@ -153,7 +159,7 @@ if (!isMainThread) {
       for (let b = 0; b + GRUPPO <= N; b += GRUPPO) {
         gP.fill(0); gV.fill(0);
         for (let q = b; q < b + GRUPPO; q++) {
-          const i = ordine[q]!, o = obs.subarray(i * N_VISTA, (i + 1) * N_VISTA), a = az[i]!, A = (adv[i]! - ma) / sa;
+          const i = ordine[q]!, o = obs.subarray(i * N_V, (i + 1) * N_V), a = az[i]!, A = (adv[i]! - ma) / sa;
           un(P, STRATI, o, gP, u => {
             let mx = -Infinity;
             for (let k = 0; k < N_AZIONI; k++) if (u[k]! > mx) mx = u[k]!;
@@ -176,7 +182,8 @@ if (!isMainThread) {
         }
         for (let k = 0; k < nP; k++) gP[k] = gP[k]! / GRUPPO;
         for (let k = 0; k < nV; k++) gV[k] = gV[k]! / GRUPPO;
-        passoAdam(P, gP, aP, lr); passoAdam(V, gV, aV, lr);
+        passoAdam(P, gP, aP, lr);
+        passoAdam(V, gV, aV, lr);
       }
     }
     fatti += N;

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { agisci, DT as DT_AI, N_AZIONI, nuovoMondo, OGNI, PECORE as PECORE_AI, punteggi, vedi } from '../lib/gregge';
+import { DT as DT_AI, nuovoMondo, OGNI, PECORE as PECORE_AI, scegli } from '../lib/gregge';
 import { casuale, mat, pezzo, sasso, linea, tono, terreno, puntiMorbidi, palco, curveLivello, benDistribuiti, SITO, type Palco } from './natura';
 
 // Una valle di colline vista da un drone, nello stile del sito: le colline sono curve di livello con un velo verde
@@ -472,7 +472,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   bottoneAI.type = 'button';
   bottoneAI.textContent = 'let the RL dog herd';
   bottoneAI.style.cssText = 'position:absolute;right:16px;bottom:72px;z-index:2;padding:4px 8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:12px var(--mono);cursor:pointer;pointer-events:auto';
-  const caricaAI = async () => { pesiAI ??= new Float32Array(await (await fetch('/learn/gregge/fine.bin')).arrayBuffer()); };
+  const caricaAI = async () => { pesiAI ??= new Float32Array(await (await fetch('/learn/gregge/mfine.bin')).arrayBuffer()); };
   if (p.telefono) { aiGioca = true; caricaAI(); } else el.appendChild(bottoneAI);
   bottoneAI.addEventListener('pointerdown', e => e.stopPropagation());
   bottoneAI.addEventListener('click', async () => {
@@ -490,10 +490,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     a.gx = gioco.x; a.gz = gioco.z; a.dentro = gioco.dentro;
     a.cane.x = cane.x; a.cane.z = cane.z; a.cane.verso = cane.verso; a.cane.vel = cane.vel;
     mucche.forEach((m, i) => { const q = a.mucche[i]; if (q) { q.x = m.x; q.z = m.z; } });
-    const { o, dgx, dgz } = vedi(a), u = punteggi(pesiAI, o);
-    let scelta = 0;
-    for (let k = 1; k < N_AZIONI; k++) if (u[k]! > u[scelta]!) scelta = k;
-    agisci(a, scelta, dgx, dgz);
+    scegli('M', pesiAI, a);
     metaCane.set(a.cane.mx, a.cane.mz);
   };
   const fiancoCamera = new THREE.Vector3();
@@ -576,7 +573,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
           gioco.record = gioco.tempo;
           try { localStorage.setItem('misc-gregge-record', String(gioco.record)); } catch { /* niente */ }
         }
-        conta.textContent = `${PECORE}/${PECORE}   ${orologio(gioco.tempo)}   best ${orologio(gioco.record)}`;
+        conta.textContent = `${aiGioca ? 'AI   ' : ''}${PECORE}/${PECORE}   ${orologio(gioco.tempo)}${gioco.record ? `   best ${orologio(gioco.record)}` : ''}`;
         pecore.forEach(q => { q.salto = 1 + r() * 0.6; });
       }
     } else {

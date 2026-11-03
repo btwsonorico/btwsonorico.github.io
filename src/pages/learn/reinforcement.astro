@@ -1,63 +1,71 @@
 ---
 import Base from '../../layouts/Base.astro';
-import tappe from '../../data/gregge-tappe.json';
+import dati from '../../data/gregge-tappe.json';
 
 // Reinforcement learning: lo stesso gregge di Learn, visto dall'alto. A sinistra il ciclo dell'agente, le tappe del training e la gara. La simulazione è src/lib/gregge.ts
 const COME: [string, string][] = [
   ['What is this?', 'A real reinforcement learning agent, running in your browser. Nobody shows the dog what good herding looks like. It tries moves, gets points, and its weights slowly change to earn more points. On the neural network page, the network receives the right answer for each point. Here there is no right answer, only a score that arrives later.'],
-  ['How does it learn?', 'The dog plays many games at once, with 8 copies running in parallel. In each game it reads 18 numbers about 4 times a second, and picks one of 9 moves. After each batch of games, the moves that went better than expected become more likely, and the others less likely. This method is called PPO. The network has 5,961 weights, and 4 million decisions took about an hour on a CPU, once, before this page was published. Your browser only plays the result.'],
-  ['What is the reward?', 'Points when the flock gets closer to the circle and when a sheep enters. Points lost when a sheep leaves, and a little for each moment that passes. A large prize when all 180 are inside.\nA prize at the end alone would not work: a dog that moves at random almost never gets all 180 inside, so it would have nothing to learn from.'],
-  ['How good is it?', 'On 40 new fields, the final dog finished 34, with a median of 52 seconds. On a set of 24 fields, a classic method written by hand finished 4, with a median of 146 seconds, and the final dog finished 18, with a median of 47. It is not perfect: on some fields it runs out of time. So you can beat it.'],
+  ['What is a policy?', 'The rule that turns what the dog reads into a move. Here it is a small network. It reads some numbers about 4 times a second and picks one of 9 moves. A policy is the result of training, and it has only what training gave it: the reward shapes what it wants, and its inputs limit what it can notice.'],
+  ['How does it learn?', 'The dog plays many games at once. After each batch, the moves that went better than expected become more likely, and the others less likely. This method is called PPO. Both policies took 4 million decisions, about an hour on a CPU, once, before this page was published. Your browser only plays the result.'],
+  ['What is the reward?', 'Points when the flock gets closer to the circle and when a sheep enters. Points lost when a sheep leaves, and a little as time passes. A prize when all 180 are inside.\nA prize at the end alone would not work: a dog that moves at random almost never gets all 180 inside, so it would have nothing to learn from.'],
+  ['How did policy 1 fail?', 'On average it looked good: it finished 88 of 100 new fields. The average hid precise errors. On some fields it got most of the flock inside and then lost it. On others it stood still, or ran for 3 minutes without closing. It reads only 18 numbers, such as the centre of the flock and the farthest sheep. When the flock splits, those numbers say little about where the pieces are.'],
+  ['What fixed it?', 'First, I tried more punishment: points lost for a scattered flock, for each exit, for each second. It made things worse. After 2 million decisions the dog almost stopped touching the sheep, because moving cost more than standing still. I stopped that run.\nThen I kept nearly the same reward and changed what the dog reads: the same 18 numbers plus a map of 256 cells around it, with the sheep still outside the circle. The reward changed only a little: a larger prize for finishing early, and a small cost when time runs out. I did not test the map alone, so I cannot split the credit exactly.'],
+  ['How good is it now?', 'On 100 new fields, policy 2 finished 99, with a median of 26 seconds. Policy 1 finished 88, with a median of 47. On another 200 fields, policy 2 finished 196.\nA stone thrown at the flock after 10 seconds is a harder test, because training never saw one. On 60 fields, policy 1 finished 28, and policy 2 finished 57. It is still not perfect, and it is not proof that it beats people: try it.'],
   ['Does it depend on this view?', 'No. It uses no images and no camera. It reads only numbers about the flock, the dog, the circle and the obstacles, so the view from above is only for you. In the valley on the Learn page, the same weights can guide the dog while you turn the scene.'],
 ];
 ---
-<Base title="Reinforcement learning · Riccardo Mondi" description="A dog learns to herd 180 sheep from rewards alone. Watch it learn, then try to beat it." tono="neutro" largo>
+<Base title="Reinforcement learning · Riccardo Mondi" description="Two policies herd 180 sheep. See where the first fails, what fixes it, and try to beat the second." tono="neutro" largo>
   <main class="rn">
-    <section class="schermo" data-gregge data-tappe={JSON.stringify(tappe)}>
+    <section class="schermo" data-gregge data-dati={JSON.stringify(dati)}>
       <header class="testa">
         <h1>Teach a dog to herd with rewards</h1>
         <a href="#how-it-works" class="mono">how it works ↓</a>
-        <p class="mono messaggio">Nobody tells the dog what to do. It only gets points, and it learns which moves earn them.</p>
+        <p class="mono messaggio">A policy turns what the dog reads into a move. Two policies, same task: see where the first fails, and what fixes it.</p>
         <p class="mono messaggio solo-tel">You can watch and play here, but it works better on a computer.</p>
       </header>
 
       <div class="banco">
-        <canvas class="tela-gregge" role="img" aria-label="A meadow seen from above, with 180 sheep, an orange dog and a dashed circle. Sheep inside the circle turn blue."></canvas>
+        <canvas class="tela-gregge" role="img" aria-label="Two meadows seen from above with the same field: 180 sheep, an orange dog and a dashed circle. Sheep inside the circle turn blue. Orange marks show what each policy reads. Below, a chart of the sheep inside over time."></canvas>
         <p class="mono nota-tel" aria-live="polite"></p>
 
         <div class="pannello">
           <div class="mono sezione">
-            <span class="titolino">the loop</span>
+            <span class="titolino">the policy</span>
             <ol class="racconto">
-              <li data-spiega="18 numbers: where the dog, the flock, the circle and the nearest obstacles are, and how scattered the flock is. No images: it does not see each sheep.">it reads 18 numbers</li>
-              <li data-spiega="Stand still, or go in one of 8 directions. The arrows show how much it wants each move. It decides about 4 times a second.">it picks one of 9 moves</li>
-              <li data-spiega="Points when the sheep get closer to the circle or enter it. It loses points when one leaves, and a little for each moment that passes. A large prize when all are inside.">it gets points: the reward</li>
-              <li data-spiega="After many games, the training changes the weights so that moves that earned points become more likely. Your browser only plays the result.">training keeps what earned points</li>
+              <li data-spiega="Policy 1 reads 18 numbers: where the dog, the flock, the circle and the nearest obstacles are. Policy 2 reads the same numbers plus a map of 256 cells around the dog. No images, no camera.">it reads what it can see</li>
+              <li data-spiega="Stand still, or go in one of 8 directions, about 4 times a second.">it picks one of 9 moves</li>
+              <li data-spiega="Points when the flock gets closer to the circle and when a sheep enters. Points lost when one leaves, and a little as time passes. A prize when all 180 are inside.">training rewards what worked</li>
             </ol>
             <div class="vivo">
-              <canvas class="bussola" role="img" aria-label="How much the dog wants each move right now" data-spiega="What the dog wants right now. A longer arrow means a more likely move. The square in the middle is standing still."></canvas>
+              <canvas class="bussola" role="img" aria-label="How much policy 2 wants each move right now" data-spiega="What policy 2 wants right now. A longer arrow means a more likely move, and the square in the middle is standing still."></canvas>
               <div>
+                <button type="button" class="vede" data-spiega="Orange marks what each policy reads. Dashed lines: the centre of the flock and the farthest sheep. Orange cells: the map, which only policy 2 has. It is why policy 1 can miss a split flock.">what the dog sees</button>
                 <p class="lettura stato"></p>
-                <p class="lettura lettura-premio" data-spiega="The points the dog has earned in this game, with the reward it was trained on."></p>
-                <div class="passi" role="group" aria-label="Speed"><span>speed</span><button type="button" data-vel="1">1x</button><button type="button" data-vel="4">4x</button></div>
               </div>
             </div>
           </div>
 
           <div class="mono sezione">
-            <span class="titolino">what it learned, step by step</span>
+            <span class="titolino">where policy 1 fails</span>
             <div class="tappe">
-              {tappe.map(t => <button type="button" data-tappa={t.id}>{t.nome}</button>)}
+              <button type="button" data-campo="nuovo" data-spiega="A new random field, on both meadows.">new field</button>
+              {dati.campi.map(c => <button type="button" data-campo={c.id}>{c.nome}</button>)}
             </div>
-            <p class="spiega nota-tappa"></p>
+            <p class="spiega nota-campo"></p>
+            <div class="riga comandi">
+              <button type="button" class="pausa">pause</button>
+              <button type="button" class="un-passo" data-spiega="Moves both dogs by one decision.">one step</button>
+              <div class="passi" role="group" aria-label="Speed"><button type="button" data-vel="1">1x</button><button type="button" data-vel="4">4x</button></div>
+            </div>
+            <div class="tappe piccole" role="group" aria-label="Training stage of policy 2" data-spiega="Replays policy 2 at this point of its training.">
+              <span>policy 2 at</span>
+              {dati.tappe.map(t => <button type="button" data-tappa={t.id}>{t.nome}</button>)}
+            </div>
           </div>
 
           <div class="mono sezione">
             <span class="titolino">beat the AI</span>
-            <div class="riga">
-              <button type="button" class="gioca" data-spiega="A new field. Move the pointer: the dog follows it. The AI plays the same field, with the same sheep."></button>
-              <button type="button" class="guarda" hidden data-spiega="The final AI plays the same field, so you can compare.">watch the AI here</button>
-            </div>
+            <button type="button" class="gioca" data-spiega="A new field. You play the left meadow, policy 2 plays the right one, at the same time."></button>
             <p class="lettura esito" aria-live="polite"></p>
             <p class="lettura">your best <span class="best-uomo"></span> · AI best <span class="best-ai"></span></p>
           </div>
@@ -75,8 +83,8 @@ const COME: [string, string][] = [
 
 <script>
   import { monta } from '../../scripts/greggeVista';
-  const radice = document.querySelector<HTMLElement>('[data-gregge]')!;
-  monta(radice, JSON.parse(radice.dataset.tappe!));
+  const radice = document.querySelector<HTMLElement>('[data-gregge]')!, d = JSON.parse(radice.dataset.dati!);
+  monta(radice, d.tappe, d.campi, d.migliorAI);
 </script>
 
 <style>
@@ -93,7 +101,7 @@ const COME: [string, string][] = [
   button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
   .titolino { display: block; margin-bottom: 6px; color: var(--fg); font-size: 14px; }
   .titolino::before { content: '// '; color: var(--muted); }
-  .spiega { margin: 0; min-height: 3em; color: var(--muted); font-size: 12px; line-height: 1.45; }
+  .spiega { margin: 0; min-height: 4.2em; color: var(--muted); font-size: 12px; line-height: 1.45; }
   .banco { position: relative; flex: 1 1 0; min-height: 0; }
   .tela-gregge { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
   .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--s2); width: clamp(320px, 30%, 400px); overflow: hidden auto; }
@@ -102,15 +110,20 @@ const COME: [string, string][] = [
   .riga { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
   .gioca { min-width: 112px; padding: 7px 16px; background: var(--fg); border-color: var(--fg); color: var(--bg); font-size: 15px; }
   .gioca:hover:not(:disabled) { background: var(--bg); border-color: var(--fg); color: var(--fg); }
-  .racconto { margin: 0 0 10px; padding-left: 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
-  .vivo { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 12px; align-items: center; }
-  .bussola { display: block; width: 76px; height: 76px; }
+  .racconto { margin: 0 0 8px; padding-left: 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .vivo { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 12px; align-items: center; }
+  .bussola { display: block; width: 62px; height: 62px; }
   .passi { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; }
   .passi span { margin-right: 4px; color: var(--muted); font-size: 12px; }
   .passi button { min-width: 34px; padding: 3px 6px; }
   .lettura { min-height: 1.4em; margin: 2px 0 0; color: var(--fg); font-size: 12px; }
   .tappe { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
   .tappe button { padding: 4px 8px; font-size: 12px; }
+  .piccole { align-items: center; margin: 8px 0 0; }
+  .piccole span { color: var(--muted); font-size: 12px; }
+  .comandi { margin-top: 6px; font-size: 12px; }
+  .comandi button { padding: 4px 8px; }
+  .vede { padding: 4px 8px; font-size: 12px; }
   .nota-tel, .solo-tel { display: none; }
   .tag-punto { position: fixed; left: 0; top: 0; z-index: 5; max-width: 300px; padding: 4px 8px; background: var(--bg); border: 1px solid var(--fg); color: var(--fg); font-size: 12px; line-height: 1.45; pointer-events: none; }
   .tag-punto[hidden] { display: none; }
@@ -126,7 +139,7 @@ const COME: [string, string][] = [
     h1 { font-size: 20px; }
     .banco { display: contents; }
     .testa { order: 0; }
-    .tela-gregge { position: static; display: block; order: 1; width: 100%; height: min(92vw, 420px); }
+    .tela-gregge { position: static; display: block; order: 1; width: 100%; height: calc(184vw + 90px); max-height: 900px; }
     .pannello { position: static; order: 3; width: 100%; overflow: visible; }
     .gioca { flex: 1 1 100%; width: 100%; padding: 10px; }
     .tag-punto { display: none !important; }

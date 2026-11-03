@@ -1,28 +1,51 @@
-[
- {
-  "id": "t0",
-  "nome": "start",
-  "nota": "Random weights. The dog wanders, and on average 2 sheep are inside after 3 minutes.",
-  "caso": true
- },
- {
-  "id": "t150000",
-  "nome": "150k",
-  "nota": "After 150,000 decisions it has not found the idea: 12 sheep inside on average."
- },
- {
-  "id": "t400000",
-  "nome": "400k",
-  "nota": "After 400,000 it pushes the flock: 91 sheep inside on average, but it finishes only 2 of 24 fields."
- },
- {
-  "id": "t800000",
-  "nome": "800k",
-  "nota": "The big jump. After 800,000 it finishes 14 of 24 fields."
- },
- {
-  "id": "fine",
-  "nome": "4M, final",
-  "nota": "After 4 million it finishes 18 of 24 fields, in 47 seconds at the median. You play against this one."
- }
-]
+{
+ "tappe": [
+  {
+   "id": "m0",
+   "nome": "start",
+   "nota": "Random weights: the dog wanders.",
+   "caso": true
+  },
+  {
+   "id": "m400k",
+   "nome": "400k",
+   "nota": "After 400,000 decisions it finishes 13 of 24 test fields, slowly."
+  },
+  {
+   "id": "m800k",
+   "nome": "800k",
+   "nota": "After 800,000 it finishes 20 of 24, with 176 sheep inside on average."
+  },
+  {
+   "id": "m1500k",
+   "nome": "1.5M",
+   "nota": "After 1.5 million it finishes all 24, in 35 seconds at the median."
+  },
+  {
+   "id": "mfine",
+   "nome": "4M",
+   "nota": "Both final policies on the same field. On 100 new fields: 88 finished against 99, 47 s against 26 s."
+  }
+ ],
+ "campi": [
+  {
+   "id": "perde",
+   "nome": "loses the flock",
+   "seme": 1011,
+   "nota": "Policy 1 gets 147 sheep inside, then lets them all out. Policy 2 finishes in 54 s."
+  },
+  {
+   "id": "ferma",
+   "nome": "gets stuck",
+   "seme": 1019,
+   "nota": "Policy 1 stands still for 57% of the game. Policy 2 finishes in 79 s, with many sheep leaving on the way."
+  },
+  {
+   "id": "chiude",
+   "nome": "never closes",
+   "seme": 1003,
+   "nota": "Policy 1 runs for 3 minutes and stops at 103 sheep. Policy 2 finishes in 24 s."
+  }
+ ],
+ "migliorAI": 13.9
+}

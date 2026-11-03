@@ -1,119 +1,123 @@
-import { agisci, avanza, DT, inizioPremio, L, LIMITE, meta, N_AZIONI, nuovoMondo, OGNI, OSTACOLI, PECORE, premio, punteggi, RAGGIO, vedi, type Mondo, type Prima } from '../lib/gregge';
+import { avanza, DT, L, LATO_MAPPA, LIMITE, meta, N_AZIONI, nuovoMondo, OGNI, OSTACOLI, PECORE, RAGGIO, scegli, type Mondo, type Tipo } from '../lib/gregge';
 
-// Vista del gregge, dall'alto. Guarda: l'agente gioca con i pesi di una tappa del training. Gioca: il cane segue il puntatore, e l'AI ha già giocato lo stesso campo.
+// Vista del gregge, dall'alto: due prati, lo stesso campo, lo stesso orologio. Guarda: due policy a confronto. Gioca: tu a sinistra, l'AI a destra.
+// Sui prati si vede quello che ogni cane legge: la differenza fra le due policy è tutta lì.
 export type Tappa = { id: string; nome: string; nota: string; caso?: boolean };
+export type Campo = { id: string; nome: string; seme: number; nota: string };
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
-const RECORD = 'misc-rl-record', RECORD_AI = 'misc-rl-record-ai', MIGLIORE_AI = 24.1, ORA_LENTO = 0.25;
+const RECORD = 'misc-rl-record', RECORD_AI = 'misc-rl-record-ai';
 const leggi = (k: string) => { try { return Number(localStorage.getItem(k)) || 0; } catch { return 0; } };
-const scriviR = (k: string, v: number) => { try { localStorage.setItem(k, String(v)); } catch { /* niente */ } };
+const salva = (k: string, v: number) => { try { localStorage.setItem(k, String(v)); } catch { /* niente */ } };
 const orologio = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+const calmo = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export function monta(radice: HTMLElement, tappe: Tappa[]) {
+type Prato = { m: Mondo; chi: Tipo | 'tu'; pesi: Float32Array | null; caso: boolean; passi: number; dgx: number; dgz: number; pr: Float64Array; storia: number[]; nome: string };
+
+export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migliorAI: number) {
   const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
   const scrivi = (el: Element, t: string) => { if (el.textContent !== t) el.textContent = t; };
   const FG = tono('--fg'), MUTED = tono('--muted'), LINE = tono('--line'), ARANCIO = tono('--arancio'), BLU = tono('--azzurro');
   const tela = $<HTMLCanvasElement>('.tela-gregge'), c = tela.getContext('2d')!, pannello = $<HTMLElement>('.pannello'), bussola = $<HTMLCanvasElement>('.bussola'), cb = bussola.getContext('2d')!;
-  const stato = $<HTMLElement>('.stato'), letturaPremio = $<HTMLElement>('.lettura-premio'), notaTappa = $<HTMLElement>('.nota-tappa'), gioca = $<HTMLButtonElement>('.gioca'), guarda = $<HTMLButtonElement>('.guarda'), bestUomo = $<HTMLElement>('.best-uomo'), bestAI = $<HTMLElement>('.best-ai'), esito = $<HTMLElement>('.esito');
-  const bottoni = radice.querySelectorAll<HTMLButtonElement>('[data-tappa]'), velocita = radice.querySelectorAll<HTMLButtonElement>('[data-vel]');
-  const tagPunto = $<HTMLElement>('.tag-punto'), notaTel = $<HTMLElement>('.nota-tel');
+  const stato = $<HTMLElement>('.stato'), notaCampo = $<HTMLElement>('.nota-campo'), gioca = $<HTMLButtonElement>('.gioca'), pausa = $<HTMLButtonElement>('.pausa'), unPasso = $<HTMLButtonElement>('.un-passo'), vede = $<HTMLButtonElement>('.vede'), bestUomo = $<HTMLElement>('.best-uomo'), bestAI = $<HTMLElement>('.best-ai'), esito = $<HTMLElement>('.esito'), tagPunto = $<HTMLElement>('.tag-punto'), notaTel = $<HTMLElement>('.nota-tel');
+  const bottoniCampo = radice.querySelectorAll<HTMLButtonElement>('[data-campo]'), bottoniTappa = radice.querySelectorAll<HTMLButtonElement>('[data-tappa]'), velocita = radice.querySelectorAll<HTMLButtonElement>('[data-vel]');
 
   const pesi = new Map<string, Float32Array>();
   const carica = async (id: string) => {
     if (!pesi.has(id)) pesi.set(id, new Float32Array(await (await fetch(`/learn/gregge/${id}.bin`)).arrayBuffer()));
     return pesi.get(id)!;
   };
-  let modo: 'guarda' | 'gioca' = 'guarda', tappa = tappe[tappe.length - 1]!, m: Mondo = nuovoMondo(semeNuovo()), passi = 0, prima: Prima = inizioPremio(m), totale = 0, ultimo = 0, chiuso = false;
-  let vel = 1, resto = 0, oraPrima = performance.now(), visibile = false, sporco = true, spiegaEl: HTMLElement | null = null, sopra = false, px = 0, pz = 0, tempoAI: number | null = null, calcolo = 0;
-  let pr = new Float64Array(N_AZIONI), riferimento = [1, 0], record = leggi(RECORD), recordAI = leggi(RECORD_AI) || MIGLIORE_AI;
-  function semeNuovo() { return Math.floor(Math.random() * 1e9); }
-  let seme = 0;
+  const prato = (m: Mondo, chi: Prato['chi'], p: Float32Array | null, nome: string, caso = false): Prato => ({ m, chi, pesi: p, caso, passi: 0, dgx: 1, dgz: 0, pr: new Float64Array(N_AZIONI).fill(1 / N_AZIONI), storia: [0], nome });
+  let prati: Prato[] = [], modo: 'guarda' | 'gioca' = 'guarda', seme = Math.floor(Math.random() * 1e9), campo: Campo | null = null, tappa = tappe[tappe.length - 1]!, fermo = false, chiuso = false, attesa = 0, vel = 1, resto = 0, oraPrima = performance.now(), visibile = false, sporco = true;
+  let spiegaEl: HTMLElement | null = null, sopra = false, px = 0, pz = 0, vista = true, record = leggi(RECORD), recordAI = leggi(RECORD_AI) || migliorAI, sasso: { x: number; z: number; t: number } | null = null;
 
-  const scegli = (u: Float64Array, caso: boolean, r: () => number) => {
-    let mx = -Infinity, a = 0, tot = 0;
-    for (let k = 0; k < N_AZIONI; k++) if (u[k]! > mx) { mx = u[k]!; a = k; }
-    for (let k = 0; k < N_AZIONI; k++) { pr[k] = Math.exp(u[k]! - mx); tot += pr[k]!; }
-    for (let k = 0; k < N_AZIONI; k++) pr[k] = pr[k]! / tot;
-    if (caso) { let q = r(); a = 0; while (a < N_AZIONI - 1 && q >= pr[a]!) { q -= pr[a]!; a++; } }
-    return a;
+  const scriviBest = () => { scrivi(bestUomo, record ? orologio(record) : '-'); scrivi(bestAI, recordAI ? orologio(recordAI) : '-'); };
+  const parti = async () => {
+    const [v1, m2] = await Promise.all([carica('v1'), carica(modo === 'gioca' ? tappe[tappe.length - 1]!.id : tappa.id)]);
+    prati = modo === 'gioca'
+      ? [prato(nuovoMondo(seme), 'tu', null, 'you'), prato(nuovoMondo(seme), 'M', m2, 'the AI')]
+      : [prato(nuovoMondo(seme), 'v1', v1, 'policy 1: 18 numbers'), prato(nuovoMondo(seme), 'M', m2, `policy 2: 18 numbers + map${tappa.id === tappe[tappe.length - 1]!.id ? '' : ` · ${tappa.nome}`}`, !!tappa.caso)];
+    chiuso = false; attesa = 0; resto = 0; sporco = true;
+    scrivi(esito, '');
+    scriviBest();
   };
-
-  const azzera = (s: number) => { seme = s; m = nuovoMondo(s); passi = 0; prima = inizioPremio(m); totale = ultimo = 0; chiuso = false; resto = 0; pr.fill(1 / N_AZIONI); sporco = true; };
-  const unPasso = () => {
+  const passoPrato = (q: Prato) => {
+    if (q.m.finito || q.m.tempo >= LIMITE) return;
+    if (q.chi === 'tu') { if (sopra) meta(q.m, px, pz); }
+    else if (q.passi % OGNI === 0 && q.pesi) { const s = scegli(q.chi, q.pesi, q.m, q.pr, q.caso); q.dgx = s.dgx; q.dgz = s.dgz; }
+    avanza(q.m);
+    q.passi++;
+    if (q.passi % 15 === 0) q.storia.push(q.m.dentro);
+  };
+  const finito = (q: Prato) => q.m.finito || q.m.tempo >= LIMITE;
+  const chiudi = () => {
+    chiuso = true;
     if (modo === 'gioca') {
-      if (sopra) meta(m, px, pz);
-    } else if (passi % OGNI === 0) {
-      const p = pesi.get(tappa.id);
-      if (p) {
-        if (passi) { ultimo = premio(prima, m); totale += ultimo; }
-        const { o, dgx, dgz } = vedi(m), a = scegli(punteggi(p, o), !!tappa.caso, m.r);
-        riferimento = [dgx, dgz];
-        agisci(m, a, dgx, dgz);
-      }
-    }
-    avanza(m);
-    passi++;
-  };
-
-  // L'AI gioca lo stesso campo senza grafica, a piccoli pezzi, così la pagina non si blocca: è il tempo da battere
-  function calcolaAI(s: number) {
-    const id = ++calcolo, finale = tappe.find(t => t.id === 'fine') ?? tappe[tappe.length - 1]!;
-    tempoAI = null;
-    carica(finale.id).then(p => {
-      const a = nuovoMondo(s);
-      const pezzo = () => {
-        if (id !== calcolo) return;
-        const fine = performance.now() + 8;
-        while (!a.finito && a.tempo < LIMITE && performance.now() < fine) {
-          const { o, dgx, dgz } = vedi(a), u = punteggi(p, o);
-          let b = 0;
-          for (let k = 1; k < N_AZIONI; k++) if (u[k]! > u[b]!) b = k;
-          agisci(a, b, dgx, dgz);
-          for (let k = 0; k < OGNI && !a.finito; k++) avanza(a);
-        }
-        if (a.finito || a.tempo >= LIMITE) {
-          tempoAI = a.finito ? a.tempo : Infinity;
-          if (a.finito && (!recordAI || a.tempo < recordAI)) { recordAI = a.tempo; scriviR(RECORD_AI, a.tempo); }
-          scriviBest();
-        } else setTimeout(pezzo, 0);
-      };
-      pezzo();
-    });
-  }
-  const scriviBest = () => {
-    scrivi(bestUomo, record ? orologio(record) : '-');
-    scrivi(bestAI, recordAI ? orologio(recordAI) : '-');
-    if (modo === 'gioca' && !chiuso) scrivi(esito, tempoAI === null ? 'the AI is playing this field...' : tempoAI === Infinity ? 'the AI did not finish this field' : `to beat on this field: ${orologio(tempoAI)}`);
+      tela.style.cursor = tela.style.touchAction = '';
+      const [io, ai] = prati as [Prato, Prato];
+      if (io.m.finito && (!record || io.m.tempo < record)) { record = io.m.tempo; salva(RECORD, record); }
+      if (ai.m.finito && (!recordAI || ai.m.tempo < recordAI)) { recordAI = ai.m.tempo; salva(RECORD_AI, recordAI); }
+      scriviBest();
+      scrivi(esito, !io.m.finito ? 'Time is up for you.' : !ai.m.finito || io.m.tempo < ai.m.tempo ? `You win: ${orologio(io.m.tempo)}${ai.m.finito ? ` against ${orologio(ai.m.tempo)}` : ''}.` : `The AI wins: ${orologio(ai.m.tempo)} against ${orologio(io.m.tempo)}.`);
+    } else attesa = 3;
   };
 
   // --- Disegno
-  let W = 0, H = 0, Wp = 0;
-  const piano = () => {
-    const sinistra = innerWidth > 760 ? Wp + 16 : 0, libero = W - sinistra, S = Math.min(libero, H) / (2 * L + 0.4);
-    return { S, cx: sinistra + libero / 2, cy: H / 2 };
+  let W = 0, H = 0, Wp = 0, largo = true;
+  const CURVA = 64, TITOLO = 18;
+  const riquadri = () => {
+    const sinistra = largo ? Wp + 16 : 0, libero = W - sinistra, alto = H - CURVA - 8;
+    return largo
+      ? [{ x: sinistra, y: 0, w: libero / 2 - 6, h: alto }, { x: sinistra + libero / 2 + 6, y: 0, w: libero / 2 - 6, h: alto }]
+      : [{ x: 0, y: 0, w: W, h: alto / 2 - 4 }, { x: 0, y: alto / 2 + 4, w: W, h: alto / 2 - 4 }];
   };
-  function disegna() {
-    const { S, cx, cy } = piano(), d = devicePixelRatio, X = (x: number) => cx + x * S, Y = (z: number) => cy + z * S;
-    c.setTransform(d, 0, 0, d, 0, 0);
-    c.clearRect(0, 0, W, H);
+  const geometria = (r: { x: number; y: number; w: number; h: number }) => {
+    const S = Math.min(r.w, r.h - TITOLO) / (2 * L + 0.4);
+    return { S, cx: r.x + r.w / 2, cy: r.y + TITOLO + (r.h - TITOLO) / 2 };
+  };
+  function disegnaPrato(q: Prato, r: ReturnType<typeof riquadri>[number]) {
+    const { S, cx, cy } = geometria(r), { m } = q, X = (x: number) => cx + x * S, Y = (z: number) => cy + z * S;
+    c.fillStyle = FG;
+    c.font = `12px ${stile.getPropertyValue('--mono') || 'monospace'}`;
+    c.textAlign = 'left';
+    c.fillText(q.nome, r.x, r.y + 12);
+    c.textAlign = 'right';
+    c.fillText(`${m.dentro}/${PECORE} · ${orologio(m.tempo)}${m.finito ? ' · done' : ''}`, r.x + r.w, r.y + 12);
     c.lineWidth = 1;
-    // Il prato: griglia a filo, come gli altri piani
     c.save();
     c.beginPath(); c.arc(cx, cy, L * S, 0, Math.PI * 2); c.clip();
     c.strokeStyle = LINE;
     c.beginPath();
-    for (let q = -L; q <= L; q += 1) { c.moveTo(X(q), Y(-L)); c.lineTo(X(q), Y(L)); c.moveTo(X(-L), Y(q)); c.lineTo(X(L), Y(q)); }
+    for (let v = -L; v <= L; v += 2) { c.moveTo(X(v), Y(-L)); c.lineTo(X(v), Y(L)); c.moveTo(X(-L), Y(v)); c.lineTo(X(L), Y(v)); }
     c.stroke();
+    // Quello che la policy legge: per la seconda, la mappa intorno al cane, girata come la legge lei
+    if (vista && q.chi === 'M') {
+      const u = [q.dgx, q.dgz], w = [-q.dgz, q.dgx], conte = new Float32Array(LATO_MAPPA * LATO_MAPPA), meta0 = LATO_MAPPA / 2;
+      for (let i = 0; i < PECORE; i++) {
+        if (Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) < RAGGIO) continue;
+        const dx = m.x[i]! - m.cane.x, dz = m.z[i]! - m.cane.z, a = Math.max(0, Math.min(LATO_MAPPA - 1, Math.floor(dx * u[0]! + dz * u[1]! + meta0))), b = Math.max(0, Math.min(LATO_MAPPA - 1, Math.floor(dx * w[0]! + dz * w[1]! + meta0)));
+        conte[a * LATO_MAPPA + b] = conte[a * LATO_MAPPA + b]! + 1;
+      }
+      const angolo = (a: number, b: number) => [X(m.cane.x + (a - meta0) * u[0]! + (b - meta0) * w[0]!), Y(m.cane.z + (a - meta0) * u[1]! + (b - meta0) * w[1]!)] as const;
+      for (let a = 0; a < LATO_MAPPA; a++) for (let b = 0; b < LATO_MAPPA; b++) {
+        const v = conte[a * LATO_MAPPA + b]!;
+        if (!v) continue;
+        c.globalAlpha = Math.min(0.55, 0.14 + v * 0.03);
+        c.fillStyle = ARANCIO;
+        c.beginPath();
+        c.moveTo(...angolo(a, b)); c.lineTo(...angolo(a + 1, b)); c.lineTo(...angolo(a + 1, b + 1)); c.lineTo(...angolo(a, b + 1));
+        c.closePath(); c.fill();
+      }
+      c.globalAlpha = 1;
+    }
     c.restore();
     c.strokeStyle = LINE;
     c.beginPath(); c.arc(cx, cy, L * S, 0, Math.PI * 2); c.stroke();
     c.strokeStyle = MUTED;
     c.beginPath();
-    for (const o of OSTACOLI) { const r = Math.max(1.5, o.r * S); c.moveTo(X(o.x) + r, Y(o.z)); c.arc(X(o.x), Y(o.z), r, 0, Math.PI * 2); }
+    for (const o of OSTACOLI) { const g = Math.max(1, o.r * S); c.moveTo(X(o.x) + g, Y(o.z)); c.arc(X(o.x), Y(o.z), g, 0, Math.PI * 2); }
     c.stroke();
     c.fillStyle = MUTED;
-    for (const v of m.mucche) c.fillRect(X(v.x) - 3, Y(v.z) - 2, 6, 4);
-    // Il cerchio: tratteggiato, si accende man mano che le pecore entrano
-    c.strokeStyle = MUTED;
+    for (const v of m.mucche) c.fillRect(X(v.x) - 2, Y(v.z) - 1.5, 4, 3);
     c.setLineDash([4, 4]);
     c.beginPath(); c.arc(X(m.gx), Y(m.gz), RAGGIO * S, 0, Math.PI * 2); c.stroke();
     c.setLineDash([]);
@@ -121,75 +125,144 @@ export function monta(radice: HTMLElement, tappe: Tappa[]) {
     c.lineWidth = 2;
     c.beginPath(); c.arc(X(m.gx), Y(m.gz), RAGGIO * S, -Math.PI / 2, -Math.PI / 2 + (m.dentro / PECORE) * Math.PI * 2); c.stroke();
     c.lineWidth = 1;
-    const lato = Math.max(2, S * 0.09);
+    const lato = Math.max(2, S * 0.1);
+    let cxG = 0, czG = 0, n = 0, far = -1, fd = -1;
     for (let i = 0; i < PECORE; i++) {
-      c.fillStyle = Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) < RAGGIO ? BLU : FG;
+      const fuori = Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) >= RAGGIO;
+      c.fillStyle = fuori ? FG : BLU;
       c.fillRect(X(m.x[i]!) - lato / 2, Y(m.z[i]!) - lato / 2, lato, lato);
+      if (fuori) { cxG += m.x[i]!; czG += m.z[i]!; n++; }
     }
-    // Il cane e la direzione che ha scelto
-    const a = X(m.cane.x), b = Y(m.cane.z);
-    c.strokeStyle = ARANCIO;
-    c.beginPath(); c.moveTo(a, b); c.lineTo(X(m.cane.mx), Y(m.cane.mz)); c.stroke();
+    // I numeri che leggono tutte e due: il centro del gregge e la pecora più lontana
+    if (vista && q.chi !== 'tu' && n) {
+      cxG /= n; czG /= n;
+      for (let i = 0; i < PECORE; i++) if (Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) >= RAGGIO) { const d = (m.x[i]! - cxG) ** 2 + (m.z[i]! - czG) ** 2; if (d > fd) { fd = d; far = i; } }
+      c.strokeStyle = ARANCIO;
+      c.setLineDash([3, 3]);
+      c.beginPath(); c.moveTo(X(m.cane.x), Y(m.cane.z)); c.lineTo(X(cxG), Y(czG)); c.moveTo(X(cxG), Y(czG)); c.lineTo(X(m.x[far]!), Y(m.z[far]!)); c.stroke();
+      c.setLineDash([]);
+      c.fillStyle = ARANCIO;
+      c.beginPath(); c.arc(X(cxG), Y(czG), 3, 0, Math.PI * 2); c.fill();
+    }
+    if (sasso) {
+      c.strokeStyle = FG;
+      c.globalAlpha = Math.max(0, sasso.t);
+      c.beginPath(); c.arc(X(sasso.x), Y(sasso.z), (1.8 - sasso.t) * 0.9 * S, 0, Math.PI * 2); c.stroke();
+      c.globalAlpha = 1;
+    }
     c.fillStyle = ARANCIO;
-    c.fillRect(a - 4, b - 4, 8, 8);
+    c.fillRect(X(m.cane.x) - 4, Y(m.cane.z) - 4, 8, 8);
   }
-  // Le nove mosse: quanto vuole ognuna adesso. "Avanti" è la direzione dal gregge al cerchio
+  function disegnaCurva() {
+    const x0 = largo ? Wp + 16 + 28 : 28, w = W - x0, y0 = H - CURVA + 4, h = CURVA - 18, durata = Math.max(60, ...prati.map(q => q.m.tempo)), Y = (v: number) => y0 + h - (v / PECORE) * h;
+    c.font = `11px ${stile.getPropertyValue('--mono') || 'monospace'}`;
+    c.fillStyle = MUTED;
+    c.textAlign = 'right';
+    c.fillText('180', x0 - 4, y0 + 8);
+    c.fillText('0', x0 - 4, y0 + h);
+    c.textAlign = 'left';
+    c.fillText('sheep inside, over time', x0, H - 2);
+    c.textAlign = 'right';
+    c.fillText(orologio(durata), x0 + w, H - 2);
+    c.strokeStyle = LINE;
+    c.beginPath(); c.moveTo(x0, Y(0)); c.lineTo(x0 + w, Y(0)); c.moveTo(x0, Y(PECORE)); c.lineTo(x0 + w, Y(PECORE)); c.stroke();
+    prati.forEach((q, k) => {
+      c.strokeStyle = k ? BLU : FG;
+      c.lineWidth = 1.5;
+      c.beginPath();
+      q.storia.forEach((v, i) => { const x = x0 + ((i * 15 * DT) / durata) * w; if (i) c.lineTo(x, Y(v)); else c.moveTo(x, Y(v)); });
+      c.stroke();
+      c.lineWidth = 1;
+    });
+  }
+  function disegna() {
+    const d = devicePixelRatio;
+    c.setTransform(d, 0, 0, d, 0, 0);
+    c.clearRect(0, 0, W, H);
+    const r = riquadri();
+    prati.forEach((q, k) => disegnaPrato(q, r[k]!));
+    if (prati.length) disegnaCurva();
+    disegnaBussola();
+  }
+  // La bussola: quanto la seconda policy vuole ogni mossa adesso. Il quadrato al centro è stare fermo
   function disegnaBussola() {
+    const q = prati.find(p => p.chi === 'M');
     const d = devicePixelRatio, w = bussola.clientWidth, h = bussola.clientHeight;
-    if (!w) return;
+    if (!w || !q) return;
     if (bussola.width !== w * d || bussola.height !== h * d) { bussola.width = w * d; bussola.height = h * d; }
     cb.setTransform(d, 0, 0, d, 0, 0);
     cb.clearRect(0, 0, w, h);
-    const R = Math.min(w, h) / 2 - 2, cx = w / 2, cy = h / 2, base = Math.atan2(riferimento[1]!, riferimento[0]!);
+    const R = Math.min(w, h) / 2 - 2, cx = w / 2, cy = h / 2, base = Math.atan2(q.dgz, q.dgx);
     cb.strokeStyle = LINE;
     cb.beginPath(); cb.arc(cx, cy, R, 0, Math.PI * 2); cb.stroke();
     cb.strokeStyle = ARANCIO;
     cb.lineWidth = 2;
     cb.beginPath();
-    for (let a = 1; a < N_AZIONI; a++) {
-      const t = base + ((a - 1) * Math.PI) / 4, l = Math.min(1, Math.sqrt(pr[a]!)) * R;
-      cb.moveTo(cx, cy); cb.lineTo(cx + Math.cos(t) * l, cy + Math.sin(t) * l);
-    }
+    for (let a = 1; a < N_AZIONI; a++) { const t = base + ((a - 1) * Math.PI) / 4, l = Math.min(1, Math.sqrt(q.pr[a]!)) * R; cb.moveTo(cx, cy); cb.lineTo(cx + Math.cos(t) * l, cy + Math.sin(t) * l); }
     cb.stroke();
     cb.lineWidth = 1;
     cb.fillStyle = FG;
-    const q = 2 + pr[0]! * 8;
-    cb.fillRect(cx - q / 2, cy - q / 2, q, q);
+    const s = 2 + q.pr[0]! * 8;
+    cb.fillRect(cx - s / 2, cy - s / 2, s, s);
   }
 
   // --- Comandi
-  const mettiTappa = async (t: Tappa) => {
-    calcolo++;
-    tappa = t;
-    modo = 'guarda';
-    bottoni.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tappa === t.id)));
-    scrivi(notaTappa, t.nota);
-    scrivi(esito, '');
-    await carica(t.id);
-    azzera(seme || semeNuovo());
+  const segnaPressati = () => {
+    bottoniCampo.forEach(b => b.setAttribute('aria-pressed', String(modo === 'guarda' && (campo ? b.dataset.campo === campo.id : b.dataset.campo === 'nuovo'))));
+    bottoniTappa.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tappa === tappa.id)));
+    pausa.setAttribute('aria-pressed', String(fermo));
+    scrivi(pausa, fermo ? 'play' : 'pause');
+    vede.setAttribute('aria-pressed', String(vista));
   };
-  bottoni.forEach(b => b.addEventListener('click', () => mettiTappa(tappe.find(t => t.id === b.dataset.tappa)!)));
-  const mettiVel = (n: number) => { vel = n; velocita.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.vel) === n))); };
-  velocita.forEach(b => b.addEventListener('click', () => mettiVel(Number(b.dataset.vel))));
+  const mettiCampo = (id: string) => {
+    modo = 'guarda'; tela.style.cursor = 'crosshair'; tela.style.touchAction = '';
+    campo = campi.find(q => q.id === id) ?? null;
+    seme = campo ? campo.seme : Math.floor(Math.random() * 1e9);
+    scrivi(notaCampo, campo ? campo.nota : tappa.nota);
+    scrivi(gioca, 'play');
+    fermo = false;
+    segnaPressati();
+    parti();
+  };
+  bottoniCampo.forEach(b => b.addEventListener('click', () => mettiCampo(b.dataset.campo!)));
+  bottoniTappa.forEach(b => b.addEventListener('click', () => { tappa = tappe.find(t => t.id === b.dataset.tappa)!; modo = 'guarda'; scrivi(notaCampo, tappa.nota); scrivi(gioca, 'play'); fermo = false; segnaPressati(); parti(); }));
+  velocita.forEach(b => b.addEventListener('click', () => { vel = Number(b.dataset.vel); velocita.forEach(q => q.setAttribute('aria-pressed', String(q === b))); }));
+  pausa.addEventListener('click', () => { fermo = !fermo; segnaPressati(); });
+  unPasso.addEventListener('click', () => { fermo = true; segnaPressati(); for (let k = 0; k < OGNI; k++) prati.forEach(passoPrato); sporco = true; });
+  vede.addEventListener('click', () => { vista = !vista; segnaPressati(); sporco = true; });
   gioca.addEventListener('click', () => {
-    modo = 'gioca';
-    azzera(semeNuovo());
+    modo = 'gioca'; campo = null; fermo = false;
+    seme = Math.floor(Math.random() * 1e9);
     scrivi(gioca, 'new field');
-    scrivi(notaTappa, '');
-    bottoni.forEach(b => b.setAttribute('aria-pressed', 'false'));
-    guarda.hidden = false;
-    calcolaAI(seme);
-    scriviBest();
-    tela.style.cursor = 'none';
-    // Solo mentre si gioca il dito guida il cane: altrimenti deve poter scorrere la pagina
-    tela.style.touchAction = 'none';
+    scrivi(notaCampo, 'You on the left, the AI on the right: same field, same sheep. Move the pointer and the dog follows it.');
+    tela.style.cursor = 'none'; tela.style.touchAction = 'none';
+    segnaPressati();
+    parti();
   });
-  // Lo stesso campo, con l'AI finale al comando
-  guarda.addEventListener('click', () => { const s = seme; mettiTappa(tappe.find(t => t.id === 'fine') ?? tappe[tappe.length - 1]!).then(() => azzera(s)); tela.style.cursor = tela.style.touchAction = ''; });
-  const alMondo = (e: PointerEvent) => { const { S, cx, cy } = piano(), q = tela.getBoundingClientRect(); px = (e.clientX - q.left - cx) / S; pz = (e.clientY - q.top - cy) / S; sopra = true; };
-  tela.addEventListener('pointermove', alMondo);
-  tela.addEventListener('pointerdown', alMondo);
+  const alMondo = (e: PointerEvent, k: number) => {
+    const q = tela.getBoundingClientRect(), { S, cx, cy } = geometria(riquadri()[k]!);
+    return [(e.clientX - q.left - cx) / S, (e.clientY - q.top - cy) / S] as const;
+  };
+  const sulPrato = (e: PointerEvent) => {
+    const q = tela.getBoundingClientRect(), x = e.clientX - q.left, y = e.clientY - q.top;
+    return riquadri().findIndex(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+  };
+  tela.addEventListener('pointermove', e => { if (modo === 'gioca') { const k = sulPrato(e); sopra = k === 0; if (k === 0) [px, pz] = alMondo(e, 0); } });
   tela.addEventListener('pointerleave', () => { sopra = false; });
+  // Il sasso: nello stesso punto di tutti e due i prati, così si vede quale policy regge meglio
+  tela.addEventListener('pointerdown', e => {
+    const k = sulPrato(e);
+    if (k < 0) return;
+    if (modo === 'gioca') { sopra = k === 0; if (k === 0) [px, pz] = alMondo(e, 0); return; }
+    const [x, z] = alMondo(e, k);
+    if (Math.hypot(x, z) > L) return;
+    sasso = { x, z, t: 1 };
+    for (const q of prati) for (let i = 0; i < PECORE; i++) {
+      const dx = q.m.x[i]! - x, dz = q.m.z[i]! - z, d = Math.hypot(dx, dz) || 1;
+      if (d < 1.8) { q.m.vx[i] = q.m.vx[i]! + (dx / d) * 1.1; q.m.vz[i] = q.m.vz[i]! + (dz / d) * 1.1; q.m.calma[i] = 0; }
+    }
+    sporco = true;
+  });
 
   radice.addEventListener('pointerover', e => { spiegaEl = (e.target as Element).closest?.('[data-spiega]') as HTMLElement | null; });
   radice.addEventListener('pointerleave', () => { spiegaEl = null; });
@@ -201,54 +274,47 @@ export function monta(radice: HTMLElement, tappe: Tappa[]) {
       const q = spiegaEl!.getBoundingClientRect(), dx = spiegaEl!.closest('.pannello') ? pannello.getBoundingClientRect().right : q.right, w = tagPunto.offsetWidth, h = tagPunto.offsetHeight, x = dx + 10 + w < innerWidth - 8 ? dx + 10 : Math.max(8, q.left - w - 10), y = Math.max(8, Math.min(innerHeight - h - 8, (q.top + q.bottom) / 2 - h / 2));
       tagPunto.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
     }
-    if (matchMedia('(max-width: 760px)').matches) scrivi(notaTel, testo);
-  };
-
-  const fineGiro = () => {
-    chiuso = true;
-    if (modo === 'gioca') {
-      tela.style.cursor = tela.style.touchAction = '';
-      if (m.finito && (!record || m.tempo < record)) { record = m.tempo; scriviR(RECORD, m.tempo); }
-      scriviBest();
-      const io = m.finito ? m.tempo : Infinity;
-      scrivi(esito, !m.finito ? 'time is up.' : tempoAI === null ? `your time: ${orologio(io)}` : io < tempoAI ? `you win. ${orologio(io)} against ${tempoAI === Infinity ? 'no finish' : orologio(tempoAI)}` : `the AI wins. ${orologio(tempoAI)} against your ${orologio(io)}`);
-    } else {
-      // Guarda: un altro campo dopo una pausa breve
-      setTimeout(() => { if (modo === 'guarda' && chiuso) azzera(semeNuovo()); }, 1800);
-    }
+    if (!largo) scrivi(notaTel, testo);
   };
 
   const misura = () => {
-    W = tela.clientWidth; H = tela.clientHeight; Wp = innerWidth > 760 ? pannello.offsetWidth : 0;
+    largo = innerWidth > 760;
+    W = tela.clientWidth; H = tela.clientHeight; Wp = largo ? pannello.offsetWidth : 0;
     tela.width = W * devicePixelRatio; tela.height = H * devicePixelRatio;
     sporco = true;
   };
   new ResizeObserver(misura).observe(tela);
   new IntersectionObserver(v => { visibile = v.some(x => x.isIntersecting); if (visibile) sporco = true; }, { rootMargin: '60px' }).observe(tela);
   misura();
-  mettiVel(1);
-  scriviBest();
+  tela.style.cursor = 'crosshair';
+  velocita.forEach(q => q.setAttribute('aria-pressed', String(q.dataset.vel === '1')));
   scrivi(gioca, 'play');
-  mettiTappa(tappa);
+  scrivi(notaCampo, tappa.nota);
+  fermo = calmo;
+  segnaPressati();
+  scriviBest();
+  parti();
 
   const ciclo = (ora: number) => {
     requestAnimationFrame(ciclo);
-    const dt = Math.min(ORA_LENTO, (ora - oraPrima) / 1000);
+    const dt = Math.min(0.25, (ora - oraPrima) / 1000);
     oraPrima = ora;
-    if (!visibile || !W) return;
-    if (!chiuso) {
+    if (!visibile || !W || !prati.length) return;
+    if (sasso) { sasso.t -= dt * 1.2; if (sasso.t <= 0) sasso = null; sporco = true; }
+    if (!fermo && !chiuso) {
       resto += dt * (modo === 'gioca' ? 1 : vel);
       while (resto >= DT && !chiuso) {
         resto -= DT;
-        unPasso();
-        if (m.finito || m.tempo >= LIMITE) { fineGiro(); break; }
+        prati.forEach(passoPrato);
+        // In gara si chiude solo quando hanno finito tutti e due
+        if (prati.every(finito)) chiudi();
       }
       sporco = true;
-      scrivi(stato, `${m.dentro}/${PECORE} inside · ${orologio(m.tempo)}`);
-      scrivi(letturaPremio, modo === 'gioca' ? 'you are the agent: move the pointer' : `reward so far ${totale >= 0 ? '+' : ''}${totale.toFixed(2)}`);
     }
+    if (chiuso && modo === 'guarda') { attesa -= dt; if (attesa <= 0) { if (!campo) seme = Math.floor(Math.random() * 1e9); parti(); } }
+    scrivi(stato, modo === 'gioca' ? 'you are the policy' : fermo ? 'paused' : 'click a meadow to throw a stone');
     aggiornaTag();
-    if (sporco) { sporco = false; disegna(); disegnaBussola(); }
+    if (sporco) { sporco = false; disegna(); tela.dataset.partita = prati.map(q => `${q.m.dentro}/${PECORE} ${q.m.tempo.toFixed(1)}s`).join(', '); }
   };
   requestAnimationFrame(ciclo);
 }
