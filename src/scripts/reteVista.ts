@@ -742,7 +742,9 @@ export function monta(radice: HTMLElement) {
   misuraTele();
   fissaSagoma(SAGOME.fish!);
   segna('fish');
+  // Si parte da un hidden layer. Il neurone solo, coi pesi a mano, si raggiunge tornando a 0
   neuroneSolo();
+  cambiaRete([NEURONI_INIZIALI]);
   document.fonts?.ready.then(() => { sporco = true; });
   const ciclo = (adesso: number) => {
     requestAnimationFrame(ciclo);
