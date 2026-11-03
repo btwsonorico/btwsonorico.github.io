@@ -26,14 +26,9 @@ Due o tre frasi: cos'è e chi l'ha fatto.
 
 **Seconda idea.** Una o due idee in più, non di più.
 
-## Where it is weak
-
-- **Limite.** Cosa non dimostra, o dove non vale.
-
 <!--
 Domande per finire la nota in una volta. Rispondi e cancella questo blocco:
 1. Cosa ti ha fatto cambiare idea, se qualcosa?
 2. Dove lo hai applicato o lo applicheresti?
-3. Con cosa non sei d'accordo?
-4. È fra i paper o le notizie più influenti (#defining)?
+3. È fra i paper o le notizie più influenti (#defining)?
 -->

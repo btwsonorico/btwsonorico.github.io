@@ -4,12 +4,14 @@ import Base from '../../layouts/Base.astro';
 // Modello di diffusion: la facciata mostra una faccia che esce dal rumore; sotto c'è la spiegazione. Il modello è già allenato
 // (scripts/allena-facce.mjs) e gira nel browser (src/lib/diffusione.ts)
 const COME: [string, string][] = [
-  ['What is this?', 'A real diffusion model, very small, running in your browser. It draws faces of 16 by 16 pixels. Each pixel is one point on the grid, and its height is the value of that pixel. It was trained once, before this page was published, on 4,000 faces drawn by a small program. The model is a 75 KB file, smaller than most photos.'],
+  ['What is this?', 'A real diffusion model, very small, running in your browser. It draws faces of 16 by 16 pixels. Each pixel is one block on the grid, and a taller, brighter block means a higher pixel value. It was trained once, before this page was published, on 4,000 faces drawn by a small program. The model is a 75 KB file, smaller than most photos.'],
   ['How did it learn?', 'Training takes a face and buries it under a random amount of noise. The network then has to guess the clean face from that mess. With a little noise the guess is easy, with a lot of noise it can only guess something like an average face. After thousands of examples it has learned what a face tends to look like at every level of noise.'],
-  ['How does it draw a new face?', 'It starts from pure noise, with no face in it at all. At every step the network makes its guess of the finished face, and the image moves a small part of the way towards that guess. With less noise left, the next guess is more precise. Look at the guess while the points move: it starts as a blurry average, and slowly commits to one face.'],
+  ['How does it draw a new face?', 'It starts from pure noise, with no face in it at all. At every step the network makes its guess of the finished face, and the image moves a small part of the way towards that guess. With less noise left, the next guess is more precise. Look at the guess while the blocks move: it starts as a blurry average, and slowly commits to one face.'],
+  ['How is the noise removed, exactly?', 'The network reads the noisy image x_t and the step number, and returns x0, its guess of the clean face. Every noisy image is a known mix of two parts: x_t = signal × x0 + noise × ε. So once the network has its guess, the noise ε follows by subtraction: ε = (x_t - signal × x0) / noise.\nThe next image uses the same two parts with a smaller share of noise: next = new signal × x0 + new noise × ε. No random noise enters along the way, so the same start always gives the same face. This rule is called DDIM. The small images and the two lines in the panel show these values at each step.'],
   ['Why small steps?', 'Because the first guess is only a blur, jumping straight to it would give you a blur. Small steps let each guess correct the one before. Change the number of steps to see it: 50 steps take more calculations than 5, and large models make the same trade between speed and quality.'],
   ['Why a different face each time?', 'Each face starts from different noise, and small differences early on push the guesses towards different faces. The model is not retrieving a stored picture: it holds no images, only weights. Press one of the last faces to replay it. Same noise, same face.'],
-  ['What about large image models?', 'They use the same idea on a very different scale. They work on images with millions of pixels, usually compressed first, and have billions of weights. They also read a prompt, which steers every guess towards what you asked for. This small model has no prompt, and it can only draw the kinds of faces it has seen.'],
+  ['What is this network, and what are its limits?', 'It is a multilayer perceptron with 37,504 weights. It takes 260 inputs (256 pixels and 4 numbers for the step), passes them through two hidden layers of 64 ReLU neurons, and returns 256 pixels. Training measures only the difference between its guess and the real face. There is no GAN here: no second network judges the result.\nA perceptron does not know which pixels are neighbours. It works here because the faces are tiny and always centred, and it would fail on real photos. It has no prompt, and it can only draw the kinds of faces it has seen.'],
+  ['What do large image models do differently?', 'They keep the same loop and change the network. A U-Net or a transformer reuses the same filters across the image, so it learns local shapes once and applies them everywhere. They usually do not work on pixels: an autoencoder first compresses the image into a smaller latent image, and the steps happen there. They also read a prompt, which steers every guess towards what you asked for. All this takes billions of weights, not 37,504.'],
 ];
 ---
 <Base title="Diffusion · Riccardo Mondi" description="Watch a small real diffusion model draw a face out of noise, in your browser." tono="neutro" largo>
@@ -21,7 +23,7 @@ const COME: [string, string][] = [
       </header>
 
       <section class="banco">
-        <canvas class="tela-griglia" role="img" aria-label="A wire grid with one point for each pixel of the image. The height of a point is the value of its pixel. Noise looks like a scattered cloud, and a finished face looks like a shape in relief."></canvas>
+        <canvas class="tela-griglia" role="img" aria-label="A grid with one block for each pixel of the image. A taller, brighter block means a higher pixel value. Noise looks like random terrain, and a finished face looks like a clear image in relief."></canvas>
 
         <p class="mono nota-tel" aria-live="polite"></p>
 
@@ -48,9 +50,11 @@ const COME: [string, string][] = [
           <div class="mono sezione">
             <span class="titolino">what the network sees</span>
             <div class="coppia">
-              <figure data-spiega="The image at this step: what the network reads."><canvas class="mini-ora" role="img" aria-label="The image at this step"></canvas><figcaption>now</figcaption></figure>
-              <figure data-spiega="The network's guess of the finished face at this step. It starts blurry and slowly commits."><canvas class="mini-ipotesi" role="img" aria-label="The guess of the network"></canvas><figcaption>its guess</figcaption></figure>
+              <figure data-spiega="x_t, the image at this step: what the network reads."><canvas class="mini-ora" role="img" aria-label="The image at this step"></canvas><figcaption>now, x_t</figcaption></figure>
+              <figure data-spiega="x0, the network's guess of the finished face at this step. It starts blurry and slowly commits."><canvas class="mini-ipotesi" role="img" aria-label="The guess of the network"></canvas><figcaption>guess, x0</figcaption></figure>
+              <figure data-spiega="ε, the noise left once the guess is taken out of the image. It disappears at the end."><canvas class="mini-rumore" role="img" aria-label="The noise the network finds"></canvas><figcaption>noise, ε</figcaption></figure>
             </div>
+            <div class="formula" data-spiega="Each image is a mix of the guess and the noise. Each step lowers the share of noise."><span class="f-ora"></span><span class="f-dopo"></span></div>
           </div>
 
           <div class="mono sezione">
@@ -63,7 +67,7 @@ const COME: [string, string][] = [
 
     <section class="spiegone" id="how-it-works">
       <h2 class="mono">how it works</h2>
-      {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3><p>{testo}</p></article>)}
+      {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3>{testo.split('\n').map(p => <p>{p}</p>)}</article>)}
     </section>
   </main>
   <div class="mono tag-punto" hidden></div>
@@ -105,7 +109,8 @@ const COME: [string, string][] = [
   .cursore-tempo { display: block; width: 100%; margin: 0; accent-color: var(--fg); cursor: pointer; }
   .estremi { display: flex; justify-content: space-between; gap: var(--s1); margin-top: 2px; color: var(--muted); font-size: 11px; }
   .lettura { color: var(--fg); text-align: center; }
-  .coppia { display: grid; grid-template-columns: repeat(2, minmax(0, 132px)); gap: 12px; }
+  .coppia { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .formula { display: flex; flex-direction: column; margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.5; white-space: pre; }
   figure { margin: 0; }
   figure canvas { display: block; width: 100%; aspect-ratio: 1; image-rendering: pixelated; outline: 1px solid var(--line); }
   figcaption { margin-top: 4px; color: var(--muted); font-size: 11px; }
@@ -129,7 +134,8 @@ const COME: [string, string][] = [
     h1 { font-size: 20px; }
     .banco { display: contents; }
     .testa { order: 0; }
-    .tela-griglia { position: static; display: block; order: 1; height: 300px; }
+    .tela-griglia { position: static; display: block; order: 1; height: 320px; }
+    .formula { font-size: 11px; }
     .pannello { position: static; order: 2; width: 100%; overflow: visible; }
     .gioca { flex: 1 1 100%; padding: 10px; }
     .passi button { min-width: 44px; padding: 8px; }
