@@ -21,7 +21,7 @@ export function monta(radice: HTMLElement) {
   const tagPunto = $<HTMLElement>('.tag-punto'), tagConsiglio = $<HTMLElement>('.tag-consiglio'), pannello = $<HTMLElement>('.pannello'), notaTel = $<HTMLElement>('.nota-tel');
   const formeB = radice.querySelectorAll<HTMLButtonElement>('[data-forma]'), pulisci = $<HTMLButtonElement>('.pulisci'), forme = $<HTMLElement>('.forme');
 
-  let dati = punti(N_DATI), forma = 'spiral', tratti: number[][] = [], corrente: number[] | null = null, tMax = T;
+  let dati = stella(N_DATI), forma = 'star', tratti: number[][] = [], corrente: number[] | null = null, tMax = T;
   let m: Modello = nuovoModello(), media = conMedia(m), minimo = 0, buoni = -1, inMoto = false, sporco = true, visibile = false, storia: number[] = [], somma = 0, conta = 0, generati = 0, spiegaEl: HTMLElement | null = null;
   let nuovi: Float32Array | null = null, primaNuovi: Float32Array | null = null, sale = false, inizioNuovi = 0, kNuovi = 0, passiNuovi = 20, tempiNuovi: number[] = [];
   let racconto: Racconto | null = null, giro = 0.42, gira = false, xPrima = 0;
