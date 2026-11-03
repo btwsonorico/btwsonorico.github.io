@@ -94,7 +94,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
           <tbody>
             <tr data-spiega="What it learns from, and what it gives back. Points in, points out. Images in, images out."><th>learns and makes</th><td>points</td><td>images</td></tr>
             <tr data-spiega="One question to the network, without counting the noise level and the digit. Model 1 sees one point, and it does not know about the others. Model 2 sees the whole image at once."><th>one call, in and out</th><td>2 numbers</td><td>784 numbers</td></tr>
-            <tr data-spiega="At 20 steps. Model 1 makes 300 separate points, so it calls the network 300 times per step. Model 2 makes one image, so it calls the network once per step, but each call is far larger."><th>calls to generate</th><td>6,000</td><td>20</td></tr>
+            <tr data-spiega="Calls to the network for one generation. Model 1 makes 300 separate points, so it calls the network 300 times per step. Model 2 makes one image, so it calls the network once per step, but each call is far larger. Press 5, 20 or 50 steps to see it change."><th class="chiamate-testa">calls at 20 steps</th><td class="chiamate-1">6,000</td><td class="chiamate-2">20</td></tr>
             <tr data-spiega="The numbers the model learns in training. They are all it keeps: no real point, no real image."><th>weights</th><td>8,898</td><td>196,081</td></tr>
             <tr data-spiega="The real examples it practises on. The digits come from MNIST."><th>training data</th><td>1,024 points</td><td>60,000 digits</td></tr>
             <tr data-spiega="Model 1 trains on your device. I trained model 2 once, on a CPU, and your browser downloads the result: a 784 KB file."><th>training time</th><td>30 s, by you</td><td>25 min, by me</td></tr>

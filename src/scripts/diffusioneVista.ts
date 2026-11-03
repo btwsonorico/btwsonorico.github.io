@@ -114,6 +114,10 @@ export function monta(radice: HTMLElement) {
   const scegliPassi = (n: number) => {
     passi = n;
     passiB.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.passi) === n)));
+    // La tabella conta le chiamate alla rete: 300 punti separati per il modello 1, una sola immagine per il modello 2
+    scrivi($('.chiamate-testa'), `calls at ${n} steps`);
+    scrivi($('.chiamate-1'), (300 * n).toLocaleString('en'));
+    scrivi($('.chiamate-2'), String(n));
     // Stesso rumore con un altro numero di step: si vede cosa cambia
     if (stati.length && !inMoto) nuova(stati[0]!, cifraGen);
   };
