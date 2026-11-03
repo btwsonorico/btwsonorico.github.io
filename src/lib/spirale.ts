@@ -17,6 +17,45 @@ export function punti(n: number): Float32Array {
   return p;
 }
 
+// Punti distribuiti lungo una linea spezzata, in proporzione alla lunghezza di ogni tratto
+function lungoTratti(tratti: number[][], n: number): Float32Array | null {
+  const pezzi: [number, number, number, number, number][] = [];
+  let tot = 0;
+  for (const t of tratti) for (let i = 0; i + 3 < t.length; i += 2) {
+    const l = Math.hypot(t[i + 2]! - t[i]!, t[i + 3]! - t[i + 1]!);
+    if (l > 0) { pezzi.push([t[i]!, t[i + 1]!, t[i + 2]!, t[i + 3]!, l]); tot += l; }
+  }
+  if (tot < 0.3) return null;
+  const p = new Float32Array(n * 2);
+  for (let i = 0; i < n; i++) {
+    let r = Math.random() * tot, k = 0;
+    while (k < pezzi.length - 1 && r > pezzi[k]![4]) r -= pezzi[k++]![4];
+    const [x0, y0, x1, y1, l] = pezzi[k]!, u = Math.min(1, r / l);
+    p[i * 2] = x0 + (x1 - x0) * u + gauss() * 0.012;
+    p[i * 2 + 1] = y0 + (y1 - y0) * u + gauss() * 0.012;
+  }
+  return p;
+}
+
+// La stella a cinque punte, solo il contorno
+export function stella(n: number): Float32Array {
+  const t: number[] = [];
+  for (let k = 0; k <= 10; k++) {
+    const a = Math.PI / 2 + (k * Math.PI) / 5, r = k % 2 ? 0.48 : 1.15;
+    t.push(r * Math.cos(a), r * Math.sin(a));
+  }
+  return lungoTratti([t], n)!;
+}
+
+// I punti di un disegno a mano. Un disegno troppo largo si rimpicciolisce: la rete lavora meglio con valori fra -1 e 1 circa
+export function daDisegno(tratti: number[][], n: number): Float32Array | null {
+  const p = lungoTratti(tratti, n);
+  if (!p) return null;
+  const massimo = p.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+  if (massimo > 1.15) for (let i = 0; i < p.length; i++) p[i] = p[i]! * (1.15 / massimo);
+  return p;
+}
+
 export type Modello = { pesi: Float32Array[]; scarti: Float32Array[]; m1: Float32Array[]; m2: Float32Array[]; s1: Float32Array[]; s2: Float32Array[]; passi: number; u: Float32Array[]; d: Uint8Array[]; c: Float32Array[]; gp: Float32Array[]; gs: Float32Array[] };
 
 export function nuovoModello(): Modello {

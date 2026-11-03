@@ -8,7 +8,7 @@ const rgb = (hex: string) => { const n = parseInt(hex.slice(1), 16); return [(n 
 const misto = (a: string, b: string, t: number) => { const A = rgb(a), B = rgb(b); return `#${A.map((v, i) => Math.round(v + (B[i]! - v) * t).toString(16).padStart(2, '0')).join('')}`; };
 const calmo = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-type Generazione = { stati: Float32Array[]; ipotesi: Float32Array[]; rumori: Float32Array[]; rumore: number[]; tempi: number[]; cifra: number };
+type Generazione = { stati: Float32Array[]; rumore: number[]; tempi: number[]; cifra: number };
 
 export function monta(radice: HTMLElement) {
   const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
@@ -17,14 +17,14 @@ export function monta(radice: HTMLElement) {
   const [bR, bG, bB] = rgb(BG), [oR, oG, oB] = rgb(ARANCIO);
   const SOPRA = Array.from({ length: 16 }, (_, k) => misto(misto(BG, LINE, 0.7), ARANCIO, k / 15)), LATI = SOPRA.map(c => misto(c, BG, 0.55));
   const tela = $<HTMLCanvasElement>('.tela-griglia'), t = tela.getContext('2d')!;
-  const telaOra = $<HTMLCanvasElement>('.mini-ora'), telaIpotesi = $<HTMLCanvasElement>('.mini-ipotesi'), telaRumore = $<HTMLCanvasElement>('.mini-rumore'), formulaOra = $<HTMLElement>('.f-ora'), formulaDopo = $<HTMLElement>('.f-dopo');
+  const telaOra = $<HTMLCanvasElement>('.mini-ora');
   const gioca = $<HTMLButtonElement>('.gioca'), cursore = $<HTMLInputElement>('.cursore-tempo'), lettura = $<HTMLElement>('.lettura'), ricordi = $<HTMLElement>('.ricordi');
   const passiB = radice.querySelectorAll<HTMLButtonElement>('[data-passi]'), cifreB = radice.querySelectorAll<HTMLButtonElement>('[data-cifra]');
   const tagPunto = $<HTMLElement>('.tag-punto'), tagConsiglio = $<HTMLElement>('.tag-consiglio'), pannello = $<HTMLElement>('.pannello'), notaTel = $<HTMLElement>('.nota-tel');
 
   let modello: Modello | null = null, gen: Generazione | null = null, passi = 20, cifra = 7, pos = 0, inMoto = false, prossimo = 0, sporco = true, giro = 0.14, gira = false, xPrima = 0, spiegaEl: HTMLElement | null = null, visibile = false;
   let usatoCursore = false, generate = 0, attesa = 100;
-  let attuale = rumorePuro(), ipotesi = new Float32Array(D).fill(-1), trovato = attuale.slice();
+  let attuale = rumorePuro();
 
   // --- Griglia
   let W = 0, H = 0, Wp = 0;
@@ -62,15 +62,15 @@ export function monta(radice: HTMLElement) {
       faccia(su, SOPRA[k]!);
     }
   }
-  // Mini-immagine: dal nero all'arancio. Per il rumore conta solo la forza: nero vuol dire nessun rumore
+  // Mini-immagine: dal nero all'arancio
   const foglio = document.createElement('canvas');
   foglio.width = foglio.height = LATO;
   const cf = foglio.getContext('2d')!, img = cf.createImageData(LATO, LATO);
-  function mini(c: HTMLCanvasElement, dati: Float32Array, soloForza = false) {
+  function mini(c: HTMLCanvasElement, dati: Float32Array) {
     const w = c.clientWidth, d = devicePixelRatio;
     if (c.width !== w * d) { c.width = c.height = w * d; }
     for (let k = 0; k < D; k++) {
-      const a = (soloForza ? Math.min(1, Math.abs(dati[k]!) / 1.6) : Math.max(0, Math.min(1, (dati[k]! + 1) / 2))) * 0.95;
+      const a = Math.max(0, Math.min(1, (dati[k]! + 1) / 2)) * 0.95;
       img.data[k * 4] = bR + (oR - bR) * a; img.data[k * 4 + 1] = bG + (oG - bG) * a; img.data[k * 4 + 2] = bB + (oB - bB) * a; img.data[k * 4 + 3] = 255;
     }
     cf.putImageData(img, 0, 0);
@@ -91,28 +91,20 @@ export function monta(radice: HTMLElement) {
     pos = Math.max(0, Math.min(1, f));
     const u = Math.min(pos * passi, gen.stati.length - 1);
     miscela(gen.stati, u, attuale);
-    miscela(gen.ipotesi, Math.min(u, gen.ipotesi.length - 1), ipotesi);
-    miscela(gen.rumori, Math.min(u, gen.rumori.length - 1), trovato);
     cursore.value = String(Math.round(pos * 1000));
     sporco = true;
   };
   const scriviTempo = () => {
-    if (!gen) { scrivi(lettura, 'pure noise'); scrivi(formulaOra, 'now  = 0.00 × guess + 1.00 × noise'); scrivi(formulaDopo, 'next: press generate'); return; }
-    const u = pos * passi, q = Math.min(passi, Math.round(u)), adesso = gen.rumore[q]!, dopo = gen.rumore[Math.min(passi, q + 1)]!, riga = (n: string, r: number) => `${n} = ${Math.sqrt(1 - r * r).toFixed(2)} × guess + ${r.toFixed(2)} × noise`;
-    scrivi(lettura, `step ${q} of ${passi} · noise ${Math.round(adesso * 100)}%`);
-    scrivi(formulaOra, riga('now ', adesso));
-    scrivi(formulaDopo, riga('next', dopo));
+    if (!gen) { scrivi(lettura, 'pure noise'); return; }
+    const q = Math.min(passi, Math.round(pos * passi));
+    scrivi(lettura, q >= passi ? 'finished' : `step ${q} of ${passi} · ${Math.round(gen.rumore[q]! * 100)}% noise`);
   };
   const metti = (si: boolean) => { inMoto = si; scrivi(gioca, si ? 'generating' : `generate a ${cifra}`); gioca.disabled = si || !modello; cursore.disabled = si; };
   const avanzaPasso = () => {
-    const k = gen!.stati.length - 1, { pulita, rumore, nuovo } = passo(modello!, gen!.stati[k]!, gen!.tempi[k]!, gen!.tempi[k + 1]!, gen!.cifra);
-    gen!.ipotesi.push(pulita);
-    gen!.rumori.push(rumore);
-    gen!.stati.push(nuovo);
+    const k = gen!.stati.length - 1;
+    gen!.stati.push(passo(modello!, gen!.stati[k]!, gen!.tempi[k]!, gen!.tempi[k + 1]!, gen!.cifra).nuovo);
   };
   const chiudi = () => {
-    gen!.ipotesi.push(gen!.stati[passi]!);
-    gen!.rumori.push(new Float32Array(D));
     vaiA(1);
     metti(false);
     ricorda();
@@ -120,7 +112,7 @@ export function monta(radice: HTMLElement) {
   const nuova = (partenza: Float32Array, c: number) => {
     if (!modello) return;
     const tempi = tempiDi(passi);
-    gen = { stati: [partenza], ipotesi: [], rumori: [], rumore: tempi.map(quotaRumore), tempi, cifra: c };
+    gen = { stati: [partenza], rumore: tempi.map(quotaRumore), tempi, cifra: c };
     attesa = Math.max(40, DURATA_MIN / passi);
     generate++;
     if (calmo) { for (let k = 0; k < passi; k++) avanzaPasso(); chiudi(); return; }
@@ -226,8 +218,6 @@ export function monta(radice: HTMLElement) {
     sporco = false;
     disegnaGriglia();
     mini(telaOra, attuale);
-    mini(telaIpotesi, ipotesi);
-    mini(telaRumore, trovato, true);
     scriviTempo();
   };
   requestAnimationFrame(ciclo);

@@ -1,7 +1,7 @@
-import { abar, allena, gauss, indietro, nuovoModello, punti, stima, T, vicini, type Modello } from '../lib/spirale';
+import { abar, allena, daDisegno, gauss, indietro, nuovoModello, punti, stella, stima, T, vicini, type Modello } from '../lib/spirale';
 
 // Vista della spirale: un modello di diffusion da allenare nel browser. Le frecce sono quello che la rete ha imparato a quel passo t:
-// all'inizio vanno a caso, poi riportano i punti verso la spirale. Generare vuol dire seguire le frecce partendo dal rumore.
+// all'inizio vanno a caso, poi riportano i punti verso la forma. Generare vuol dire seguire le frecce partendo dal rumore. La forma può essere disegnata.
 const N_DATI = 1024, N_VISTI = 260, N_TRACCE = 10, N_NUOVI = 300, GRUPPO = 64, FINE = 8000, RALLENTA = 5500, FRECCE = 17, MONDO = 1.65, DURATA_NUOVI = 3200, T_INIZIO = 14;
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
 const calmo = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -14,14 +14,20 @@ export function monta(radice: HTMLElement) {
   const gioca = $<HTMLButtonElement>('.gioca'), azzera = $<HTMLButtonElement>('.azzera'), genera = $<HTMLButtonElement>('.genera'), cursore = $<HTMLInputElement>('.cursore-t');
   const letturaT = $<HTMLElement>('.lettura-t'), letturaE = $<HTMLElement>('.errore'), letturaV = $<HTMLElement>('.vicini'), tagPunto = $<HTMLElement>('.tag-punto'), tagConsiglio = $<HTMLElement>('.tag-consiglio'), pannello = $<HTMLElement>('.pannello'), notaTel = $<HTMLElement>('.nota-tel');
 
-  const dati = punti(N_DATI);
-  // I cammini del rumore: ogni punto visto si allontana a caso dalla spirale, passo dopo passo
+  const formeB = radice.querySelectorAll<HTMLButtonElement>('[data-forma]'), pulisci = $<HTMLButtonElement>('.pulisci'), forme = $<HTMLElement>('.forme');
+  let dati = punti(N_DATI), forma = 'spiral', tratti: number[][] = [], corrente: number[] | null = null;
+  // I cammini del rumore: ogni punto visto si allontana a caso dalla forma, passo dopo passo
   const cammini: Float32Array[] = Array.from({ length: T + 1 }, () => new Float32Array(N_VISTI * 2));
-  cammini[0]!.set(dati.subarray(0, N_VISTI * 2));
-  for (let t = 1; t <= T; t++) {
-    const beta = 1 - abar[t]! / abar[t - 1]!, s = Math.sqrt(1 - beta), r = Math.sqrt(beta), p = cammini[t - 1]!, q = cammini[t]!;
-    for (let i = 0; i < N_VISTI * 2; i++) q[i] = s * p[i]! + r * gauss();
+  let visti = 0;
+  function preparaCammini() {
+    visti = Math.min(N_VISTI, dati.length / 2);
+    cammini[0]!.set(dati.subarray(0, visti * 2));
+    for (let t = 1; t <= T; t++) {
+      const beta = 1 - abar[t]! / abar[t - 1]!, s = Math.sqrt(1 - beta), r = Math.sqrt(beta), p = cammini[t - 1]!, q = cammini[t]!;
+      for (let i = 0; i < visti * 2; i++) q[i] = s * p[i]! + r * gauss();
+    }
   }
+  preparaCammini();
 
   let m: Modello = nuovoModello(), inMoto = false, sporco = true, visibile = false, tt = T_INIZIO, storia: number[] = [], somma = 0, conta = 0, usatoT = false, generati = 0, ultimaFreccia = 0, spiegaEl: HTMLElement | null = null;
   let nuovi: Float32Array | null = null, sale = false, inizioNuovi = 0, passoNuovi = T, percentuale: number | null = null;
@@ -65,15 +71,26 @@ export function monta(radice: HTMLElement) {
     c.globalAlpha = 0.9;
     c.stroke();
     c.globalAlpha = 1;
-    // La spirale vera, sempre visibile sotto
+    // La forma vera, sempre visibile sotto
     c.fillStyle = BLU;
-    for (let i = 0; i < N_DATI; i++) c.fillRect(px(dati[i * 2]!) - 1, py(dati[i * 2 + 1]!) - 1, 2, 2);
+    for (let i = 0; i < dati.length / 2; i++) c.fillRect(px(dati[i * 2]!) - 1, py(dati[i * 2 + 1]!) - 1, 2, 2);
+    // I tratti che si stanno disegnando
+    c.strokeStyle = BLU;
+    c.lineWidth = 2;
+    c.lineJoin = c.lineCap = 'round';
+    c.beginPath();
+    for (const q of [...tratti, ...(corrente ? [corrente] : [])]) {
+      if (dati.length && q !== corrente) continue;
+      for (let i = 0; i + 1 < q.length; i += 2) { if (i) c.lineTo(px(q[i]!), py(q[i + 1]!)); else c.moveTo(px(q[i]!), py(q[i + 1]!)); }
+    }
+    c.stroke();
+    c.lineWidth = 1;
     // Il cammino a caso di alcuni punti, fino al passo t
-    if (tt > 0 && !nuovi) {
+    if (tt > 0 && !nuovi && visti) {
       c.strokeStyle = ARANCIO;
       c.globalAlpha = 0.5;
       c.beginPath();
-      for (let i = 0; i < N_TRACCE; i++) {
+      for (let i = 0; i < Math.min(N_TRACCE, visti); i++) {
         c.moveTo(px(cammini[0]![i * 2]!), py(cammini[0]![i * 2 + 1]!));
         for (let t = 1; t <= tt; t++) c.lineTo(px(cammini[t]![i * 2]!), py(cammini[t]![i * 2 + 1]!));
       }
@@ -87,7 +104,7 @@ export function monta(radice: HTMLElement) {
     } else {
       c.fillStyle = ARANCIO;
       const p = cammini[tt]!;
-      for (let i = 0; i < N_VISTI; i++) c.fillRect(px(p[i * 2]!) - 1.5, py(p[i * 2 + 1]!) - 1.5, 3, 3);
+      for (let i = 0; i < visti; i++) c.fillRect(px(p[i * 2]!) - 1.5, py(p[i * 2 + 1]!) - 1.5, 3, 3);
     }
   }
   function disegnaCurva() {
@@ -119,15 +136,14 @@ export function monta(radice: HTMLElement) {
   const scriviBottone = () => {
     scrivi(gioca, inMoto ? 'pause' : m.passi >= FINE ? 'done' : m.passi ? 'resume' : 'train');
     gioca.dataset.stato = inMoto ? 'pausa' : 'via';
-    gioca.disabled = m.passi >= FINE;
+    gioca.disabled = m.passi >= FINE || !dati.length;
     azzera.disabled = !m.passi;
     genera.disabled = !m.passi || sale;
   };
   const scriviNumeri = () => {
     scrivi(letturaE, `${m.passi.toLocaleString('en')} steps · error ${storia.length ? storia[storia.length - 1]!.toFixed(2) : '–'}`);
-    scrivi(letturaV, percentuale === null ? 'on the spiral –' : `on the spiral ${Math.round(percentuale * 100)}%`);
-    const rumore = tt ? Math.sqrt(1 - abar[tt]!) : 0;
-    scrivi(letturaT, `t ${tt} of ${T} · noise ${Math.round(rumore * 100)}%`);
+    scrivi(letturaV, percentuale === null ? 'on the shape –' : `on the shape ${Math.round(percentuale * 100)}%`);
+    scrivi(letturaT, tt === 0 ? 'the real points' : tt === T ? 'nothing left of the shape' : `after ${tt} of ${T} shakes`);
   };
   const azzeraTutto = () => {
     inMoto = false; m = nuovoModello(); storia = []; somma = conta = 0; nuovi = null; sale = false; percentuale = null;
@@ -135,6 +151,49 @@ export function monta(radice: HTMLElement) {
   };
   gioca.addEventListener('click', () => { inMoto = !inMoto; nuovi = sale ? nuovi : null; scriviBottone(); });
   azzera.addEventListener('click', azzeraTutto);
+
+  // --- La forma: una pronta, oppure disegnata sul quadrato
+  const inDisegno = () => forma === 'draw';
+  function scegliForma(f: string) {
+    forma = f;
+    formeB.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.forma === f)));
+    pulisci.hidden = !inDisegno();
+    tela.style.cursor = inDisegno() ? 'crosshair' : '';
+    tela.style.touchAction = inDisegno() ? 'none' : '';
+    if (f !== 'draw') tratti = [];
+    dati = f === 'star' ? stella(N_DATI) : f === 'draw' ? daDisegno(tratti, N_DATI) ?? new Float32Array(0) : punti(N_DATI);
+    preparaCammini();
+    azzeraTutto();
+    vaiT(inDisegno() ? 0 : T_INIZIO);
+  }
+  const alMondo = (e: PointerEvent) => {
+    const { S, cx, cy } = piano(), q = tela.getBoundingClientRect(), lim = (v: number) => Math.max(-MONDO, Math.min(MONDO, v));
+    return [lim((e.clientX - q.left - cx) / S), lim((cy - (e.clientY - q.top)) / S)] as const;
+  };
+  tela.addEventListener('pointerdown', e => {
+    if (!inDisegno() || sale) return;
+    corrente = [...alMondo(e)];
+    tela.setPointerCapture(e.pointerId);
+    sporco = true;
+  });
+  tela.addEventListener('pointermove', e => {
+    if (!corrente) return;
+    corrente.push(...alMondo(e));
+    sporco = true;
+  });
+  const fineTratto = () => {
+    if (!corrente) return;
+    tratti.push(corrente);
+    corrente = null;
+    dati = daDisegno(tratti, N_DATI) ?? new Float32Array(0);
+    preparaCammini();
+    azzeraTutto();
+    vaiT(0);
+  };
+  tela.addEventListener('pointerup', fineTratto);
+  tela.addEventListener('pointercancel', fineTratto);
+  formeB.forEach(b => b.addEventListener('click', () => scegliForma(b.dataset.forma!)));
+  pulisci.addEventListener('click', () => { tratti = []; scegliForma('draw'); });
   const vaiT = (t: number) => { tt = t; cursore.value = String(t); calcolaFrecce(); scriviNumeri(); sporco = true; };
   cursore.addEventListener('input', () => { usatoT = true; nuovi = sale ? nuovi : null; vaiT(Number(cursore.value)); });
 
@@ -174,9 +233,10 @@ export function monta(radice: HTMLElement) {
     if (spiegaEl) { metti2(tagPunto, spiegaEl.dataset.spiega ?? ''); posa(tagPunto, spiegaEl.getBoundingClientRect(), dalPannello(spiegaEl)); }
     else metti2(tagPunto, '');
     let testo = '', el: HTMLElement | null = null;
-    if (!m.passi && !inMoto) { testo = 'the arrows are random: press train to teach them'; el = gioca; }
+    if (inDisegno() && !dati.length) { testo = 'draw a line on the square, then press train'; el = forme; }
+    else if (!m.passi && !inMoto) { testo = 'the arrows are random: press train to teach them'; el = gioca; }
     else if (!inMoto && !sale && !generati && m.passi) { testo = 'generate: new points follow the arrows from pure noise'; el = genera; }
-    else if (!inMoto && !sale && generati && !usatoT) { testo = 'move t: the arrows change with the amount of noise'; el = cursore; }
+    else if (!inMoto && !sale && generati && !usatoT) { testo = 'shake the points: the arrows change with the amount of noise'; el = cursore; }
     const q = el?.getBoundingClientRect(), mostra = !!testo && !!q && tagPunto.hidden && q.bottom > 0 && q.top < innerHeight;
     metti2(tagConsiglio, mostra ? testo : '');
     if (mostra) posa(tagConsiglio, q!, dalPannello(el!));
@@ -196,6 +256,7 @@ export function monta(radice: HTMLElement) {
   new IntersectionObserver(v => { visibile = v.some(x => x.isIntersecting); if (visibile) sporco = true; }, { rootMargin: '60px' }).observe(tela);
   misura();
   cursore.value = String(T_INIZIO);
+  formeB.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.forma === forma)));
   azzeraTutto();
 
   const ciclo = (ora: number) => {
