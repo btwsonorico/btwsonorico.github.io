@@ -636,6 +636,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     const ora = dallaLista >= 0 ? dallaLista : sottoPallone - 1;
     if (ora !== acceso) { nomi[acceso]?.classList.remove('attiva'); nomi[ora]?.classList.add('attiva'); acceso = ora; }
     // Mongolfiere: un lento giro largo, su e giù; la fiammella si accende quando salgono
+    p.camera.updateMatrixWorld();
     mongolfiere.forEach((m, k) => {
       const voluta = m.y + Math.sin(s * 0.1 + m.fase) * 0.5, prima = m.quota;
       m.quota = morbido(m.quota, voluta, dt * 0.3);

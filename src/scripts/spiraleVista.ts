@@ -11,6 +11,9 @@ const calmo = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 type Racconto = { vero: [number, number]; cammino: number[]; t: number; guess: [number, number] | null; errore: number; inizio: number; durata: number; unPasso: boolean };
 
+// A che altezza sta il centro del piano, dall'inizio della sezione. Il quadrato delle cifre si mette alla stessa altezza
+export const postoPiano = { y: 0 };
+
 export function monta(radice: HTMLElement) {
   const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
   const scrivi = (el: Element, t: string) => { if (el.textContent !== t) el.textContent = t; };
@@ -119,11 +122,6 @@ export function monta(radice: HTMLElement) {
       c.font = `11px ${stile.getPropertyValue('--mono') || 'monospace'}`;
       c.textAlign = 'center';
       c.fillText(`arrows at ${Math.round(quota(tFrecce) * 100)}% noise: where points get sent`, cx, 12);
-    } else {
-      c.fillStyle = MUTED;
-      c.font = `11px ${stile.getPropertyValue('--mono') || 'monospace'}`;
-      c.textAlign = 'center';
-      c.fillText('this square is a map: one result = one dot', cx, 12);
     }
     if (nuovi) {
       c.fillStyle = FG;
@@ -181,9 +179,9 @@ export function monta(radice: HTMLElement) {
     cc.fillStyle = MUTED;
     cc.textAlign = 'right';
     cc.textBaseline = 'middle';
-    const alto = 0.8, basso = 0.2, y = (v: number) => 4 + ((alto - Math.min(alto, Math.max(basso, v))) / (alto - basso)) * (giu - 4);
-    [0.8, 0.5, 0.2].forEach(v => {
-      cc.fillText(v.toFixed(1), sx - 4, y(v));
+    const basso = minimo ? minimo - 0.03 : 0.2, alto = basso + 0.21, y = (v: number) => 4 + ((alto - Math.min(alto, Math.max(basso, v))) / (alto - basso)) * (giu - 4);
+    (minimo ? [alto, minimo] : [alto]).forEach(v => {
+      cc.fillText(v.toFixed(2), sx - 4, y(v));
       cc.strokeStyle = LINE;
       cc.beginPath(); cc.moveTo(sx, y(v)); cc.lineTo(w, y(v)); cc.stroke();
     });
@@ -343,6 +341,7 @@ export function monta(radice: HTMLElement) {
   const misura = () => {
     W = tela.clientWidth; H = tela.clientHeight; Wp = innerWidth > 760 ? pannello.offsetWidth : 0;
     tela.width = W * devicePixelRatio; tela.height = H * devicePixelRatio;
+    postoPiano.y = innerWidth > 760 ? piano().cy + tela.getBoundingClientRect().top - radice.getBoundingClientRect().top : 0;
     sporco = true;
     disegnaCurva();
   };

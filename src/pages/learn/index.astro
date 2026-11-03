@@ -49,7 +49,7 @@ const RISORSE = [
     padding: 1px 5px; font-family: var(--mono); font-size: 11px; color: var(--accent);
     background: color-mix(in srgb, var(--bg) 78%, transparent); transition: opacity .15s;
   }
-  .scena3d :global(.nome-pallone) { pointer-events: auto; text-decoration: none; }
+  .scena3d :global(.nome-pallone) { pointer-events: auto; text-decoration: none; will-change: transform; }
   .scena3d :global(.nome-pallone[data-tono="lilla"]) { --accent: #b79ce6; }
   :global([data-theme="light"]) .scena3d :global(.nome-pallone[data-tono="lilla"]) { --accent: #6a4bb0; }
   /* Col dito si tocca un'area più grande dell'etichetta */

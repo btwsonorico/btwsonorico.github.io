@@ -1,3 +1,4 @@
+import { postoPiano } from './spiraleVista';
 import { caricaModello, D, LATO, passo, quotaRumore, rumorePuro, sporca, stima, tempiDi, type Modello } from '../lib/cifre';
 
 // Vista delle cifre. Training: un esempio vero viene sporcato e la rete vera stima il rumore. Inference: dal puro rumore alla cifra chiesta.
@@ -24,21 +25,19 @@ export function monta(radice: HTMLElement) {
   let attuale: Float32Array = new Float32Array(D).fill(-1);
 
   // --- Griglia
-  let W = 0, H = 0, Wp = 0;
+  let W = 0, H = 0, Wp = 0, sopraTela = 0;
   const piano = () => {
     const sinistra = innerWidth > 760 ? Wp : 0, libero = W - sinistra - (innerWidth > 760 ? 24 : 0);
-    const S = Math.min(libero / (innerWidth > 760 ? 3.3 : 2.95), (H - 24) / (2 * Math.SQRT2 * PIATTO + ALTEZZA * 1.5));
-    return { S, cx: sinistra + libero / 2, cy: H / 2 + 12 + (S * ALTEZZA) / 2, co: Math.cos(giro), si: Math.sin(giro) };
+    // Su schermi larghi il centro sta alla stessa altezza del piano della prima sezione
+    const fisso = postoPiano.y ? postoPiano.y - sopraTela : 0, largoS = libero / (innerWidth > 760 ? 3.3 : 2.95), esteso = Math.SQRT2 * PIATTO;
+    const S = fisso ? Math.min(largoS, (H - fisso - 8) / esteso, (fisso - 8) / (esteso + ALTEZZA)) : Math.min(largoS, (H - 24) / (2 * esteso + ALTEZZA * 1.5));
+    return { S, cx: sinistra + libero / 2, cy: fisso || H / 2 + 12 + (S * ALTEZZA) / 2, co: Math.cos(giro), si: Math.sin(giro) };
   };
   const profondo = new Float32Array(D), ordine = Array.from({ length: D }, (_, i) => i);
   function disegnaGriglia() {
     const { S, cx, cy, co, si } = piano(), M = 1 / LATO;
     t.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     t.clearRect(0, 0, W, H);
-    t.fillStyle = tono('--muted');
-    t.font = `11px ${stile.getPropertyValue('--mono') || 'monospace'}`;
-    t.textAlign = 'center';
-    t.fillText('this whole grid is one result: 784 pixels', cx, 12);
     const px = (u: number, v: number, h: number) => [cx + S * (u * co + v * si), cy - S * (-u * si + v * co) * PIATTO - S * h * ALTEZZA] as const;
     const faccia = (p: readonly (readonly [number, number])[], colore: string) => {
       t.fillStyle = colore;
@@ -182,6 +181,7 @@ export function monta(radice: HTMLElement) {
 
   const misura = () => {
     W = tela.clientWidth; H = tela.clientHeight; Wp = innerWidth > 760 ? pannello.offsetWidth : 0;
+    sopraTela = tela.getBoundingClientRect().top - radice.getBoundingClientRect().top;
     tela.width = W * devicePixelRatio; tela.height = H * devicePixelRatio;
     sporco = true;
   };
