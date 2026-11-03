@@ -9,7 +9,8 @@ const COME: [string, string][] = [
   ['Why does the error barely fall?', 'Because it starts close to its limit. A noisy point could come from many real points, so even a perfect network can only give the average of them. I calculated this limit from the spiral data: 0.27, the dashed line. In one test run the error went from 0.36 at step 100 to 0.27 at step 8,000.\nThe last small gain is the part that matters. It is the precision at low noise, where the points settle on the line. In the same run, new points within 0.07 of the shape went from 29% to 83%. So watch the on shape value, not only the error.'],
   ['What does the noise slider do?', 'It sets the most noise the network sees in training. Inference always starts from pure noise, so with less noise the network never practises the first part of the way back.\nI trained on the spiral for 6,000 steps, three times at each setting, and counted how much of the shape the new points reach. With up to 100% noise they reach 96 to 99%. With up to 26% they reach 72 to 85%, and with up to 14% only 43 to 68%. The error rises at low settings, because a little noise is harder to estimate. So a low error does not always mean a better model.'],
   ['What changes on images?', 'The method stays the same. An image is one point with many values: here 784, one for each pixel of a 28 by 28 digit. The arrows exist there too, in 784 dimensions, so nobody can draw them. Training adds noise to real digits, and inference starts from noise and asks for one digit.\nThe network does change, because a row of plain layers does not know which pixels are neighbours. This one is a small U-Net with 196,081 weights, trained once on 60,000 digits, before this page was published. Your browser downloads a 784 KB file and does all the calculation. It reads which digit you asked for at every step, which is the same idea as a prompt with ten possible requests. It is a small model, and many digits come out crooked.'],
-  ['What about large image models?', 'They use the same loop on a very different scale, with billions of weights. They usually work on a compressed version of the image, and a long text prompt steers every step.\nThere is no GAN in any of this. A GAN trains a second network to judge the first, and generates in one pass. A diffusion model has one network, measures only the error on the noise, and generates in many steps.'],
+  ['Does it work in 3D?', 'Yes. The concept stays the same, with one more dimension. On this page a point has 2 values, x and y. Add z, and the model can learn the points on the surface of a 3D object. Training and inference do not change: add noise, estimate it, remove it step by step.'],
+  ['What about large image models?', 'They use the same loop, but the setup is more complex. Three parts change:\nA compressed image. They usually do not work on pixels. A second network compresses the image, the diffusion loop runs on the compressed version, and that network then rebuilds the pixels. This costs much less.\nA text prompt. A third network turns the prompt into numbers, and the model reads them at every step. It is the same idea as asking for a digit here, with far more possible requests.\nA much larger network, with billions of weights, trained on a very large number of images.\nThere is no GAN in any of this. A GAN trains a second network to judge the first, and generates in one pass. A diffusion model measures only the error on the noise, and generates in many steps.'],
 ];
 const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 ---
@@ -134,49 +135,14 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
       {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3>{testo.split('\n').map(p => <p>{p}</p>)}</article>)}
       <p class="mono fonte">The idea of showing arrows on a 2D shape comes from <a href="https://www.3blue1brown.com/lessons/diffusion-models/">the guest video by Welch Labs on 3Blue1Brown</a>. The digits come from MNIST.</p>
     </section>
-
-    <details class="extra">
-      <summary class="mono">extra: the same method in 3D</summary>
-      <section class="schermo" data-nuvola>
-        <div class="banco">
-          <canvas class="tela-nuvola" role="img" aria-label="A rotating 3D object made of points: a fish or a tree. During training, orange points show copies with noise. During inference, a cloud closes into the object, and nearby points link up into a wire mesh."></canvas>
-          <div class="mono forme" role="group" aria-label="Object">
-            <button type="button" data-oggetto="fish">fish</button>
-            <button type="button" data-oggetto="tree">tree</button>
-          </div>
-
-          <div class="pannello">
-            <div class="mono sezione">
-              <span class="titolino">training</span>
-              <p class="spiega">Same steps, with three values per point. The orange points are real points with noise.</p>
-              <div class="riga">
-                <button type="button" class="gioca"></button>
-                <button type="button" class="azzera" hidden>restart</button>
-              </div>
-              <span class="errore"></span>
-              <canvas class="curva" role="img" aria-label="The error during training"></canvas>
-            </div>
-
-            <div class="mono sezione">
-              <span class="titolino">inference</span>
-              <p class="spiega">A cloud of pure noise closes into the object. The page, not the model, links nearby points.</p>
-              <button type="button" class="genera">generate</button>
-              <p class="lettura lettura-nuovi" aria-live="polite"></p>
-            </div>
-          </div>
-        </div>
-      </section>
-    </details>
   </main>
 </Base>
 
 <script>
   import { monta as montaSpirale } from '../../scripts/spiraleVista';
   import { monta as montaCifre } from '../../scripts/diffusioneVista';
-  import { monta as montaNuvola } from '../../scripts/nuvolaVista';
   montaSpirale(document.querySelector<HTMLElement>('[data-spirale]')!);
   montaCifre(document.querySelector<HTMLElement>('[data-diffusione]')!);
-  montaNuvola(document.querySelector<HTMLElement>('[data-nuvola]')!);
 </script>
 
 <style>
@@ -196,9 +162,9 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   .titolino::before { content: '// '; color: var(--muted); }
   .spiega { margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.45; }
   .banco { position: relative; flex: 1 1 0; min-height: 0; }
-  .tela-griglia, .tela-spirale, .tela-nuvola { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
-  .tela-griglia, .tela-nuvola { cursor: grab; }
-  .tela-griglia:active, .tela-nuvola:active { cursor: grabbing; }
+  .tela-griglia, .tela-spirale { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
+  .tela-griglia { cursor: grab; }
+  .tela-griglia:active { cursor: grabbing; }
   .forme { position: absolute; top: 0; right: 2px; z-index: 1; display: flex; flex-direction: column; gap: 6px; width: 84px; font-size: 13px; }
   .forme button { padding: 5px 4px; }
   .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--s2); width: clamp(320px, 30%, 400px); overflow: hidden auto; }
@@ -245,15 +211,13 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   .spiegone p { margin: 0 0 var(--s1); color: var(--muted); font-size: 14px; line-height: 1.7; }
   .fonte { color: var(--muted); font-size: 12px; }
   .fonte a { color: var(--fg); }
-  .extra { padding-bottom: var(--s3); border-top: 1px solid var(--line); }
-  .extra summary { padding: var(--s2) 0; color: var(--fg); font-size: 14px; cursor: pointer; }
   @media (max-width: 760px) {
     .rn { padding: 0 16px; }
     .schermo { height: auto; min-height: 0; gap: var(--s1); padding-bottom: var(--s3); }
     h1, .testa h2 { font-size: 20px; }
     .banco { display: contents; }
     .testa { order: 0; }
-    .tela-griglia, .tela-spirale, .tela-nuvola { position: static; display: block; order: 1; height: 320px; }
+    .tela-griglia, .tela-spirale { position: static; display: block; order: 1; height: 320px; }
     .forme { position: static; order: 2; flex-direction: row; width: auto; }
     .forme button { flex: 1 1 0; padding: 9px 4px; }
     .pannello { position: static; order: 3; width: 100%; overflow: visible; }
