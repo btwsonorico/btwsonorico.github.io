@@ -21,7 +21,7 @@ export function nuovaScheda(contenitore: HTMLElement, azione: string, alClic: ()
   return {
     stato,
     mostra(v: Voce) {
-      sezione.textContent = `// ${v.sezione}`;
+      sezione.textContent = `// ${v.sezione} · ${v.livello}`;
       titolo.textContent = v.termine;
       corpo.replaceChildren(...v.definizione.map(t => { const q = document.createElement('p'); q.textContent = t; return q; }));
       if (v.punti.length) {

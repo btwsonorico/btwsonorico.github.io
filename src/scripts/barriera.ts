@@ -540,7 +540,8 @@ export function monta(el: HTMLElement, opzioni: { pesca?: boolean } = {}) {
           dummy.position.set(amo.pos.x, amo.pos.y - 0.14, amo.pos.z);
           dummy.lookAt(amo.pos.x, amo.pos.y + 1, amo.pos.z);
           dummy.rotateY(Math.sin(s * 15) * 0.3);
-          dummy.scale.setScalar(2.6);
+          // Più la voce è difficile, più grosso è il pesce preso
+          dummy.scale.setScalar(({ easy: 1.8, medium: 2.8, hard: 4.2 } as Record<string, number>)[amo.voce!.livello] ?? 2.8);
           dummy.updateMatrix();
           b.mesh.setMatrixAt(i, dummy.matrix);
           continue;

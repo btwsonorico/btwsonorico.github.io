@@ -31,6 +31,7 @@ const PAGINE = [
   <!-- Mondo 3D: il contenitore copre lo schermo; la scena sta dentro, così la vista 3D sa quando è visibile -->
   <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
   <main class="about">
+    <p class="mono titoletto-about">about</p>
     <h1>Riccardo Mondi</h1>
     <p class="ruolo">{SITO.ruolo}</p>
     <p class="mono ente">Polimi - {SITO.gruppo}</p>
@@ -65,6 +66,7 @@ const PAGINE = [
   .about { position: relative; z-index: 1; pointer-events: none; display: flex; flex-direction: column; justify-content: center; min-height: calc(100vh - 140px); padding-bottom: 0; }
   /* Ogni riga è larga quanto il suo testo: il mondo misura da qui lo spazio libero */
   .about > * { width: fit-content; max-width: 520px; margin: 0 0 var(--s2); }
+  .about > .titoletto-about { margin: 0 0 4px; }
   h1 { margin-bottom: var(--s1); font-size: 44px; font-weight: 400; line-height: 1.1; }
   .ruolo { font-size: 22px; margin-bottom: var(--s1); }
   .ente { font-size: 13px; }

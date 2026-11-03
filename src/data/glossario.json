@@ -16,7 +16,8 @@
             "Natural Language Processing (NLP): NLP allows computers to understand, interpret and generate human language. The advent of transformers and LLMs has revolutionized NLP, allowing models to achieve complex semantic understanding (context, sarcasm, idioms, …).",
             "Computer Vision: It allows computers to “see” and interpret visual information, such as images and videos. It has a wide range of applications, going from facial recognition to self-driving cars"
           ],
-          "id": "artificial-intelligence-ai"
+          "id": "artificial-intelligence-ai",
+          "livello": "easy"
         },
         {
           "termine": "Machine Learning (ML)",
@@ -38,7 +39,8 @@
             "Output layer – delivers the final classification",
             "The ability to automatically learn hierarchical representations of data is what powers modern AI models, such as LLMs and Computer Vision. Deep learning is notoriously data-hungry and computationally expensive. Furthermore, they are described as “black boxes” because the internal decision-making process within the deep layers is difficult for humans to interpret."
           ],
-          "id": "machine-learning-ml"
+          "id": "machine-learning-ml",
+          "livello": "easy"
         },
         {
           "termine": "Labeled data",
@@ -46,7 +48,8 @@
             "Data labeling annotates raw data with meaningful labels, providing context and categorization based on established guidelines. This allows ML models to interpret data effectively, facilitating pattern recognition, clustering and predictive capabilities. This process can be handled manually by human annotators, automatically by software tools or algorithms capable of handling the labeling process, or in a hybrid way, leveraging both methods."
           ],
           "punti": [],
-          "id": "labeled-data"
+          "id": "labeled-data",
+          "livello": "medium"
         },
         {
           "termine": "Discriminative AI",
@@ -54,7 +57,8 @@
             "Discriminative algorithms model the boundaries between classes of data, aiming to predict conditional probability of a given data point falling into a certain class. These models are suited for classification and prediction tasks. These algorithms extract insights from historical data to make accurate predictions about the most likely upcoming event, result or trend."
           ],
           "punti": [],
-          "id": "discriminative-ai"
+          "id": "discriminative-ai",
+          "livello": "hard"
         },
         {
           "termine": "Generative Artificial Intelligence (GenAI)",
@@ -62,7 +66,8 @@
             "Generative AI is artificial intelligence that responds to a user’s prompt or request with generated original content across different formats. Most generative AI models start with a foundation model, a type of deep learning model that “learns” to generate statistically probable outputs when prompted."
           ],
           "punti": [],
-          "id": "generative-artificial-intelligence-genai"
+          "id": "generative-artificial-intelligence-genai",
+          "livello": "easy"
         }
       ]
     },
@@ -75,7 +80,8 @@
             "These Generative AI models are basically general-purpose systems that can be adapted to a wide range of specific tasks without needing to be retrained from scratch. This adaptation happens through techniques such as fine tuning or simply prompt engineering, improving model performance on specific tasks without the need to build a model from scratch each time."
           ],
           "punti": [],
-          "id": "foundation-models"
+          "id": "foundation-models",
+          "livello": "medium"
         },
         {
           "termine": "Open-source AI models",
@@ -86,7 +92,8 @@
             "Utilizing open-source models grants full control over deployment, allowing to host models on-premises or on private clouds and maintain strict data governance. It also requires architecting your own solution. The inference engine to run the model must be implemented (for instance, using libraries like Ollama), together with managing the necessary optimizations",
             "New features offered in commercial tools are often rapidly replicated as open-source implementations by the community"
           ],
-          "id": "open-source-ai-models"
+          "id": "open-source-ai-models",
+          "livello": "easy"
         },
         {
           "termine": "Closed-source AI models",
@@ -96,7 +103,8 @@
           "punti": [
             "These solutions act as a convenient building block, but may imply limited control and customization."
           ],
-          "id": "closed-source-ai-models"
+          "id": "closed-source-ai-models",
+          "livello": "easy"
         },
         {
           "termine": "Large Language Models (LLMs)",
@@ -108,7 +116,8 @@
             "LLMs represent a major leap in how humans interact with technology, as they are the first AI system that can handle unstructured human language at scale, allowing for natural communication with machines, by capturing context, nuances and reasoning.",
             "While the core of an LLM is text prediction, modern commercial systems basically act as a reasoning engine capable of using external tools and functions. Through a mechanism called “Tool calling” (or function calling), the LLM is able to reason and recognize when it needs help, triggering code execution for data analysis or math, instructing specialized image generation models to create visuals, or search the web when it is missing critical information."
           ],
-          "id": "large-language-models-llms"
+          "id": "large-language-models-llms",
+          "livello": "easy"
         },
         {
           "termine": "Small Language Models (SLMs)",
@@ -119,7 +128,8 @@
             "In terms of model size, SLMs parameters range from a few million to a few billion, as opposed to LLMs with hundreds of billions or even trillions of parameters, making SLMs more compact and efficient.",
             "SLMs represent a strategic opportunity for organizations, as they are ideal for resource-constrained environments, such as edge devices and mobile apps, or even for scenarios where AI inferencing needs to be handled locally."
           ],
-          "id": "small-language-models-slms"
+          "id": "small-language-models-slms",
+          "livello": "medium"
         },
         {
           "termine": "Diffusion Models",
@@ -127,7 +137,8 @@
             "Diffusion models are generative models used primarily for image generation and other computer vision tasks. Diffusion-based neural networks are trained through deep learning to progressively “diffuse” samples with random noise, then reverse that diffusion process to generate high-quality images (IBM)."
           ],
           "punti": [],
-          "id": "diffusion-models"
+          "id": "diffusion-models",
+          "livello": "hard"
         },
         {
           "termine": "Multimodal AI",
@@ -138,7 +149,8 @@
             "By analyzing different forms of data, multimodal systems are capable of receiving a more comprehensive understanding and generating more robust outputs, giving these models powerful capabilities and enabling more efficient interactions.",
             "Fundamentally, this paradigm is the fusion of all the input modalities and output modalities that humans are familiar with, and this has strong implications for providing additional context to these models, allowing businesses the ability to solve more ambitious problems."
           ],
-          "id": "multimodal-ai"
+          "id": "multimodal-ai",
+          "livello": "easy"
         },
         {
           "termine": "Token",
@@ -146,7 +158,8 @@
             "A token is a collection of characters that has semantic meaning for a model. Tokenization is the process of converting the words in your prompt into tokens, so that it can be processed by foundation models. Tokens may include whole words, parts of words, individual characters, punctuation marks, and special characters."
           ],
           "punti": [],
-          "id": "token"
+          "id": "token",
+          "livello": "medium"
         },
         {
           "termine": "Context window",
@@ -158,7 +171,8 @@
             "If a conversation or document exceeds the context window, the model “forgets” about the beginning of the input.",
             "Recent advancements in modern models have allowed increasingly larger context windows, allowing models to process thousands of pages of text, entire codebases or long videos in a single prompt. While this allows for more “freedom”, it is important to remember that larger context windows also increase computational costs and latency."
           ],
-          "id": "context-window"
+          "id": "context-window",
+          "livello": "medium"
         },
         {
           "termine": "Parameters",
@@ -166,7 +180,8 @@
             "Parameters are internal variables, such as weights and biases, that a model learns during training. These parameters influence how a machine learning model behaves and performs (IBM). The count of parameters has historically correlated with the model’s intelligence and capabilities, leading companies to the current arms race for larger models."
           ],
           "punti": [],
-          "id": "parameters"
+          "id": "parameters",
+          "livello": "hard"
         }
       ]
     },
@@ -179,7 +194,8 @@
             "The Jagged Technological Frontier is a concept formalized in research by Harvard Business School and Boston Consulting Group (BCG). It describes the uneven capabilities of current AI systems, where tasks that seem equally difficult to humans, are performed with vastly different levels of competence by AI. When a task is inside the frontier of AI capabilities, using AI yields improvements in human performance, while when it is outside, it can lead to a significant decrease in quality and performance for humans. This “Jagged” nature implies that it is difficult to forecast AI performance without testing."
           ],
           "punti": [],
-          "id": "jagged-technological-frontier"
+          "id": "jagged-technological-frontier",
+          "livello": "hard"
         },
         {
           "termine": "Grounding",
@@ -187,7 +203,8 @@
             "Grounding data is information provided to a language model at inference time to help it generate responses that are more accurate and relevant to a user’s query. This process of “grounding the model” involves supplementing the model with data that was not part of its original training. This data may come from internal or external sources, and it is combined with the user’s query to construct the prompt that is sent to the model during a specific inference call (Microsoft). A “grounded” system often offers the option to cite the sources of its answers, allowing the user to verify its outputs."
           ],
           "punti": [],
-          "id": "grounding"
+          "id": "grounding",
+          "livello": "medium"
         },
         {
           "termine": "Retrieval Augmented Generation (RAG)",
@@ -195,7 +212,8 @@
             "RAG is an AI framework for enabling LLMs to retrieve facts from an external knowledge base. Vector databases are key to supporting RAG implementations. RAG helps ensure that a model is linked to the most current and reliable facts, and that the users have access to the sources so that its claims can be verified. “Grounding” the LLM in trusted data can help reduce model hallucinations and provide reliable answers."
           ],
           "punti": [],
-          "id": "retrieval-augmented-generation-rag"
+          "id": "retrieval-augmented-generation-rag",
+          "livello": "medium"
         },
         {
           "termine": "Hallucinations",
@@ -203,7 +221,8 @@
             "Hallucinations occur when an AI model generates a response which is grammatically correct, but factually incorrect or nonsensical. This phenomenon is a byproduct of the probabilistic nature of LLMs: they are predicting the next likely token based on patterns, not querying a database of verified facts. This can be prevented by grounding techniques and providing additional context."
           ],
           "punti": [],
-          "id": "hallucinations"
+          "id": "hallucinations",
+          "livello": "easy"
         },
         {
           "termine": "Explainability",
@@ -211,7 +230,8 @@
             "The ability of human users to trace, audit, and understand predictions that are made in applications that use AI systems. This ability is fundamental in order to allow compliance measures and favor trust from users and adoption of AI systems."
           ],
           "punti": [],
-          "id": "explainability"
+          "id": "explainability",
+          "livello": "medium"
         },
         {
           "termine": "Bias",
@@ -219,7 +239,8 @@
             "Systematic error in an AI system that has been designed, intentionally or not, in a way that may generate unfair decisions. Bias can be present both in the AI system and in the data used to train and test it. AI bias can emerge in an AI system because of cultural expectations, technical limitations, or unanticipated deployment contexts."
           ],
           "punti": [],
-          "id": "bias"
+          "id": "bias",
+          "livello": "easy"
         },
         {
           "termine": "Human-in-the-loop (HITL)",
@@ -227,7 +248,8 @@
             "Human-in-the-loop refers to a system or process in which a human actively participates in the operation, supervision or decision making of an automated system. In the context of AI, HITL implies that humans are involved at some point in the AI workflow to ensure accuracy, safety, accountability or ethical decision-making, while still achieving the benefits of automation (IBM)."
           ],
           "punti": [],
-          "id": "human-in-the-loop-hitl"
+          "id": "human-in-the-loop-hitl",
+          "livello": "easy"
         },
         {
           "termine": "Black box",
@@ -235,7 +257,8 @@
             "A black box AI is an AI system whose internal workings are a mystery to its users. Users can see the system’s inputs and outputs, but they can’t see what happens within the AI tool to produce those outputs."
           ],
           "punti": [],
-          "id": "black-box"
+          "id": "black-box",
+          "livello": "easy"
         },
         {
           "termine": "Guardrails",
@@ -243,7 +266,8 @@
             "AI Guardrails are the safeguards that keep Artificial Intelligence (AI) systems operating safely, responsibly and within defined boundaries. These include policies, technical controls and monitoring mechanisms that govern how AI models generate outputs in real world situations. Guardrails are not one-off security controls: they span datasets, AI models, applications and workflows, making them foundational for enterprise-scale adoption and responsible AI practices (IBM)."
           ],
           "punti": [],
-          "id": "guardrails"
+          "id": "guardrails",
+          "livello": "medium"
         }
       ]
     },
@@ -256,7 +280,8 @@
             "A prompt is a natural language request submitted to a language model to receive a response back. Prompts can contain questions, instructions, contextual information, few-shot examples, and partial input for the model to complete or continue. After the model receives a prompt, depending on the type of model being used, it can generate text, embeddings, code, images, video, music, and more (Google). Different prompting strategies can be employed to obtain better results according to the task at hand."
           ],
           "punti": [],
-          "id": "prompt"
+          "id": "prompt",
+          "livello": "easy"
         },
         {
           "termine": "Prompt Engineering",
@@ -264,7 +289,8 @@
             "Prompt engineering in generative AI is the process of crafting effective prompts to elicit desired outputs from large language models (LLMs). It's an iterative, test-driven process focused on refining inputs to achieve specific outcomes. This involves considering both the content and structure of the prompt to ensure accurate and high-quality responses. Effective prompt engineering is crucial for complex tasks, even though simpler tasks may not require it. (Google)"
           ],
           "punti": [],
-          "id": "prompt-engineering"
+          "id": "prompt-engineering",
+          "livello": "easy"
         },
         {
           "termine": "Zero-shot Prompting",
@@ -272,7 +298,8 @@
             "In generative AI, a zero-shot prompt is a prompt that enables a large language model (LLM) to perform a task without any additional training or examples. A zero-shot prompt relies solely on the model's pre-existing knowledge to generate a response."
           ],
           "punti": [],
-          "id": "zero-shot-prompting"
+          "id": "zero-shot-prompting",
+          "livello": "medium"
         },
         {
           "termine": "One-shot Prompting",
@@ -280,7 +307,8 @@
             "A prompt that contains one example demonstrating how the large language model should respond. (Google)"
           ],
           "punti": [],
-          "id": "one-shot-prompting"
+          "id": "one-shot-prompting",
+          "livello": "medium"
         },
         {
           "termine": "Few-shot Prompting",
@@ -288,7 +316,8 @@
             "In generative AI, \"few-shot\" refers to a type of prompt that includes a small number of examples to guide the model's response. These examples help the model understand the desired output format, phrasing, scope, or general patterning of the response. Few-shot prompts are often used to regulate the output of language models, ensuring that they generate responses that are accurate, high-quality, and consistent with the user's expectations. By providing the model with a few relevant examples, the user can influence the model's behavior and obtain more satisfactory results. (Google)"
           ],
           "punti": [],
-          "id": "few-shot-prompting"
+          "id": "few-shot-prompting",
+          "livello": "medium"
         },
         {
           "termine": "Chain-of-thought",
@@ -296,7 +325,8 @@
             "In generative AI, Chain-of-Thought (CoT) is a prompting technique that encourages the large language model (LLM) to explicitly detail its reasoning process before arriving at a conclusion. This involves prompting the model to show the intermediate steps it takes to solve a problem, rather than just providing the final answer. This method can significantly improve the LLM's performance on complex reasoning tasks. (Google)"
           ],
           "punti": [],
-          "id": "chain-of-thought"
+          "id": "chain-of-thought",
+          "livello": "medium"
         },
         {
           "termine": "Meta Prompt/System Prompt",
@@ -306,7 +336,8 @@
           "punti": [
             "System prompts in the Commercial Models (ChatGPT Web) and System Prompts in the API models are different, hence why users may experience differences in quality and output. Some companies, such as Anthropic, periodically make their system prompt public, in order to be transparent to users and give out good practices in guard-railing and setting behaviors."
           ],
-          "id": "meta-prompt-system-prompt"
+          "id": "meta-prompt-system-prompt",
+          "livello": "medium"
         }
       ]
     },
@@ -319,7 +350,8 @@
             "AI orchestration is the coordination and management of artificial intelligence models, systems and integrations. It covers effective deployment, implementation, integration and maintenance of the components in a greater AI system, workflow or app. Apart from AI models and AI agents, AI systems also include computational resources, data stores, and the data flows and pipelines that transmit data across an organization. Orchestration happens through three pillars: AI integration, AI automation and AI management (IBM)."
           ],
           "punti": [],
-          "id": "ai-orchestration"
+          "id": "ai-orchestration",
+          "livello": "hard"
         },
         {
           "termine": "AI Workflow",
@@ -327,7 +359,8 @@
             "An Artificial Intelligence workflow is the process of using AI-powered technologies and products to streamline tasks and activities within an organization."
           ],
           "punti": [],
-          "id": "ai-workflow"
+          "id": "ai-workflow",
+          "livello": "medium"
         },
         {
           "termine": "AI Agents",
@@ -335,7 +368,8 @@
             "An AI agent is a system that autonomously performs tasks by designing workflows with available tools. These agents can encompass a wide range of functions beyond large language processing, including decision-making, problem solving, interacting with external environments and performing actions."
           ],
           "punti": [],
-          "id": "ai-agents"
+          "id": "ai-agents",
+          "livello": "easy"
         },
         {
           "termine": "Benchmarks",
@@ -346,7 +380,8 @@
             "SWE-Bench (Software Engineering Benchmark): It evaluates AI models’ ability to solve real-world software engineering problems by testing whether they can fix issues from open-source projects. Models receive a codebase and problem description, then they must generate code patches to pass unit tests.",
             "ARC-AGI (Abstraction and Reasoning Corpus for Artificial General Intelligence): This benchmark measures AI systems’ fluid intelligence through visual grid-based puzzles, testing abstract reasoning, pattern recognition, and the ability to generalize from minimal examples. The first version of this benchmark (ARC-AGI-1) was introduced in 2019, and a new edition has been launched in 2025, bringing a more challenging benchmark for evaluating state-of-the-art models"
           ],
-          "id": "benchmarks"
+          "id": "benchmarks",
+          "livello": "medium"
         },
         {
           "termine": "Model Context Protocol (MCP)",
@@ -354,7 +389,8 @@
             "The Model Context Protocol is an open standard introduced by Anthropic in late 2024 to standardize how AI assistants and LLMs connect to external systems. It addresses the fragmentation of integrations in the current AI ecosystem by standardizing two-way communication for LLMs to dynamically access and interact with external tools, data sources, and services to perform information retrieval, tool calling and even actions. This protocol reduces the need for custom connections, such as APIs, to integrate each new AI model and external systems."
           ],
           "punti": [],
-          "id": "model-context-protocol-mcp"
+          "id": "model-context-protocol-mcp",
+          "livello": "hard"
         },
         {
           "termine": "APIs (Application Programming Interfaces)",
@@ -362,7 +398,8 @@
             "APIs are the mechanisms that allow different software components to communicate. In the context of AI, APIs are still the primary delivery method for model capabilities. Major providers allow access to their powerful LLMs via APIs."
           ],
           "punti": [],
-          "id": "apis-application-programming-interfaces"
+          "id": "apis-application-programming-interfaces",
+          "livello": "easy"
         },
         {
           "termine": "MLOps",
@@ -370,7 +407,8 @@
             "Machine learning operations is a set of practices designed to create an assembly line for building and running ML models. It helps companies automate tasks and deploy models quickly, ensuring everyone involved (data scientists, engineers, IT) can cooperate smoothly and monitor and improve models for better accuracy and performance. The three fundamental steps of MLOps are: training, validation and testing. Training teaches the model, validation helps fine tune and select the best model, testing evaluates how the model performs on completely new data."
           ],
           "punti": [],
-          "id": "mlops"
+          "id": "mlops",
+          "livello": "hard"
         }
       ]
     },
@@ -383,7 +421,8 @@
             "A Human-Machine Interface (HMI) is a user interface or dashboard that connects a person to a machine, system or device. It is often used in the context of industrial processes, and they can be used for: visually displaying data, track measures, trends and tags, oversee KPIs, monitor machine inputs and outputs"
           ],
           "punti": [],
-          "id": "human-machine-interface-hmi"
+          "id": "human-machine-interface-hmi",
+          "livello": "medium"
         },
         {
           "termine": "Model Abliteration",
@@ -395,7 +434,8 @@
             "Before – Slow, inconsistent, required deep ML knowledge",
             "Now – Frameworks exist to do this automatically with a single command (Heretic is an example, but others exist)"
           ],
-          "id": "model-abliteration"
+          "id": "model-abliteration",
+          "livello": "hard"
         },
         {
           "termine": "Vector Database",
@@ -406,7 +446,8 @@
             "A vector is essentially a long list of numbers that captures the semantic meaning of the content.",
             "In a vector database, searches run as mathematical operations that look for embedding vectors close to each other. This translates into finding semantically similar content, by finding the nearest vectors in the embedding space."
           ],
-          "id": "vector-database"
+          "id": "vector-database",
+          "livello": "hard"
         },
         {
           "termine": "Mixture of Experts (MoE)",
@@ -414,7 +455,8 @@
             "MoE is an architecture that divides a large language model into a series of experts, which are specialized neural subnetworks (there can be hundreds). A routing mechanism activates the experts needed for a specific task. A merge process then combines the output of the active experts into a single representation that continues through the rest of the model. This is a very efficient way to scale model size without a proportional increase in compute costs, because only the necessary experts are activated, using only a fraction of the total parameters."
           ],
           "punti": [],
-          "id": "mixture-of-experts-moe"
+          "id": "mixture-of-experts-moe",
+          "livello": "hard"
         },
         {
           "termine": "Large Reasoning Models",
@@ -422,7 +464,8 @@
             "Specialized LLMs that went through reasoning-focused fine-tuning. Unlike normal LLMs, which generate answers immediately, reasoning models are trained to solve problems step by step. This is what agents need to plan complex, multi-step tasks. A reasoning model is trained on problems with verifiably correct answers and, through reinforcement learning, it learns to produce reasoning sequences that lead to correct answers. When the model reasons before generating, it produces an internal chain of thought that breaks the problem down step by step before giving an answer."
           ],
           "punti": [],
-          "id": "large-reasoning-models"
+          "id": "large-reasoning-models",
+          "livello": "hard"
         }
       ]
     }
