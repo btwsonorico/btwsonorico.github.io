@@ -89,7 +89,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   const PASCOLO = 2;
   // Radure per il passatempo: punti pianeggianti lontani dalle pale, abbastanza grandi per tutto il gregge; qui non crescono
   // né alberi né cespugli, e il cerchio appare solo qui
-  const PECORE = p.telefono ? 110 : 180, RAGGIO = 1.3 + PECORE * 0.0028;
+  const PECORE = PECORE_AI, RAGGIO = 1.3 + PECORE * 0.0028;
   const radure: { x: number; z: number }[] = [];
   {
     const candidati = Array.from({ length: 220 }, () => {
@@ -486,9 +486,8 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     if (attesaAI > 0 || gioco.stato !== 'aperto' || !pesiAI) return;
     attesaAI = OGNI * DT_AI;
     const a = mondoAI;
-    // Si è allenata con 180 pecore: su telefono sono meno, quindi ognuna conta per più di una
-    for (let i = 0; i < PECORE_AI; i++) { const q = pecore[i % PECORE]!; a.x[i] = q.x; a.z[i] = q.z; a.calma[i] = q.calma; }
-    a.gx = gioco.x; a.gz = gioco.z; a.dentro = Math.round((gioco.dentro * PECORE_AI) / PECORE);
+    pecore.forEach((q, i) => { a.x[i] = q.x; a.z[i] = q.z; a.calma[i] = q.calma; });
+    a.gx = gioco.x; a.gz = gioco.z; a.dentro = gioco.dentro;
     a.cane.x = cane.x; a.cane.z = cane.z; a.cane.verso = cane.verso; a.cane.vel = cane.vel;
     mucche.forEach((m, i) => { const q = a.mucche[i]; if (q) { q.x = m.x; q.z = m.z; } });
     const { o, dgx, dgz } = vedi(a), u = punteggi(pesiAI, o);
