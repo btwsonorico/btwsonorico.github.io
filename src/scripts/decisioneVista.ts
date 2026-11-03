@@ -8,7 +8,7 @@ const parole = (t: string) => t.toLowerCase().replace(/[^a-z0-9' ]+/g, ' ').spli
 
 export async function monta(radice: HTMLElement) {
   const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
-  const COLORI = [tono('--arancio'), tono('--verde'), tono('--fg'), tono('--blu') || '#58a6ff'];
+  const COLORI = [tono('--arancio'), tono('--verde'), tono('--fg'), tono('--azzurro')];
   const area = $<HTMLTextAreaElement>('.messaggio'), barre = $<HTMLElement>('.barre'), esito = $<HTMLElement>('.esito'), righe = $<HTMLElement>('.parole');
   const cursore = $<HTMLInputElement>('.cursore-soglia'), lettura = $<HTMLElement>('.lettura'), casiEl = $<HTMLElement>('.casi'), dettaglio = $<HTMLElement>('.dettaglio');
   let dati: Dati;

@@ -434,8 +434,9 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     }
     return quota;
   };
-  const mongolfiere = (['#e08a3a', '#5fb6d9', '#6fa646'] as const).slice(0, risorse.length).map((tinta, k) => {
-    const o = new THREE.Group(), colore = tono(tinta);
+  const mongolfiere = (['#e08a3a', '#5fb6d9', '#6fa646', '#b79ce6'] as const).slice(0, risorse.length).map((tinta, k) => {
+    // tono() riporta tutto a verde, azzurro o arancio: il lilla di AI terms resta il suo
+    const o = new THREE.Group(), colore = k === 3 ? new THREE.Color(tinta) : tono(tinta);
     o.add(new THREE.Mesh(geoPallone, new THREE.MeshBasicMaterial({ color: colore })));
     o.add(new THREE.LineSegments(spicchi, new THREE.LineBasicMaterial({ color: colore.clone().offsetHSL(0, 0, -0.18) })));
     o.add(pezzo(new THREE.BoxGeometry(0.1, 0.08, 0.1), mat('#a07a50', { opacity: 0.9 }), 0, -0.62, 0));
@@ -446,8 +447,8 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     o.add(fiamma);
     o.scale.setScalar(GRANDE);
     g.add(o);
-    const y = [3.2, 2.5, 3.7][k]!;
-    return { o, fiamma, cx: [-0.8, 2.8, -2.6][k]!, cz: [-1.4, -1.6, -3][k]!, y, fase: k * 2.1, quota: y, aDestra: k > 0 };
+    const y = [3.2, 2.5, 3.7, 3.0][k]!;
+    return { o, fiamma, cx: [-0.8, 2.8, -2.6, 1.1][k]!, cz: [-1.4, -1.6, -3, -3.4][k]!, y, fase: k * 2.1, quota: y, aDestra: k > 0 };
   });
   // Nome di ogni mongolfiera: un link vero, che segue il pallone sullo schermo
   const nomi = mongolfiere.map((_, k) => {
@@ -455,7 +456,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     a.className = 'etichetta skill nome-pallone';
     a.href = risorse[k]!.href;
     a.textContent = risorse[k]!.nome.charAt(0).toUpperCase() + risorse[k]!.nome.slice(1);
-    a.dataset.tono = (['arancio', 'azzurro', 'verde'] as const)[k]!;
+    a.dataset.tono = (['arancio', 'azzurro', 'verde', 'lilla'] as const)[k]!;
     el.appendChild(a);
     return a;
   });

@@ -50,6 +50,8 @@ const RISORSE = [
     background: color-mix(in srgb, var(--bg) 78%, transparent); transition: opacity .15s;
   }
   .scena3d :global(.nome-pallone) { pointer-events: auto; text-decoration: none; }
+  .scena3d :global(.nome-pallone[data-tono="lilla"]) { --accent: #b79ce6; }
+  :global([data-theme="light"]) .scena3d :global(.nome-pallone[data-tono="lilla"]) { --accent: #6a4bb0; }
   /* Col dito si tocca un'area più grande dell'etichetta */
   .scena3d :global(.nome-pallone)::before { content: ''; position: absolute; inset: -9px -6px; }
   .scena3d :global(.nome-pallone:hover), .scena3d :global(.nome-pallone.attiva) { color: var(--bg); background: var(--accent); padding: 2px 7px; z-index: 2; }
