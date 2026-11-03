@@ -1,72 +1,51 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// Diffusion: prima una spirale da allenare nel browser (src/lib/spirale.ts), poi le cifre con un modello già allenato (src/lib/cifre.ts,
-// scripts/allena-cifre.py). Le spiegazioni brevi sono tag sul punto, e scorrendo sotto c'è la spiegazione completa.
+// Diffusion: cosa fa un modello in training e cosa fa in inference. Prima su una forma, allenando nel browser (src/lib/spirale.ts),
+// poi sulle immagini, con un modello già allenato (src/lib/cifre.ts, scripts/allena-cifre.py). Sotto c'è la spiegazione completa.
 const COME: [string, string][] = [
-  ['What is this?', 'Two real diffusion models running in your browser, in two steps. The first shows how training works: it is very small and you train it yourself on 1,024 points that form a shape: a spiral, a star or one you draw. Each point has only two values, so you can see all of it. The second shows what a trained model can do. It is a larger model that uses the same method, already trained on 60,000 handwritten digits. For it, each image is one point with 784 values.\nUnlike with a real model, the settings are fixed for you: the learning rate, the batch size (64) and the number of training steps (8,000).'],
-  ['Is it different from the neural network page?', 'The network is the same kind of thing, but it does a different job. On that page it answers one fixed question: how high is the grid at this position? It learns one shape, and it can only give that shape back.\nHere it reads a noisy point and its step number, and it answers another question: what noise moved this point? That answer is not a new drawing. The new drawing comes from the loop around the network, which asks that question many times and moves the point a little each time.'],
-  ['Why does it need noise to learn?', 'Training needs examples of what to undo. So it takes a real point and shakes it at random, a little at a time, for 50 steps. This random movement is the noise. Move the slider to see it: each point goes on a random walk away from the shape, until nothing of the shape is left.\nAt every training step the network gets one of these noisy points and its step number, and it has to name the noise. The gap from the real noise is the error, and backpropagation corrects the weights, exactly as on the neural network page.'],
-  ['What do the arrows show?', 'Each arrow starts at a position on the grid and points to where the network thinks the clean point is. So it shows the direction that removes the noise. Before training the arrows are random. As the error falls, they turn towards the shape.\nThey also change with the amount of noise. With a lot of noise, the network cannot know which part of the shape a point came from, so its best answer is the centre. With little noise, it knows where the point is, so the arrows point to the nearest part of the shape. Move the slider after training to see the change.'],
-  ['How does it make something new?', 'It starts from pure noise, with no shape in it. At every step the network estimates the noise, the point moves a small part of the way along the arrow, and the next step has less noise.\nPress generate. The real points disappear, and the white points come from a cloud and settle on the shape. They are not copies of the training points: the model holds no points, only weights. The number next to the button is the share of new points that land close to the shape.'],
-  ['How is the noise removed, exactly?', 'Every noisy image is a known mix of two parts: x_t = signal × x0 + noise × ε. The second model estimates ε. From it, the clean guess follows by subtraction: x0 = (x_t - noise × ε) / signal.\nThe next image uses the same two parts with a smaller share of noise: next = new signal × x0 + new noise × ε. This rule is called DDIM. No new randomness enters along the way, so the same start always gives the same image.'],
-  ['What changes from points to images?', 'The loop does not change, but the network does. A row of plain layers does not know which pixels are neighbours. So the digit model is a small U-Net with 196,081 weights. It uses filters that slide across the image, reduces it from 28 by 28 to 7 by 7 to see the whole digit, and then returns to full size to fix the details.\nIt also reads which digit you asked for, at every step. That is the same idea as a prompt, with only ten possible requests. The weights are a 784 KB file, which your browser downloads once. All the calculation then runs on your device, one step at a time.'],
-  ['What about large image models?', 'They use the same loop on a very different scale, with billions of weights and thousands of chips for training. They usually do not work on pixels: an autoencoder first compresses the image into a smaller one, and the steps happen there. A long text prompt steers every step, through a model that turns words into numbers.\nThere is no GAN in any of this. A GAN trains a second network to judge the first one, and it generates in one pass. A diffusion model has one network, measures only the gap from the real noise, and generates in many steps.'],
+  ['What does the model do in training?', 'It learns one thing: to name noise. Training takes a real example, adds a random amount of noise, and asks the network what noise it added. The gap from the real noise is the error, and backpropagation corrects the weights.\nThis repeats thousands of times, at every level of noise. The orange points are the real points with noise on them. The arrows show the direction in which the network would remove the noise. They start out random, and they turn towards the shape as the error falls.'],
+  ['What does the model do in inference?', 'It starts from pure noise, with nothing of the shape in it. It estimates the noise, removes a small part of it, and repeats. After 50 steps the new points have settled on the shape.\nThe real points are gone at this stage. The model holds no points, only weights, so the new points are not copies.'],
+  ['Is it different from the neural network page?', 'The network is the same kind of thing, but it does a different job. On that page it learns one shape and gives that shape back. Here it only names noise. The new drawing comes from the loop around the network, which asks that question many times.'],
+  ['What changes on images?', 'The method stays the same. An image is one point with many values: here 784, one for each pixel of a 28 by 28 digit. So training adds noise to real digits, and inference starts from noise and asks for one digit.\nThe network does change, because a row of plain layers does not know which pixels are neighbours. This one is a small U-Net with 196,081 weights, trained once on 60,000 digits, before this page was published. Your browser downloads a 784 KB file and does all the calculation. It reads which digit you asked for at every step, which is the same idea as a prompt with ten possible requests. It is a small model, and many digits come out crooked.'],
+  ['What about large image models?', 'They use the same loop on a very different scale, with billions of weights. They usually work on a compressed version of the image, and a long text prompt steers every step.\nThere is no GAN in any of this. A GAN trains a second network to judge the first, and generates in one pass. A diffusion model has one network, measures only the gap from the real noise, and generates in many steps.'],
 ];
 const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 ---
-<Base title="Diffusion · Riccardo Mondi" description="See how a diffusion model is trained by training one in your browser, then ask a larger trained model to draw a digit out of noise." tono="neutro" largo>
+<Base title="Diffusion · Riccardo Mondi" description="Train a tiny diffusion model in your browser, then ask a larger trained model to draw a digit out of noise." tono="neutro" largo>
   <main class="rn">
     <section class="schermo" data-spirale>
       <header class="testa">
-        <h1>1. See how a diffusion model is trained</h1>
+        <h1>Train a diffusion model in your browser</h1>
         <a href="#how-it-works" class="mono">how it works ↓</a>
-        <p class="sotto">Train a real one from zero, here in your browser, on a shape simple enough to watch.</p>
       </header>
 
       <div class="banco">
-        <canvas class="tela-spirale" role="img" aria-label="A square with a blue spiral of training points and a field of arrows. The arrows show where the network thinks the clean point is. Before training they are random, and after training they point back to the spiral."></canvas>
+        <canvas class="tela-spirale" role="img" aria-label="A square with a shape made of blue points. During training, orange points show the same points with noise, and arrows show what the network has learned. During inference, new white points form the shape."></canvas>
         <p class="mono nota-tel" aria-live="polite"></p>
+        <div class="mono forme" role="group" aria-label="Shape">
+          <button type="button" data-forma="spiral">spiral</button>
+          <button type="button" data-forma="star">star</button>
+          <button type="button" data-forma="draw">draw</button>
+          <button type="button" class="pulisci" hidden>clear</button>
+        </div>
 
         <div class="pannello">
           <div class="mono sezione">
-            <span class="titolino">shape</span>
-            <div class="forme riga" role="group" aria-label="Shape">
-              <button type="button" data-forma="spiral" data-spiega="The spiral: 1,024 points to learn from.">spiral</button>
-              <button type="button" data-forma="star" data-spiega="The outline of a star. Its sharp corners are harder to learn.">star</button>
-              <button type="button" data-forma="draw" data-spiega="Draw your own shape on the square, then train on it from zero.">draw</button>
-              <button type="button" class="pulisci" hidden data-spiega="Erases your drawing.">clear</button>
-            </div>
-          </div>
-
-          <div class="mono sezione">
-            <span class="titolino">train</span>
+            <span class="titolino">training</span>
+            <p class="spiega">Adds noise to real points. Learns to name that noise.</p>
             <div class="riga">
-              <button type="button" class="gioca" data-spiega="Each training step adds noise to some points, asks the network to name that noise, and updates the weights with backpropagation."></button>
-              <button type="button" class="azzera" data-spiega="Starts again with random weights.">restart</button>
+              <button type="button" class="gioca"></button>
+              <button type="button" class="azzera" hidden>restart</button>
+              <span class="errore"></span>
             </div>
-          </div>
-
-          <div class="mono sezione">
-            <span class="titolino">shake the points</span>
-            <p class="spiega">Training shakes each real point at random, step by step. The network learns the way back.</p>
-            <input class="cursore-t" type="range" min="0" max="50" value="0" aria-label="How many times the points are shaken" />
-            <div class="estremi"><span>clean</span><span class="lettura lettura-t"></span><span>only noise</span></div>
-            <p class="legenda"><i class="blu"></i>real points <i class="arancio"></i>shaken points <i class="bianco"></i>new points <span>→</span> way back</p>
-          </div>
-
-          <div class="mono sezione">
-            <span class="titolino">generate</span>
-            <div class="riga">
-              <button type="button" class="genera" data-spiega="Starts 300 new points from pure noise and moves them along the arrows. The real points disappear: the new ones come only from the weights.">generate 300 points</button>
-              <span class="vicini" data-spiega="The share of new points that land close to a real point of the spiral."></span>
-            </div>
-          </div>
-
-          <div class="mono sezione ultima">
-            <span class="titolino">result</span>
-            <span class="errore"></span>
             <canvas class="curva" role="img" aria-label="The error during training"></canvas>
+          </div>
+
+          <div class="mono sezione">
+            <span class="titolino">inference</span>
+            <p class="spiega">Starts from pure noise. Removes it step by step.</p>
+            <button type="button" class="genera">generate</button>
           </div>
         </div>
       </div>
@@ -76,45 +55,38 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
     <section class="schermo" data-diffusione>
       <header class="testa">
-        <h2>2. Ask a trained model for an image</h2>
-        <p class="sotto">The same method on real images: a larger model, already trained on 60,000 digits, draws the one you ask for.</p>
+        <h2>The same method on images</h2>
       </header>
 
       <div class="banco">
-        <canvas class="tela-griglia" role="img" aria-label="A grid with one block for each pixel of a 28 by 28 image. A taller, brighter block means a higher pixel value. Noise looks like random terrain, and a finished digit looks like a clear image in relief."></canvas>
+        <canvas class="tela-griglia" role="img" aria-label="A grid with one block for each pixel of a 28 by 28 image. A taller, brighter block means a higher pixel value."></canvas>
         <p class="mono nota-tel" aria-live="polite"></p>
 
         <div class="pannello">
           <div class="mono sezione">
-            <span class="titolino">ask for a digit</span>
-            <div class="cifre" role="group" aria-label="Digit" data-spiega="The network reads this at every step. It is the same idea as a prompt, with ten possible requests.">
-              {CIFRE.map(n => <button type="button" data-cifra={n}>{n}</button>)}
+            <span class="titolino">training</span>
+            <p class="spiega">Done once, on 60,000 real digits. One example:</p>
+            <div class="trittico">
+              <figure><canvas class="mini-vera" role="img" aria-label="A real digit"></canvas><figcaption>real digit</figcaption></figure>
+              <figure><canvas class="mini-sporca" role="img" aria-label="The same digit with noise"></canvas><figcaption>+ noise</figcaption></figure>
+              <figure><canvas class="mini-stima" role="img" aria-label="The noise as the network estimates it"></canvas><figcaption>noise it names</figcaption></figure>
             </div>
-            <div class="riga spazio">
-              <button type="button" class="gioca" data-spiega="Starts from new random noise and removes it step by step."></button>
-              <div class="passi" role="group" aria-label="Steps" data-spiega="How many steps it takes to remove the noise. More steps usually give a cleaner digit, but take longer.">
-                <span>steps</span>
-                <button type="button" data-passi="5">5</button>
-                <button type="button" data-passi="20">20</button>
-                <button type="button" data-passi="50">50</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="mono sezione" data-spiega="Move through the generation, from pure noise to the finished digit.">
-            <span class="titolino">time</span>
-            <input class="cursore-tempo" type="range" min="0" max="1000" value="0" aria-label="Time, from noise to digit" />
-            <div class="estremi"><span>noise</span><span class="lettura"></span><span>digit</span></div>
-          </div>
-
-          <div class="mono sezione" data-spiega="The image at this step, going from pure noise to the finished digit.">
-            <span class="titolino">now</span>
-            <canvas class="mini-ora" role="img" aria-label="The image at this step, going from noise to the digit"></canvas>
           </div>
 
           <div class="mono sezione">
-            <span class="titolino">last digits</span>
-            <div class="ricordi"></div>
+            <span class="titolino">inference</span>
+            <p class="spiega">Starts from pure noise. Removes it until your digit appears.</p>
+            <div class="cifre" role="group" aria-label="Digit">
+              {CIFRE.map(n => <button type="button" data-cifra={n}>{n}</button>)}
+            </div>
+            <button type="button" class="gioca genera-cifra"></button>
+            <div class="uscita">
+              <figure><canvas class="mini-ora" role="img" aria-label="The image at this step"></canvas><figcaption>now</figcaption></figure>
+              <div>
+                <div class="ricordi"></div>
+                <span class="etichetta">last digits</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -125,7 +97,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     <section class="spiegone" id="how-it-works">
       <h2 class="mono">how it works</h2>
       {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3>{testo.split('\n').map(p => <p>{p}</p>)}</article>)}
-      <p class="mono fonte">The spiral and the arrows come from <a href="https://www.3blue1brown.com/lessons/diffusion-models/">the guest video by Welch Labs on 3Blue1Brown</a>. The digits come from MNIST.</p>
+      <p class="mono fonte">The idea of showing arrows on a 2D shape comes from <a href="https://www.3blue1brown.com/lessons/diffusion-models/">the guest video by Welch Labs on 3Blue1Brown</a>. The digits come from MNIST.</p>
     </section>
   </main>
 </Base>
@@ -143,52 +115,40 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   .schermo { display: flex; flex-direction: column; gap: var(--s2); height: calc(100vh - 62px); min-height: 560px; padding-bottom: var(--s2); }
   .testa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px var(--s2); }
   .testa a { color: var(--fg); font-size: 12px; white-space: nowrap; }
-  .testa .sotto { flex: 1 0 100%; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.4; }
   h1, .testa h2 { margin: 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
   button { padding: 5px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; transition: color .12s, border-color .12s; }
   button:hover:not(:disabled) { border-color: var(--fg); color: var(--fg); }
-  button:disabled { cursor: default; }
+  button:disabled { opacity: .5; cursor: default; }
+  button[hidden] { display: none; }
   button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
-  :global(.consigliato) { border-color: var(--arancio) !important; }
-  .titolino { display: block; margin-bottom: 8px; color: var(--fg); font-size: 14px; }
+  .titolino { display: block; margin-bottom: 6px; color: var(--fg); font-size: 14px; }
   .titolino::before { content: '// '; color: var(--muted); }
+  .spiega { margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.45; }
   .banco { position: relative; flex: 1 1 0; min-height: 0; }
   .tela-griglia, .tela-spirale { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
   .tela-griglia { cursor: grab; }
   .tela-griglia:active { cursor: grabbing; }
-  .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: 8px; width: clamp(320px, 30%, 400px); overflow: hidden auto; }
-  .sezione + .sezione { padding-top: 8px; border-top: 1px solid var(--line); }
+  .forme { position: absolute; top: 0; right: 2px; z-index: 1; display: flex; flex-direction: column; gap: 6px; width: 84px; font-size: 13px; }
+  .forme button { padding: 5px 4px; }
+  .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--s2); width: clamp(320px, 30%, 400px); overflow: hidden auto; }
+  .sezione + .sezione { padding-top: var(--s2); border-top: 1px solid var(--line); }
   .sezione { font-size: 13px; color: var(--fg); }
-  .riga { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
-  .genera, .azzera { font-size: 13px; }
-  .vicini, .errore { display: block; color: var(--muted); font-size: 12px; }
-  .cursore-t { display: block; width: 100%; margin: 0; accent-color: var(--fg); cursor: pointer; }
-  .curva { display: block; width: 100%; height: 64px; margin-top: 4px; }
-  .ultima { flex: 1 1 auto; min-height: 0; }
-  .cifre { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
+  .riga { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .gioca, .genera { min-width: 112px; padding: 7px 16px; background: var(--fg); border-color: var(--fg); color: var(--bg); font-size: 15px; }
+  .gioca:hover:not(:disabled), .genera:hover:not(:disabled) { background: var(--bg); border-color: var(--fg); color: var(--fg); }
+  .gioca:disabled, .genera:disabled { background: var(--bg); border-color: var(--line); color: var(--muted); opacity: 1; }
+  .gioca[data-stato="pausa"] { background: var(--bg); color: var(--fg); }
+  .errore { color: var(--muted); font-size: 12px; }
+  .curva { display: block; width: 100%; height: 110px; margin-top: 10px; }
+  .cifre { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; margin-bottom: 8px; }
   .cifre button { padding: 5px 0; }
-  .spazio { margin-top: 8px; }
-  .fonte { color: var(--muted); font-size: 12px; }
-  .fonte a { color: var(--fg); }
-  .gioca { min-width: 112px; padding: 7px 16px; background: var(--fg); border-color: var(--fg); color: var(--bg); font-size: 15px; }
-  .gioca:hover:not(:disabled) { background: var(--bg); border-color: var(--fg); color: var(--fg); }
-  .gioca:disabled { background: var(--bg); border-color: var(--line); color: var(--muted); }
-  .passi { display: inline-flex; align-items: center; gap: 4px; }
-  .passi span { margin-right: 4px; color: var(--muted); font-size: 12px; }
-  .passi button { min-width: 34px; padding: 4px 6px; }
-  .cursore-tempo { display: block; width: 100%; margin: 0; accent-color: var(--fg); cursor: pointer; }
-  .estremi { display: flex; justify-content: space-between; gap: var(--s1); margin-top: 2px; color: var(--muted); font-size: 11px; }
-  .lettura { color: var(--fg); text-align: center; }
-  .mini-ora { display: block; width: 132px; aspect-ratio: 1; image-rendering: pixelated; outline: 1px solid var(--line); }
-  .spiega { margin: 0 0 8px; color: var(--muted); font-size: 12px; line-height: 1.45; }
-  .legenda { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
-  .legenda i { display: inline-block; width: 8px; height: 8px; margin: 0 2px 0 4px; }
-  .legenda i:first-child { margin-left: 0; }
-  .legenda .blu { background: var(--azzurro); }
-  .legenda .arancio { background: var(--arancio); }
-  .legenda .bianco { background: var(--fg); }
-  .legenda span { margin-left: 4px; }
-  .ricordi { display: flex; flex-wrap: wrap; gap: 6px; min-height: 42px; }
+  .genera-cifra { width: 100%; }
+  figure { margin: 0; }
+  figure canvas { display: block; width: 100%; aspect-ratio: 1; image-rendering: pixelated; outline: 1px solid var(--line); }
+  figcaption, .etichetta { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
+  .trittico { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .uscita { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; margin-top: 10px; }
+  .ricordi { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; min-height: 44px; }
   .ricordi :global(button) { width: 42px; height: 42px; padding: 2px; border: 1px solid var(--line); background: var(--bg); cursor: pointer; }
   .ricordi :global(button:hover) { border-color: var(--fg); }
   .ricordi :global(canvas) { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
@@ -202,21 +162,23 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   .spiegone article { margin-bottom: var(--s3); }
   .spiegone h3 { margin: 0 0 4px; font-size: 16px; font-weight: 400; color: var(--fg); }
   .spiegone p { margin: 0 0 var(--s1); color: var(--muted); font-size: 14px; line-height: 1.7; }
+  .fonte { color: var(--muted); font-size: 12px; }
+  .fonte a { color: var(--fg); }
   @media (max-width: 760px) {
     .rn { padding: 0 16px; }
-    .schermo { height: auto; min-height: 0; gap: var(--s1); }
+    .schermo { height: auto; min-height: 0; gap: var(--s1); padding-bottom: var(--s3); }
     h1, .testa h2 { font-size: 20px; }
     .banco { display: contents; }
     .testa { order: 0; }
     .tela-griglia, .tela-spirale { position: static; display: block; order: 1; height: 320px; }
+    .forme { position: static; order: 2; flex-direction: row; width: auto; }
+    .forme button { flex: 1 1 0; padding: 9px 4px; }
+    .pannello { position: static; order: 3; width: 100%; overflow: visible; }
+    .gioca, .genera { flex: 1 1 100%; width: 100%; padding: 10px; }
+    .azzera { flex: 1 1 100%; padding: 9px; }
     .cifre button { padding: 10px 0; }
-    .curva { height: 130px; }
-    .pannello { position: static; order: 2; width: 100%; overflow: visible; }
-    .gioca { flex: 1 1 100%; padding: 10px; }
-    .passi button { min-width: 44px; padding: 8px; }
-    .cursore-tempo { height: 32px; }
     .ricordi :global(button) { width: 48px; height: 48px; }
     .tag-punto, .tag-consiglio { display: none !important; }
-    .nota-tel { display: block; order: 1; min-height: 4.4em; margin: 0; color: var(--arancio); font-size: 12px; line-height: 1.45; white-space: pre-line; }
+    .nota-tel { display: block; order: 1; min-height: 1.5em; margin: 0; color: var(--arancio); font-size: 12px; line-height: 1.45; }
   }
 </style>

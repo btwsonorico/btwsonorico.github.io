@@ -1,14 +1,12 @@
-import { caricaModello, D, LATO, passo, quotaRumore, rumorePuro, tempiDi, type Modello } from '../lib/cifre';
+import { caricaModello, D, LATO, passo, rumorePuro, sporca, stima, tempiDi, type Modello } from '../lib/cifre';
 
-// Vista del modello sulle cifre: ogni pixel è un blocco, alto e chiaro quanto il suo valore.
-// Il rumore è un terreno a caso; a ogni passo i blocchi si avvicinano all'ipotesi della rete, finché resta la cifra in rilievo.
-const ALTEZZA = 0.1, GIRO_MAX = 1, PIATTO = 0.78, DURATA_MIN = 1600, RICORDI = 6;
+// Vista delle cifre. Training: un esempio vero viene sporcato e la rete vera stima il rumore. Inference: dal puro rumore alla cifra chiesta.
+// Nella griglia ogni pixel è un blocco, alto e chiaro quanto il suo valore.
+const ALTEZZA = 0.1, GIRO_MAX = 1, PIATTO = 0.78, PASSI = 20, ATTESA = 80, RICORDI = 6, ESEMPI_PER_CIFRA = 3, CAMBIO_ESEMPIO = 2200;
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
 const rgb = (hex: string) => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] as const; };
 const misto = (a: string, b: string, t: number) => { const A = rgb(a), B = rgb(b); return `#${A.map((v, i) => Math.round(v + (B[i]! - v) * t).toString(16).padStart(2, '0')).join('')}`; };
 const calmo = matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-type Generazione = { stati: Float32Array[]; rumore: number[]; tempi: number[]; cifra: number };
 
 export function monta(radice: HTMLElement) {
   const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
@@ -16,15 +14,14 @@ export function monta(radice: HTMLElement) {
   const BG = tono('--bg'), LINE = tono('--line'), ARANCIO = tono('--arancio');
   const [bR, bG, bB] = rgb(BG), [oR, oG, oB] = rgb(ARANCIO);
   const SOPRA = Array.from({ length: 16 }, (_, k) => misto(misto(BG, LINE, 0.7), ARANCIO, k / 15)), LATI = SOPRA.map(c => misto(c, BG, 0.55));
-  const tela = $<HTMLCanvasElement>('.tela-griglia'), t = tela.getContext('2d')!;
-  const telaOra = $<HTMLCanvasElement>('.mini-ora');
-  const gioca = $<HTMLButtonElement>('.gioca'), cursore = $<HTMLInputElement>('.cursore-tempo'), lettura = $<HTMLElement>('.lettura'), ricordi = $<HTMLElement>('.ricordi');
-  const passiB = radice.querySelectorAll<HTMLButtonElement>('[data-passi]'), cifreB = radice.querySelectorAll<HTMLButtonElement>('[data-cifra]');
+  const tela = $<HTMLCanvasElement>('.tela-griglia'), t = tela.getContext('2d')!, telaOra = $<HTMLCanvasElement>('.mini-ora');
+  const telaVera = $<HTMLCanvasElement>('.mini-vera'), telaSporca = $<HTMLCanvasElement>('.mini-sporca'), telaStima = $<HTMLCanvasElement>('.mini-stima');
+  const gioca = $<HTMLButtonElement>('.gioca'), ricordi = $<HTMLElement>('.ricordi'), cifreB = radice.querySelectorAll<HTMLButtonElement>('[data-cifra]');
   const tagPunto = $<HTMLElement>('.tag-punto'), tagConsiglio = $<HTMLElement>('.tag-consiglio'), pannello = $<HTMLElement>('.pannello'), notaTel = $<HTMLElement>('.nota-tel');
 
-  let modello: Modello | null = null, gen: Generazione | null = null, passi = 20, cifra = 7, pos = 0, inMoto = false, prossimo = 0, sporco = true, giro = 0.14, gira = false, xPrima = 0, spiegaEl: HTMLElement | null = null, visibile = false;
-  let usatoCursore = false, generate = 0, attesa = 100;
-  let attuale = rumorePuro();
+  let modello: Modello | null = null, esempi: Uint8Array | null = null, cifra = 7, inMoto = false, prossimo = 0, sporco = true, giro = 0.14, gira = false, xPrima = 0, spiegaEl: HTMLElement | null = null, visibile = false;
+  let generate = 0, prossimoEsempio = 0, giroEsempio = 0, tempi = tempiDi(PASSI), stati: Float32Array[] = [], cifraGen = cifra;
+  let attuale: Float32Array = new Float32Array(D).fill(-1);
 
   // --- Griglia
   let W = 0, H = 0, Wp = 0;
@@ -80,75 +77,51 @@ export function monta(radice: HTMLElement) {
     x.drawImage(foglio, 0, 0, c.width, c.height);
   }
 
-  // --- Generazione e tempo
-  const miscela = (lista: Float32Array[], f: number, fuori: Float32Array) => {
-    const a = Math.min(lista.length - 1, Math.floor(f)), b = Math.min(lista.length - 1, a + 1), k = f - a, p = lista[a]!, q = lista[b]!;
-    for (let i = 0; i < D; i++) fuori[i] = p[i]! + (q[i]! - p[i]!) * k;
-    return fuori;
-  };
-  const vaiA = (f: number) => {
-    if (!gen) return;
-    pos = Math.max(0, Math.min(1, f));
-    const u = Math.min(pos * passi, gen.stati.length - 1);
-    miscela(gen.stati, u, attuale);
-    cursore.value = String(Math.round(pos * 1000));
-    sporco = true;
-  };
-  const scriviTempo = () => {
-    if (!gen) { scrivi(lettura, 'pure noise'); return; }
-    const q = Math.min(passi, Math.round(pos * passi));
-    scrivi(lettura, q >= passi ? 'finished' : `step ${q} of ${passi} · ${Math.round(gen.rumore[q]! * 100)}% noise`);
-  };
-  const metti = (si: boolean) => { inMoto = si; scrivi(gioca, si ? 'generating' : `generate a ${cifra}`); gioca.disabled = si || !modello; cursore.disabled = si; };
-  const avanzaPasso = () => {
-    const k = gen!.stati.length - 1;
-    gen!.stati.push(passo(modello!, gen!.stati[k]!, gen!.tempi[k]!, gen!.tempi[k + 1]!, gen!.cifra).nuovo);
-  };
-  const chiudi = () => {
-    vaiA(1);
-    metti(false);
-    ricorda();
-  };
+  // --- Training: la rete vera su un esempio vero, sempre diverso
+  function mostraEsempio() {
+    if (!modello || !esempi) return;
+    const k = (cifra * ESEMPI_PER_CIFRA + giroEsempio % ESEMPI_PER_CIFRA) * D, vera = Float32Array.from(esempi.subarray(k, k + D), v => v / 127.5 - 1);
+    const passoT = 15 + (giroEsempio * 23) % 70, x = sporca(vera, passoT);
+    mini(telaVera, vera);
+    mini(telaSporca, x);
+    mini(telaStima, stima(modello, x, passoT, cifra));
+    giroEsempio++;
+  }
+
+  // --- Inference
+  const metti = (si: boolean) => { inMoto = si; scrivi(gioca, si ? 'generating' : `generate a ${cifra}`); gioca.disabled = si || !modello; };
   const nuova = (partenza: Float32Array, c: number) => {
     if (!modello) return;
-    const tempi = tempiDi(passi);
-    gen = { stati: [partenza], rumore: tempi.map(quotaRumore), tempi, cifra: c };
-    attesa = Math.max(40, DURATA_MIN / passi);
+    tempi = tempiDi(PASSI);
+    stati = [partenza];
+    cifraGen = c;
     generate++;
-    if (calmo) { for (let k = 0; k < passi; k++) avanzaPasso(); chiudi(); return; }
-    avanzaPasso();
-    vaiA(0);
+    attuale = partenza;
+    sporco = true;
+    if (calmo) { for (let k = 0; k < PASSI; k++) stati.push(passo(modello, stati[k]!, tempi[k]!, tempi[k + 1]!, c).nuovo); attuale = stati[PASSI]!; ricorda(); return; }
     prossimo = performance.now();
     metti(true);
   };
   gioca.addEventListener('click', () => nuova(rumorePuro(), cifra));
-  const scegliPassi = (n: number) => {
-    passi = n;
-    passiB.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.passi) === n)));
-    // Stesso rumore di prima con un altro numero di passi: si vede cosa cambia
-    if (gen && !inMoto) nuova(gen.stati[0]!, gen.cifra);
-  };
   const scegliCifra = (n: number) => {
     cifra = n;
     cifreB.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.cifra) === n)));
     if (!inMoto && modello) scrivi(gioca, `generate a ${n}`);
+    prossimoEsempio = 0;
   };
-  passiB.forEach(b => b.addEventListener('click', () => scegliPassi(Number(b.dataset.passi))));
   cifreB.forEach(b => b.addEventListener('click', () => scegliCifra(Number(b.dataset.cifra))));
-  cursore.addEventListener('input', () => { usatoCursore = true; vaiA(Number(cursore.value) / 1000); });
 
   // Le ultime immagini: un clic rifà la stessa generazione dallo stesso rumore
   const storia: Float32Array[] = [];
   function ricorda() {
-    if (!gen) return;
-    const partenza = gen.stati[0]!, finale = gen.stati[gen.stati.length - 1]!, c = gen.cifra;
+    const partenza = stati[0]!, finale = stati[stati.length - 1]!, c = cifraGen;
     if (storia.includes(partenza)) return;
     storia.unshift(partenza);
     storia.splice(RICORDI);
     const b = document.createElement('button'), tl = document.createElement('canvas');
     b.type = 'button';
     b.setAttribute('aria-label', `Replay this ${c}`);
-    b.dataset.spiega = 'Replays this image from the same noise. Same noise, same image.';
+    b.dataset.spiega = 'Same noise, same image.';
     b.append(tl);
     b.addEventListener('click', () => { if (!inMoto) nuova(partenza, c); });
     ricordi.prepend(b);
@@ -169,12 +142,9 @@ export function monta(radice: HTMLElement) {
     const dalPannello = (el: Element) => (el.closest('.pannello') ? pannello.getBoundingClientRect() : undefined);
     if (spiegaEl) { metti2(tagPunto, spiegaEl.dataset.spiega ?? ''); posa(tagPunto, spiegaEl.getBoundingClientRect(), dalPannello(spiegaEl)); }
     else metti2(tagPunto, '');
-    let testo = '', el: HTMLElement | null = null;
-    if (modello && !generate) { testo = 'pick a digit, then generate it from pure noise'; el = gioca; }
-    else if (modello && !inMoto && generate === 1 && !usatoCursore) { testo = 'drag time to go back through the steps'; el = cursore; }
-    const q = el?.getBoundingClientRect(), mostra = !!testo && !!q && tagPunto.hidden && q.bottom > 0 && q.top < innerHeight;
+    const testo = modello && !generate ? 'pick a digit and generate it' : '', q = gioca.getBoundingClientRect(), mostra = !!testo && tagPunto.hidden && q.bottom > 0 && q.top < innerHeight;
     metti2(tagConsiglio, mostra ? testo : '');
-    if (mostra) posa(tagConsiglio, q!, dalPannello(el!));
+    if (mostra) posa(tagConsiglio, q, dalPannello(gioca));
     // Su telefono i tag coprirebbero i grafici: lo stesso testo va nella riga sotto la scena
     if (matchMedia('(max-width: 760px)').matches) {
       const testoTel = !tagPunto.hidden ? tagPunto.textContent : !tagConsiglio.hidden ? tagConsiglio.textContent : '';
@@ -197,28 +167,34 @@ export function monta(radice: HTMLElement) {
   new ResizeObserver(misura).observe(tela);
   new IntersectionObserver(v => { visibile = v.some(x => x.isIntersecting); if (visibile) sporco = true; }, { rootMargin: '60px' }).observe(tela);
   misura();
-  passiB.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.passi) === passi)));
   scegliCifra(cifra);
   gioca.disabled = true;
   scrivi(gioca, 'loading');
-  caricaModello('/learn/cifre.bin').then(m => { modello = m; metti(false); sporco = true; }).catch(() => { scrivi(gioca, 'could not load'); });
+  Promise.all([caricaModello('/learn/cifre.bin'), fetch('/learn/cifre-esempi.bin').then(r => r.arrayBuffer())])
+    .then(([m, e]) => { modello = m; esempi = new Uint8Array(e); metti(false); sporco = true; })
+    .catch(() => { scrivi(gioca, 'could not load'); });
   document.fonts?.ready.then(() => { sporco = true; });
 
   const ciclo = (ora: number) => {
     requestAnimationFrame(ciclo);
-    // Un passo della rete alla volta, così la pagina resta viva e si vede l'immagine pulirsi davvero
+    // Un passo della rete alla volta, così si vede l'immagine pulirsi davvero
     if (inMoto && ora >= prossimo) {
-      const k = gen!.stati.length - 1;
-      vaiA(k / passi);
-      if (k >= passi) chiudi();
-      else { avanzaPasso(); prossimo = ora + attesa; }
+      const k = stati.length - 1;
+      attuale = stati[k]!;
+      sporco = true;
+      if (k >= PASSI) { metti(false); ricorda(); }
+      else { stati.push(passo(modello!, stati[k]!, tempi[k]!, tempi[k + 1]!, cifraGen).nuovo); prossimo = ora + ATTESA; }
+    }
+    // L'esempio di training cambia da solo, ma mai mentre la rete sta generando
+    if (visibile && !inMoto && modello && esempi && ora >= prossimoEsempio) {
+      mostraEsempio();
+      prossimoEsempio = ora + (calmo ? 1e9 : CAMBIO_ESEMPIO);
     }
     if (W && visibile) aggiornaTag();
     if (!sporco || !W || !visibile) return;
     sporco = false;
     disegnaGriglia();
     mini(telaOra, attuale);
-    scriviTempo();
   };
   requestAnimationFrame(ciclo);
 }

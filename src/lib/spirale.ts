@@ -135,17 +135,3 @@ export function indietro(m: Modello, x: number, y: number, t: number, dopo: numb
   const n0 = (x - Math.sqrt(a) * px) / Math.sqrt(1 - a), n1 = (y - Math.sqrt(a) * py) / Math.sqrt(1 - a);
   return [Math.sqrt(d) * px + Math.sqrt(1 - d) * n0, Math.sqrt(d) * py + Math.sqrt(1 - d) * n1];
 }
-
-// Quanto i punti generati stanno vicino alla spirale: la quota entro una piccola distanza da un punto vero
-export function vicini(gen: Float32Array, dati: Float32Array, soglia = 0.07): number {
-  let dentro = 0;
-  for (let i = 0; i < gen.length; i += 2) {
-    let min = Infinity;
-    for (let j = 0; j < dati.length; j += 2) {
-      const dx = gen[i]! - dati[j]!, dy = gen[i + 1]! - dati[j + 1]!, v = dx * dx + dy * dy;
-      if (v < min) min = v;
-    }
-    if (min < soglia * soglia) dentro++;
-  }
-  return dentro / (gen.length / 2);
-}

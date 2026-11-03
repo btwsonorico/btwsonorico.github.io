@@ -94,8 +94,12 @@ export const rumorePuro = () => Float32Array.from({ length: D }, gauss);
 
 // tempi[k]: il passo del modello al passo k della generazione. Finisce con 0, l'immagine pulita
 export const tempiDi = (passi: number) => [...Array.from({ length: passi }, (_, k) => Math.round(T - (k * T) / passi)), 0];
-// Quanto rumore resta a quel punto, da 0 a 1
-export const quotaRumore = (t: number) => (t > 0 ? Math.sqrt(1 - abar[t]!) : 0);
+// Quello che fa l'allenamento: sporca un'immagine vera, con la quota di rumore del passo t
+export function sporca(x0: Float32Array, t: number) {
+  const a = abar[t]!, rumore = rumorePuro(), x = new Float32Array(D);
+  for (let i = 0; i < D; i++) x[i] = Math.sqrt(a) * x0[i]! + Math.sqrt(1 - a) * rumore[i]!;
+  return x;
+}
 
 // Un passo: stima il rumore, ricava l'immagine pulita, e prepara l'immagine del passo dopo con meno rumore
 export function passo(m: Modello, x: Float32Array, t: number, dopo: number, cifra: number) {
