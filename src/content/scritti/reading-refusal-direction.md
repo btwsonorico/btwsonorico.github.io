@@ -28,6 +28,4 @@ The authors study 13 open chat models, up to 72B parameters. In each one, refusi
 - **For open source:** people should have access to unrestricted models to do research, alignment research included.
 - **Against:** the same access lets bad actors do anything.
 
-**Not only language models.** The same logic can apply to diffusion models, the ones that generate images and video: research has shown that concepts can be erased from them, and brought back.
-
 **What is not possible yet.** Today this works only where you have the weights. Hacking the weights of a closed model is too hard to discuss for now, but it may become possible in the future.

@@ -35,6 +35,4 @@ On 20 October 2026 DeepSeek open-sourced DeepInfer, the engine it uses to serve 
 
 **It widens the gap with closed models.** For DeepSeek we now know, better than for any proprietary model, what works and what the margins on GPU use are.
 
-## What to watch
-
-How many other players, open and closed, will follow this example and publish how they serve their models.
+**What to watch.** How many other players, open and closed, will follow this example and publish how they serve their models.
