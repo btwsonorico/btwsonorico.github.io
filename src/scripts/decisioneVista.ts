@@ -8,6 +8,17 @@ type Etichette = { emoji: string[]; temperatura: number };
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
 const INCERTO = 0.3, QUANTE = 5;
 
+// Il pulsante unico: una frase a caso dal set, mai la stessa due volte di fila
+function aCaso(radice: HTMLElement, area: HTMLTextAreaElement, aggiorna: () => void) {
+  const pulsante = radice.querySelector<HTMLButtonElement>('.a-caso')!, frasi = JSON.parse(pulsante.dataset.frasi ?? '[]') as string[];
+  pulsante.addEventListener('click', () => {
+    let f = area.value;
+    while (f === area.value && frasi.length > 1) f = frasi[Math.floor(Math.random() * frasi.length)]!;
+    area.value = f;
+    aggiorna();
+  });
+}
+
 function barra(contenitore: HTMLElement, colore?: string) {
   const r = document.createElement('div'), n = document.createElement('span'), tr = document.createElement('div'), pieno = document.createElement('div'), num = document.createElement('span');
   r.className = 'barra-voce'; tr.className = 'traccia'; pieno.className = 'pieno'; n.className = 'nome'; num.className = 'num';
@@ -47,7 +58,7 @@ function montaEmoji(radice: HTMLElement, m: Modello, d: Etichette) {
     }));
   }
   area.addEventListener('input', aggiorna);
-  radice.querySelectorAll<HTMLButtonElement>('[data-esempio]').forEach(b => b.addEventListener('click', () => { area.value = b.dataset.esempio ?? ''; aggiorna(); }));
+  aCaso(radice, area, aggiorna);
   aggiorna();
 }
 
@@ -72,7 +83,7 @@ function montaTicket(radice: HTMLElement, d: Ticket) {
     esito.textContent = !c ? 'waiting for a message' : !note ? 'it knows none of these words' : `route to ${d.classi[m]}`;
   }
   area.addEventListener('input', aggiorna);
-  radice.querySelectorAll<HTMLButtonElement>('[data-esempio]').forEach(b => b.addEventListener('click', () => { area.value = b.dataset.esempio ?? ''; aggiorna(); }));
+  aCaso(radice, area, aggiorna);
   aggiorna();
 }
 

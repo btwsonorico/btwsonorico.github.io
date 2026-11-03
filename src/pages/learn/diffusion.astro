@@ -4,8 +4,9 @@ import Base from '../../layouts/Base.astro';
 // Diffusion: cosa fa un modello in training e cosa fa in inference. Prima su una forma, allenando nel browser (src/lib/spirale.ts),
 // poi sulle immagini, con un modello già allenato (src/lib/cifre.ts, scripts/allena-cifre.py). Sotto c'è la spiegazione completa.
 const COME: [string, string][] = [
-  ['What does the model do in training?', 'It learns one thing: to name noise. Each training step picks 64 real points. Each point gets its own random amount of noise, from a little to a lot. The network sees only the noisy point and the amount of noise, and it says what noise was added. The gap from the real noise is the error, and backpropagation corrects the weights.\nThe orange lines on the page are real: each one goes from a real point to its noisy copy, for one of the training steps. Nothing gets cleaner during training. The points never move back, and each step starts again with new noise. What changes is the weights. The arrows show this: each one points to where the network, at a medium amount of noise, thinks the clean point is. They start out random, and they turn towards the shape as the error falls.'],
+  ['What does the model do in training?', 'Press one step and follow one point. It takes a real point and adds noise, one small step after another: the orange line. Then the network sees only the end of that line, and it guesses where the clean point was. The gap from the real point is the error, and backpropagation corrects the weights. Then it starts again with another point and new noise.\nNothing gets cleaner during training, and the points never move back. What changes is the weights, so the guesses get closer over thousands of steps. Press train and watch the gap shrink and the error fall.\nTwo simplifications. A real step does this on 64 points at once. And it does not walk the orange line: a formula jumps straight to any amount of noise, which gives the same result much faster.'],
   ['What does the model do in inference?', 'This is the only moment when points move back to the shape. It starts from pure noise, with nothing of the shape in it. It estimates the noise, removes a part of it, and repeats. The line under the button shows how much noise is left at each step. More steps give the model more chances to correct itself, which is why few steps give a worse result.\nThe real points are gone at this stage. The model holds no points, only weights, so the new points are not copies.'],
+  ['What does the noise slider do?', 'It sets the most noise the network sees in training. Inference always starts from pure noise, so with less noise the network never practises the first part of the way back.\nThe effect is measurable. I trained on the spiral for 6,000 steps, three times at each setting, and counted how much of the shape the new points reach. With up to 100% noise they reach 96 to 99%. With up to 26% they reach 72 to 85%, and with up to 14% only 43 to 68%. The new points still land close to the shape, but they leave parts of it empty. The error goes the other way, and it rises at low settings, because a little noise is harder to name than a lot. So a low error does not always mean a better model.'],
   ['Is it different from the neural network page?', 'The network is the same kind of thing, but it does a different job. On that page it learns one shape and gives that shape back. Here it only names noise. The new drawing comes from the loop around the network, which asks that question many times.'],
   ['What changes on images?', 'The method stays the same. An image is one point with many values: here 784, one for each pixel of a 28 by 28 digit. So training adds noise to real digits, and inference starts from noise and asks for one digit.\nThe network does change, because a row of plain layers does not know which pixels are neighbours. This one is a small U-Net with 196,081 weights, trained once on 60,000 digits, before this page was published. Your browser downloads a 784 KB file and does all the calculation. It reads which digit you asked for at every step, which is the same idea as a prompt with ten possible requests. It is a small model, and many digits come out crooked.'],
   ['What about large image models?', 'They use the same loop on a very different scale, with billions of weights. They usually work on a compressed version of the image, and a long text prompt steers every step.\nThere is no GAN in any of this. A GAN trains a second network to judge the first, and generates in one pass. A diffusion model has one network, measures only the gap from the real noise, and generates in many steps.'],
@@ -33,13 +34,27 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         <div class="pannello">
           <div class="mono sezione">
             <span class="titolino">training</span>
-            <p class="spiega">Each step takes 64 real points and moves each one with random noise, some a little, some a lot. The network must name that noise. The orange lines are that noise.</p>
+            <ol class="racconto">
+              <li>take a real point</li>
+              <li class="arancio">add noise, step by step</li>
+              <li>the network guesses the clean point</li>
+              <li>the gap from the real point is the error</li>
+              <li>correct the weights, repeat</li>
+            </ol>
             <div class="riga">
               <button type="button" class="gioca"></button>
+              <button type="button" class="un-passo" data-spiega="Plays one training step slowly, on one point. A real step does this on 64 points at once.">one step</button>
               <button type="button" class="azzera" hidden>restart</button>
-              <span class="errore"></span>
             </div>
+            <span class="errore"></span>
             <canvas class="curva" role="img" aria-label="The error during training"></canvas>
+          </div>
+
+          <div class="mono sezione">
+            <span class="titolino">how much noise it practises on</span>
+            <input class="cursore-rumore" type="range" min="4" max="50" value="50" aria-label="The most noise the network sees in training" />
+            <div class="estremi"><span>a little</span><span class="lettura-rumore"></span><span>pure noise</span></div>
+            <p class="spiega">Too little, and new points cover only part of the shape.</p>
           </div>
 
           <div class="mono sezione">
@@ -156,12 +171,19 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   .gioca:hover:not(:disabled), .genera:hover:not(:disabled) { background: var(--bg); border-color: var(--fg); color: var(--fg); }
   .gioca:disabled, .genera:disabled { background: var(--bg); border-color: var(--line); color: var(--muted); opacity: 1; }
   .gioca[data-stato="pausa"] { background: var(--bg); color: var(--fg); }
-  .errore { color: var(--muted); font-size: 12px; }
+  .errore { display: block; min-height: 1.4em; margin-top: 8px; color: var(--muted); font-size: 12px; }
+  .racconto { margin: 0 0 10px; padding-left: 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .racconto li { transition: color .1s; }
+  .racconto li.attiva { color: var(--fg); }
+  .racconto li.arancio.attiva { color: var(--arancio); }
+  .cursore-rumore { display: block; width: 100%; margin: 0; accent-color: var(--fg); cursor: pointer; }
+  .estremi { display: flex; justify-content: space-between; gap: var(--s1); margin: 2px 0 2px; color: var(--muted); font-size: 11px; }
+  .estremi span:nth-child(2) { color: var(--fg); }
   .passi { display: inline-flex; align-items: center; gap: 4px; }
   .passi span { margin-right: 4px; color: var(--muted); font-size: 12px; }
   .passi button { min-width: 34px; padding: 4px 6px; }
   .lettura { min-height: 1.4em; margin: 6px 0 0; color: var(--fg); font-size: 12px; }
-  .curva { display: block; width: 100%; height: 110px; margin-top: 10px; }
+  .curva { display: block; width: 100%; height: 60px; margin-top: 2px; }
   .cifre { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; margin-bottom: 8px; }
   .cifre button { padding: 5px 0; }
   figure { margin: 0; }
@@ -197,7 +219,8 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     .pannello { position: static; order: 3; width: 100%; overflow: visible; }
     .gioca, .genera { flex: 1 1 100%; width: 100%; padding: 10px; }
     .passi button { min-width: 44px; padding: 8px; }
-    .azzera { flex: 1 1 100%; padding: 9px; }
+    .azzera, .un-passo { flex: 1 1 40%; padding: 9px; }
+    .cursore-rumore { height: 32px; }
     .cifre button { padding: 10px 0; }
     .ricordi :global(button) { width: 48px; height: 48px; }
     .tag-punto, .tag-consiglio { display: none !important; }

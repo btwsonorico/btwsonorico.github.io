@@ -12,8 +12,8 @@ const COME: [string, string][] = [
   ['Why is the ticket model different?', 'It is simpler on purpose. It has no encoder: each word or pair of words has four weights, one for each team, and it adds them up. The colours show this: each word takes the colour of the team it pushes most. It knows 703 words and word pairs, in a 28 KB file.\\nIt was trained on 6,000 messages built from sentence templates. On 40 new handwritten messages it gets 34 right. With four answers instead of 50, even a very simple model does well.'],
   ['What about real decision models?', 'Models such as Laya and GLiNER 2.5-Decide are open, and they have the same shape: a bidirectional encoder and a small head. They have hundreds of millions of weights, thousands of times more than the emoji encoder, and they take their possible answers with each request. Jev, by TypeSafe, is closed and runs on a server, so its design is not public.\\nThe practical advice stays the same at any size: test a model on your own examples before you trust its percentages.'],
 ];
-const EMOJI = ['pizza night with friends', 'late flight to tokyo', 'my puppy chewed my shoes', 'a bug in my soup', "I'm starving", 'my cat hates the rain'];
-const TICKET = ['I was charged twice this month', 'the export crashes on my phone', 'I forgot my password', 'what does it cost for 50 people', 'my account was charged but the page crashes'];
+const EMOJI = ["pizza night with friends", "late flight to tokyo", "my puppy chewed my shoes", "a bug in my soup", "I'm starving", "my cat hates the rain", "we ordered sushi for the whole office", "one more coffee and I can start", "a cold beer after a long week", "she baked a chocolate cake for me", "the airport is packed this morning", "two weeks on a greek island", "we got lost in the old town", "stuck in traffic for two hours", "the view from the summit was unreal", "my boss wants the report by noon", "sales are finally going up", "I have a dentist appointment on friday", "we need to save more money this year", "my inbox has a thousand unread emails", "I just finished a great novel", "she graduated from university today", "the lab results are in", "I can't stop thinking about this problem", "what if we built an app for that", "my laptop crashed again", "I dropped my phone in the sink", "the robot vacuum got stuck under the sofa", "the login page is broken again", "someone stole my password", "that joke made me spit out my drink", "I cried at the end of the film", "this customer service is making me furious", "I'm in love with this city", "I could sleep for a week", "we won the final in the last minute", "I ran ten kilometres before breakfast", "leg day destroyed me", "the doctor says I need more rest", "I forgot to take my antibiotics", "it has been raining for three days", "finally a sunny weekend", "my tomatoes are growing on the balcony", "the dog ate my homework", "the kitten fell asleep on my keyboard", "we watched a horror movie last night", "this song has been stuck in my head all day", "I stayed up all night playing video games", "she painted the whole wall in blue", "I took a great photo of the sunset", "we are throwing a party on saturday", "it's my birthday and nobody remembered", "I love you more than anything", "we just moved into a new apartment", "our baby took her first steps", "a long hike in the mountains", "grandma makes the best tiramisu", "the train to rome was cancelled", "the startup signed its first client", "the meeting moved to next tuesday", "I bought too much crypto", "my thesis is due in a week", "a neural network wrote this poem", "the wifi at home is terrible", "the printer jammed before my presentation", "we laughed until it hurt", "I am so tired of this rain", "my heart is broken", "the referee ruined the match", "the gym is too crowded in january", "the pharmacy was closed", "snow on the peaks this morning", "my garden is full of bees", "the vet says my dog is fine", "the cat knocked my coffee off the table", "the concert sold out in minutes", "the museum is free on sundays", "look at this old picture of us", "congratulations on the new job", "she blew out forty candles", "happy anniversary my love", "the landlord raised our rent", "my toddler refuses to eat vegetables", "a road trip across the country", "this ramen is incredible", "the startup ran out of money", "the kids are finally asleep", "my knee hurts when I run", "storm clouds over the lake", "a new season of my favourite series", "the deadline is tomorrow and I am calm", "my code works and I have no idea why", "the plane is delayed again", "wine and cheese on the terrace", "I think my neighbour is a spy", "I want to quit my job and open a bakery", "the ocean was freezing but we swam anyway", "our team shipped the feature on friday", "I read too many papers", "the bakery smells amazing this morning"];
+const TICKET = ["I was charged twice this month", "the export crashes on my phone", "I forgot my password", "what does it cost for 50 people", "please refund my last payment", "the dashboard shows the wrong numbers", "I cannot log in to my account", "do you offer a discount for schools", "my invoice has the wrong address", "the app freezes when I upload a file", "how do I change my email", "can someone show us a demo", "you billed me after I cancelled", "the search page returns an error", "please delete my account", "we want to buy 100 seats", "my card was declined", "the report does not load", "I never got the verification code", "what is your enterprise pricing", "why did my subscription go up", "the mobile app keeps crashing", "how do I add a new user", "do you have a plan for startups", "I need a copy of my receipt", "the sync stops working every night", "my account was charged but the page crashes", "can we get a longer trial", "someone logged in from another country", "nothing happens when I click save"];
 ---
 <Base title="Decision model · Riccardo Mondi" description="Tiny real decision models, running in your browser. Write anything and watch one pick an emoji, with a probability." tono="neutro" largo>
   <main class="rn" data-decisione>
@@ -27,9 +27,7 @@ const TICKET = ['I was charged twice this month', 'the export crashes on my phon
         <div class="mono sezione">
           <span class="titolino">write anything, try to fool it</span>
           <textarea class="messaggio" rows="3" maxlength="200" aria-label="Your text" placeholder="type here" spellcheck="false">pizza night with friends</textarea>
-          <div class="esempi">
-            {EMOJI.map(e => <button type="button" data-esempio={e}>{e}</button>)}
-          </div>
+          <button type="button" class="a-caso" data-frasi={JSON.stringify(EMOJI)}>random phrase</button>
           <p class="parole" aria-label="Your words. The words that matter most to the choice are orange"></p>
         </div>
 
@@ -53,9 +51,7 @@ const TICKET = ['I was charged twice this month', 'the export crashes on my phon
         <div class="mono sezione">
           <span class="titolino">write a support message</span>
           <textarea class="messaggio" rows="2" maxlength="400" aria-label="Support message" placeholder="type here" spellcheck="false">I was charged twice this month</textarea>
-          <div class="esempi">
-            {TICKET.map(e => <button type="button" data-esempio={e}>{e}</button>)}
-          </div>
+          <button type="button" class="a-caso" data-frasi={JSON.stringify(TICKET)}>random message</button>
           <p class="parole" aria-label="Your message with each word coloured by the team it pushes"></p>
         </div>
         <div class="mono sezione">
@@ -94,9 +90,8 @@ const TICKET = ['I was charged twice this month', 'the export crashes on my phon
   .titolino::before { content: '// '; color: var(--muted); }
   .messaggio { display: block; box-sizing: border-box; width: 100%; padding: 10px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); font: inherit; font-size: 15px; line-height: 1.4; resize: vertical; }
   .messaggio:focus { outline: none; border-color: var(--fg); }
-  .esempi { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .esempi button { padding: 4px 8px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; font-size: 11px; text-align: left; cursor: pointer; }
-  .esempi button:hover { border-color: var(--fg); color: var(--fg); }
+  .a-caso { margin-top: 8px; padding: 5px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .a-caso:hover { border-color: var(--fg); color: var(--fg); }
   .parole { min-height: 3em; margin: var(--s1) 0 0; font-size: 15px; line-height: 1.5; color: var(--muted); }
   .scelta { display: flex; align-items: center; gap: var(--s2); min-height: 96px; margin-bottom: var(--s2); }
   .emoji-grande { flex: none; width: 88px; font-size: 72px; line-height: 1; text-align: center; }
@@ -121,12 +116,9 @@ const TICKET = ['I was charged twice this month', 'the export crashes on my phon
     .rn { padding: 0 16px; }
     h1 { font-size: 20px; }
     .banco { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
-    .esempi button { padding: 8px 10px; font-size: 12px; }
+    .a-caso { width: 100%; padding: 10px; }
     .messaggio { font-size: 16px; }
     .parole { min-height: 1.6em; }
-    /* La scelta deve stare vicino a ciò che scrivi: gli esempi scorrono di lato, in una riga sola */
-    [data-emoji] .esempi { flex-wrap: nowrap; margin-right: -16px; padding-right: 16px; overflow-x: auto; }
-    [data-emoji] .esempi button { flex: none; white-space: nowrap; }
     [data-emoji] .messaggio { height: 72px; }
     [data-emoji] .banco { gap: 4px; }
     .scelta { min-height: 80px; margin-bottom: var(--s1); }
