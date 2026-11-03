@@ -4,13 +4,12 @@ import Base from '../../layouts/Base.astro';
 // Diffusion: cosa fa un modello in training e cosa fa in inference. Prima su una forma, allenando nel browser (src/lib/spirale.ts),
 // poi sulle immagini, con un modello già allenato (src/lib/cifre.ts, scripts/allena-cifre.py). Sotto c'è la spiegazione completa.
 const COME: [string, string][] = [
-  ['What does the model do in training?', 'Press one step and follow one point. It takes a real point and adds noise, one small step after another: the orange line, which rises from the plane as the noise grows. Then the network sees only the end of that line, and it guesses where the clean point was. The gap from the real point is the error, and backpropagation corrects the weights. Then it starts again with another point and new noise.\nNothing gets cleaner during training, and the points never move back. What changes is the weights, so the guesses get closer over thousands of steps. Press train and watch the gap shrink and the error fall.\nTwo simplifications. A real step does this on 64 points at once. And it does not walk the orange line: a formula jumps straight to any amount of noise, which gives the same result much faster.'],
-  ['What does the model do in inference?', 'This is the only moment when points move back to the shape. It starts from pure noise, with nothing of the shape in it. It estimates the noise, removes a part of it, and repeats. The line under the button shows how much noise is left at each step. More steps give the model more chances to correct itself, which is why few steps give a worse result.\nThe real points are gone at this stage. The model holds no points, only weights, so the new points are not copies.'],
-  ['What does the noise slider do?', 'It sets the most noise the network sees in training. Inference always starts from pure noise, so with less noise the network never practises the first part of the way back.\nThe effect is measurable. I trained on the spiral for 6,000 steps, three times at each setting, and counted how much of the shape the new points reach. With up to 100% noise they reach 96 to 99%. With up to 26% they reach 72 to 85%, and with up to 14% only 43 to 68%. The new points still land close to the shape, but they leave parts of it empty. The error goes the other way, and it rises at low settings, because a little noise is harder to name than a lot. So a low error does not always mean a better model.'],
-  ['Is it different from the neural network page?', 'The network is the same kind of thing, but it does a different job. On that page it learns one shape and gives that shape back. Here it only names noise. The new drawing comes from the loop around the network, which asks that question many times.'],
-  ['What changes on images?', 'The method stays the same. An image is one point with many values: here 784, one for each pixel of a 28 by 28 digit. So training adds noise to real digits, and inference starts from noise and asks for one digit.\nThe network does change, because a row of plain layers does not know which pixels are neighbours. This one is a small U-Net with 196,081 weights, trained once on 60,000 digits, before this page was published. Your browser downloads a 784 KB file and does all the calculation. It reads which digit you asked for at every step, which is the same idea as a prompt with ten possible requests. It is a small model, and many digits come out crooked.'],
-  ['What is the 3D extra?', 'The same method with one more value per point. The data is 2,048 points on the surface of a fish or a tree, and you train the model here too. It has 19,683 weights and takes 10,000 steps. In my tests, about 87% of new points land close to the fish, and about 79% close to the tree.\nThe model produces only points. The page draws the wire mesh, by joining points that end up close to each other. So it is a way to look at the result, not something the model learned.'],
-  ['What about large image models?', 'They use the same loop on a very different scale, with billions of weights. They usually work on a compressed version of the image, and a long text prompt steers every step.\nThere is no GAN in any of this. A GAN trains a second network to judge the first, and generates in one pass. A diffusion model has one network, measures only the gap from the real noise, and generates in many steps.'],
+  ['What does the model do in training?', 'Press one step and follow one point. The orange line adds noise to a real point, and it rises as the noise grows. The network sees only the end of the line and estimates the noise in it. Removing that noise gives a guess of the clean point: the white line. The gap from the real point is the error, and backpropagation corrects the weights.\nThe points never move back during training. Only the weights change. The arrows show the result: each one goes from a position to the guess the network makes there. They start random, and over thousands of steps they turn towards the shape.\nFour simplifications. The arrows and the new points use a slow average of the weights, so they do not shake at each correction. A real step does this on 64 points at once. It does not walk the orange line: a formula jumps straight to a random amount of noise, with the same result. And the code measures the error on the noise, not on the point. The two grow together.'],
+  ['What does the model do in inference?', 'This is the only moment when points move back to the shape. They start from pure noise. At each step the network estimates the noise, the points follow the arrows, and a part of the noise goes away. The height of the square is the noise left.\nThe arrows change with the noise. With a lot of noise they point to the middle of the shape, because many clean points are possible. With little noise they point to the nearest part of the shape. I measured this on the spiral: the average guess is 0.24 from the centre at 95% noise, and 0.70 at 7%, the same as the real shape.\nThe real points are gone at this stage. The model holds only weights, so the new points are not copies. Fewer steps are faster but worse.'],
+  ['Why does the error barely fall?', 'Because it starts close to its limit. A noisy point could come from many real points, so even a perfect network can only give the average of them. I calculated this limit from the spiral data: 0.27, the dashed line. In one test run the error went from 0.36 at step 100 to 0.27 at step 8,000.\nThe last small gain is the part that matters. It is the precision at low noise, where the points settle on the line. In the same run, new points within 0.07 of the shape went from 29% to 83%. So watch the on shape value, not only the error.'],
+  ['What does the noise slider do?', 'It sets the most noise the network sees in training. Inference always starts from pure noise, so with less noise the network never practises the first part of the way back.\nI trained on the spiral for 6,000 steps, three times at each setting, and counted how much of the shape the new points reach. With up to 100% noise they reach 96 to 99%. With up to 26% they reach 72 to 85%, and with up to 14% only 43 to 68%. The error rises at low settings, because a little noise is harder to estimate. So a low error does not always mean a better model.'],
+  ['What changes on images?', 'The method stays the same. An image is one point with many values: here 784, one for each pixel of a 28 by 28 digit. The arrows exist there too, in 784 dimensions, so nobody can draw them. Training adds noise to real digits, and inference starts from noise and asks for one digit.\nThe network does change, because a row of plain layers does not know which pixels are neighbours. This one is a small U-Net with 196,081 weights, trained once on 60,000 digits, before this page was published. Your browser downloads a 784 KB file and does all the calculation. It reads which digit you asked for at every step, which is the same idea as a prompt with ten possible requests. It is a small model, and many digits come out crooked.'],
+  ['What about large image models?', 'They use the same loop on a very different scale, with billions of weights. They usually work on a compressed version of the image, and a long text prompt steers every step.\nThere is no GAN in any of this. A GAN trains a second network to judge the first, and generates in one pass. A diffusion model has one network, measures only the error on the noise, and generates in many steps.'],
 ];
 const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 ---
@@ -20,10 +19,11 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
       <header class="testa">
         <h1>Train a diffusion model in your browser</h1>
         <a href="#how-it-works" class="mono">how it works ↓</a>
+        <p class="mono messaggio">The model learns one thing: to estimate the noise in a point. To generate, it starts from pure noise and removes it, step by step.</p>
       </header>
 
       <div class="banco">
-        <canvas class="tela-spirale" role="img" aria-label="A square with a shape made of blue points. During training, orange points show the same points with noise, and arrows show what the network has learned. During inference, new white points form the shape."></canvas>
+        <canvas class="tela-spirale" role="img" aria-label="A tilted square with a shape made of blue points. A second square above it holds arrows that show where the network sends a point at that amount of noise. During training, an orange line adds noise to one point. During inference, new white points follow the arrows while the square drops, and they form the shape."></canvas>
         <p class="mono nota-tel" aria-live="polite"></p>
         <div class="mono forme" role="group" aria-label="Shape">
           <button type="button" data-forma="spiral">spiral</button>
@@ -37,9 +37,9 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
             <span class="titolino">training</span>
             <ol class="racconto">
               <li>take a real point</li>
-              <li class="arancio">add noise, step by step</li>
-              <li>the network guesses the clean point</li>
-              <li>the gap from the real point is the error</li>
+              <li class="arancio">add random noise</li>
+              <li>the network estimates the noise</li>
+              <li>remove it: the gap is the error</li>
               <li>correct the weights, repeat</li>
             </ol>
             <div class="riga">
@@ -48,19 +48,19 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
               <button type="button" class="azzera" hidden>restart</button>
             </div>
             <span class="errore"></span>
-            <canvas class="curva" role="img" aria-label="The error during training"></canvas>
+            <canvas class="curva" role="img" aria-label="The error during training, with a dashed line at the lowest possible error"></canvas>
           </div>
 
           <div class="mono sezione">
             <span class="titolino">how much noise it practises on</span>
             <input class="cursore-rumore" type="range" min="4" max="50" value="50" aria-label="The most noise the network sees in training" />
             <div class="estremi"><span>a little</span><span class="lettura-rumore"></span><span>pure noise</span></div>
-            <p class="spiega">Too little, and new points cover only part of the shape.</p>
+            <p class="spiega">Too little leaves gaps in the shape.</p>
           </div>
 
           <div class="mono sezione">
             <span class="titolino">inference</span>
-            <p class="spiega">Starts from pure noise. Removes it step by step.</p>
+            <p class="spiega">From pure noise, along the arrows.</p>
             <div class="riga">
               <button type="button" class="genera">generate</button>
               <div class="passi" role="group" aria-label="Steps" data-spiega="How many steps it takes to remove the noise. Fewer steps are faster but worse.">
@@ -81,6 +81,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     <section class="schermo" data-diffusione>
       <header class="testa">
         <h2>The same method on images</h2>
+        <p class="mono messaggio">An image is one point with 784 values, one per pixel. The method does not change.</p>
       </header>
 
       <div class="banco">
@@ -94,7 +95,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
             <div class="trittico">
               <figure><canvas class="mini-vera" role="img" aria-label="A real digit"></canvas><figcaption>real digit</figcaption></figure>
               <figure><canvas class="mini-sporca" role="img" aria-label="The same digit with noise"></canvas><figcaption>+ noise</figcaption></figure>
-              <figure><canvas class="mini-stima" role="img" aria-label="The noise as the network estimates it"></canvas><figcaption>noise it names</figcaption></figure>
+              <figure><canvas class="mini-stima" role="img" aria-label="The noise as the network estimates it"></canvas><figcaption>estimated noise</figcaption></figure>
             </div>
           </div>
 
@@ -128,45 +129,44 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
       <div class="mono tag-consiglio" hidden></div>
     </section>
 
-    <section class="schermo" data-nuvola>
-      <header class="testa">
-        <h2>Extra: the same method in 3D</h2>
-      </header>
-
-      <div class="banco">
-        <canvas class="tela-nuvola" role="img" aria-label="A rotating 3D object made of points: a fish or a tree. During training, orange points show copies with noise. During inference, a cloud closes into the object, and nearby points link up into a wire mesh."></canvas>
-        <div class="mono forme" role="group" aria-label="Object">
-          <button type="button" data-oggetto="fish">fish</button>
-          <button type="button" data-oggetto="tree">tree</button>
-        </div>
-
-        <div class="pannello">
-          <div class="mono sezione">
-            <span class="titolino">training</span>
-            <p class="spiega">Same steps, with three values per point. The orange points are real points with noise.</p>
-            <div class="riga">
-              <button type="button" class="gioca"></button>
-              <button type="button" class="azzera" hidden>restart</button>
-            </div>
-            <span class="errore"></span>
-            <canvas class="curva" role="img" aria-label="The error during training"></canvas>
-          </div>
-
-          <div class="mono sezione">
-            <span class="titolino">inference</span>
-            <p class="spiega">A cloud of pure noise closes into the object. When little noise is left, nearby points link up.</p>
-            <button type="button" class="genera">generate</button>
-            <p class="lettura lettura-nuovi" aria-live="polite"></p>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <section class="spiegone" id="how-it-works">
       <h2 class="mono">how it works</h2>
       {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3>{testo.split('\n').map(p => <p>{p}</p>)}</article>)}
       <p class="mono fonte">The idea of showing arrows on a 2D shape comes from <a href="https://www.3blue1brown.com/lessons/diffusion-models/">the guest video by Welch Labs on 3Blue1Brown</a>. The digits come from MNIST.</p>
     </section>
+
+    <details class="extra">
+      <summary class="mono">extra: the same method in 3D</summary>
+      <section class="schermo" data-nuvola>
+        <div class="banco">
+          <canvas class="tela-nuvola" role="img" aria-label="A rotating 3D object made of points: a fish or a tree. During training, orange points show copies with noise. During inference, a cloud closes into the object, and nearby points link up into a wire mesh."></canvas>
+          <div class="mono forme" role="group" aria-label="Object">
+            <button type="button" data-oggetto="fish">fish</button>
+            <button type="button" data-oggetto="tree">tree</button>
+          </div>
+
+          <div class="pannello">
+            <div class="mono sezione">
+              <span class="titolino">training</span>
+              <p class="spiega">Same steps, with three values per point. The orange points are real points with noise.</p>
+              <div class="riga">
+                <button type="button" class="gioca"></button>
+                <button type="button" class="azzera" hidden>restart</button>
+              </div>
+              <span class="errore"></span>
+              <canvas class="curva" role="img" aria-label="The error during training"></canvas>
+            </div>
+
+            <div class="mono sezione">
+              <span class="titolino">inference</span>
+              <p class="spiega">A cloud of pure noise closes into the object. The page, not the model, links nearby points.</p>
+              <button type="button" class="genera">generate</button>
+              <p class="lettura lettura-nuovi" aria-live="polite"></p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </details>
   </main>
 </Base>
 
@@ -185,6 +185,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   .schermo { display: flex; flex-direction: column; gap: var(--s2); height: calc(100vh - 62px); min-height: 560px; padding-bottom: var(--s2); }
   .testa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px var(--s2); }
   .testa a { color: var(--fg); font-size: 12px; white-space: nowrap; }
+  .messaggio { flex: 1 1 100%; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
   h1, .testa h2 { margin: 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
   button { padding: 5px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; transition: color .12s, border-color .12s; }
   button:hover:not(:disabled) { border-color: var(--fg); color: var(--fg); }
@@ -244,6 +245,8 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   .spiegone p { margin: 0 0 var(--s1); color: var(--muted); font-size: 14px; line-height: 1.7; }
   .fonte { color: var(--muted); font-size: 12px; }
   .fonte a { color: var(--fg); }
+  .extra { padding-bottom: var(--s3); border-top: 1px solid var(--line); }
+  .extra summary { padding: var(--s2) 0; color: var(--fg); font-size: 14px; cursor: pointer; }
   @media (max-width: 760px) {
     .rn { padding: 0 16px; }
     .schermo { height: auto; min-height: 0; gap: var(--s1); padding-bottom: var(--s3); }

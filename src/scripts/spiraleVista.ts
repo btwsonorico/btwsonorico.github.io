@@ -1,9 +1,9 @@
-import { abar, allena, daDisegno, gauss, indietro, nuovoModello, punti, stella, stima, T, type Modello } from '../lib/spirale';
+import { abar, aggiornaMedia, allena, conMedia, daDisegno, errorePiuBasso, gauss, indietro, nuovoModello, punti, stella, stima, sullaForma, T, type Modello } from '../lib/spirale';
 
 // Vista della forma: un modello di diffusion che si allena nel browser, raccontato un punto alla volta.
 // Un racconto: prendi un punto vero, sporcalo passo dopo passo, la rete indovina il punto pulito, la distanza è l'errore, i pesi si correggono.
 // Inference: punti nuovi partono dal rumore e arrivano sulla forma.
-const N_DATI = 1024, N_NUOVI = 300, GRUPPO = 64, FINE = 8000, RALLENTA = 5500, MONDO = 1.65, DURATA_NUOVI = 3200, RACCONTO_LENTO = 6000, RACCONTO_VELOCE = 1100, PIATTO = 0.6, ALTEZZA = 1.1, MAGLIE = 16, GIRO_MAX = 1;
+const N_DATI = 1024, N_NUOVI = 300, GRUPPO = 64, FINE = 8000, MONDO = 1.65, DURATA_NUOVI = 3200, RACCONTO_LENTO = 6000, RACCONTO_VELOCE = 1100, PIATTO = 0.6, ALTEZZA = 1.1, MAGLIE = 16, N_FRECCE = 14, T_ALLENA = 12, T_FRECCE_MAX = 44, OGNI_FRECCE = 200;
 // Quando inizia ogni tappa del racconto, da 0 a 1
 const TAPPE = [0, 0.1, 0.5, 0.72, 0.88];
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
@@ -22,9 +22,11 @@ export function monta(radice: HTMLElement) {
   const formeB = radice.querySelectorAll<HTMLButtonElement>('[data-forma]'), pulisci = $<HTMLButtonElement>('.pulisci'), forme = $<HTMLElement>('.forme');
 
   let dati = punti(N_DATI), forma = 'spiral', tratti: number[][] = [], corrente: number[] | null = null, tMax = T;
-  let m: Modello = nuovoModello(), inMoto = false, sporco = true, visibile = false, storia: number[] = [], somma = 0, conta = 0, generati = 0, spiegaEl: HTMLElement | null = null;
-  let nuovi: Float32Array | null = null, sale = false, inizioNuovi = 0, kNuovi = 0, passiNuovi = 20, tempiNuovi: number[] = [];
+  let m: Modello = nuovoModello(), media = conMedia(m), minimo = 0, buoni = -1, inMoto = false, sporco = true, visibile = false, storia: number[] = [], somma = 0, conta = 0, generati = 0, spiegaEl: HTMLElement | null = null;
+  let nuovi: Float32Array | null = null, primaNuovi: Float32Array | null = null, sale = false, inizioNuovi = 0, kNuovi = 0, passiNuovi = 20, tempiNuovi: number[] = [];
   let racconto: Racconto | null = null, giro = 0.42, gira = false, xPrima = 0;
+  const frecce = new Float32Array(N_FRECCE * N_FRECCE * 2);
+  let tFrecce = 0, oraFrecce = 0;
 
   // --- Un racconto: un punto vero, il suo rumore passo dopo passo. L'ipotesi della rete arriva a metà
   function nuovoRacconto(durata: number, unP: boolean) {
@@ -38,20 +40,36 @@ export function monta(radice: HTMLElement) {
     racconto = { vero: [x0, y0], cammino, t, guess: null, errore: 0, inizio: performance.now(), durata, unPasso: unP };
   }
   function indovina(r: Racconto) {
-    const n = r.cammino.length, x = r.cammino[n - 2]!, y = r.cammino[n - 1]!, a = abar[r.t]!, sa = Math.sqrt(a), sb = Math.sqrt(1 - a), [e0, e1] = stima(m, x, y, r.t);
+    const n = r.cammino.length, x = r.cammino[n - 2]!, y = r.cammino[n - 1]!, a = abar[r.t]!, sa = Math.sqrt(a), sb = Math.sqrt(1 - a), [e0, e1] = stima(media, x, y, r.t);
     const lim = (v: number) => Math.max(-MONDO, Math.min(MONDO, v));
     r.guess = [lim((x - sb * e0) / sa), lim((y - sb * e1) / sa)];
     const veri0 = (x - sa * r.vero[0]) / sb, veri1 = (y - sa * r.vero[1]) / sb;
     r.errore = ((e0 - veri0) ** 2 + (e1 - veri1) ** 2) / 2;
   }
 
+  // L'altezza di un livello è la quota di rumore, la stessa che si legge nel testo
+  const quota = (t: number) => Math.sqrt(1 - abar[t]!);
+
+  // --- Le frecce: da ogni posizione verso il punto pulito che la rete stima a quel livello. Vengono solo dai pesi
+  const lato = (2 * MONDO) / N_FRECCE;
+  function calcolaFrecce(t: number) {
+    const q = Math.min(t, T_FRECCE_MAX), a = abar[q]!, sa = Math.sqrt(a), sb = Math.sqrt(1 - a), lim = (v: number) => Math.max(-MONDO, Math.min(MONDO, v));
+    for (let r = 0, i = 0; r < N_FRECCE; r++) for (let k = 0; k < N_FRECCE; k++, i += 2) {
+      const x = -MONDO + (k + 0.5) * lato, y = -MONDO + (r + 0.5) * lato, [e0, e1] = stima(media, x, y, q);
+      frecce[i] = lim((x - sb * e0) / sa) - x;
+      frecce[i + 1] = lim((y - sb * e1) / sa) - y;
+    }
+    tFrecce = t;
+    oraFrecce = performance.now();
+  }
+
   // --- Disegno
   let W = 0, H = 0, Wp = 0;
-  // Il quadrato è un piano a filo inclinato, come la griglia delle cifre. L'altezza di un punto è il suo rumore
+  // Il quadrato è un piano a filo inclinato, come la griglia delle cifre. L'altezza è la quota di rumore
   const piano = () => {
     const sinistra = innerWidth > 760 ? Wp + 16 : 0, destra = innerWidth > 760 ? 100 : 0, libero = W - sinistra - destra;
-    const S = Math.min(libero / (2 * MONDO * Math.SQRT2 * 0.92), H / (2 * MONDO * Math.SQRT2 * PIATTO + ALTEZZA * 1.2));
-    return { S, cx: sinistra + libero / 2, cy: H / 2 + (S * ALTEZZA) / 3, co: Math.cos(giro), si: Math.sin(giro) };
+    const S = Math.min(libero / (2 * MONDO * Math.SQRT2 * 0.92), (H - 24) / (2 * MONDO * Math.SQRT2 * PIATTO + ALTEZZA * 1.2));
+    return { S, cx: sinistra + libero / 2, cy: H / 2 + 12 + (S * ALTEZZA) / 3, co: Math.cos(giro), si: Math.sin(giro) };
   };
   function disegna(ora: number) {
     const { S, cx, cy, co, si } = piano(), d = devicePixelRatio;
@@ -85,20 +103,34 @@ export function monta(radice: HTMLElement) {
       c.stroke();
       c.lineWidth = 1;
     }
-    if (nuovi) {
-      // Prima l'ombra sul piano, poi il punto all'altezza del rumore che gli resta
-      const h = kNuovi >= passiNuovi ? 0 : (tempiNuovi[kNuovi] ?? T) / T;
-      if (h > 0.02) {
-        c.fillStyle = MUTED;
-        c.globalAlpha = 0.35;
-        for (let i = 0; i < N_NUOVI; i++) punto(nuovi[i * 2]!, nuovi[i * 2 + 1]!, 0, 2);
-        c.globalAlpha = 1;
+    // Le frecce della rete. In training stanno sul piano, sopra la forma. In inference stanno su un quadrato all'altezza del rumore, con i punti
+    const finito = !!nuovi && !sale, conFrecce = m.passi > 0 && !finito && !racconto?.unPasso, u = sale ? Math.min(1, Math.max(0, ((ora - inizioNuovi) / DURATA_NUOVI) * passiNuovi - (kNuovi - 1))) : 1;
+    const h = conFrecce && nuovi ? quota(tempiNuovi[kNuovi - 1] ?? T) + (quota(tempiNuovi[kNuovi] ?? 0) - quota(tempiNuovi[kNuovi - 1] ?? T)) * u : 0;
+    if (conFrecce) {
+      c.strokeStyle = MUTED;
+      c.beginPath();
+      if (nuovi) ([[-MONDO, -MONDO], [MONDO, -MONDO], [MONDO, MONDO], [-MONDO, MONDO]] as const).forEach(([x, y], i) => { const [a, b] = P(x, y, h); if (i) c.lineTo(a, b); else c.moveTo(a, b); });
+      c.closePath();
+      c.stroke();
+      c.beginPath();
+      for (let r = 0, i = 0; r < N_FRECCE; r++) for (let k = 0; k < N_FRECCE; k++, i += 2) {
+        const x = -MONDO + (k + 0.5) * lato, y = -MONDO + (r + 0.5) * lato, dx = frecce[i]!, dy = frecce[i + 1]!, d = Math.hypot(dx, dy) || 1, l = Math.min(0.8 * lato, d * 0.6);
+        const [a0, b0] = P(x, y, h), [a1, b1] = P(x + (dx / d) * l, y + (dy / d) * l, h), [a2, b2] = P(x + (dx / d) * l * 0.65 - (dy / d) * l * 0.2, y + (dy / d) * l * 0.65 + (dx / d) * l * 0.2, h), [a3, b3] = P(x + (dx / d) * l * 0.65 + (dy / d) * l * 0.2, y + (dy / d) * l * 0.65 - (dx / d) * l * 0.2, h);
+        c.moveTo(a0, b0); c.lineTo(a1, b1); c.lineTo(a2, b2); c.moveTo(a1, b1); c.lineTo(a3, b3);
       }
+      c.stroke();
+      c.fillStyle = MUTED;
+      c.font = `11px ${stile.getPropertyValue('--mono') || 'monospace'}`;
+      c.textAlign = 'center';
+      c.fillText(`arrows: where the network sends a point at ${Math.round(quota(tFrecce) * 100)}% noise`, cx, 12);
+    }
+    if (nuovi) {
       c.fillStyle = FG;
-      for (let i = 0; i < N_NUOVI; i++) punto(nuovi[i * 2]!, nuovi[i * 2 + 1]!, h, 3);
+      const da = primaNuovi ?? nuovi;
+      for (let i = 0; i < N_NUOVI * 2; i += 2) punto(da[i]! + (nuovi[i]! - da[i]!) * u, da[i + 1]! + (nuovi[i + 1]! - da[i + 1]!) * u, h, 3);
     } else if (racconto) {
       const r = racconto, f = calmo ? 1 : Math.min(1, (ora - r.inizio) / r.durata), passi = (r.cammino.length / 2) - 1, visti = Math.round(Math.min(1, Math.max(0, (f - TAPPE[1]!) / (TAPPE[2]! - TAPPE[1]!))) * passi);
-      const altezzaDi = (k: number) => k / T;
+      const altezzaDi = quota;
       const [vx, vy] = P(r.vero[0], r.vero[1]);
       // Il punto vero
       c.strokeStyle = FG;
@@ -155,9 +187,15 @@ export function monta(radice: HTMLElement) {
       cc.beginPath(); cc.moveTo(sx, y(v)); cc.lineTo(w, y(v)); cc.stroke();
     });
     cc.textBaseline = 'alphabetic';
-    cc.fillText(`${FINE / 1000}k training steps`, w, h - 2);
+    cc.fillText(`dashed: lowest possible · ${FINE / 1000}k steps`, w, h - 2);
     cc.textAlign = 'left';
     cc.fillText('0', sx, h - 2);
+    if (minimo) {
+      cc.strokeStyle = FG;
+      cc.setLineDash([3, 3]);
+      cc.beginPath(); cc.moveTo(sx, y(minimo)); cc.lineTo(w, y(minimo)); cc.stroke();
+      cc.setLineDash([]);
+    }
     cc.strokeStyle = ARANCIO;
     cc.beginPath();
     storia.forEach((v, i) => { const x = sx + (((i + 1) * 100) / FINE) * (w - sx); if (i) cc.lineTo(x, y(v)); else cc.moveTo(x, y(v)); });
@@ -166,8 +204,10 @@ export function monta(radice: HTMLElement) {
 
   // --- Training
   const allenaUno = () => {
-    somma += allena(m, dati, GRUPPO, m.passi < RALLENTA ? 3e-3 : 1e-3, tMax);
+    somma += allena(m, dati, GRUPPO, 3e-3 * (1 - m.passi / FINE) + 1e-4, tMax);
+    aggiornaMedia(m, media);
     if (++conta === 100) { storia.push(somma / conta); somma = conta = 0; }
+    if (m.passi % 500 === 0) buoni = sullaForma(media, dati);
   };
   const scriviBottone = () => {
     scrivi(gioca, inMoto ? 'pause' : m.passi >= FINE ? 'done' : m.passi ? 'resume' : 'train');
@@ -176,15 +216,18 @@ export function monta(radice: HTMLElement) {
     unPasso.disabled = inMoto || m.passi >= FINE || !dati.length || !!racconto?.unPasso;
     azzera.hidden = !m.passi;
     genera.disabled = !m.passi || sale;
+    const aMano = inDisegno() && !m.passi;
+    tela.style.cursor = aMano ? 'crosshair' : 'grab';
+    tela.style.touchAction = aMano ? 'none' : '';
   };
-  const scriviErrore = () => scrivi(letturaE, m.passi ? `${m.passi.toLocaleString('en')} steps${storia.length ? ` · error ${storia[storia.length - 1]!.toFixed(2)}` : ''}` : '');
+  const scriviErrore = () => scrivi(letturaE, m.passi ? `${m.passi.toLocaleString('en')} steps${storia.length ? ` · error ${storia[storia.length - 1]!.toFixed(2)}` : ''}${buoni >= 0 ? ` · on shape ${buoni}%` : ''}` : '');
   const azzeraTutto = () => {
-    inMoto = false; m = nuovoModello(); storia = []; somma = conta = 0; nuovi = null; sale = false; generati = 0; racconto = null; scrivi(lettura, '');
+    inMoto = false; m = nuovoModello(); media = conMedia(m); buoni = -1; minimo = dati.length ? errorePiuBasso(dati, tMax) : 0; storia = []; somma = conta = 0; nuovi = null; sale = false; generati = 0; racconto = null; scrivi(lettura, '');
     tappe.forEach(t => t.classList.remove('attiva'));
     scriviBottone(); scriviErrore(); disegnaCurva(); sporco = true;
   };
-  gioca.addEventListener('click', () => { inMoto = !inMoto; nuovi = null; scrivi(lettura, ''); if (!inMoto) { racconto = null; tappe.forEach(t => t.classList.remove('attiva')); } sporco = true; scriviBottone(); });
-  unPasso.addEventListener('click', () => { nuovi = null; scrivi(lettura, ''); nuovoRacconto(RACCONTO_LENTO, true); scriviBottone(); sporco = true; });
+  gioca.addEventListener('click', () => { inMoto = !inMoto; nuovi = null; sale = false; calcolaFrecce(T_ALLENA); scrivi(lettura, ''); if (!inMoto) { racconto = null; tappe.forEach(t => t.classList.remove('attiva')); } sporco = true; scriviBottone(); });
+  unPasso.addEventListener('click', () => { nuovi = null; sale = false; calcolaFrecce(T_ALLENA); scrivi(lettura, ''); nuovoRacconto(RACCONTO_LENTO, true); scriviBottone(); sporco = true; });
   azzera.addEventListener('click', azzeraTutto);
 
   // --- Quanto rumore vede la rete. Cambia cosa impara, quindi il training riparte
@@ -197,8 +240,6 @@ export function monta(radice: HTMLElement) {
     forma = f;
     formeB.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.forma === f)));
     pulisci.hidden = !inDisegno();
-    tela.style.cursor = inDisegno() ? 'crosshair' : 'grab';
-    tela.style.touchAction = inDisegno() ? 'none' : '';
     if (f !== 'draw') tratti = [];
     dati = f === 'star' ? stella(N_DATI) : f === 'draw' ? daDisegno(tratti, N_DATI) ?? new Float32Array(0) : punti(N_DATI);
     azzeraTutto();
@@ -210,14 +251,15 @@ export function monta(radice: HTMLElement) {
     return [lim(a * co - b * si), lim(a * si + b * co)] as const;
   };
   tela.addEventListener('pointerdown', e => {
-    if (!inDisegno()) { gira = true; xPrima = e.clientX; tela.setPointerCapture(e.pointerId); return; }
+    // Si disegna solo prima del training. Dopo, come per le altre forme, il piano gira
+    if (!inDisegno() || m.passi) { gira = true; xPrima = e.clientX; tela.setPointerCapture(e.pointerId); return; }
     if (sale) return;
     corrente = [...alMondo(e)];
     tela.setPointerCapture(e.pointerId);
     sporco = true;
   });
   tela.addEventListener('pointermove', e => {
-    if (gira) { giro = Math.max(-GIRO_MAX, Math.min(GIRO_MAX, giro - (e.clientX - xPrima) * 0.008)); xPrima = e.clientX; sporco = true; return; }
+    if (gira) { giro -= (e.clientX - xPrima) * 0.008; xPrima = e.clientX; sporco = true; return; }
     if (!corrente) return;
     corrente.push(...alMondo(e));
     sporco = true;
@@ -238,11 +280,13 @@ export function monta(radice: HTMLElement) {
   // --- Inference: punti nuovi partono dal rumore e seguono quello che la rete ha imparato
   const scriviPasso = () => {
     const t = tempiNuovi[kNuovi]!;
-    scrivi(lettura, kNuovi >= passiNuovi ? 'finished' : `step ${kNuovi} of ${passiNuovi} · ${Math.round(Math.sqrt(1 - abar[t]!) * 100)}% noise left`);
+    scrivi(lettura, !sale && kNuovi >= passiNuovi ? 'finished' : `step ${kNuovi} of ${passiNuovi} · ${Math.round(Math.sqrt(1 - abar[t]!) * 100)}% noise left`);
   };
   const avanzaNuovi = () => {
-    for (let i = 0; i < N_NUOVI; i++) [nuovi![i * 2], nuovi![i * 2 + 1]] = indietro(m, nuovi![i * 2]!, nuovi![i * 2 + 1]!, tempiNuovi[kNuovi]!, tempiNuovi[kNuovi + 1]!);
+    primaNuovi = nuovi!.slice();
+    for (let i = 0; i < N_NUOVI; i++) [nuovi![i * 2], nuovi![i * 2 + 1]] = indietro(media, nuovi![i * 2]!, nuovi![i * 2 + 1]!, tempiNuovi[kNuovi]!, tempiNuovi[kNuovi + 1]!);
     kNuovi++;
+    if (kNuovi < passiNuovi) calcolaFrecce(tempiNuovi[kNuovi]!);
   };
   const finisciNuovi = () => { sale = false; generati++; scriviPasso(); scriviBottone(); sporco = true; };
   const scegliPassi = (n: number) => { passiNuovi = n; passiB.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.passi) === n))); };
@@ -256,6 +300,7 @@ export function monta(radice: HTMLElement) {
     for (let i = 0; i < N_NUOVI * 2; i++) nuovi[i] = gauss();
     tempiNuovi = [...Array.from({ length: passiNuovi }, (_, k) => Math.round(T - (k * T) / passiNuovi)), 0];
     kNuovi = 0;
+    calcolaFrecce(tempiNuovi[0]!);
     sporco = true;
     if (calmo) {
       while (kNuovi < passiNuovi) avanzaNuovi();
@@ -304,7 +349,6 @@ export function monta(radice: HTMLElement) {
   new IntersectionObserver(v => { visibile = v.some(x => x.isIntersecting); if (visibile) sporco = true; }, { rootMargin: '60px' }).observe(tela);
   misura();
   formeB.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.forma === forma)));
-  tela.style.cursor = 'grab';
   cursore.value = String(tMax);
   scriviRumore();
   azzeraTutto();
@@ -317,6 +361,7 @@ export function monta(radice: HTMLElement) {
       do allenaUno(); while (performance.now() < fineTempo && m.passi < FINE);
       if (m.passi >= FINE) { inMoto = false; racconto = null; tappe.forEach(t => t.classList.remove('attiva')); }
       else if (!racconto || ora - racconto.inizio > racconto.durata) nuovoRacconto(RACCONTO_VELOCE, false);
+      if (ora - oraFrecce > OGNI_FRECCE || m.passi >= FINE) calcolaFrecce(T_ALLENA);
       scriviBottone(); scriviErrore(); disegnaCurva();
       sporco = true;
     }
@@ -330,6 +375,7 @@ export function monta(radice: HTMLElement) {
       sporco = true;
       if (r.unPasso && f >= 1) {
         allenaUno();
+        calcolaFrecce(T_ALLENA);
         racconto = null;
         tappe.forEach(t => t.classList.remove('attiva'));
         scriviBottone(); scriviErrore(); disegnaCurva();
@@ -338,9 +384,10 @@ export function monta(radice: HTMLElement) {
     // Inference: un passo alla volta, nello stesso tempo qualunque sia il numero di passi
     if (sale && nuovi) {
       const voluto = Math.min(passiNuovi, Math.floor(((ora - inizioNuovi) / DURATA_NUOVI) * passiNuovi) + 1);
-      if (kNuovi < voluto) { avanzaNuovi(); sporco = true; }
+      if (kNuovi < voluto) avanzaNuovi();
+      sporco = true;
       scriviPasso();
-      if (kNuovi >= passiNuovi) finisciNuovi();
+      if (ora - inizioNuovi >= DURATA_NUOVI) finisciNuovi();
     }
     if (W && visibile) aggiornaTag();
     if (!sporco || !W || !visibile) return;

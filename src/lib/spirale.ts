@@ -135,3 +135,38 @@ export function indietro(m: Modello, x: number, y: number, t: number, dopo: numb
   const n0 = (x - Math.sqrt(a) * px) / Math.sqrt(1 - a), n1 = (y - Math.sqrt(a) * py) / Math.sqrt(1 - a);
   return [Math.sqrt(d) * px + Math.sqrt(1 - d) * n0, Math.sqrt(d) * py + Math.sqrt(1 - d) * n1];
 }
+
+// La media dei pesi: una copia che segue il modello lentamente. Le frecce e i punti nuovi la usano, così non tremano a ogni correzione
+export const conMedia = (m: Modello): Modello => ({ ...m, pesi: m.pesi.map(p => p.slice()), scarti: m.scarti.map(p => p.slice()) });
+export function aggiornaMedia(m: Modello, o: Modello) {
+  const b = Math.min(0.995, (1 + m.passi) / (10 + m.passi)), segui = (a: Float32Array[], q: Float32Array[]) => a.forEach((v, l) => { const w = q[l]!; for (let i = 0; i < v.length; i++) w[i] = b * w[i]! + (1 - b) * v[i]!; });
+  segui(m.pesi, o.pesi);
+  segui(m.scarti, o.scarti);
+}
+
+// L'errore della risposta perfetta: per ogni punto con rumore, la media esatta dei punti veri possibili. Nessuna rete può scendere sotto
+export function errorePiuBasso(dati: Float32Array, tMax = T, prove = 1200): number {
+  const n = dati.length / 2, l = new Float64Array(n);
+  let somma = 0;
+  for (let p = 0; p < prove; p++) {
+    const i = Math.floor(Math.random() * n), t = 1 + Math.floor(Math.random() * tMax), a = abar[t]!, sa = Math.sqrt(a), sb = Math.sqrt(1 - a), e0 = gauss(), e1 = gauss(), x = sa * dati[i * 2]! + sb * e0, y = sa * dati[i * 2 + 1]! + sb * e1;
+    let alto = -Infinity, sw = 0, mx = 0, my = 0;
+    for (let j = 0; j < n; j++) { l[j] = -((x - sa * dati[j * 2]!) ** 2 + (y - sa * dati[j * 2 + 1]!) ** 2) / (2 * sb * sb); if (l[j]! > alto) alto = l[j]!; }
+    for (let j = 0; j < n; j++) { const w = Math.exp(l[j]! - alto); sw += w; mx += w * dati[j * 2]!; my += w * dati[j * 2 + 1]!; }
+    somma += (((x - sa * mx / sw) / sb - e0) ** 2 + ((y - sa * my / sw) / sb - e1) ** 2) / 2;
+  }
+  return somma / prove;
+}
+
+// Quanti punti nuovi, su cento, finiscono a meno di 0,07 da un punto vero
+export function sullaForma(m: Modello, dati: Float32Array, prove = 60, passi = 10): number {
+  const n = dati.length / 2;
+  let vicini = 0;
+  for (let p = 0; p < prove; p++) {
+    let x = gauss(), y = gauss(), d = 9;
+    for (let s = 0; s < passi; s++) [x, y] = indietro(m, x, y, Math.round(T - (s * T) / passi), Math.round(T - ((s + 1) * T) / passi));
+    for (let j = 0; j < n; j++) { const q = (x - dati[j * 2]!) ** 2 + (y - dati[j * 2 + 1]!) ** 2; if (q < d) d = q; }
+    if (d < 0.0049) vicini++;
+  }
+  return Math.round((vicini / prove) * 100);
+}
