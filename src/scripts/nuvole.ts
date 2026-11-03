@@ -463,16 +463,17 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     return a;
   });
   let acceso = -1, dallaLista = -1;
-  // L'AI della pagina di reinforcement learning può guidare il cane: legge gli stessi numeri, quindi la scena può girare. Solo col gregge da 180 con cui si è allenata
+  // L'AI della pagina di reinforcement learning può guidare il cane: legge gli stessi numeri, quindi la scena può girare. Su telefono guida sempre lei
   let pesiAI: Float32Array | null = null, attesaAI = 0, aiGioca = false;
   const mondoAI = nuovoMondo(1), bottoneAI = document.createElement('button');
   bottoneAI.type = 'button';
   bottoneAI.textContent = 'let the RL dog herd';
   bottoneAI.style.cssText = 'position:absolute;right:16px;bottom:72px;z-index:2;padding:4px 8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:12px var(--mono);cursor:pointer;pointer-events:auto';
-  if (PECORE === PECORE_AI) el.appendChild(bottoneAI);
+  const caricaAI = async () => { pesiAI ??= new Float32Array(await (await fetch('/learn/gregge/fine.bin')).arrayBuffer()); };
+  if (p.telefono) { aiGioca = true; caricaAI(); } else el.appendChild(bottoneAI);
   bottoneAI.addEventListener('pointerdown', e => e.stopPropagation());
   bottoneAI.addEventListener('click', async () => {
-    if (!pesiAI) pesiAI = new Float32Array(await (await fetch('/learn/gregge/fine.bin')).arrayBuffer());
+    await caricaAI();
     aiGioca = !aiGioca;
     cane.seduto = false;
     bottoneAI.textContent = aiGioca ? 'take the dog back' : 'let the RL dog herd';
@@ -482,8 +483,9 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     if (attesaAI > 0 || gioco.stato !== 'aperto' || !pesiAI) return;
     attesaAI = OGNI * DT_AI;
     const a = mondoAI;
-    pecore.forEach((q, i) => { a.x[i] = q.x; a.z[i] = q.z; a.calma[i] = q.calma; });
-    a.gx = gioco.x; a.gz = gioco.z; a.dentro = gioco.dentro;
+    // Si è allenata con 180 pecore: su telefono sono meno, quindi ognuna conta per più di una
+    for (let i = 0; i < PECORE_AI; i++) { const q = pecore[i % PECORE]!; a.x[i] = q.x; a.z[i] = q.z; a.calma[i] = q.calma; }
+    a.gx = gioco.x; a.gz = gioco.z; a.dentro = Math.round((gioco.dentro * PECORE_AI) / PECORE);
     a.cane.x = cane.x; a.cane.z = cane.z; a.cane.verso = cane.verso; a.cane.vel = cane.vel;
     mucche.forEach((m, i) => { const q = a.mucche[i]; if (q) { q.x = m.x; q.z = m.z; } });
     const { o, dgx, dgz } = vedi(a), u = punteggi(pesiAI, o);

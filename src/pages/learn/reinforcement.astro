@@ -18,6 +18,7 @@ const COME: [string, string][] = [
         <h1>Teach a dog to herd with rewards</h1>
         <a href="#how-it-works" class="mono">how it works ↓</a>
         <p class="mono messaggio">Nobody tells the dog what to do. It only gets points, and it learns which moves earn them.</p>
+        <p class="mono messaggio solo-tel">You can watch and play here, but it works better on a computer.</p>
       </header>
 
       <div class="banco">
@@ -110,7 +111,7 @@ const COME: [string, string][] = [
   .lettura { min-height: 1.4em; margin: 2px 0 0; color: var(--fg); font-size: 12px; }
   .tappe { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
   .tappe button { padding: 4px 8px; font-size: 12px; }
-  .nota-tel { display: none; }
+  .nota-tel, .solo-tel { display: none; }
   .tag-punto { position: fixed; left: 0; top: 0; z-index: 5; max-width: 300px; padding: 4px 8px; background: var(--bg); border: 1px solid var(--fg); color: var(--fg); font-size: 12px; line-height: 1.45; pointer-events: none; }
   .tag-punto[hidden] { display: none; }
   .spiegone { max-width: 720px; margin: 0 auto; padding: var(--s4) 0; border-top: 1px solid var(--line); scroll-margin-top: var(--s2); }
@@ -129,6 +130,7 @@ const COME: [string, string][] = [
     .pannello { position: static; order: 3; width: 100%; overflow: visible; }
     .gioca { flex: 1 1 100%; width: 100%; padding: 10px; }
     .tag-punto { display: none !important; }
+    .solo-tel { display: block; }
     .nota-tel { display: block; order: 2; min-height: 1.5em; margin: 0; color: var(--arancio); font-size: 12px; line-height: 1.45; }
   }
 </style>
