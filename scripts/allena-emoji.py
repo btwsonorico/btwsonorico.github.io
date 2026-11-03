@@ -1,15 +1,15 @@
 # Allena l'autotagger di /learn/decision/: un encoder minuscolo che legge una frase e sceglie fra 50 emoji, con una probabilità.
-# Parole chiave: Unicode CLDR (Unicode License V3), lette da un file scaricato, che non sta nel repo. Frasi: scritte a mano qui sotto.
-# Calibrazione e prova usano altre frasi, mai viste. src/lib/emoji.ts riscrive la stessa rete in TypeScript.
-# Si lancia con: python scripts/allena-emoji.py <cartella per i dati>
-import json, math, os, random, re, sys, urllib.request
+# Le parole arrivano già come vettori GloVe (Stanford, PDDL 1.0), allenati su miliardi di parole: così anche una parola mai vista negli esempi ha un significato.
+# Parole chiave: Unicode CLDR (Unicode License V3). Frasi: scritte a mano qui sotto. Calibrazione e prova usano altre frasi. src/lib/emoji.ts riscrive la stessa rete in TypeScript.
+# Si lancia con: python scripts/allena-emoji.py <cartella per i dati> [frasi libere.json]
+import gzip, json, math, os, random, re, sys, urllib.request
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 sys.stdout.reconfigure(encoding='utf-8')
 
-SECCHI, DIM, TESTE, POS, MAX_PAROLE, SCALA = 4096, 48, 2, 16, 16, 2048
+N_PAROLE, VDIM, MAX_V, DIM, TESTE, POS, MAX_PAROLE, SCALA = 20000, 50, 5.0, 48, 2, 16, 16, 2048
 random.seed(7); torch.manual_seed(7)
 
 # Per ogni emoji: frasi di allenamento | due frasi di prova, che l'allenamento non vede
@@ -67,17 +67,7 @@ DATI = {
 }
 EMOJI = list(DATI)
 NEUTRE = ['i love {}', 'talking about {}', 'all about {}', '{} today', 'so much {}', 'this {} is great', 'thinking of {}', 'we had {}', 'my {}', '{} again', 'a lot of {}', '{}']
-parole = lambda t: re.findall(r"[a-z0-9']+", t.lower())[:MAX_PAROLE]
-
-def fnv(s):
-    h = 2166136261
-    for c in s.encode('utf-8'):
-        h = ((h ^ c) * 16777619) & 0xFFFFFFFF
-    return h % SECCHI
-# Una parola diventa i suoi pezzi di tre lettere più la parola intera: così «run» e «running» si somigliano
-def pezzi(w):
-    g = f'<{w}>'
-    return [fnv(w)] + [fnv(g[i:i + 3]) for i in range(len(g) - 2)]
+parole = lambda t: re.findall(r"[a-z0-9]+", t.lower())[:MAX_PAROLE]
 
 # --- Dati
 cartella = sys.argv[1]
@@ -85,39 +75,55 @@ os.makedirs(cartella, exist_ok=True)
 p_xml = os.path.join(cartella, 'en.xml')
 if not os.path.exists(p_xml):
     urllib.request.urlretrieve('https://raw.githubusercontent.com/unicode-org/cldr/main/common/annotations/en.xml', p_xml)
+p_vett = os.path.join(cartella, 'glove-wiki-gigaword-50.gz')
+if not os.path.exists(p_vett):
+    urllib.request.urlretrieve('https://github.com/RaRe-Technologies/gensim-data/releases/download/glove-wiki-gigaword-50/glove-wiki-gigaword-50.gz', p_vett)
 xml = open(p_xml, encoding='utf-8').read()
 def chiavi(e):
     m = re.search(r'<annotation cp="%s">([^<]*)</annotation>' % re.escape(e.replace('️', '')), xml)
     assert m, e
-    # Parole di tutte le voci, tranne quelle che non dicono nulla sul tema
     return [k.strip().replace('&amp;', 'and') for k in m.group(1).split('|') if k.strip() not in ('face', 'smile', 'object')]
 allena, cal, prova = [], [], []
 for k, e in enumerate(EMOJI):
     frasi, a_mano = DATI[e]
-    frasi = frasi.split('|')
-    for f in frasi:
+    for f in frasi.split('|'):
         allena += [(f, k)] * 4
     for c in chiavi(e):
         for m in NEUTRE:
             allena.append((m.format(c), k))
     a, b = a_mano.split('|')
     cal.append((a, k)); prova.append((b, k))
-tutte_note = sorted({w for f, _ in allena for w in parole(f)})
-print('emoji', len(EMOJI), 'esempi', len(allena), 'parole', len(tutte_note), flush=True)
 
-# --- Rete: encoder bidirezionale minuscolo e testa di decisione
+# I vettori: le parole più comuni, più quelle degli esempi di allenamento. Il file è ordinato per frequenza
+serve = {w for f, _ in allena for w in parole(f)}
+voc, righe = [], []
+with gzip.open(p_vett, 'rt', encoding='utf-8') as f:
+    f.readline()
+    for n, r in enumerate(f):
+        w, _, resto = r.partition(' ')
+        if not re.fullmatch(r'[a-z0-9]+', w) or (len(voc) >= N_PAROLE and w not in serve):
+            continue
+        voc.append(w); righe.append(np.fromstring(resto, sep=' ', dtype=np.float32))
+# In numeri da -127 a 127: bastano per un vettore, e il file pesa un quarto
+Q = (np.clip(np.stack(righe) / MAX_V, -1, 1) * 127).round().astype('<i1')
+V = torch.from_numpy(Q.astype(np.float32) / 127 * MAX_V)
+indice = {w: i for i, w in enumerate(voc)}
+print('emoji', len(EMOJI), 'esempi', len(allena), 'parole', len(voc), 'mancano', len(serve - set(voc)), flush=True)
+
+# Per ogni parola degli esempi, le parole più vicine: in allenamento a volte la sostituiscono
+U = F.normalize(V, dim=1)
+presenti = sorted(indice[w] for w in serve if w in indice)
+vicine = {i: U[:N_PAROLE].mv(U[i]).topk(6).indices.tolist()[1:] for i in presenti}
+
 class Encoder(nn.Module):
     def __init__(s):
         super().__init__()
-        s.emb, s.pos = nn.Embedding(SECCHI, DIM), nn.Embedding(POS, DIM)
-        nn.init.normal_(s.emb.weight, std=0.1); nn.init.normal_(s.pos.weight, std=0.02)
+        s.proj, s.pos = nn.Linear(VDIM, DIM), nn.Embedding(POS, DIM)
+        nn.init.normal_(s.pos.weight, std=0.02)
         s.n1, s.qkv, s.fuori, s.n2, s.f1, s.f2, s.testa = nn.LayerNorm(DIM), nn.Linear(DIM, DIM * 3), nn.Linear(DIM, DIM), nn.LayerNorm(DIM), nn.Linear(DIM, DIM * 2), nn.Linear(DIM * 2, DIM), nn.Linear(DIM, len(EMOJI))
-    def forward(s, idx, off, maschera, drop=0.0):
-        # idx: pezzi di ogni parola, off: a quale posto appartiene ogni pezzo
+    def forward(s, idx, maschera, drop=0.0):
         B, L = maschera.shape
-        somma = torch.zeros(B * L, DIM).index_add_(0, off, s.emb(idx))
-        n = torch.zeros(B * L).index_add_(0, off, torch.ones(len(off))).clamp(min=1)
-        x = (somma / n[:, None]).view(B, L, DIM) + s.pos(torch.arange(L))
+        x = s.proj(V[idx]) + s.pos(torch.arange(L))
         q, k, v = s.qkv(s.n1(x)).chunk(3, -1)
         fa = lambda t: t.view(B, L, TESTE, DIM // TESTE).transpose(1, 2)
         pesi = fa(q) @ fa(k).transpose(-1, -2) / math.sqrt(DIM / TESTE)
@@ -127,51 +133,49 @@ class Encoder(nn.Module):
         m = maschera[:, :, None].float()
         return s.testa((x * m).sum(1) / m.sum(1).clamp(min=1))
 
-def lotto(testi):
-    w = [parole(t) or ['?'] for t in testi]
-    L = max(map(len, w))
-    idx, off = [], []
-    masc = torch.zeros(len(w), L, dtype=torch.bool)
-    for b, ws in enumerate(w):
-        for i, x in enumerate(ws):
-            masc[b, i] = True
-            for p in pezzi(x):
-                idx.append(p); off.append(b * L + i)
-    return torch.tensor(idx), torch.tensor(off), masc
+# Le parole fuori dal vocabolario non contano
+def lotto(liste):
+    liste = [l or [0] for l in liste]
+    L = max(map(len, liste))
+    idx, masc = torch.zeros(len(liste), L, dtype=torch.long), torch.zeros(len(liste), L, dtype=torch.bool)
+    for b, l in enumerate(liste):
+        idx[b, :len(l)] = torch.tensor(l); masc[b, :len(l)] = True
+    return idx, masc
+numeri = lambda t: [indice[w] for w in parole(t) if w in indice]
 
 rete = Encoder()
-print('pesi', sum(p.numel() for p in rete.parameters()), flush=True)
-EPOCHE, GRUPPO = 30, 64
+print('pesi della rete', sum(p.numel() for p in rete.parameters()), flush=True)
+EPOCHE, GRUPPO = 40, 64
 opt = torch.optim.AdamW(rete.parameters(), 3e-3, weight_decay=1e-3)
 piano = torch.optim.lr_scheduler.OneCycleLR(opt, 3e-3, total_steps=EPOCHE * (len(allena) // GRUPPO))
-casuali = lambda: ''.join(random.choice('abcdefghijklmnopqrstuvwxyz') for _ in range(random.randint(3, 9)))
 def varia(t):
-    w = parole(t)
-    # Toglie parole a caso: la rete non deve dipendere da una sola parola
-    if len(w) > 2: w = [x for x in w if random.random() > 0.15] or w
-    return ' '.join(w)
+    l = numeri(t)
+    # Toglie o scambia parole a caso: la rete non deve dipendere da una sola parola, e impara anche dai sinonimi
+    if len(l) > 2: l = [x for x in l if random.random() > 0.1] or l
+    return [random.choice(vicine[x]) if x in vicine and random.random() < 0.2 else x for x in l]
 for ep in range(EPOCHE):
     rete.train(); random.shuffle(allena); somma = 0
     for i in range(len(allena) // GRUPPO):
         q = allena[i * GRUPPO:(i + 1) * GRUPPO]
-        # Un sesto del gruppo è senza senso: lì la risposta giusta è non essere sicuri
-        rumore = [' '.join(casuali() for _ in range(random.randint(1, 4))) for _ in range(GRUPPO // 6)]
+        # Un sesto del gruppo sono parole a caso: lì la risposta giusta è non essere sicuri
+        rumore = [[random.randrange(3000) for _ in range(random.randint(1, 4))] for _ in range(GRUPPO // 6)]
         o = rete(*lotto([varia(t) for t, _ in q] + rumore), drop=0.1)
         err = F.cross_entropy(o[:GRUPPO], torch.tensor([k for _, k in q]), label_smoothing=0.05) - 0.5 * F.log_softmax(o[GRUPPO:], -1).mean()
         opt.zero_grad(); err.backward(); opt.step(); piano.step(); somma += err.item()
-    if (ep + 1) % 5 == 0: print(f'epoca {ep + 1}/{EPOCHE} errore {somma / (len(allena) // GRUPPO):.3f}', flush=True)
+    if (ep + 1) % 10 == 0: print(f'epoca {ep + 1}/{EPOCHE} errore {somma / (len(allena) // GRUPPO):.3f}', flush=True)
 
 # --- Pesi in numeri interi, per un file più piccolo: la prova usa già questi
 rete.eval()
 with torch.no_grad():
     for p in rete.parameters():
         p.copy_((p * SCALA).round().clamp(-32768, 32767) / SCALA)
-tutti = np.concatenate([(p.detach().numpy().ravel() * SCALA).round().astype('<i2') for p in rete.parameters()])
 os.makedirs('public/learn', exist_ok=True)
-tutti.tofile('public/learn/emoji.bin')
+np.concatenate([(p.detach().numpy().ravel() * SCALA).round().astype('<i2') for p in rete.parameters()]).tofile('public/learn/emoji.bin')
+Q.tofile('public/learn/emoji-vettori.bin')
+open('public/learn/emoji-parole.txt', 'w', encoding='utf-8', newline='\n').write('\n'.join(voc))
 
 @torch.no_grad()
-def logit(testi): return rete(*lotto(testi))
+def logit(testi): return rete(*lotto([numeri(t) for t in testi]))
 Lc, yc = logit([t for t, _ in cal]), torch.tensor([k for _, k in cal])
 TEMP = min((F.cross_entropy(Lc / T, yc).item(), T) for T in np.arange(0.4, 6, 0.05))[1]
 Lp, yp = logit([t for t, _ in prova]), [k for _, k in prova]
@@ -179,25 +183,17 @@ P = (Lp / TEMP).softmax(-1)
 pr, sc = P.max(-1)
 giuste = sum(int(sc[i]) == yp[i] for i in range(len(yp)))
 top3 = sum(yp[i] in P[i].topk(3).indices.tolist() for i in range(len(yp)))
-
-# Confronto: la somma di parole, sugli stessi dati
-voc = {w: i for i, w in enumerate(tutte_note)}
-Xb = lambda t: torch.sparse_coo_tensor(*[torch.tensor(a) for a in (lambda v: ([[0] * len(v), v], [1.0] * len(v)))([voc[w] for w in parole(t) if w in voc])], (1, len(voc))).to_dense() if any(w in voc for w in parole(t)) else torch.zeros(1, len(voc))
-base = nn.Linear(len(voc), len(EMOJI)); ob = torch.optim.Adam(base.parameters(), 0.01)
-A = torch.cat([Xb(t) for t, _ in allena]); Ya = torch.tensor([k for _, k in allena])
-for _ in range(150):
-    ob.zero_grad(); F.cross_entropy(base(A), Ya).backward(); ob.step()
-gb = sum(int(base(Xb(t)).argmax()) == k for t, k in prova)
-
 casi = [{'t': t, 'y': k, 's': int(sc[i]), 'p': round(float(pr[i]), 3)} for i, (t, k) in enumerate(prova)]
 json.dump({'emoji': EMOJI, 'temperatura': round(float(TEMP), 2), 'casi': casi}, open('public/learn/emoji.json', 'w', encoding='utf-8'), ensure_ascii=False)
-print('temperatura', round(float(TEMP), 2), 'file KB', len(tutti) * 2 // 1024)
-print(f'prova: giuste {giuste}/{len(yp)}, tra le prime tre {top3}/{len(yp)}; somma di parole {gb}/{len(yp)}')
-for q in (0.3, 0.5, 0.7, 0.9):
-    a = [c for c in casi if c['p'] >= q]
-    print('soglia', q, 'agisce', len(a), 'errori', sum(c['s'] != c['y'] for c in a))
-# Un controllo per src/lib/emoji.ts, e frasi nuove da guardare a occhio
-for t in ['pizza night with friends', "i'm starving", 'late flight to tokyo', 'i failed my exam', 'a bug in my soup', 'banana mountain', 'xqzt wvvk']:
+print('temperatura', round(float(TEMP), 2), 'vettori KB', Q.size // 1024)
+print(f'prova: giuste {giuste}/{len(yp)}, tra le prime tre {top3}/{len(yp)}')
+if len(sys.argv) > 2:
+    L = json.load(open(sys.argv[2], encoding='utf-8'))
+    Q2 = (logit([t for t, _ in L]) / TEMP).softmax(-1)
+    g = sum(int(Q2[i].argmax()) // 5 == c for i, (_, c) in enumerate(L))
+    t3 = sum(any(x // 5 == c for x in Q2[i].topk(3).indices.tolist()) for i, (_, c) in enumerate(L))
+    print(f'frasi libere: categoria giusta {g}/{len(L)}, tra le prime tre {t3}/{len(L)}')
+    print('sbagliate', [(t, EMOJI[int(Q2[i].argmax())]) for i, (t, c) in enumerate(L) if int(Q2[i].argmax()) // 5 != c])
+for t in ['pizza night with friends', "i'm starving", 'late flight to tokyo', 'my puppy chewed my shoes', 'a bug in my soup', 'my cat hates the rain', 'banana mountain', 'xqzt wvvk']:
     v = (logit([t]) / TEMP).softmax(-1)[0]
     print(t, [(EMOJI[i], round(float(v[i]), 3)) for i in v.topk(3).indices.tolist()])
-print('sbagliate', [(c['t'], EMOJI[c['s']], EMOJI[c['y']]) for c in casi if c['s'] != c['y']][:40])

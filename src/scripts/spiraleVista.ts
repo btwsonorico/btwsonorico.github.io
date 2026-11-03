@@ -1,8 +1,9 @@
 import { abar, allena, daDisegno, gauss, indietro, nuovoModello, punti, stella, stima, T, type Modello } from '../lib/spirale';
 
 // Vista della spirale: un modello di diffusion che si allena nel browser. All'inizio si vede solo la forma.
-// Training: i punti si sporcano di rumore e le frecce mostrano cosa ha imparato la rete. Inference: punti nuovi partono dal rumore e arrivano sulla forma.
-const N_DATI = 1024, N_VISTI = 260, N_NUOVI = 300, GRUPPO = 64, FINE = 8000, RALLENTA = 5500, FRECCE = 17, MONDO = 1.65, DURATA_NUOVI = 3200, GIRO_RUMORE = 5000;
+// Training: si vede il gruppo vero di ogni passo, con una linea dal punto vero al punto con il rumore, e le frecce mostrano cosa ha imparato la rete.
+// Inference: punti nuovi partono dal rumore e arrivano sulla forma.
+const N_DATI = 1024, N_NUOVI = 300, GRUPPO = 64, FINE = 8000, RALLENTA = 5500, FRECCE = 17, MONDO = 1.65, DURATA_NUOVI = 3200, T_FRECCE = 14, CAMBIO_GRUPPO = 220;
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
 const calmo = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -11,25 +12,14 @@ export function monta(radice: HTMLElement) {
   const scrivi = (el: Element, t: string) => { if (el.textContent !== t) el.textContent = t; };
   const FG = tono('--fg'), MUTED = tono('--muted'), LINE = tono('--line'), ARANCIO = tono('--arancio'), BLU = tono('--azzurro');
   const tela = $<HTMLCanvasElement>('.tela-spirale'), c = tela.getContext('2d')!, curva = $<HTMLCanvasElement>('.curva'), cc = curva.getContext('2d')!;
-  const gioca = $<HTMLButtonElement>('.gioca'), azzera = $<HTMLButtonElement>('.azzera'), genera = $<HTMLButtonElement>('.genera'), letturaE = $<HTMLElement>('.errore');
+  const gioca = $<HTMLButtonElement>('.gioca'), azzera = $<HTMLButtonElement>('.azzera'), genera = $<HTMLButtonElement>('.genera'), letturaE = $<HTMLElement>('.errore'), lettura = $<HTMLElement>('.lettura-nuovi'), passiB = radice.querySelectorAll<HTMLButtonElement>('[data-passi]');
   const tagPunto = $<HTMLElement>('.tag-punto'), tagConsiglio = $<HTMLElement>('.tag-consiglio'), pannello = $<HTMLElement>('.pannello'), notaTel = $<HTMLElement>('.nota-tel');
   const formeB = radice.querySelectorAll<HTMLButtonElement>('[data-forma]'), pulisci = $<HTMLButtonElement>('.pulisci'), forme = $<HTMLElement>('.forme');
 
   let dati = punti(N_DATI), forma = 'spiral', tratti: number[][] = [], corrente: number[] | null = null, visti = 0;
-  // I punti sporcati, passo dopo passo: ogni punto si allontana a caso dalla forma
-  const cammini: Float32Array[] = Array.from({ length: T + 1 }, () => new Float32Array(N_VISTI * 2));
-  function preparaCammini() {
-    visti = Math.min(N_VISTI, dati.length / 2);
-    cammini[0]!.set(dati.subarray(0, visti * 2));
-    for (let t = 1; t <= T; t++) {
-      const beta = 1 - abar[t]! / abar[t - 1]!, s = Math.sqrt(1 - beta), r = Math.sqrt(beta), p = cammini[t - 1]!, q = cammini[t]!;
-      for (let i = 0; i < visti * 2; i++) q[i] = s * p[i]! + r * gauss();
-    }
-  }
-  preparaCammini();
-
-  let m: Modello = nuovoModello(), inMoto = false, sporco = true, visibile = false, tt = 0, storia: number[] = [], somma = 0, conta = 0, generati = 0, ultimaFreccia = 0, spiegaEl: HTMLElement | null = null;
-  let nuovi: Float32Array | null = null, sale = false, inizioNuovi = 0, passoNuovi = T;
+  let m: Modello = nuovoModello(), inMoto = false, sporco = true, visibile = false, storia: number[] = [], somma = 0, conta = 0, generati = 0, ultimaFreccia = 0, spiegaEl: HTMLElement | null = null;
+  let nuovi: Float32Array | null = null, sale = false, inizioNuovi = 0, kNuovi = 0, passiNuovi = 20, tempiNuovi: number[] = [];
+  let gruppoVisto = new Float32Array(GRUPPO * 4), ultimoGruppo = 0;
   const frecce = new Float32Array(FRECCE * FRECCE * 2);
 
   // --- Disegno
@@ -39,7 +29,7 @@ export function monta(radice: HTMLElement) {
     return { S, cx: sinistra + libero / 2, cy: H / 2 };
   };
   function calcolaFrecce() {
-    const t = Math.max(1, tt), a = abar[t]!, sa = Math.sqrt(a), sb = Math.sqrt(1 - a);
+    const t = T_FRECCE, a = abar[t]!, sa = Math.sqrt(a), sb = Math.sqrt(1 - a);
     for (let r = 0; r < FRECCE; r++) for (let q = 0; q < FRECCE; q++) {
       const x = -MONDO + ((q + 0.5) * 2 * MONDO) / FRECCE, y = MONDO - ((r + 0.5) * 2 * MONDO) / FRECCE, [e0, e1] = stima(m, x, y, t), k = (r * FRECCE + q) * 2;
       // La freccia va verso il punto pulito stimato: è il verso in cui la rete toglierebbe il rumore
@@ -55,8 +45,9 @@ export function monta(radice: HTMLElement) {
     c.strokeStyle = LINE;
     c.lineWidth = 1;
     c.strokeRect(px(-MONDO), py(MONDO), 2 * MONDO * S, 2 * MONDO * S);
-    // Le frecce esistono solo durante il training
-    if (inMoto) {
+    // Rumore e frecce esistono solo durante il training
+    const inTraining = m.passi > 0 && m.passi < FINE && !nuovi;
+    if (inTraining) {
       const cella = (2 * MONDO * S) / FRECCE;
       c.strokeStyle = MUTED;
       c.beginPath();
@@ -89,10 +80,16 @@ export function monta(radice: HTMLElement) {
     if (nuovi) {
       c.fillStyle = FG;
       for (let i = 0; i < N_NUOVI; i++) c.fillRect(px(nuovi[i * 2]!) - 1.5, py(nuovi[i * 2 + 1]!) - 1.5, 3, 3);
-    } else if (inMoto) {
+    } else if (inTraining) {
+      // Il gruppo vero di questo passo: la linea è il rumore che la rete deve indovinare
+      c.strokeStyle = ARANCIO;
+      c.globalAlpha = 0.55;
+      c.beginPath();
+      for (let i = 0; i < GRUPPO; i++) { c.moveTo(px(gruppoVisto[i * 4]!), py(gruppoVisto[i * 4 + 1]!)); c.lineTo(px(gruppoVisto[i * 4 + 2]!), py(gruppoVisto[i * 4 + 3]!)); }
+      c.stroke();
+      c.globalAlpha = 1;
       c.fillStyle = ARANCIO;
-      const p = cammini[tt]!;
-      for (let i = 0; i < visti; i++) c.fillRect(px(p[i * 2]!) - 1.5, py(p[i * 2 + 1]!) - 1.5, 3, 3);
+      for (let i = 0; i < GRUPPO; i++) c.fillRect(px(gruppoVisto[i * 4 + 2]!) - 2, py(gruppoVisto[i * 4 + 3]!) - 2, 4, 4);
     }
   }
   function disegnaCurva() {
@@ -128,12 +125,12 @@ export function monta(radice: HTMLElement) {
     azzera.hidden = !m.passi;
     genera.disabled = !m.passi || sale;
   };
-  const scriviErrore = () => scrivi(letturaE, storia.length ? `error ${storia[storia.length - 1]!.toFixed(2)}` : '');
+  const scriviErrore = () => scrivi(letturaE, m.passi ? `${m.passi.toLocaleString('en')} steps${storia.length ? ` · error ${storia[storia.length - 1]!.toFixed(2)}` : ''}` : '');
   const azzeraTutto = () => {
-    inMoto = false; m = nuovoModello(); storia = []; somma = conta = 0; nuovi = null; sale = false; generati = 0; tt = 0;
+    inMoto = false; m = nuovoModello(); storia = []; somma = conta = 0; nuovi = null; sale = false; generati = 0; scrivi(lettura, '');
     calcolaFrecce(); scriviBottone(); scriviErrore(); disegnaCurva(); sporco = true;
   };
-  gioca.addEventListener('click', () => { inMoto = !inMoto; nuovi = null; sporco = true; scriviBottone(); });
+  gioca.addEventListener('click', () => { inMoto = !inMoto; nuovi = null; scrivi(lettura, ''); sporco = true; scriviBottone(); });
   azzera.addEventListener('click', azzeraTutto);
 
   // --- La forma: una pronta, oppure disegnata sul quadrato
@@ -146,7 +143,6 @@ export function monta(radice: HTMLElement) {
     tela.style.touchAction = inDisegno() ? 'none' : '';
     if (f !== 'draw') tratti = [];
     dati = f === 'star' ? stella(N_DATI) : f === 'draw' ? daDisegno(tratti, N_DATI) ?? new Float32Array(0) : punti(N_DATI);
-    preparaCammini();
     azzeraTutto();
   }
   const alMondo = (e: PointerEvent) => {
@@ -169,7 +165,6 @@ export function monta(radice: HTMLElement) {
     tratti.push(corrente);
     corrente = null;
     dati = daDisegno(tratti, N_DATI) ?? new Float32Array(0);
-    preparaCammini();
     azzeraTutto();
   };
   tela.addEventListener('pointerup', fineTratto);
@@ -178,16 +173,27 @@ export function monta(radice: HTMLElement) {
   pulisci.addEventListener('click', () => { tratti = []; scegliForma('draw'); });
 
   // --- Inference: punti nuovi partono dal rumore e seguono quello che la rete ha imparato
-  const finisciNuovi = () => { sale = false; generati++; scriviBottone(); sporco = true; };
+  const scriviPasso = () => {
+    const t = tempiNuovi[kNuovi]!;
+    scrivi(lettura, kNuovi >= passiNuovi ? 'finished' : `step ${kNuovi} of ${passiNuovi} · ${Math.round(Math.sqrt(1 - abar[t]!) * 100)}% noise left`);
+  };
+  const avanzaNuovi = () => {
+    for (let i = 0; i < N_NUOVI; i++) [nuovi![i * 2], nuovi![i * 2 + 1]] = indietro(m, nuovi![i * 2]!, nuovi![i * 2 + 1]!, tempiNuovi[kNuovi]!, tempiNuovi[kNuovi + 1]!);
+    kNuovi++;
+  };
+  const finisciNuovi = () => { sale = false; generati++; scriviPasso(); scriviBottone(); sporco = true; };
+  const scegliPassi = (n: number) => { passiNuovi = n; passiB.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.passi) === n))); };
+  passiB.forEach(b => b.addEventListener('click', () => scegliPassi(Number(b.dataset.passi))));
+  scegliPassi(passiNuovi);
   genera.addEventListener('click', () => {
     inMoto = false;
     nuovi = new Float32Array(N_NUOVI * 2);
     for (let i = 0; i < N_NUOVI * 2; i++) nuovi[i] = gauss();
-    passoNuovi = T;
+    tempiNuovi = [...Array.from({ length: passiNuovi }, (_, k) => Math.round(T - (k * T) / passiNuovi)), 0];
+    kNuovi = 0;
     sporco = true;
     if (calmo) {
-      for (let t = T; t > 0; t--) for (let i = 0; i < N_NUOVI; i++) [nuovi[i * 2], nuovi[i * 2 + 1]] = indietro(m, nuovi[i * 2]!, nuovi[i * 2 + 1]!, t, t - 1);
-      passoNuovi = 0;
+      while (kNuovi < passiNuovi) avanzaNuovi();
       finisciNuovi();
       return;
     }
@@ -244,23 +250,18 @@ export function monta(radice: HTMLElement) {
         if (++conta === 100) { storia.push(somma / conta); somma = conta = 0; }
       } while (performance.now() < fineTempo && m.passi < FINE);
       if (m.passi >= FINE) inMoto = false;
-      // Il rumore sale e scende da solo: è ciò che il training fa a ogni punto
-      const u = (ora % GIRO_RUMORE) / GIRO_RUMORE;
-      tt = calmo ? Math.round(T / 3) : Math.round(T * (u < 0.5 ? u * 2 : 2 - u * 2));
+      // Il gruppo vero cambia a ogni passo, troppo in fretta per l'occhio: se ne mostra uno ogni tanto
+      if (ora - ultimoGruppo > CAMBIO_GRUPPO) { gruppoVisto = m.ultimo.slice(); ultimoGruppo = ora; }
       if (ora - ultimaFreccia > 250) calcolaFrecce();
       scriviBottone(); scriviErrore(); disegnaCurva();
       sporco = true;
     }
-    // Inference: al massimo tre passi per fotogramma, seguendo il tempo
+    // Inference: un passo alla volta, nello stesso tempo qualunque sia il numero di passi
     if (sale && nuovi) {
-      const voluto = Math.max(0, Math.round(T * (1 - (ora - inizioNuovi) / DURATA_NUOVI)));
-      let giri = 0;
-      while (passoNuovi > voluto && giri++ < 3) {
-        for (let i = 0; i < N_NUOVI; i++) [nuovi[i * 2], nuovi[i * 2 + 1]] = indietro(m, nuovi[i * 2]!, nuovi[i * 2 + 1]!, passoNuovi, passoNuovi - 1);
-        passoNuovi--;
-      }
-      sporco = true;
-      if (passoNuovi <= 0) finisciNuovi();
+      const voluto = Math.min(passiNuovi, Math.floor(((ora - inizioNuovi) / DURATA_NUOVI) * passiNuovi) + 1);
+      if (kNuovi < voluto) { avanzaNuovi(); sporco = true; }
+      scriviPasso();
+      if (kNuovi >= passiNuovi) finisciNuovi();
     }
     if (W && visibile) aggiornaTag();
     if (!sporco || !W || !visibile) return;

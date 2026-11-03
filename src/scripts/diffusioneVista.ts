@@ -1,8 +1,8 @@
-import { caricaModello, D, LATO, passo, rumorePuro, sporca, stima, tempiDi, type Modello } from '../lib/cifre';
+import { caricaModello, D, LATO, passo, quotaRumore, rumorePuro, sporca, stima, tempiDi, type Modello } from '../lib/cifre';
 
 // Vista delle cifre. Training: un esempio vero viene sporcato e la rete vera stima il rumore. Inference: dal puro rumore alla cifra chiesta.
 // Nella griglia ogni pixel è un blocco, alto e chiaro quanto il suo valore.
-const ALTEZZA = 0.1, GIRO_MAX = 1, PIATTO = 0.78, PASSI = 20, ATTESA = 80, RICORDI = 6, ESEMPI_PER_CIFRA = 3, CAMBIO_ESEMPIO = 2200;
+const ALTEZZA = 0.1, GIRO_MAX = 1, PIATTO = 0.78, DURATA_MIN = 1600, RICORDI = 6, ESEMPI_PER_CIFRA = 3, CAMBIO_ESEMPIO = 2200;
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
 const rgb = (hex: string) => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] as const; };
 const misto = (a: string, b: string, t: number) => { const A = rgb(a), B = rgb(b); return `#${A.map((v, i) => Math.round(v + (B[i]! - v) * t).toString(16).padStart(2, '0')).join('')}`; };
@@ -16,11 +16,11 @@ export function monta(radice: HTMLElement) {
   const SOPRA = Array.from({ length: 16 }, (_, k) => misto(misto(BG, LINE, 0.7), ARANCIO, k / 15)), LATI = SOPRA.map(c => misto(c, BG, 0.55));
   const tela = $<HTMLCanvasElement>('.tela-griglia'), t = tela.getContext('2d')!, telaOra = $<HTMLCanvasElement>('.mini-ora');
   const telaVera = $<HTMLCanvasElement>('.mini-vera'), telaSporca = $<HTMLCanvasElement>('.mini-sporca'), telaStima = $<HTMLCanvasElement>('.mini-stima');
-  const gioca = $<HTMLButtonElement>('.gioca'), ricordi = $<HTMLElement>('.ricordi'), cifreB = radice.querySelectorAll<HTMLButtonElement>('[data-cifra]');
+  const gioca = $<HTMLButtonElement>('.gioca'), ricordi = $<HTMLElement>('.ricordi'), lettura = $<HTMLElement>('.lettura-passo'), cifreB = radice.querySelectorAll<HTMLButtonElement>('[data-cifra]'), passiB = radice.querySelectorAll<HTMLButtonElement>('[data-passi]');
   const tagPunto = $<HTMLElement>('.tag-punto'), tagConsiglio = $<HTMLElement>('.tag-consiglio'), pannello = $<HTMLElement>('.pannello'), notaTel = $<HTMLElement>('.nota-tel');
 
   let modello: Modello | null = null, esempi: Uint8Array | null = null, cifra = 7, inMoto = false, prossimo = 0, sporco = true, giro = 0.14, gira = false, xPrima = 0, spiegaEl: HTMLElement | null = null, visibile = false;
-  let generate = 0, prossimoEsempio = 0, giroEsempio = 0, tempi = tempiDi(PASSI), stati: Float32Array[] = [], cifraGen = cifra;
+  let generate = 0, prossimoEsempio = 0, giroEsempio = 0, passi = 20, tempi = tempiDi(passi), stati: Float32Array[] = [], cifraGen = cifra;
   let attuale: Float32Array = new Float32Array(D).fill(-1);
 
   // --- Griglia
@@ -89,20 +89,29 @@ export function monta(radice: HTMLElement) {
   }
 
   // --- Inference
+  const scriviPasso = (k: number) => scrivi(lettura, k >= passi ? 'finished' : `step ${k} of ${passi} · ${Math.round(quotaRumore(tempi[k]!) * 100)}% noise left`);
   const metti = (si: boolean) => { inMoto = si; scrivi(gioca, si ? 'generating' : `generate a ${cifra}`); gioca.disabled = si || !modello; };
   const nuova = (partenza: Float32Array, c: number) => {
     if (!modello) return;
-    tempi = tempiDi(PASSI);
+    tempi = tempiDi(passi);
     stati = [partenza];
     cifraGen = c;
     generate++;
     attuale = partenza;
     sporco = true;
-    if (calmo) { for (let k = 0; k < PASSI; k++) stati.push(passo(modello, stati[k]!, tempi[k]!, tempi[k + 1]!, c).nuovo); attuale = stati[PASSI]!; ricorda(); return; }
+    scriviPasso(0);
+    if (calmo) { for (let k = 0; k < passi; k++) stati.push(passo(modello, stati[k]!, tempi[k]!, tempi[k + 1]!, c).nuovo); attuale = stati[passi]!; scriviPasso(passi); ricorda(); return; }
     prossimo = performance.now();
     metti(true);
   };
   gioca.addEventListener('click', () => nuova(rumorePuro(), cifra));
+  const scegliPassi = (n: number) => {
+    passi = n;
+    passiB.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.passi) === n)));
+    // Stesso rumore con un altro numero di step: si vede cosa cambia
+    if (stati.length && !inMoto) nuova(stati[0]!, cifraGen);
+  };
+  passiB.forEach(b => b.addEventListener('click', () => scegliPassi(Number(b.dataset.passi))));
   const scegliCifra = (n: number) => {
     cifra = n;
     cifreB.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.cifra) === n)));
@@ -167,6 +176,7 @@ export function monta(radice: HTMLElement) {
   new ResizeObserver(misura).observe(tela);
   new IntersectionObserver(v => { visibile = v.some(x => x.isIntersecting); if (visibile) sporco = true; }, { rootMargin: '60px' }).observe(tela);
   misura();
+  passiB.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.passi) === passi)));
   scegliCifra(cifra);
   gioca.disabled = true;
   scrivi(gioca, 'loading');
@@ -182,8 +192,9 @@ export function monta(radice: HTMLElement) {
       const k = stati.length - 1;
       attuale = stati[k]!;
       sporco = true;
-      if (k >= PASSI) { metti(false); ricorda(); }
-      else { stati.push(passo(modello!, stati[k]!, tempi[k]!, tempi[k + 1]!, cifraGen).nuovo); prossimo = ora + ATTESA; }
+      scriviPasso(k);
+      if (k >= passi) { metti(false); ricorda(); }
+      else { stati.push(passo(modello!, stati[k]!, tempi[k]!, tempi[k + 1]!, cifraGen).nuovo); prossimo = ora + Math.max(40, DURATA_MIN / passi); }
     }
     // L'esempio di training cambia da solo, ma mai mentre la rete sta generando
     if (visibile && !inMoto && modello && esempi && ora >= prossimoEsempio) {

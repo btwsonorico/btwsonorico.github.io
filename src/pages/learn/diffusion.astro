@@ -4,8 +4,8 @@ import Base from '../../layouts/Base.astro';
 // Diffusion: cosa fa un modello in training e cosa fa in inference. Prima su una forma, allenando nel browser (src/lib/spirale.ts),
 // poi sulle immagini, con un modello già allenato (src/lib/cifre.ts, scripts/allena-cifre.py). Sotto c'è la spiegazione completa.
 const COME: [string, string][] = [
-  ['What does the model do in training?', 'It learns one thing: to name noise. Training takes a real example, adds a random amount of noise, and asks the network what noise it added. The gap from the real noise is the error, and backpropagation corrects the weights.\nThis repeats thousands of times, at every level of noise. The orange points are the real points with noise on them. The arrows show the direction in which the network would remove the noise. They start out random, and they turn towards the shape as the error falls.'],
-  ['What does the model do in inference?', 'It starts from pure noise, with nothing of the shape in it. It estimates the noise, removes a small part of it, and repeats. After 50 steps the new points have settled on the shape.\nThe real points are gone at this stage. The model holds no points, only weights, so the new points are not copies.'],
+  ['What does the model do in training?', 'It learns one thing: to name noise. Each training step picks 64 real points. Each point gets its own random amount of noise, from a little to a lot. The network sees only the noisy point and the amount of noise, and it says what noise was added. The gap from the real noise is the error, and backpropagation corrects the weights.\nThe orange lines on the page are real: each one goes from a real point to its noisy copy, for one of the training steps. Nothing gets cleaner during training. The points never move back, and each step starts again with new noise. What changes is the weights. The arrows show this: each one points to where the network, at a medium amount of noise, thinks the clean point is. They start out random, and they turn towards the shape as the error falls.'],
+  ['What does the model do in inference?', 'This is the only moment when points move back to the shape. It starts from pure noise, with nothing of the shape in it. It estimates the noise, removes a part of it, and repeats. The line under the button shows how much noise is left at each step. More steps give the model more chances to correct itself, which is why few steps give a worse result.\nThe real points are gone at this stage. The model holds no points, only weights, so the new points are not copies.'],
   ['Is it different from the neural network page?', 'The network is the same kind of thing, but it does a different job. On that page it learns one shape and gives that shape back. Here it only names noise. The new drawing comes from the loop around the network, which asks that question many times.'],
   ['What changes on images?', 'The method stays the same. An image is one point with many values: here 784, one for each pixel of a 28 by 28 digit. So training adds noise to real digits, and inference starts from noise and asks for one digit.\nThe network does change, because a row of plain layers does not know which pixels are neighbours. This one is a small U-Net with 196,081 weights, trained once on 60,000 digits, before this page was published. Your browser downloads a 784 KB file and does all the calculation. It reads which digit you asked for at every step, which is the same idea as a prompt with ten possible requests. It is a small model, and many digits come out crooked.'],
   ['What about large image models?', 'They use the same loop on a very different scale, with billions of weights. They usually work on a compressed version of the image, and a long text prompt steers every step.\nThere is no GAN in any of this. A GAN trains a second network to judge the first, and generates in one pass. A diffusion model has one network, measures only the gap from the real noise, and generates in many steps.'],
@@ -33,7 +33,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         <div class="pannello">
           <div class="mono sezione">
             <span class="titolino">training</span>
-            <p class="spiega">Adds noise to real points. Learns to name that noise.</p>
+            <p class="spiega">Each step takes 64 real points and moves each one with random noise, some a little, some a lot. The network must name that noise. The orange lines are that noise.</p>
             <div class="riga">
               <button type="button" class="gioca"></button>
               <button type="button" class="azzera" hidden>restart</button>
@@ -45,7 +45,16 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
           <div class="mono sezione">
             <span class="titolino">inference</span>
             <p class="spiega">Starts from pure noise. Removes it step by step.</p>
-            <button type="button" class="genera">generate</button>
+            <div class="riga">
+              <button type="button" class="genera">generate</button>
+              <div class="passi" role="group" aria-label="Steps" data-spiega="How many steps it takes to remove the noise. Fewer steps are faster but worse.">
+                <span>steps</span>
+                <button type="button" data-passi="5">5</button>
+                <button type="button" data-passi="20">20</button>
+                <button type="button" data-passi="50">50</button>
+              </div>
+            </div>
+            <p class="lettura lettura-nuovi" aria-live="polite"></p>
           </div>
         </div>
       </div>
@@ -79,7 +88,16 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
             <div class="cifre" role="group" aria-label="Digit">
               {CIFRE.map(n => <button type="button" data-cifra={n}>{n}</button>)}
             </div>
-            <button type="button" class="gioca genera-cifra"></button>
+            <div class="riga">
+              <button type="button" class="gioca"></button>
+              <div class="passi" role="group" aria-label="Steps" data-spiega="How many steps it takes to remove the noise. Fewer steps are faster but worse.">
+                <span>steps</span>
+                <button type="button" data-passi="5">5</button>
+                <button type="button" data-passi="20">20</button>
+                <button type="button" data-passi="50">50</button>
+              </div>
+            </div>
+            <p class="lettura lettura-passo" aria-live="polite"></p>
             <div class="uscita">
               <figure><canvas class="mini-ora" role="img" aria-label="The image at this step"></canvas><figcaption>now</figcaption></figure>
               <div>
@@ -139,10 +157,13 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   .gioca:disabled, .genera:disabled { background: var(--bg); border-color: var(--line); color: var(--muted); opacity: 1; }
   .gioca[data-stato="pausa"] { background: var(--bg); color: var(--fg); }
   .errore { color: var(--muted); font-size: 12px; }
+  .passi { display: inline-flex; align-items: center; gap: 4px; }
+  .passi span { margin-right: 4px; color: var(--muted); font-size: 12px; }
+  .passi button { min-width: 34px; padding: 4px 6px; }
+  .lettura { min-height: 1.4em; margin: 6px 0 0; color: var(--fg); font-size: 12px; }
   .curva { display: block; width: 100%; height: 110px; margin-top: 10px; }
   .cifre { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; margin-bottom: 8px; }
   .cifre button { padding: 5px 0; }
-  .genera-cifra { width: 100%; }
   figure { margin: 0; }
   figure canvas { display: block; width: 100%; aspect-ratio: 1; image-rendering: pixelated; outline: 1px solid var(--line); }
   figcaption, .etichetta { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
@@ -175,6 +196,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     .forme button { flex: 1 1 0; padding: 9px 4px; }
     .pannello { position: static; order: 3; width: 100%; overflow: visible; }
     .gioca, .genera { flex: 1 1 100%; width: 100%; padding: 10px; }
+    .passi button { min-width: 44px; padding: 8px; }
     .azzera { flex: 1 1 100%; padding: 9px; }
     .cifre button { padding: 10px 0; }
     .ricordi :global(button) { width: 48px; height: 48px; }

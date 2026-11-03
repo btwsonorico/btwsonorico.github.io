@@ -56,13 +56,15 @@ export function daDisegno(tratti: number[][], n: number): Float32Array | null {
   return p;
 }
 
-export type Modello = { pesi: Float32Array[]; scarti: Float32Array[]; m1: Float32Array[]; m2: Float32Array[]; s1: Float32Array[]; s2: Float32Array[]; passi: number; u: Float32Array[]; d: Uint8Array[]; c: Float32Array[]; gp: Float32Array[]; gs: Float32Array[] };
+// ultimo: l'ultimo gruppo di allenamento, quattro numeri per punto: x e y veri, x e y con il rumore
+export type Modello = { ultimo: Float32Array; pesi: Float32Array[]; scarti: Float32Array[]; m1: Float32Array[]; m2: Float32Array[]; s1: Float32Array[]; s2: Float32Array[]; passi: number; u: Float32Array[]; d: Uint8Array[]; c: Float32Array[]; gp: Float32Array[]; gs: Float32Array[] };
 
+const GRUPPO_MAX = 64;
 export function nuovoModello(): Modello {
   const z = (l: Float32Array[]) => l.map(a => new Float32Array(a.length));
   const pesi = FORMA.slice(1).map((n, l) => Float32Array.from({ length: n * FORMA[l]! }, () => (Math.random() * 2 - 1) * Math.sqrt(3 / FORMA[l]!)));
   const scarti = FORMA.slice(1).map(n => new Float32Array(n));
-  return { pesi, scarti, m1: z(pesi), m2: z(pesi), s1: z(scarti), s2: z(scarti), gp: z(pesi), gs: z(scarti), passi: 0, u: FORMA.map(n => new Float32Array(n)), d: FORMA.map(n => new Uint8Array(n)), c: FORMA.map(n => new Float32Array(n)) };
+  return { ultimo: new Float32Array(GRUPPO_MAX * 4), pesi, scarti, m1: z(pesi), m2: z(pesi), s1: z(scarti), s2: z(scarti), gp: z(pesi), gs: z(scarti), passi: 0, u: FORMA.map(n => new Float32Array(n)), d: FORMA.map(n => new Uint8Array(n)), c: FORMA.map(n => new Float32Array(n)) };
 }
 
 function avanti(m: Modello, x: number, y: number, t: number) {
@@ -94,7 +96,8 @@ export function allena(m: Modello, dati: Float32Array, gruppo: number, lr: numbe
   const n = dati.length / 2;
   for (let k = 0; k < gruppo; k++) {
     const i = Math.floor(Math.random() * n), t = 1 + Math.floor(Math.random() * T), a = abar[t]!, sa = Math.sqrt(a), sb = Math.sqrt(1 - a), e0 = gauss(), e1 = gauss();
-    const o = avanti(m, sa * dati[i * 2]! + sb * e0, sa * dati[i * 2 + 1]! + sb * e1, t), c = m.c[L]!;
+    const nx = sa * dati[i * 2]! + sb * e0, ny = sa * dati[i * 2 + 1]! + sb * e1, o = avanti(m, nx, ny, t), c = m.c[L]!;
+    if (k < GRUPPO_MAX) m.ultimo.set([dati[i * 2]!, dati[i * 2 + 1]!, nx, ny], k * 4);
     c[0] = o[0]! - e0; c[1] = o[1]! - e1;
     errore += c[0] * c[0] + c[1] * c[1];
     for (let l = L; l >= 1; l--) {

@@ -21,10 +21,11 @@ function montaEmoji(radice: HTMLElement, m: Modello, d: Etichette) {
   const area = $<HTMLTextAreaElement>('.messaggio'), grande = $<HTMLElement>('.emoji-grande'), quota = $<HTMLElement>('.emoji-quota'), esito = $<HTMLElement>('.esito'), righe = $<HTMLElement>('.parole'), barre = $<HTMLElement>('.barre');
   const voci = Array.from({ length: QUANTE }, () => barra(barre));
   const prob = (ws: string[]) => softmax(punteggi(m, ws), d.temperatura);
+  const nota = (w: string) => m.indice.has(w);
   function aggiorna() {
-    const ws = parole(area.value);
+    const tutte = parole(area.value), ws = tutte.filter(nota);
     if (!ws.length) {
-      grande.textContent = '·'; quota.textContent = ''; esito.textContent = 'write something'; righe.replaceChildren();
+      grande.textContent = '·'; quota.textContent = ''; esito.textContent = tutte.length ? 'it knows none of these words' : 'write something'; righe.replaceChildren();
       voci.forEach(v => { v.n.textContent = ''; v.pieno.style.width = '0'; v.num.textContent = ''; });
       return;
     }
@@ -34,9 +35,13 @@ function montaEmoji(radice: HTMLElement, m: Modello, d: Etichette) {
     esito.textContent = p[prima]! >= INCERTO ? 'its choice' : 'not sure: this is only its best guess';
     voci.forEach((v, k) => { const i = ordine[k]!; v.n.textContent = d.emoji[i]!; v.pieno.style.width = `${p[i]! * 100}%`; v.num.textContent = `${Math.round(p[i]! * 100)}%`; });
     // Ogni parola si accende quanto la scelta scende se la si toglie. Il testo si scrive sempre come testo, mai come HTML
-    righe.replaceChildren(...ws.flatMap((w, i) => {
-      const s = document.createElement('span'), senza = ws.length > 1 ? prob(ws.filter((_, k) => k !== i))[prima]! : 0, peso = Math.max(0, Math.min(1, (p[prima]! - senza) / Math.max(0.05, p[prima]!)));
+    let n = -1;
+    righe.replaceChildren(...tutte.flatMap((w, i) => {
+      const s = document.createElement('span');
       s.textContent = w;
+      if (!nota(w)) return i ? [' ', s] : [s];
+      n++;
+      const q = n, senza = ws.length > 1 ? prob(ws.filter((_, k) => k !== q))[prima]! : 0, peso = Math.max(0, Math.min(1, (p[prima]! - senza) / Math.max(0.05, p[prima]!)));
       if (peso > 0.15) { s.style.color = tono('--arancio'); s.style.opacity = String(0.45 + peso * 0.55); }
       return i ? [' ', s] : [s];
     }));
@@ -75,7 +80,7 @@ export async function monta(radice: HTMLElement) {
   const emoji = radice.querySelector<HTMLElement>('[data-emoji]')!, ticket = radice.querySelector<HTMLElement>('[data-ticket]')!;
   fetch('/learn/decisioni.json').then(r => r.json() as Promise<Ticket>).then(d => montaTicket(ticket, d)).catch(() => { ticket.querySelector('.esito')!.textContent = 'could not load the model'; });
   try {
-    const [pesi, d] = await Promise.all([fetch('/learn/emoji.bin').then(r => r.arrayBuffer()), fetch('/learn/emoji.json').then(r => r.json() as Promise<Etichette>)]);
-    montaEmoji(emoji, modelloDa(pesi), d);
+    const [pesi, vettori, testo, d] = await Promise.all([fetch('/learn/emoji.bin').then(r => r.arrayBuffer()), fetch('/learn/emoji-vettori.bin').then(r => r.arrayBuffer()), fetch('/learn/emoji-parole.txt').then(r => r.text()), fetch('/learn/emoji.json').then(r => r.json() as Promise<Etichette>)]);
+    montaEmoji(emoji, modelloDa(pesi, vettori, testo), d);
   } catch { emoji.querySelector('.esito')!.textContent = 'could not load the model'; }
 }
