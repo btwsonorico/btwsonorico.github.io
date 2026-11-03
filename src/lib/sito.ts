@@ -14,5 +14,4 @@ export const SITO = {
   linkedin: 'https://www.linkedin.com/in/riccardo-mondi-7717181aa/',
   bio: 'Innovation interests me: when something new comes out, I want to know about it right away. I also wonder how different fields connect, so I read papers from all over, probably too many.',
   dove: '@Polimi',
-  studi: 'MSc in Economics and Management of Innovation and Technology @Bocconi',
 };
