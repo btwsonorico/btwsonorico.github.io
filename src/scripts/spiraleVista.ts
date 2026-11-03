@@ -122,7 +122,12 @@ export function monta(radice: HTMLElement) {
       c.fillStyle = MUTED;
       c.font = `11px ${stile.getPropertyValue('--mono') || 'monospace'}`;
       c.textAlign = 'center';
-      c.fillText(`arrows: where the network sends a point at ${Math.round(quota(tFrecce) * 100)}% noise`, cx, 12);
+      c.fillText(`arrows at ${Math.round(quota(tFrecce) * 100)}% noise: where points get sent`, cx, 12);
+    } else {
+      c.fillStyle = MUTED;
+      c.font = `11px ${stile.getPropertyValue('--mono') || 'monospace'}`;
+      c.textAlign = 'center';
+      c.fillText('this square is a map: one result = one dot', cx, 12);
     }
     if (nuovi) {
       c.fillStyle = FG;
@@ -231,7 +236,7 @@ export function monta(radice: HTMLElement) {
   azzera.addEventListener('click', azzeraTutto);
 
   // --- Quanto rumore vede la rete. Cambia cosa impara, quindi il training riparte
-  const scriviRumore = () => scrivi(letturaR, `up to ${Math.round(Math.sqrt(1 - abar[tMax]!) * 100)}% noise`);
+  const scriviRumore = () => scrivi(letturaR, `${Math.round(Math.sqrt(1 - abar[tMax]!) * 100)}%`);
   cursore.addEventListener('input', () => { tMax = Number(cursore.value); scriviRumore(); azzeraTutto(); });
 
   // --- La forma: una pronta, oppure disegnata sul quadrato

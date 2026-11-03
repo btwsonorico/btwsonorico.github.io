@@ -14,13 +14,15 @@ const COME: [string, string][] = [
 ];
 const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 ---
-<Base title="Diffusion · Riccardo Mondi" description="Train a tiny diffusion model in your browser, then ask a larger trained model to draw a digit out of noise." tono="neutro" largo>
+<Base title="Diffusion · Riccardo Mondi" description="How a diffusion model generates images: train a tiny one in your browser, then run a larger trained one that draws digits out of noise." tono="neutro" largo>
   <main class="rn">
     <section class="schermo" data-spirale>
       <header class="testa">
-        <h1>Train a diffusion model in your browser</h1>
+        <h1>How a diffusion model generates images</h1>
         <a href="#how-it-works" class="mono">how it works ↓</a>
-        <p class="mono messaggio">The model learns one thing: to estimate the noise in a point. To generate, it starts from pure noise and removes it, step by step.</p>
+        <p class="mono messaggio">It learns one skill: to estimate the noise in an image. To generate, it starts from pure noise and removes it, step by step.</p>
+        <h2>1. A tiny model, trained by you</h2>
+        <p class="mono messaggio">Its "images" are points with only 2 values, x and y, so you can see all of it. It trains here in your browser, in about 30 seconds.</p>
       </header>
 
       <div class="banco">
@@ -50,18 +52,14 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
             </div>
             <span class="errore"></span>
             <canvas class="curva" role="img" aria-label="The error during training, with a dashed line at the lowest possible error"></canvas>
-          </div>
-
-          <div class="mono sezione">
-            <span class="titolino">how much noise it practises on</span>
+            <div class="estremi"><span>most noise in training</span><span class="lettura-rumore"></span></div>
             <input class="cursore-rumore" type="range" min="4" max="50" value="50" aria-label="The most noise the network sees in training" />
-            <div class="estremi"><span>a little</span><span class="lettura-rumore"></span><span>pure noise</span></div>
-            <p class="spiega">Too little leaves gaps in the shape.</p>
+            <p class="spiega">Less noise: gaps in the new shape.</p>
           </div>
 
           <div class="mono sezione">
             <span class="titolino">inference</span>
-            <p class="spiega">From pure noise, along the arrows.</p>
+            <p class="spiega">The real points are gone. 300 random points start at full noise. At each step the network estimates their noise, and they move along the arrows.</p>
             <div class="riga">
               <button type="button" class="genera">generate</button>
               <div class="passi" role="group" aria-label="Steps" data-spiega="How many steps it takes to remove the noise. Fewer steps are faster but worse.">
@@ -81,17 +79,26 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
     <section class="schermo" data-diffusione>
       <header class="testa">
-        <h2>The same method on images</h2>
-        <p class="mono messaggio">An image is one point with 784 values, one per pixel. The method does not change.</p>
+        <h2>2. A larger model, already trained</h2>
+        <p class="mono messaggio">Same method, on real images. Above, one result is one dot on the square. Here, one result is the whole grid: 784 values, one per pixel. You do not train this model. You only run inference.</p>
       </header>
 
       <div class="banco">
         <canvas class="tela-griglia" role="img" aria-label="A grid with one block for each pixel of a 28 by 28 image. A taller, brighter block means a higher pixel value."></canvas>
         <p class="mono nota-tel" aria-live="polite"></p>
+        <table class="mono confronto">
+          <thead><tr><th></th><th>model 1</th><th>model 2</th></tr></thead>
+          <tbody>
+            <tr><th>values per result</th><td>2</td><td>784</td></tr>
+            <tr><th>weights</th><td>8,898</td><td>196,081</td></tr>
+            <tr><th>training data</th><td>1,024 points</td><td>60,000 digits</td></tr>
+            <tr><th>training time</th><td>30 s, by you</td><td>25 min, by me</td></tr>
+          </tbody>
+        </table>
 
         <div class="pannello">
           <div class="mono sezione">
-            <span class="titolino">training</span>
+            <span class="titolino">training, already done</span>
             <p class="spiega">Done once, on 60,000 real digits. One example:</p>
             <div class="trittico">
               <figure><canvas class="mini-vera" role="img" aria-label="A real digit"></canvas><figcaption>real digit</figcaption></figure>
@@ -101,8 +108,8 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
           </div>
 
           <div class="mono sezione">
-            <span class="titolino">inference</span>
-            <p class="spiega">Starts from pure noise. Removes it until your digit appears.</p>
+            <span class="titolino">inference, you run this</span>
+            <p class="spiega">784 random values start as pure noise. At each step the network estimates the noise and removes a part.</p>
             <div class="cifre" role="group" aria-label="Digit">
               {CIFRE.map(n => <button type="button" data-cifra={n}>{n}</button>)}
             </div>
@@ -151,8 +158,14 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   .schermo { display: flex; flex-direction: column; gap: var(--s2); height: calc(100vh - 62px); min-height: 560px; padding-bottom: var(--s2); }
   .testa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px var(--s2); }
   .testa a { color: var(--fg); font-size: 12px; white-space: nowrap; }
+  .testa h2 { flex: 1 1 100%; }
+  .confronto { position: absolute; top: 24px; right: 0; z-index: 1; border-collapse: collapse; background: var(--bg); color: var(--fg); font-size: 12px; pointer-events: none; }
+  .confronto th, .confronto td { padding: 2px 0 2px 16px; font-weight: 400; text-align: left; white-space: nowrap; }
+  .confronto thead th, .confronto tbody th { color: var(--muted); }
+  .confronto tr > :first-child { padding-left: 0; }
   .messaggio { flex: 1 1 100%; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
   h1, .testa h2 { margin: 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
+  .testa h1 + a + .messaggio + h2 { flex: 1 1 100%; margin-top: 8px; font-size: 18px; }
   button { padding: 5px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; transition: color .12s, border-color .12s; }
   button:hover:not(:disabled) { border-color: var(--fg); color: var(--fg); }
   button:disabled { opacity: .5; cursor: default; }
@@ -187,7 +200,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   .passi span { margin-right: 4px; color: var(--muted); font-size: 12px; }
   .passi button { min-width: 34px; padding: 4px 6px; }
   .lettura { min-height: 1.4em; margin: 6px 0 0; color: var(--fg); font-size: 12px; }
-  .curva { display: block; width: 100%; height: 60px; margin-top: 2px; }
+  .curva { display: block; width: 100%; height: 56px; margin-top: 2px; }
   .cifre { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; margin-bottom: 8px; }
   .cifre button { padding: 5px 0; }
   figure { margin: 0; }
@@ -219,6 +232,8 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     .testa { order: 0; }
     .tela-griglia, .tela-spirale { position: static; display: block; order: 1; height: 320px; }
     .forme { position: static; order: 2; flex-direction: row; width: auto; }
+    .confronto { position: static; order: 2; width: 100%; background: none; }
+    .confronto th, .confronto td { padding-left: 8px; font-size: 11px; }
     .forme button { flex: 1 1 0; padding: 9px 4px; }
     .pannello { position: static; order: 3; width: 100%; overflow: visible; }
     .gioca, .genera { flex: 1 1 100%; width: 100%; padding: 10px; }

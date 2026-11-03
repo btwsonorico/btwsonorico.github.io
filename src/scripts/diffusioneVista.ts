@@ -2,7 +2,7 @@ import { caricaModello, D, LATO, passo, quotaRumore, rumorePuro, sporca, stima, 
 
 // Vista delle cifre. Training: un esempio vero viene sporcato e la rete vera stima il rumore. Inference: dal puro rumore alla cifra chiesta.
 // Nella griglia ogni pixel è un blocco, alto e chiaro quanto il suo valore.
-const ALTEZZA = 0.1, GIRO_MAX = 1, PIATTO = 0.78, DURATA_MIN = 1600, RICORDI = 6, ESEMPI_PER_CIFRA = 3, CAMBIO_ESEMPIO = 2200;
+const ALTEZZA = 0.1, PIATTO = 0.6, DURATA_MIN = 1600, RICORDI = 6, ESEMPI_PER_CIFRA = 3, CAMBIO_ESEMPIO = 2200;
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
 const rgb = (hex: string) => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] as const; };
 const misto = (a: string, b: string, t: number) => { const A = rgb(a), B = rgb(b); return `#${A.map((v, i) => Math.round(v + (B[i]! - v) * t).toString(16).padStart(2, '0')).join('')}`; };
@@ -19,7 +19,7 @@ export function monta(radice: HTMLElement) {
   const gioca = $<HTMLButtonElement>('.gioca'), ricordi = $<HTMLElement>('.ricordi'), lettura = $<HTMLElement>('.lettura-passo'), cifreB = radice.querySelectorAll<HTMLButtonElement>('[data-cifra]'), passiB = radice.querySelectorAll<HTMLButtonElement>('[data-passi]');
   const tagPunto = $<HTMLElement>('.tag-punto'), tagConsiglio = $<HTMLElement>('.tag-consiglio'), pannello = $<HTMLElement>('.pannello'), notaTel = $<HTMLElement>('.nota-tel');
 
-  let modello: Modello | null = null, esempi: Uint8Array | null = null, cifra = 7, inMoto = false, prossimo = 0, sporco = true, giro = 0.14, gira = false, xPrima = 0, spiegaEl: HTMLElement | null = null, visibile = false;
+  let modello: Modello | null = null, esempi: Uint8Array | null = null, cifra = 7, inMoto = false, prossimo = 0, sporco = true, giro = 0.42, gira = false, xPrima = 0, spiegaEl: HTMLElement | null = null, visibile = false;
   let generate = 0, prossimoEsempio = 0, giroEsempio = 0, passi = 20, tempi = tempiDi(passi), stati: Float32Array[] = [], cifraGen = cifra;
   let attuale: Float32Array = new Float32Array(D).fill(-1);
 
@@ -27,14 +27,18 @@ export function monta(radice: HTMLElement) {
   let W = 0, H = 0, Wp = 0;
   const piano = () => {
     const sinistra = innerWidth > 760 ? Wp : 0, libero = W - sinistra - (innerWidth > 760 ? 24 : 0);
-    const S = Math.min(libero / 2.95, H / (2 * Math.SQRT2 * PIATTO + ALTEZZA * 1.5));
-    return { S, cx: sinistra + libero / 2, cy: H / 2 + (S * ALTEZZA) / 2, co: Math.cos(giro), si: Math.sin(giro) };
+    const S = Math.min(libero / 2.95, (H - 24) / (2 * Math.SQRT2 * PIATTO + ALTEZZA * 1.5));
+    return { S, cx: sinistra + libero / 2, cy: H / 2 + 12 + (S * ALTEZZA) / 2, co: Math.cos(giro), si: Math.sin(giro) };
   };
   const profondo = new Float32Array(D), ordine = Array.from({ length: D }, (_, i) => i);
   function disegnaGriglia() {
     const { S, cx, cy, co, si } = piano(), M = 1 / LATO;
     t.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     t.clearRect(0, 0, W, H);
+    t.fillStyle = tono('--muted');
+    t.font = `11px ${stile.getPropertyValue('--mono') || 'monospace'}`;
+    t.textAlign = 'center';
+    t.fillText('this whole grid is one result: 784 pixels', cx, 12);
     const px = (u: number, v: number, h: number) => [cx + S * (u * co + v * si), cy - S * (-u * si + v * co) * PIATTO - S * h * ALTEZZA] as const;
     const faccia = (p: readonly (readonly [number, number])[], colore: string) => {
       t.fillStyle = colore;
@@ -163,7 +167,7 @@ export function monta(radice: HTMLElement) {
 
   // --- Girare la griglia col trascinamento
   tela.addEventListener('pointerdown', e => { gira = true; xPrima = e.clientX; tela.setPointerCapture(e.pointerId); });
-  tela.addEventListener('pointermove', e => { if (gira) { giro = Math.max(-GIRO_MAX, Math.min(GIRO_MAX, giro - (e.clientX - xPrima) * 0.008)); xPrima = e.clientX; sporco = true; } });
+  tela.addEventListener('pointermove', e => { if (gira) { giro -= (e.clientX - xPrima) * 0.008; xPrima = e.clientX; sporco = true; } });
   const fine = () => { gira = false; };
   tela.addEventListener('pointerup', fine);
   tela.addEventListener('pointercancel', fine);
