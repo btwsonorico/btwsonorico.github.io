@@ -103,19 +103,15 @@ export function monta(radice: HTMLElement) {
       c.stroke();
       c.lineWidth = 1;
     }
-    // Le frecce della rete. In training stanno sul piano, sopra la forma. In inference stanno su un quadrato all'altezza del rumore, con i punti
+    // Le frecce della rete stanno sempre sul piano. In inference cambiano con il rumore, e sono i punti a scendere verso il piano
     const finito = !!nuovi && !sale, conFrecce = m.passi > 0 && !finito && !racconto?.unPasso, u = sale ? Math.min(1, Math.max(0, ((ora - inizioNuovi) / DURATA_NUOVI) * passiNuovi - (kNuovi - 1))) : 1;
     const h = conFrecce && nuovi ? quota(tempiNuovi[kNuovi - 1] ?? T) + (quota(tempiNuovi[kNuovi] ?? 0) - quota(tempiNuovi[kNuovi - 1] ?? T)) * u : 0;
     if (conFrecce) {
       c.strokeStyle = MUTED;
       c.beginPath();
-      if (nuovi) ([[-MONDO, -MONDO], [MONDO, -MONDO], [MONDO, MONDO], [-MONDO, MONDO]] as const).forEach(([x, y], i) => { const [a, b] = P(x, y, h); if (i) c.lineTo(a, b); else c.moveTo(a, b); });
-      c.closePath();
-      c.stroke();
-      c.beginPath();
       for (let r = 0, i = 0; r < N_FRECCE; r++) for (let k = 0; k < N_FRECCE; k++, i += 2) {
         const x = -MONDO + (k + 0.5) * lato, y = -MONDO + (r + 0.5) * lato, dx = frecce[i]!, dy = frecce[i + 1]!, d = Math.hypot(dx, dy) || 1, l = Math.min(0.8 * lato, d * 0.6);
-        const [a0, b0] = P(x, y, h), [a1, b1] = P(x + (dx / d) * l, y + (dy / d) * l, h), [a2, b2] = P(x + (dx / d) * l * 0.65 - (dy / d) * l * 0.2, y + (dy / d) * l * 0.65 + (dx / d) * l * 0.2, h), [a3, b3] = P(x + (dx / d) * l * 0.65 + (dy / d) * l * 0.2, y + (dy / d) * l * 0.65 - (dx / d) * l * 0.2, h);
+        const [a0, b0] = P(x, y), [a1, b1] = P(x + (dx / d) * l, y + (dy / d) * l), [a2, b2] = P(x + (dx / d) * l * 0.65 - (dy / d) * l * 0.2, y + (dy / d) * l * 0.65 + (dx / d) * l * 0.2), [a3, b3] = P(x + (dx / d) * l * 0.65 + (dy / d) * l * 0.2, y + (dy / d) * l * 0.65 - (dx / d) * l * 0.2);
         c.moveTo(a0, b0); c.lineTo(a1, b1); c.lineTo(a2, b2); c.moveTo(a1, b1); c.lineTo(a3, b3);
       }
       c.stroke();
