@@ -4,11 +4,12 @@ import Base from '../../layouts/Base.astro';
 // Diffusion: cosa fa un modello in training e cosa fa in inference. Prima su una forma, allenando nel browser (src/lib/spirale.ts),
 // poi sulle immagini, con un modello già allenato (src/lib/cifre.ts, scripts/allena-cifre.py). Sotto c'è la spiegazione completa.
 const COME: [string, string][] = [
-  ['What does the model do in training?', 'Press one step and follow one point. It takes a real point and adds noise, one small step after another: the orange line. Then the network sees only the end of that line, and it guesses where the clean point was. The gap from the real point is the error, and backpropagation corrects the weights. Then it starts again with another point and new noise.\nNothing gets cleaner during training, and the points never move back. What changes is the weights, so the guesses get closer over thousands of steps. Press train and watch the gap shrink and the error fall.\nTwo simplifications. A real step does this on 64 points at once. And it does not walk the orange line: a formula jumps straight to any amount of noise, which gives the same result much faster.'],
+  ['What does the model do in training?', 'Press one step and follow one point. It takes a real point and adds noise, one small step after another: the orange line, which rises from the plane as the noise grows. Then the network sees only the end of that line, and it guesses where the clean point was. The gap from the real point is the error, and backpropagation corrects the weights. Then it starts again with another point and new noise.\nNothing gets cleaner during training, and the points never move back. What changes is the weights, so the guesses get closer over thousands of steps. Press train and watch the gap shrink and the error fall.\nTwo simplifications. A real step does this on 64 points at once. And it does not walk the orange line: a formula jumps straight to any amount of noise, which gives the same result much faster.'],
   ['What does the model do in inference?', 'This is the only moment when points move back to the shape. It starts from pure noise, with nothing of the shape in it. It estimates the noise, removes a part of it, and repeats. The line under the button shows how much noise is left at each step. More steps give the model more chances to correct itself, which is why few steps give a worse result.\nThe real points are gone at this stage. The model holds no points, only weights, so the new points are not copies.'],
   ['What does the noise slider do?', 'It sets the most noise the network sees in training. Inference always starts from pure noise, so with less noise the network never practises the first part of the way back.\nThe effect is measurable. I trained on the spiral for 6,000 steps, three times at each setting, and counted how much of the shape the new points reach. With up to 100% noise they reach 96 to 99%. With up to 26% they reach 72 to 85%, and with up to 14% only 43 to 68%. The new points still land close to the shape, but they leave parts of it empty. The error goes the other way, and it rises at low settings, because a little noise is harder to name than a lot. So a low error does not always mean a better model.'],
   ['Is it different from the neural network page?', 'The network is the same kind of thing, but it does a different job. On that page it learns one shape and gives that shape back. Here it only names noise. The new drawing comes from the loop around the network, which asks that question many times.'],
   ['What changes on images?', 'The method stays the same. An image is one point with many values: here 784, one for each pixel of a 28 by 28 digit. So training adds noise to real digits, and inference starts from noise and asks for one digit.\nThe network does change, because a row of plain layers does not know which pixels are neighbours. This one is a small U-Net with 196,081 weights, trained once on 60,000 digits, before this page was published. Your browser downloads a 784 KB file and does all the calculation. It reads which digit you asked for at every step, which is the same idea as a prompt with ten possible requests. It is a small model, and many digits come out crooked.'],
+  ['What is the 3D extra?', 'The same method with one more value per point. The data is 2,048 points on the surface of a fish or a tree, and you train the model here too. It has 19,683 weights and takes 10,000 steps. In my tests, about 87% of new points land close to the fish, and about 79% close to the tree.\nThe model produces only points. The page draws the wire mesh, by joining points that end up close to each other. So it is a way to look at the result, not something the model learned.'],
   ['What about large image models?', 'They use the same loop on a very different scale, with billions of weights. They usually work on a compressed version of the image, and a long text prompt steers every step.\nThere is no GAN in any of this. A GAN trains a second network to judge the first, and generates in one pass. A diffusion model has one network, measures only the gap from the real noise, and generates in many steps.'],
 ];
 const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -127,6 +128,40 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
       <div class="mono tag-consiglio" hidden></div>
     </section>
 
+    <section class="schermo" data-nuvola>
+      <header class="testa">
+        <h2>Extra: the same method in 3D</h2>
+      </header>
+
+      <div class="banco">
+        <canvas class="tela-nuvola" role="img" aria-label="A rotating 3D object made of points: a fish or a tree. During training, orange points show copies with noise. During inference, a cloud closes into the object, and nearby points link up into a wire mesh."></canvas>
+        <div class="mono forme" role="group" aria-label="Object">
+          <button type="button" data-oggetto="fish">fish</button>
+          <button type="button" data-oggetto="tree">tree</button>
+        </div>
+
+        <div class="pannello">
+          <div class="mono sezione">
+            <span class="titolino">training</span>
+            <p class="spiega">Same steps, with three values per point. The orange points are real points with noise.</p>
+            <div class="riga">
+              <button type="button" class="gioca"></button>
+              <button type="button" class="azzera" hidden>restart</button>
+            </div>
+            <span class="errore"></span>
+            <canvas class="curva" role="img" aria-label="The error during training"></canvas>
+          </div>
+
+          <div class="mono sezione">
+            <span class="titolino">inference</span>
+            <p class="spiega">A cloud of pure noise closes into the object. When little noise is left, nearby points link up.</p>
+            <button type="button" class="genera">generate</button>
+            <p class="lettura lettura-nuovi" aria-live="polite"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="spiegone" id="how-it-works">
       <h2 class="mono">how it works</h2>
       {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3>{testo.split('\n').map(p => <p>{p}</p>)}</article>)}
@@ -138,8 +173,10 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 <script>
   import { monta as montaSpirale } from '../../scripts/spiraleVista';
   import { monta as montaCifre } from '../../scripts/diffusioneVista';
+  import { monta as montaNuvola } from '../../scripts/nuvolaVista';
   montaSpirale(document.querySelector<HTMLElement>('[data-spirale]')!);
   montaCifre(document.querySelector<HTMLElement>('[data-diffusione]')!);
+  montaNuvola(document.querySelector<HTMLElement>('[data-nuvola]')!);
 </script>
 
 <style>
@@ -158,9 +195,9 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   .titolino::before { content: '// '; color: var(--muted); }
   .spiega { margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.45; }
   .banco { position: relative; flex: 1 1 0; min-height: 0; }
-  .tela-griglia, .tela-spirale { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
-  .tela-griglia { cursor: grab; }
-  .tela-griglia:active { cursor: grabbing; }
+  .tela-griglia, .tela-spirale, .tela-nuvola { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
+  .tela-griglia, .tela-nuvola { cursor: grab; }
+  .tela-griglia:active, .tela-nuvola:active { cursor: grabbing; }
   .forme { position: absolute; top: 0; right: 2px; z-index: 1; display: flex; flex-direction: column; gap: 6px; width: 84px; font-size: 13px; }
   .forme button { padding: 5px 4px; }
   .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--s2); width: clamp(320px, 30%, 400px); overflow: hidden auto; }
@@ -213,7 +250,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     h1, .testa h2 { font-size: 20px; }
     .banco { display: contents; }
     .testa { order: 0; }
-    .tela-griglia, .tela-spirale { position: static; display: block; order: 1; height: 320px; }
+    .tela-griglia, .tela-spirale, .tela-nuvola { position: static; display: block; order: 1; height: 320px; }
     .forme { position: static; order: 2; flex-direction: row; width: auto; }
     .forme button { flex: 1 1 0; padding: 9px 4px; }
     .pannello { position: static; order: 3; width: 100%; overflow: visible; }

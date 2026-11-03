@@ -3,7 +3,7 @@ import { abar, allena, daDisegno, gauss, indietro, nuovoModello, punti, stella, 
 // Vista della forma: un modello di diffusion che si allena nel browser, raccontato un punto alla volta.
 // Un racconto: prendi un punto vero, sporcalo passo dopo passo, la rete indovina il punto pulito, la distanza è l'errore, i pesi si correggono.
 // Inference: punti nuovi partono dal rumore e arrivano sulla forma.
-const N_DATI = 1024, N_NUOVI = 300, GRUPPO = 64, FINE = 8000, RALLENTA = 5500, MONDO = 1.65, DURATA_NUOVI = 3200, RACCONTO_LENTO = 6000, RACCONTO_VELOCE = 1100;
+const N_DATI = 1024, N_NUOVI = 300, GRUPPO = 64, FINE = 8000, RALLENTA = 5500, MONDO = 1.65, DURATA_NUOVI = 3200, RACCONTO_LENTO = 6000, RACCONTO_VELOCE = 1100, PIATTO = 0.6, ALTEZZA = 1.1, MAGLIE = 16, GIRO_MAX = 1;
 // Quando inizia ogni tappa del racconto, da 0 a 1
 const TAPPE = [0, 0.1, 0.5, 0.72, 0.88];
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
@@ -24,7 +24,7 @@ export function monta(radice: HTMLElement) {
   let dati = punti(N_DATI), forma = 'spiral', tratti: number[][] = [], corrente: number[] | null = null, tMax = T;
   let m: Modello = nuovoModello(), inMoto = false, sporco = true, visibile = false, storia: number[] = [], somma = 0, conta = 0, generati = 0, spiegaEl: HTMLElement | null = null;
   let nuovi: Float32Array | null = null, sale = false, inizioNuovi = 0, kNuovi = 0, passiNuovi = 20, tempiNuovi: number[] = [];
-  let racconto: Racconto | null = null;
+  let racconto: Racconto | null = null, giro = 0.42, gira = false, xPrima = 0;
 
   // --- Un racconto: un punto vero, il suo rumore passo dopo passo. L'ipotesi della rete arriva a metà
   function nuovoRacconto(durata: number, unP: boolean) {
@@ -47,22 +47,33 @@ export function monta(radice: HTMLElement) {
 
   // --- Disegno
   let W = 0, H = 0, Wp = 0;
+  // Il quadrato è un piano a filo inclinato, come la griglia delle cifre. L'altezza di un punto è il suo rumore
   const piano = () => {
-    const sinistra = innerWidth > 760 ? Wp + 16 : 0, destra = innerWidth > 760 ? 100 : 0, libero = W - sinistra - destra, S = Math.min(libero, H) / 2 / MONDO;
-    return { S, cx: sinistra + libero / 2, cy: H / 2 };
+    const sinistra = innerWidth > 760 ? Wp + 16 : 0, destra = innerWidth > 760 ? 100 : 0, libero = W - sinistra - destra;
+    const S = Math.min(libero / (2 * MONDO * Math.SQRT2 * 0.92), H / (2 * MONDO * Math.SQRT2 * PIATTO + ALTEZZA * 1.2));
+    return { S, cx: sinistra + libero / 2, cy: H / 2 + (S * ALTEZZA) / 3, co: Math.cos(giro), si: Math.sin(giro) };
   };
   function disegna(ora: number) {
-    const { S, cx, cy } = piano(), d = devicePixelRatio, px = (x: number) => cx + S * x, py = (y: number) => cy - S * y;
+    const { S, cx, cy, co, si } = piano(), d = devicePixelRatio;
+    const P = (x: number, y: number, h = 0) => [cx + S * (x * co + y * si), cy - S * ((-x * si + y * co) * PIATTO + h * ALTEZZA)] as const;
+    const punto = (x: number, y: number, h: number, lato: number) => { const [a, b] = P(x, y, h); c.fillRect(a - lato / 2, b - lato / 2, lato, lato); };
     c.setTransform(d, 0, 0, d, 0, 0);
     c.clearRect(0, 0, W, H);
+    // Il piano: griglia a filo
     c.strokeStyle = LINE;
     c.lineWidth = 1;
-    c.strokeRect(px(-MONDO), py(MONDO), 2 * MONDO * S, 2 * MONDO * S);
+    c.beginPath();
+    for (let k = 0; k <= MAGLIE; k++) {
+      const q = -MONDO + (2 * MONDO * k) / MAGLIE;
+      let [a, b] = P(q, -MONDO); c.moveTo(a, b); [a, b] = P(q, MONDO); c.lineTo(a, b);
+      [a, b] = P(-MONDO, q); c.moveTo(a, b); [a, b] = P(MONDO, q); c.lineTo(a, b);
+    }
+    c.stroke();
     // La forma vera. In inference sparisce: i punti nuovi nascono solo dai pesi
     if (!nuovi) {
       c.fillStyle = BLU;
-      c.globalAlpha = racconto ? 0.4 : 1;
-      for (let i = 0; i < dati.length / 2; i++) c.fillRect(px(dati[i * 2]!) - 1, py(dati[i * 2 + 1]!) - 1, 2, 2);
+      c.globalAlpha = racconto ? 0.45 : 1;
+      for (let i = 0; i < dati.length / 2; i++) punto(dati[i * 2]!, dati[i * 2 + 1]!, 0, 2);
       c.globalAlpha = 1;
     }
     if (corrente) {
@@ -70,31 +81,46 @@ export function monta(radice: HTMLElement) {
       c.lineWidth = 2;
       c.lineJoin = c.lineCap = 'round';
       c.beginPath();
-      for (let i = 0; i + 1 < corrente.length; i += 2) { if (i) c.lineTo(px(corrente[i]!), py(corrente[i + 1]!)); else c.moveTo(px(corrente[i]!), py(corrente[i + 1]!)); }
+      for (let i = 0; i + 1 < corrente.length; i += 2) { const [a, b] = P(corrente[i]!, corrente[i + 1]!); if (i) c.lineTo(a, b); else c.moveTo(a, b); }
       c.stroke();
       c.lineWidth = 1;
     }
     if (nuovi) {
+      // Prima l'ombra sul piano, poi il punto all'altezza del rumore che gli resta
+      const h = kNuovi >= passiNuovi ? 0 : (tempiNuovi[kNuovi] ?? T) / T;
+      if (h > 0.02) {
+        c.fillStyle = MUTED;
+        c.globalAlpha = 0.35;
+        for (let i = 0; i < N_NUOVI; i++) punto(nuovi[i * 2]!, nuovi[i * 2 + 1]!, 0, 2);
+        c.globalAlpha = 1;
+      }
       c.fillStyle = FG;
-      for (let i = 0; i < N_NUOVI; i++) c.fillRect(px(nuovi[i * 2]!) - 1.5, py(nuovi[i * 2 + 1]!) - 1.5, 3, 3);
+      for (let i = 0; i < N_NUOVI; i++) punto(nuovi[i * 2]!, nuovi[i * 2 + 1]!, h, 3);
     } else if (racconto) {
       const r = racconto, f = calmo ? 1 : Math.min(1, (ora - r.inizio) / r.durata), passi = (r.cammino.length / 2) - 1, visti = Math.round(Math.min(1, Math.max(0, (f - TAPPE[1]!) / (TAPPE[2]! - TAPPE[1]!))) * passi);
+      const altezzaDi = (k: number) => k / T;
+      const [vx, vy] = P(r.vero[0], r.vero[1]);
       // Il punto vero
       c.strokeStyle = FG;
       c.lineWidth = 2;
-      c.beginPath(); c.arc(px(r.vero[0]), py(r.vero[1]), 6, 0, Math.PI * 2); c.stroke();
+      c.beginPath(); c.ellipse(vx, vy, 7, 7 * PIATTO, 0, 0, Math.PI * 2); c.stroke();
       c.lineWidth = 1.5;
-      // Il rumore, un passo dopo l'altro
+      // Il rumore, un passo dopo l'altro: ogni passo sale un po'
       c.strokeStyle = ARANCIO;
       c.beginPath();
-      for (let k = 0; k <= visti; k++) { const x = px(r.cammino[k * 2]!), y = py(r.cammino[k * 2 + 1]!); if (k) c.lineTo(x, y); else c.moveTo(x, y); }
+      for (let k = 0; k <= visti; k++) { const [a, b] = P(r.cammino[k * 2]!, r.cammino[k * 2 + 1]!, altezzaDi(k)); if (k) c.lineTo(a, b); else c.moveTo(a, b); }
       c.stroke();
-      const qx = px(r.cammino[visti * 2]!), qy = py(r.cammino[visti * 2 + 1]!);
+      const qxm = r.cammino[visti * 2]!, qym = r.cammino[visti * 2 + 1]!, [qx, qy] = P(qxm, qym, altezzaDi(visti));
+      // L'ombra rende leggibile quanto è alto
+      c.fillStyle = MUTED;
+      c.globalAlpha = 0.6;
+      punto(qxm, qym, 0, 4);
+      c.globalAlpha = 1;
       c.fillStyle = ARANCIO;
       c.fillRect(qx - 3, qy - 3, 6, 6);
-      // L'ipotesi della rete: dove crede che fosse il punto pulito
+      // L'ipotesi della rete: dove crede che fosse il punto pulito, sul piano
       if (f >= TAPPE[2]! && r.guess) {
-        const u = Math.min(1, (f - TAPPE[2]!) / (TAPPE[3]! - TAPPE[2]!)), gx = px(r.guess[0]), gy = py(r.guess[1]), ex = qx + (gx - qx) * u, ey = qy + (gy - qy) * u;
+        const u = Math.min(1, (f - TAPPE[2]!) / (TAPPE[3]! - TAPPE[2]!)), [gx, gy] = P(r.guess[0], r.guess[1]), ex = qx + (gx - qx) * u, ey = qy + (gy - qy) * u;
         c.strokeStyle = FG;
         c.beginPath(); c.moveTo(qx, qy); c.lineTo(ex, ey); c.stroke();
         c.fillStyle = FG;
@@ -102,11 +128,11 @@ export function monta(radice: HTMLElement) {
         // La distanza dal punto vero è l'errore
         if (f >= TAPPE[3]!) {
           c.setLineDash([3, 3]);
-          c.beginPath(); c.moveTo(gx, gy); c.lineTo(px(r.vero[0]), py(r.vero[1])); c.stroke();
+          c.beginPath(); c.moveTo(gx, gy); c.lineTo(vx, vy); c.stroke();
           c.setLineDash([]);
           c.font = `12px ${stile.getPropertyValue('--mono') || 'monospace'}`;
           c.textAlign = 'left';
-          c.fillText(`error ${r.errore.toFixed(2)}`, (gx + px(r.vero[0])) / 2 + 8, (gy + py(r.vero[1])) / 2 - 8);
+          c.fillText(`error ${r.errore.toFixed(2)}`, (gx + vx) / 2 + 8, (gy + vy) / 2 - 8);
         }
       }
       c.lineWidth = 1;
@@ -171,28 +197,33 @@ export function monta(radice: HTMLElement) {
     forma = f;
     formeB.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.forma === f)));
     pulisci.hidden = !inDisegno();
-    tela.style.cursor = inDisegno() ? 'crosshair' : '';
+    tela.style.cursor = inDisegno() ? 'crosshair' : 'grab';
     tela.style.touchAction = inDisegno() ? 'none' : '';
     if (f !== 'draw') tratti = [];
     dati = f === 'star' ? stella(N_DATI) : f === 'draw' ? daDisegno(tratti, N_DATI) ?? new Float32Array(0) : punti(N_DATI);
     azzeraTutto();
   }
   const alMondo = (e: PointerEvent) => {
-    const { S, cx, cy } = piano(), q = tela.getBoundingClientRect(), lim = (v: number) => Math.max(-MONDO, Math.min(MONDO, v));
-    return [lim((e.clientX - q.left - cx) / S), lim((cy - (e.clientY - q.top)) / S)] as const;
+    // Dallo schermo al piano: l'inverso della proiezione, ad altezza zero
+    const { S, cx, cy, co, si } = piano(), q = tela.getBoundingClientRect(), lim = (v: number) => Math.max(-MONDO, Math.min(MONDO, v));
+    const a = (e.clientX - q.left - cx) / S, b = (cy - (e.clientY - q.top)) / S / PIATTO;
+    return [lim(a * co - b * si), lim(a * si + b * co)] as const;
   };
   tela.addEventListener('pointerdown', e => {
-    if (!inDisegno() || sale) return;
+    if (!inDisegno()) { gira = true; xPrima = e.clientX; tela.setPointerCapture(e.pointerId); return; }
+    if (sale) return;
     corrente = [...alMondo(e)];
     tela.setPointerCapture(e.pointerId);
     sporco = true;
   });
   tela.addEventListener('pointermove', e => {
+    if (gira) { giro = Math.max(-GIRO_MAX, Math.min(GIRO_MAX, giro - (e.clientX - xPrima) * 0.008)); xPrima = e.clientX; sporco = true; return; }
     if (!corrente) return;
     corrente.push(...alMondo(e));
     sporco = true;
   });
   const fineTratto = () => {
+    gira = false;
     if (!corrente) return;
     tratti.push(corrente);
     corrente = null;
@@ -273,6 +304,7 @@ export function monta(radice: HTMLElement) {
   new IntersectionObserver(v => { visibile = v.some(x => x.isIntersecting); if (visibile) sporco = true; }, { rootMargin: '60px' }).observe(tela);
   misura();
   formeB.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.forma === forma)));
+  tela.style.cursor = 'grab';
   cursore.value = String(tMax);
   scriviRumore();
   azzeraTutto();
