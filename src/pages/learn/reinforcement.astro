@@ -1,0 +1,135 @@
+---
+import Base from '../../layouts/Base.astro';
+import tappe from '../../data/gregge-tappe.json';
+
+// Reinforcement learning: lo stesso gregge di Learn, visto dall'alto. A sinistra il ciclo dell'agente, le tappe del training e la gara. La simulazione è src/lib/gregge.ts
+const COME: [string, string][] = [
+  ['What is this?', 'A real reinforcement learning agent, running in your browser. Nobody shows the dog what good herding looks like. It tries moves, gets points, and its weights slowly change to earn more points. On the neural network page, the network receives the right answer for each point. Here there is no right answer, only a score that arrives later.'],
+  ['How does it learn?', 'The dog plays many games at once, with 8 copies running in parallel. In each game it reads 18 numbers about 4 times a second, and picks one of 9 moves. After each batch of games, the moves that went better than expected become more likely, and the others less likely. This method is called PPO. The network has 5,961 weights, and 4 million decisions took about an hour on a CPU, once, before this page was published. Your browser only plays the result.'],
+  ['What is the reward?', 'Points when the flock gets closer to the circle and when a sheep enters. Points lost when a sheep leaves, and a little for each moment that passes. A large prize when all 180 are inside.\nA prize at the end alone would not work: a dog that moves at random almost never gets all 180 inside, so it would have nothing to learn from.'],
+  ['What does the wrong reward show?', 'An agent learns what you reward, not what you want. This one earns a point for each sheep that enters, with no penalty when one leaves, and finishing brings no extra points. In a test on 40 new fields it finished none. It reached about 97 sheep inside, and it let most of them out again: of 133 entries, 113 left. With the right reward, the same test gave 190 entries and 24 exits.'],
+  ['How good is it?', 'On 40 new fields, the final dog finished 34, with a median of 52 seconds. On a set of 24 fields, a classic method written by hand finished 4, with a median of 146 seconds, and the final dog finished 18, with a median of 47. It is not perfect: on some fields it runs out of time. So you can beat it.'],
+  ['Does it depend on this view?', 'No. It uses no images and no camera. It reads only numbers about the flock, the dog, the circle and the obstacles, so the view from above is only for you. In the valley on the Learn page, the same weights can guide the dog while you turn the scene.'],
+];
+---
+<Base title="Reinforcement learning · Riccardo Mondi" description="A dog learns to herd 180 sheep from rewards alone. Watch it learn, then try to beat it." tono="neutro" largo>
+  <main class="rn">
+    <section class="schermo" data-gregge data-tappe={JSON.stringify(tappe)}>
+      <header class="testa">
+        <h1>Teach a dog to herd with rewards</h1>
+        <a href="#how-it-works" class="mono">how it works ↓</a>
+        <p class="mono messaggio">Nobody tells the dog what to do. It only gets points, and it learns which moves earn them.</p>
+      </header>
+
+      <div class="banco">
+        <canvas class="tela-gregge" role="img" aria-label="A meadow seen from above, with 180 sheep, an orange dog and a dashed circle. Sheep inside the circle turn blue."></canvas>
+        <p class="mono nota-tel" aria-live="polite"></p>
+
+        <div class="pannello">
+          <div class="mono sezione">
+            <span class="titolino">the loop</span>
+            <ol class="racconto">
+              <li data-spiega="18 numbers: where the dog, the flock, the circle and the nearest obstacles are, and how scattered the flock is. No images: it does not see each sheep.">it reads 18 numbers</li>
+              <li data-spiega="Stand still, or go in one of 8 directions. The arrows show how much it wants each move. It decides about 4 times a second.">it picks one of 9 moves</li>
+              <li data-spiega="Points when the sheep get closer to the circle or enter it. It loses points when one leaves, and a little for each moment that passes. A large prize when all are inside.">it gets points: the reward</li>
+              <li data-spiega="After many games, the training changes the weights so that moves that earned points become more likely. Your browser only plays the result.">training keeps what earned points</li>
+            </ol>
+            <div class="vivo">
+              <canvas class="bussola" role="img" aria-label="How much the dog wants each move right now" data-spiega="What the dog wants right now. A longer arrow means a more likely move. The square in the middle is standing still."></canvas>
+              <div>
+                <p class="lettura stato"></p>
+                <p class="lettura lettura-premio" data-spiega="The points the dog has earned in this game, with the reward it was trained on."></p>
+                <div class="passi" role="group" aria-label="Speed"><span>speed</span><button type="button" data-vel="1">1x</button><button type="button" data-vel="4">4x</button></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mono sezione">
+            <span class="titolino">what it learned, step by step</span>
+            <div class="tappe">
+              {tappe.map(t => <button type="button" data-tappa={t.id}>{t.nome}</button>)}
+            </div>
+            <p class="spiega nota-tappa"></p>
+          </div>
+
+          <div class="mono sezione">
+            <span class="titolino">beat the AI</span>
+            <div class="riga">
+              <button type="button" class="gioca" data-spiega="A new field. Move the pointer: the dog follows it. The AI plays the same field, with the same sheep."></button>
+              <button type="button" class="guarda" hidden data-spiega="The final AI plays the same field, so you can compare.">watch the AI here</button>
+            </div>
+            <p class="lettura esito" aria-live="polite"></p>
+            <p class="lettura">your best <span class="best-uomo"></span> · AI best <span class="best-ai"></span></p>
+          </div>
+        </div>
+      </div>
+      <div class="mono tag-punto" hidden></div>
+    </section>
+
+    <section class="spiegone" id="how-it-works">
+      <h2 class="mono">how it works</h2>
+      {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3>{testo.split('\n').map(p => <p>{p}</p>)}</article>)}
+    </section>
+  </main>
+</Base>
+
+<script>
+  import { monta } from '../../scripts/greggeVista';
+  const radice = document.querySelector<HTMLElement>('[data-gregge]')!;
+  monta(radice, JSON.parse(radice.dataset.tappe!));
+</script>
+
+<style>
+  :global(html) { scroll-behavior: smooth; }
+  .rn { padding: 4px 24px 0; }
+  .schermo { display: flex; flex-direction: column; gap: var(--s2); height: calc(100vh - 62px); min-height: 560px; padding-bottom: var(--s2); }
+  .testa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px var(--s2); }
+  .testa a { color: var(--fg); font-size: 12px; white-space: nowrap; }
+  .messaggio { flex: 1 1 100%; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+  h1 { margin: 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
+  button { padding: 5px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; transition: color .12s, border-color .12s; }
+  button:hover:not(:disabled) { border-color: var(--fg); color: var(--fg); }
+  button[hidden] { display: none; }
+  button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
+  .titolino { display: block; margin-bottom: 6px; color: var(--fg); font-size: 14px; }
+  .titolino::before { content: '// '; color: var(--muted); }
+  .spiega { margin: 0; min-height: 3em; color: var(--muted); font-size: 12px; line-height: 1.45; }
+  .banco { position: relative; flex: 1 1 0; min-height: 0; }
+  .tela-gregge { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
+  .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: var(--s2); width: clamp(320px, 30%, 400px); overflow: hidden auto; }
+  .sezione + .sezione { padding-top: var(--s2); border-top: 1px solid var(--line); }
+  .sezione { font-size: 13px; color: var(--fg); }
+  .riga { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .gioca { min-width: 112px; padding: 7px 16px; background: var(--fg); border-color: var(--fg); color: var(--bg); font-size: 15px; }
+  .gioca:hover:not(:disabled) { background: var(--bg); border-color: var(--fg); color: var(--fg); }
+  .racconto { margin: 0 0 10px; padding-left: 20px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .vivo { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 12px; align-items: center; }
+  .bussola { display: block; width: 76px; height: 76px; }
+  .passi { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; }
+  .passi span { margin-right: 4px; color: var(--muted); font-size: 12px; }
+  .passi button { min-width: 34px; padding: 3px 6px; }
+  .lettura { min-height: 1.4em; margin: 2px 0 0; color: var(--fg); font-size: 12px; }
+  .tappe { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+  .tappe button { padding: 4px 8px; font-size: 12px; }
+  .nota-tel { display: none; }
+  .tag-punto { position: fixed; left: 0; top: 0; z-index: 5; max-width: 300px; padding: 4px 8px; background: var(--bg); border: 1px solid var(--fg); color: var(--fg); font-size: 12px; line-height: 1.45; pointer-events: none; }
+  .tag-punto[hidden] { display: none; }
+  .spiegone { max-width: 720px; margin: 0 auto; padding: var(--s4) 0; border-top: 1px solid var(--line); scroll-margin-top: var(--s2); }
+  .spiegone h2 { margin: 0 0 var(--s3); font-size: 14px; font-weight: 400; color: var(--fg); }
+  .spiegone h2::before { content: '// '; color: var(--muted); }
+  .spiegone article { margin-bottom: var(--s3); }
+  .spiegone h3 { margin: 0 0 4px; font-size: 16px; font-weight: 400; color: var(--fg); }
+  .spiegone p { margin: 0 0 var(--s1); color: var(--muted); font-size: 14px; line-height: 1.7; }
+  @media (max-width: 760px) {
+    .rn { padding: 0 16px; }
+    .schermo { height: auto; min-height: 0; gap: var(--s1); padding-bottom: var(--s3); }
+    h1 { font-size: 20px; }
+    .banco { display: contents; }
+    .testa { order: 0; }
+    .tela-gregge { position: static; display: block; order: 1; width: 100%; height: min(92vw, 420px); }
+    .pannello { position: static; order: 3; width: 100%; overflow: visible; }
+    .gioca { flex: 1 1 100%; width: 100%; padding: 10px; }
+    .tag-punto { display: none !important; }
+    .nota-tel { display: block; order: 2; min-height: 1.5em; margin: 0; color: var(--arancio); font-size: 12px; line-height: 1.45; }
+  }
+</style>

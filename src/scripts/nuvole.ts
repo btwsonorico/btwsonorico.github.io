@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { agisci, DT as DT_AI, N_AZIONI, nuovoMondo, OGNI, PECORE as PECORE_AI, punteggi, vedi } from '../lib/gregge';
 import { casuale, mat, pezzo, sasso, linea, tono, terreno, puntiMorbidi, palco, curveLivello, benDistribuiti, SITO, type Palco } from './natura';
 
 // Una valle di colline vista da un drone, nello stile del sito: le colline sono curve di livello con un velo verde
@@ -434,9 +435,10 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     }
     return quota;
   };
-  const mongolfiere = (['#e08a3a', '#5fb6d9', '#6fa646', '#b79ce6'] as const).slice(0, risorse.length).map((tinta, k) => {
-    // tono() riporta tutto a verde, azzurro o arancio: il lilla di AI terms resta il suo
-    const o = new THREE.Group(), colore = k === 3 ? new THREE.Color(tinta) : tono(tinta);
+  // Il rosso di reinforcement learning è quello della barriera di AI terms
+  const mongolfiere = ['#e08a3a', '#5fb6d9', '#6fa646', '#b79ce6', p.chiaro ? '#e0352a' : '#ff4a3d'].slice(0, risorse.length).map((tinta, k) => {
+    // tono() riporta tutto a verde, azzurro o arancio: il lilla e il rosso restano i loro
+    const o = new THREE.Group(), colore = k >= 3 ? new THREE.Color(tinta) : tono(tinta);
     o.add(new THREE.Mesh(geoPallone, new THREE.MeshBasicMaterial({ color: colore })));
     o.add(new THREE.LineSegments(spicchi, new THREE.LineBasicMaterial({ color: colore.clone().offsetHSL(0, 0, -0.18) })));
     o.add(pezzo(new THREE.BoxGeometry(0.1, 0.08, 0.1), mat('#a07a50', { opacity: 0.9 }), 0, -0.62, 0));
@@ -447,8 +449,8 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     o.add(fiamma);
     o.scale.setScalar(GRANDE);
     g.add(o);
-    const y = [3.2, 2.5, 3.7, 3.0][k]!;
-    return { o, fiamma, cx: [-0.8, 2.8, -2.6, 1.1][k]!, cz: [-1.4, -1.6, -3, -3.4][k]!, y, fase: k * 2.1, quota: y, aDestra: k > 0 };
+    const y = [3.2, 2.5, 3.7, 3.0, 2.8][k]!;
+    return { o, fiamma, cx: [-0.8, 2.8, -2.6, 1.1, 0.5][k]!, cz: [-1.4, -1.6, -3, -3.4, 1][k]!, y, fase: k * 2.1, quota: y, aDestra: k > 0 };
   });
   // Nome di ogni mongolfiera: un link vero, che segue il pallone sullo schermo
   const nomi = mongolfiere.map((_, k) => {
@@ -456,11 +458,40 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     a.className = 'etichetta skill nome-pallone';
     a.href = risorse[k]!.href;
     a.textContent = risorse[k]!.nome.charAt(0).toUpperCase() + risorse[k]!.nome.slice(1);
-    a.dataset.tono = (['arancio', 'azzurro', 'verde', 'lilla'] as const)[k]!;
+    a.dataset.tono = (['arancio', 'azzurro', 'verde', 'lilla', 'rosso'] as const)[k]!;
     el.appendChild(a);
     return a;
   });
   let acceso = -1, dallaLista = -1;
+  // L'AI della pagina di reinforcement learning può guidare il cane: legge gli stessi numeri, quindi la scena può girare. Solo col gregge da 180 con cui si è allenata
+  let pesiAI: Float32Array | null = null, attesaAI = 0, aiGioca = false;
+  const mondoAI = nuovoMondo(1), bottoneAI = document.createElement('button');
+  bottoneAI.type = 'button';
+  bottoneAI.textContent = 'let the AI herd';
+  bottoneAI.style.cssText = 'position:absolute;right:16px;bottom:32px;padding:4px 8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:12px var(--mono);cursor:pointer;pointer-events:auto';
+  if (PECORE === PECORE_AI) el.appendChild(bottoneAI);
+  bottoneAI.addEventListener('pointerdown', e => e.stopPropagation());
+  bottoneAI.addEventListener('click', async () => {
+    if (!pesiAI) pesiAI = new Float32Array(await (await fetch('/learn/gregge/fine.bin')).arrayBuffer());
+    aiGioca = !aiGioca;
+    cane.seduto = false;
+    bottoneAI.textContent = aiGioca ? 'take the dog back' : 'let the AI herd';
+  });
+  const guidaAI = (dt: number) => {
+    attesaAI -= dt;
+    if (attesaAI > 0 || gioco.stato !== 'aperto' || !pesiAI) return;
+    attesaAI = OGNI * DT_AI;
+    const a = mondoAI;
+    pecore.forEach((q, i) => { a.x[i] = q.x; a.z[i] = q.z; a.calma[i] = q.calma; });
+    a.gx = gioco.x; a.gz = gioco.z; a.dentro = gioco.dentro;
+    a.cane.x = cane.x; a.cane.z = cane.z; a.cane.verso = cane.verso; a.cane.vel = cane.vel;
+    mucche.forEach((m, i) => { const q = a.mucche[i]; if (q) { q.x = m.x; q.z = m.z; } });
+    const { o, dgx, dgz } = vedi(a), u = punteggi(pesiAI, o);
+    let scelta = 0;
+    for (let k = 1; k < N_AZIONI; k++) if (u[k]! > u[scelta]!) scelta = k;
+    agisci(a, scelta, dgx, dgz);
+    metaCane.set(a.cane.mx, a.cane.mz);
+  };
   const fiancoCamera = new THREE.Vector3();
   risorse.forEach((q, k) => {
     q.lista?.addEventListener('pointerenter', () => { dallaLista = k; });
@@ -497,7 +528,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   conta.style.cssText = 'position:absolute;right:16px;bottom:8px;font:13px var(--mono);color:var(--fg);pointer-events:none;opacity:0;transition:opacity .6s;white-space:pre';
   el.appendChild(conta);
   const smonta = p.distruggi;
-  p.distruggi = () => { conta.remove(); nomi.forEach(a => a.remove()); smonta(); };
+  p.distruggi = () => { conta.remove(); bottoneAI.remove(); nomi.forEach(a => a.remove()); smonta(); };
   // Un punto davvero a caso a ogni giro: senza alberi né pale dentro, non troppo in salita, lontano dal gregge e dal cerchio
   // di prima. Se non lo trova, una radura fra quelle libere
   const postoCerchio = (gx: number, gz: number) => {
@@ -532,11 +563,12 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
       gioco.luce = morbido(gioco.luce, 1, dt * 0.8);
       gioco.dentro = pecore.filter(q => Math.hypot(q.x - gioco.x, q.z - gioco.z) < RAGGIO).length;
       gioco.tempo += dt;
-      conta.textContent = `${gioco.dentro}/${PECORE}   ${orologio(gioco.tempo)}${gioco.record ? `   best ${orologio(gioco.record)}` : ''}`;
+      conta.textContent = `${aiGioca ? 'AI   ' : ''}${gioco.dentro}/${PECORE}   ${orologio(gioco.tempo)}${gioco.record ? `   best ${orologio(gioco.record)}` : ''}`;
       conta.style.opacity = '1';
       if (gioco.dentro === PECORE) {
         gioco.stato = 'fatto'; gioco.t = 4;
-        if (!gioco.record || gioco.tempo < gioco.record) {
+        // Il record è solo delle partite giocate a mano
+        if (!aiGioca && (!gioco.record || gioco.tempo < gioco.record)) {
           gioco.record = gioco.tempo;
           try { localStorage.setItem('misc-gregge-record', String(gioco.record)); } catch { /* niente */ }
         }
@@ -659,7 +691,8 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     });
 
     // Cane: segue il puntatore sul prato (non mentre tiri una nuvola); seduto resta dov'è e guarda il gregge
-    if (!cane.seduto && raggio && presa.nuvola < 0 && sulTerreno(raggio) && Math.hypot(punto.x, punto.z) < L - 0.8) metaCane.set(punto.x, punto.z);
+    if (aiGioca) guidaAI(dt);
+    else if (!cane.seduto && raggio && presa.nuvola < 0 && sulTerreno(raggio) && Math.hypot(punto.x, punto.z) < L - 0.8) metaCane.set(punto.x, punto.z);
     if (cane.seduto) metaCane.set(cane.x, cane.z);
     {
       const k = cane, dx = metaCane.x - k.x, dz = metaCane.y - k.z, d = Math.hypot(dx, dz);

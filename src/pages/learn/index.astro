@@ -7,6 +7,7 @@ const RISORSE = [
   { nome: 'diffusion model', href: '/learn/diffusion/', nota: 'train one in your browser, then ask for a digit' },
   { nome: 'decision model', href: '/learn/decision/', nota: 'write anything and watch a tiny model pick an emoji' },
   { nome: 'AI terms', href: '/learn/ai-terms/', nota: 'take a deep dive into the AI lexicon' },
+  { nome: 'reinforcement learning', href: '/learn/reinforcement/', nota: 'a dog learns to herd from rewards. Try to beat it' },
 ];
 ---
 <Base title="Learn · Riccardo Mondi" description="AI concepts you can touch: interactive resources by Riccardo Mondi." tono="neutro" largo>
@@ -52,6 +53,8 @@ const RISORSE = [
   .scena3d :global(.nome-pallone) { pointer-events: auto; text-decoration: none; will-change: transform; }
   .scena3d :global(.nome-pallone[data-tono="lilla"]) { --accent: #b79ce6; }
   :global([data-theme="light"]) .scena3d :global(.nome-pallone[data-tono="lilla"]) { --accent: #6a4bb0; }
+  .scena3d :global(.nome-pallone[data-tono="rosso"]) { --accent: #ff4a3d; }
+  :global([data-theme="light"]) .scena3d :global(.nome-pallone[data-tono="rosso"]) { --accent: #e0352a; }
   /* Col dito si tocca un'area più grande dell'etichetta */
   .scena3d :global(.nome-pallone)::before { content: ''; position: absolute; inset: -9px -6px; }
   .scena3d :global(.nome-pallone:hover), .scena3d :global(.nome-pallone.attiva) { color: var(--bg); background: var(--accent); padding: 2px 7px; z-index: 2; }
