@@ -3,7 +3,7 @@ title: The jagged frontier
 date: 2026-10-25
 kind: source
 lang: en
-topics: [llms, defining]
+topics: [llms]
 summary: AI is not a uniform intelligence. The only way to know which side of the frontier a task is on is to experiment, and to ask how verifiable it is.
 sources:
   - type: paper

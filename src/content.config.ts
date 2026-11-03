@@ -3,7 +3,7 @@ import { glob } from 'astro/loaders';
 
 // Liste chiuse: tengono piccoli i grafi. Un valore fuori lista ferma la build.
 // Per aggiungere un tema o una tecnologia, cambia la lista qui.
-export const TEMI = ['retrieval', 'llms', 'methods', 'segmentation', 'qualitative', 'engineering', 'open', 'hmi', 'implications', 'research', 'agents', 'defining'] as const;
+export const TEMI = ['retrieval', 'llms', 'methods', 'segmentation', 'qualitative', 'engineering', 'open', 'hmi', 'implications', 'research', 'agents'] as const;
 export const TECNOLOGIE = ['python', 'fastapi', 'typescript', 'react', 'mongodb', 'aws', 'azure', 'docker', 'llm-api', 'scikit-learn', 'playwright', 'spec-kit', 'astro', 'three.js'] as const;
 // Dove ho imparato un'area: nomi generici, mai clienti o nomi interni.
 export const CONTESTI = ['interview analysis', 'event reports', 'feedback hub', 'shared specs', 'this site'] as const;

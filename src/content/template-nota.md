@@ -5,7 +5,7 @@ title: Titolo breve, con la tesi se c'è
 date: 2026-01-31
 kind: source            # essay, thought o source
 lang: en                # it o en
-topics: [llms]          # lista chiusa in src/content.config.ts. Aggiungi defining se è fra i paper e le notizie più influenti
+topics: [llms]          # lista chiusa in src/content.config.ts
 summary: Una o due frasi con la tesi. È il testo che appare nelle liste e nelle anteprime.
 sources:
   - type: paper         # paper, video, site, book, talk, podcast, repo
@@ -30,5 +30,4 @@ Due o tre frasi: cos'è e chi l'ha fatto.
 Domande per finire la nota in una volta. Rispondi e cancella questo blocco:
 1. Cosa ti ha fatto cambiare idea, se qualcosa?
 2. Dove lo hai applicato o lo applicheresti?
-3. È fra i paper o le notizie più influenti (#defining)?
 -->
