@@ -1,56 +1,75 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// Decision model: un modello piccolissimo, già allenato (scripts/allena-decisioni.mjs), che gira nel browser (src/scripts/decisioneVista.ts).
-// La facciata è lo strumento: scrivi un messaggio e vedi la scelta; sotto, la soglia su messaggi mai visti, e poi la spiegazione completa.
+// Decision model: in cima un autotagger che sceglie fra 50 emoji (src/lib/emoji.ts, scripts/allena-emoji.py), sotto lo stesso concetto sui ticket
+// (scripts/allena-decisioni.mjs). Tutto è già allenato e gira nel browser (src/scripts/decisioneVista.ts). Scorrendo sotto c'è la spiegazione completa.
 const COME: [string, string][] = [
-  ['What is this?', 'A real decision model, very small, running in your browser. It reads a support message and picks one of four answers fixed in advance: billing, bug, account or sales. It returns that choice with a probability, and it never writes a word of text.\\nIt knows 703 words and word pairs, and its file is 28 KB. It was trained once, before this page was published, on 6,000 messages built from sentence templates. Nothing you type leaves your browser.'],
-  ['How is that different from a chatbot?', 'A language model writes its answer one word at a time, and each word takes another pass through the network. A decision model does one pass and scores the fixed answers. So its cost does not grow with the length of an answer, because there is no answer to write.\\nThe output is also easier to use in software. A program can act on \"billing, 0.91\" without having to read a sentence.'],
-  ['How does this one choose?', 'It splits your message into single words and pairs of words. Each word it knows has four learned weights, one for each answer. It adds up the weights of all the words, and the answer with the largest total wins. The coloured words show this: each word takes the colour of the answer it pushes most.\\nThis is why it is so easy to read, and also why it is easy to fool. It has no idea of grammar or order beyond pairs of words.'],
-  ['What does the probability mean?', 'If the model says 0.8 on many messages, it should be right on about 8 of every 10. A model that keeps this promise is called calibrated. A model right after training is often more or less sure than it should be, so this one has one extra number, a temperature, set on 40 handwritten messages that training never saw. It rescales the probabilities and does not change the choice.\\nForty messages is very few, so read this as a demonstration, not as a measurement.'],
-  ['Why a threshold?', 'A decision model is useful because it can say how sure it is. So you can let it act when it is sure, and pass the message to a person when it is not. Move the threshold and look at the squares: each one is a handwritten message from a separate set of 40, which the model had never seen.\\nOn these 40 it gets 34 right. With a threshold of 0.9 it acts on 23 and makes 1 error, and people handle the other 17. A higher threshold means fewer errors and more work for people. Which point is right depends on what an error costs you.'],
-  ['What about real decision models?', 'This page borrows an idea from models such as Jev, by TypeSafe. It is not Jev, and it is not built like it: Jev is closed and runs on a server, so its size and architecture are not public. By its own description, it reads long text and images, and it takes the possible answers with each request. This model knows only four answers and about 700 words and word pairs.\\nThe practical advice stays the same at any size: test your threshold on your own examples before you trust it.'],
+  ['What is this?', 'Two real decision models, very small, running in your browser. The first reads what you write and picks one of 50 emoji. The second reads a support message and picks one of four teams. Each one returns a choice with a probability, and neither writes a word of text.\\nBoth were trained once, before this page was published. Nothing you type leaves your browser.'],
+  ['How is that different from a chatbot?', 'A language model writes its answer one word at a time, and each word takes another pass through the network. A decision model does one pass and scores answers fixed in advance. So its cost does not grow with the length of an answer, because there is no answer to write.\\nThe output is also easier to use in software. A program can act on \"billing, 91%\" without having to read a sentence.'],
+  ['How does the emoji model read?', 'It is a small encoder, the kind of network that open decision models are built on. Each word becomes a list of 48 numbers, built from the word and its three-letter pieces, so run and running start out similar. Then an attention layer lets each word read all the others, before and after it. This is how the order and the company of a word can change its meaning.\\nThe model averages the words into one list of numbers, and a small head turns that list into a score for each emoji. The orange words are the ones that matter: the model runs again without each word, and a word lights up if the choice falls without it.'],
+  ['What is it trained on, and how good is it?', 'It has 218,786 weights, in a 427 KB file. It learned from about 5,900 examples: 500 sentences written by hand, and keywords for each emoji from the Unicode CLDR project, placed in simple sentences.\\nOn 50 new handwritten sentences it gets 37 right, and the right emoji is in its top three for 42. A model that only adds up word weights, trained on the same data, gets 34. Fifty sentences is very few, so read this as a rough measure.\\nIt fails where you would expect. \"I\'m starving\" does not give a food emoji, because it has never seen that link. Real models start from an encoder that has already read millions of sentences. This one knows only these examples.'],
+  ['What does the percentage mean?', 'If a model says 80% on many inputs, it should be right on about 8 of every 10. A model that keeps this promise is called calibrated. A model right after training is often more or less sure than it should be, so each model here has one extra number, a temperature, set on handwritten sentences that it did not train on. It rescales the percentages and does not change the choice.\\nThey are still rough. On phrases close to its training examples, the model can say 98% too easily.'],
+  ['Why is the ticket model different?', 'It is simpler on purpose. It has no encoder: each word or pair of words has four weights, one for each team, and it adds them up. The colours show this: each word takes the colour of the team it pushes most. It knows 703 words and word pairs, in a 28 KB file.\\nIt was trained on 6,000 messages built from sentence templates. On 40 new handwritten messages it gets 34 right. With four answers instead of 50, even a very simple model does well.'],
+  ['What about real decision models?', 'Models such as Laya and GLiNER 2.5-Decide are open, and they have the same shape: a bidirectional encoder and a small head. They have hundreds of millions of weights, about 1,500 times more than the emoji model, and they take their possible answers with each request. Jev, by TypeSafe, is closed and runs on a server, so its design is not public.\\nThe practical advice stays the same at any size: test a model on your own examples before you trust its percentages.'],
 ];
-const ESEMPI = ['I was charged twice this month', 'the export crashes on my phone', 'I forgot my password', 'what does it cost for 50 people', 'my account was charged but the page crashes'];
+const EMOJI = ['pizza night with friends', 'late flight to tokyo', 'my puppy chewed my shoes', 'a bug in my soup', "I'm starving", 'my cat hates the rain'];
+const TICKET = ['I was charged twice this month', 'the export crashes on my phone', 'I forgot my password', 'what does it cost for 50 people', 'my account was charged but the page crashes'];
 ---
-<Base title="Decision model · Riccardo Mondi" description="A tiny real decision model, running in your browser. Type a message and watch it choose, with a probability." tono="neutro" largo>
+<Base title="Decision model · Riccardo Mondi" description="Tiny real decision models, running in your browser. Write anything and watch one pick an emoji, with a probability." tono="neutro" largo>
   <main class="rn" data-decisione>
-    <div class="schermo">
+    <section class="schermo" data-emoji>
       <header class="testa">
-        <h1>Watch a tiny decision model choose in your browser</h1>
+        <h1>Watch a tiny decision model pick an emoji in your browser</h1>
         <a href="#how-it-works" class="mono">how it works ↓</a>
       </header>
 
-      <section class="banco">
+      <div class="banco">
         <div class="mono sezione">
-          <span class="titolino">write a support message</span>
-          <textarea class="messaggio" rows="3" maxlength="400" aria-label="Support message" placeholder="type here" spellcheck="false"></textarea>
+          <span class="titolino">write anything, try to fool it</span>
+          <textarea class="messaggio" rows="3" maxlength="200" aria-label="Your text" placeholder="type here" spellcheck="false">pizza night with friends</textarea>
           <div class="esempi">
-            {ESEMPI.map(e => <button type="button" data-esempio={e}>{e}</button>)}
+            {EMOJI.map(e => <button type="button" data-esempio={e}>{e}</button>)}
           </div>
-          <p class="parole" aria-label="Your message with each word coloured by the answer it pushes"></p>
+          <p class="parole" aria-label="Your words. The words that matter most to the choice are orange"></p>
         </div>
 
+        <div class="mono sezione">
+          <div class="scelta" aria-live="polite">
+            <span class="emoji-grande" aria-hidden="true"></span>
+            <div>
+              <span class="emoji-quota"></span>
+              <p class="esito"></p>
+            </div>
+          </div>
+          <span class="titolino">its top 5 of 50</span>
+          <div class="barre"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="seconda" data-ticket>
+      <h2 class="mono titolo-sezione">the same idea on another job: support tickets</h2>
+      <div class="banco">
+        <div class="mono sezione">
+          <span class="titolino">write a support message</span>
+          <textarea class="messaggio" rows="2" maxlength="400" aria-label="Support message" placeholder="type here" spellcheck="false">I was charged twice this month</textarea>
+          <div class="esempi">
+            {TICKET.map(e => <button type="button" data-esempio={e}>{e}</button>)}
+          </div>
+          <p class="parole" aria-label="Your message with each word coloured by the team it pushes"></p>
+        </div>
         <div class="mono sezione">
           <span class="titolino">its choice</span>
           <div class="barre"></div>
           <p class="esito" aria-live="polite"></p>
         </div>
-
-        <div class="mono sezione larga">
-          <span class="titolino">when does it act alone?</span>
-          <input class="cursore-soglia" type="range" min="50" max="99" value="90" aria-label="Threshold" />
-          <div class="estremi"><span>acts often</span><span class="lettura"></span><span>asks often</span></div>
-          <div class="casi" role="img" aria-label="One square for each of 40 test messages, sorted by the model's confidence"></div>
-          <p class="legenda"><span class="q giusto"></span>acts, right <span class="q sbagliato"></span>acts, wrong <span class="q chiede"></span>asks a person</p>
-          <p class="dettaglio"></p>
-        </div>
-      </section>
-    </div>
+      </div>
+    </section>
 
     <section class="spiegone" id="how-it-works">
       <h2 class="mono">how it works</h2>
       {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3>{testo.split('\\n').map(p => <p>{p}</p>)}</article>)}
+      <p class="mono fonte">Emoji keywords come from <a href="https://cldr.unicode.org/">Unicode CLDR</a>, © Unicode, Inc., under the <a href="https://www.unicode.org/license.txt">Unicode License V3</a>.</p>
     </section>
   </main>
 </Base>
@@ -63,12 +82,13 @@ const ESEMPI = ['I was charged twice this month', 'the export crashes on my phon
 <style>
   :global(html) { scroll-behavior: smooth; }
   .rn { padding: 4px 24px 0; }
-  .schermo { display: flex; flex-direction: column; gap: var(--s2); min-height: calc(100vh - 62px); padding-bottom: var(--s2); }
+  .schermo { display: flex; flex-direction: column; gap: var(--s2); padding-bottom: var(--s3); }
   .testa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px var(--s2); }
   .testa a { color: var(--fg); font-size: 12px; white-space: nowrap; }
   h1 { margin: 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
-  .banco { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s3) 32px; align-items: start; }
-  .larga { grid-column: 1 / -1; padding-top: var(--s2); border-top: 1px solid var(--line); }
+  .banco { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s3) 40px; align-items: start; }
+  .seconda { padding: var(--s3) 0; border-top: 1px solid var(--line); }
+  .titolo-sezione { margin: 0 0 var(--s2); font-size: 16px; font-weight: 400; color: var(--fg); }
   .sezione { min-width: 0; font-size: 13px; color: var(--fg); }
   .titolino { display: block; margin-bottom: 8px; color: var(--fg); font-size: 14px; }
   .titolino::before { content: '// '; color: var(--muted); }
@@ -78,23 +98,19 @@ const ESEMPI = ['I was charged twice this month', 'the export crashes on my phon
   .esempi button { padding: 4px 8px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; font-size: 11px; text-align: left; cursor: pointer; }
   .esempi button:hover { border-color: var(--fg); color: var(--fg); }
   .parole { min-height: 3em; margin: var(--s1) 0 0; font-size: 15px; line-height: 1.5; color: var(--muted); }
+  .scelta { display: flex; align-items: center; gap: var(--s2); min-height: 96px; margin-bottom: var(--s2); }
+  .emoji-grande { flex: none; width: 88px; font-size: 72px; line-height: 1; text-align: center; }
+  .emoji-quota { display: block; font-size: 32px; line-height: 1.1; }
+  .scelta .esito { min-height: 0; margin: 2px 0 0; color: var(--muted); font-size: 13px; }
   .barre :global(.barra-voce) { display: grid; grid-template-columns: 64px minmax(0, 1fr) 44px; align-items: center; gap: 8px; margin-bottom: 8px; }
+  [data-emoji] .barre :global(.barra-voce) { grid-template-columns: 28px minmax(0, 1fr) 44px; }
+  [data-emoji] .barre :global(.nome) { font-size: 18px; line-height: 1; }
   .barre :global(.traccia) { height: 18px; border: 1px solid var(--line); }
   .barre :global(.pieno) { height: 100%; transition: width .12s; }
   .barre :global(.num) { text-align: right; }
-  .esito { min-height: 2.6em; margin: var(--s1) 0 0; font-size: 15px; line-height: 1.3; }
-  .cursore-soglia { display: block; width: 100%; margin: 0; accent-color: var(--fg); cursor: pointer; }
-  .estremi { display: flex; justify-content: space-between; gap: var(--s1); margin: 2px 0 var(--s1); color: var(--muted); font-size: 11px; }
-  .lettura { color: var(--fg); text-align: center; }
-  .casi { display: grid; grid-template-columns: repeat(40, minmax(0, 1fr)); gap: 3px; }
-  .casi :global(button) { aspect-ratio: 1; min-width: 0; padding: 0; border: 1px solid var(--line); background: none; cursor: pointer; }
-  .casi :global(.giusto), .q.giusto { background: var(--verde); border-color: var(--verde); }
-  .casi :global(.sbagliato), .q.sbagliato { background: var(--arancio); border-color: var(--arancio); }
-  .casi :global(.scelto) { outline: 1px solid var(--fg); outline-offset: 1px; }
-  .q { display: inline-block; width: 9px; height: 9px; margin: 0 4px 0 10px; border: 1px solid var(--line); vertical-align: -1px; }
-  .q:first-child { margin-left: 0; }
-  .legenda { margin: var(--s1) 0 0; color: var(--muted); font-size: 11px; }
-  .dettaglio { min-height: 3em; margin: 8px 0 0; color: var(--fg); font-size: 13px; line-height: 1.5; }
+  .esito { min-height: 1.4em; margin: var(--s1) 0 0; font-size: 15px; line-height: 1.3; }
+  .fonte { color: var(--muted); font-size: 12px; }
+  .fonte a { color: var(--fg); }
   .spiegone { max-width: 720px; margin: 0 auto; padding: var(--s4) 0; border-top: 1px solid var(--line); scroll-margin-top: var(--s2); }
   .spiegone h2 { margin: 0 0 var(--s3); font-size: 14px; font-weight: 400; color: var(--fg); }
   .spiegone h2::before { content: '// '; color: var(--muted); }
@@ -104,10 +120,16 @@ const ESEMPI = ['I was charged twice this month', 'the export crashes on my phon
   @media (max-width: 760px) {
     .rn { padding: 0 16px; }
     h1 { font-size: 20px; }
-    .banco { grid-template-columns: minmax(0, 1fr); }
+    .banco { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
     .esempi button { padding: 8px 10px; font-size: 12px; }
     .messaggio { font-size: 16px; }
-    .cursore-soglia { height: 32px; }
-    .casi { grid-template-columns: repeat(20, minmax(0, 1fr)); }
+    .parole { min-height: 1.6em; }
+    /* La scelta deve stare vicino a ciò che scrivi: gli esempi scorrono di lato, in una riga sola */
+    [data-emoji] .esempi { flex-wrap: nowrap; margin-right: -16px; padding-right: 16px; overflow-x: auto; }
+    [data-emoji] .esempi button { flex: none; white-space: nowrap; }
+    [data-emoji] .messaggio { height: 72px; }
+    [data-emoji] .banco { gap: 4px; }
+    .scelta { min-height: 80px; margin-bottom: var(--s1); }
+    .emoji-grande { width: 72px; font-size: 60px; }
   }
 </style>

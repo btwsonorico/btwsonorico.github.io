@@ -1,89 +1,81 @@
-// Vista del decision model: legge il messaggio, somma i pesi delle parole e sceglie fra quattro risposte fisse.
-// La soglia decide quando agisce da solo; i quadrati sono 40 messaggi scritti a mano che il modello non ha mai visto.
-type Caso = { t: string; y: number; s: number; p: number };
-type Dati = { classi: string[]; temperatura: number; scarti: number[]; voci: Record<string, number[]>; casi: Caso[] };
+import { modelloDa, parole, punteggi, softmax, type Modello } from '../lib/emoji';
+
+// Vista del decision model. In cima l'autotagger: un encoder minuscolo sceglie fra 50 emoji, e togliendo una parola alla volta si vede quale conta.
+// Sotto i ticket: un modello ancora più semplice somma i pesi delle parole e sceglie fra quattro risposte fisse.
+type Ticket = { classi: string[]; temperatura: number; scarti: number[]; voci: Record<string, number[]> };
+type Etichette = { emoji: string[]; temperatura: number };
 
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
-const parole = (t: string) => t.toLowerCase().replace(/[^a-z0-9' ]+/g, ' ').split(/\s+/).filter(Boolean);
+const INCERTO = 0.3, QUANTE = 5;
 
-export async function monta(radice: HTMLElement) {
+function barra(contenitore: HTMLElement, colore?: string) {
+  const r = document.createElement('div'), n = document.createElement('span'), tr = document.createElement('div'), pieno = document.createElement('div'), num = document.createElement('span');
+  r.className = 'barra-voce'; tr.className = 'traccia'; pieno.className = 'pieno'; n.className = 'nome'; num.className = 'num';
+  pieno.style.background = colore ?? tono('--arancio');
+  tr.append(pieno); r.append(n, tr, num); contenitore.append(r);
+  return { n, pieno, num };
+}
+
+function montaEmoji(radice: HTMLElement, m: Modello, d: Etichette) {
+  const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
+  const area = $<HTMLTextAreaElement>('.messaggio'), grande = $<HTMLElement>('.emoji-grande'), quota = $<HTMLElement>('.emoji-quota'), esito = $<HTMLElement>('.esito'), righe = $<HTMLElement>('.parole'), barre = $<HTMLElement>('.barre');
+  const voci = Array.from({ length: QUANTE }, () => barra(barre));
+  const prob = (ws: string[]) => softmax(punteggi(m, ws), d.temperatura);
+  function aggiorna() {
+    const ws = parole(area.value);
+    if (!ws.length) {
+      grande.textContent = '·'; quota.textContent = ''; esito.textContent = 'write something'; righe.replaceChildren();
+      voci.forEach(v => { v.n.textContent = ''; v.pieno.style.width = '0'; v.num.textContent = ''; });
+      return;
+    }
+    const p = prob(ws), ordine = p.map((_, i) => i).sort((a, b) => p[b]! - p[a]!), prima = ordine[0]!;
+    grande.textContent = d.emoji[prima]!;
+    quota.textContent = `${Math.round(p[prima]! * 100)}%`;
+    esito.textContent = p[prima]! >= INCERTO ? 'its choice' : 'not sure: this is only its best guess';
+    voci.forEach((v, k) => { const i = ordine[k]!; v.n.textContent = d.emoji[i]!; v.pieno.style.width = `${p[i]! * 100}%`; v.num.textContent = `${Math.round(p[i]! * 100)}%`; });
+    // Ogni parola si accende quanto la scelta scende se la si toglie. Il testo si scrive sempre come testo, mai come HTML
+    righe.replaceChildren(...ws.flatMap((w, i) => {
+      const s = document.createElement('span'), senza = ws.length > 1 ? prob(ws.filter((_, k) => k !== i))[prima]! : 0, peso = Math.max(0, Math.min(1, (p[prima]! - senza) / Math.max(0.05, p[prima]!)));
+      s.textContent = w;
+      if (peso > 0.15) { s.style.color = tono('--arancio'); s.style.opacity = String(0.45 + peso * 0.55); }
+      return i ? [' ', s] : [s];
+    }));
+  }
+  area.addEventListener('input', aggiorna);
+  radice.querySelectorAll<HTMLButtonElement>('[data-esempio]').forEach(b => b.addEventListener('click', () => { area.value = b.dataset.esempio ?? ''; aggiorna(); }));
+  aggiorna();
+}
+
+function montaTicket(radice: HTMLElement, d: Ticket) {
   const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
   const COLORI = [tono('--arancio'), tono('--verde'), tono('--fg'), tono('--azzurro')];
   const area = $<HTMLTextAreaElement>('.messaggio'), barre = $<HTMLElement>('.barre'), esito = $<HTMLElement>('.esito'), righe = $<HTMLElement>('.parole');
-  const cursore = $<HTMLInputElement>('.cursore-soglia'), lettura = $<HTMLElement>('.lettura'), casiEl = $<HTMLElement>('.casi'), dettaglio = $<HTMLElement>('.dettaglio');
-  let dati: Dati;
-  try { dati = await (await fetch('/learn/decisioni.json')).json() as Dati; }
-  catch { esito.textContent = 'could not load the model'; return; }
-  const { classi, temperatura, scarti, voci } = dati, K = classi.length;
-
-  const voceBarra = classi.map((nome, k) => {
-    const r = document.createElement('div'), n = document.createElement('span'), tr = document.createElement('div'), pieno = document.createElement('div'), num = document.createElement('span');
-    r.className = 'barra-voce'; tr.className = 'traccia'; pieno.className = 'pieno'; num.className = 'num';
-    n.textContent = nome; n.style.color = COLORI[k]!; pieno.style.background = COLORI[k]!;
-    tr.append(pieno); r.append(n, tr, num); barre.append(r);
-    return { pieno, num };
-  });
-
+  const voci = d.classi.map((nome, k) => { const v = barra(barre, COLORI[k]); v.n.textContent = nome; v.n.style.color = COLORI[k]!; return v; });
   // Le stesse regole dello script di allenamento: parole singole e coppie di parole
-  function scegli(testo: string) {
-    const p = parole(testo), o = [...scarti], tratti = [...p, ...p.slice(1).map((w, i) => `${p[i]} ${w}`)];
-    let note = 0;
-    for (const f of tratti) { const w = voci[f]; if (w) { note++; for (let k = 0; k < K; k++) o[k]! += w[k]!; } }
-    const m = Math.max(...o), e = o.map(v => Math.exp((v - m) / temperatura)), s = e.reduce((a, b) => a + b);
-    return { prob: e.map(v => v / s), note, p };
-  }
-  const soglia = () => Number(cursore.value) / 100;
-
   function aggiorna() {
-    const testo = area.value, { prob, note, p } = scegli(testo), migliore = prob.indexOf(Math.max(...prob));
-    voceBarra.forEach((v, k) => { const q = testo.trim() ? prob[k]! : 0; v.pieno.style.width = `${q * 100}%`; v.num.textContent = testo.trim() ? q.toFixed(2) : '–'; });
-    // Ogni parola prende il colore della risposta che spinge di più. Il testo si scrive sempre come testo, mai come HTML
+    const p = parole(area.value), o = [...d.scarti], tratti = [...p, ...p.slice(1).map((w, i) => `${p[i]} ${w}`)];
+    let note = 0;
+    for (const f of tratti) { const w = d.voci[f]; if (w) { note++; w.forEach((v, k) => { o[k]! += v; }); } }
+    const q = softmax(o, d.temperatura), m = q.indexOf(Math.max(...q)), c = p.length > 0;
+    voci.forEach((v, k) => { v.pieno.style.width = `${c ? q[k]! * 100 : 0}%`; v.num.textContent = c ? `${Math.round(q[k]! * 100)}%` : '–'; });
     righe.replaceChildren(...p.flatMap((w, i) => {
-      const s = document.createElement('span'), pesi = voci[w];
+      const s = document.createElement('span'), pesi = d.voci[w];
       s.textContent = w;
       if (pesi) { const k = pesi.indexOf(Math.max(...pesi)); if (pesi[k]! > 0) s.style.color = COLORI[k]!; }
       return i ? [' ', s] : [s];
     }));
-    if (!testo.trim()) esito.textContent = 'waiting for a message';
-    else if (!note) esito.textContent = 'it knows none of these words: ask a person';
-    else if (prob[migliore]! >= soglia()) esito.textContent = `acts alone: route to ${classi[migliore]}`;
-    else esito.textContent = `not sure enough: ask a person (best guess ${classi[migliore]})`;
+    esito.textContent = !c ? 'waiting for a message' : !note ? 'it knows none of these words' : `route to ${d.classi[m]}`;
   }
-
-  // I 40 messaggi di prova, dal più incerto al più sicuro
-  const casi = [...dati.casi].sort((a, b) => a.p - b.p);
-  const quadri = casi.map((c, i) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.setAttribute('aria-label', `Test message ${i + 1}`);
-    const mostra = () => {
-      quadri.forEach(q => q.classList.remove('scelto'));
-      b.classList.add('scelto');
-      const agisce = c.p >= soglia();
-      dettaglio.textContent = `"${c.t}": it says ${classi[c.s]} at ${c.p.toFixed(2)}, the right answer is ${classi[c.y]}. ${agisce ? (c.s === c.y ? 'It acts, and it is right.' : 'It acts, and it is wrong.') : 'It asks a person.'}`;
-    };
-    b.addEventListener('pointerenter', mostra);
-    b.addEventListener('focus', mostra);
-    b.addEventListener('click', mostra);
-    casiEl.append(b);
-    return b;
-  });
-  function aggiornaSoglia() {
-    const q = soglia();
-    let agisce = 0, errori = 0;
-    casi.forEach((c, i) => {
-      const a = c.p >= q, giusto = c.s === c.y;
-      if (a) { agisce++; if (!giusto) errori++; }
-      quadri[i]!.classList.toggle('giusto', a && giusto);
-      quadri[i]!.classList.toggle('sbagliato', a && !giusto);
-    });
-    lettura.textContent = `threshold ${q.toFixed(2)} · acts on ${agisce} of ${casi.length} · ${errori} ${errori === 1 ? 'error' : 'errors'}`;
-    aggiorna();
-  }
-
   area.addEventListener('input', aggiorna);
-  cursore.addEventListener('input', aggiornaSoglia);
   radice.querySelectorAll<HTMLButtonElement>('[data-esempio]').forEach(b => b.addEventListener('click', () => { area.value = b.dataset.esempio ?? ''; aggiorna(); }));
-  area.value = 'I was charged twice this month';
-  aggiornaSoglia();
+  aggiorna();
+}
+
+export async function monta(radice: HTMLElement) {
+  const emoji = radice.querySelector<HTMLElement>('[data-emoji]')!, ticket = radice.querySelector<HTMLElement>('[data-ticket]')!;
+  fetch('/learn/decisioni.json').then(r => r.json() as Promise<Ticket>).then(d => montaTicket(ticket, d)).catch(() => { ticket.querySelector('.esito')!.textContent = 'could not load the model'; });
+  try {
+    const [pesi, d] = await Promise.all([fetch('/learn/emoji.bin').then(r => r.arrayBuffer()), fetch('/learn/emoji.json').then(r => r.json() as Promise<Etichette>)]);
+    montaEmoji(emoji, modelloDa(pesi), d);
+  } catch { emoji.querySelector('.esito')!.textContent = 'could not load the model'; }
 }
