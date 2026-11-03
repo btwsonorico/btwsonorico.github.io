@@ -271,7 +271,7 @@ export function monta(radice: HTMLElement) {
   };
   const riga = (l: number, j: number) => ALTO + ((Hr - ALTO - 18) * (j + 0.5)) / rete.forma[l]!;
   const lato = () => Math.max(14, Math.min(36, (Hr - ALTO - 18) / Math.max(...rete.forma) - 6));
-  const nome = (l: number, j: number) => (l === 0 ? 'xy'[j]! : l === rete.forma.length - 1 ? 'height' : `n${l}.${j + 1}`);
+  const nome = (l: number, j: number) => (l === 0 ? `x${j + 1}` : l === rete.forma.length - 1 ? 'ŷ' : `h${l}.${j + 1}`);
   const fogliettino = document.createElement('canvas');
   fogliettino.width = fogliettino.height = T;
   const cm = fogliettino.getContext('2d')!, immagine = cm.createImageData(T, T);
@@ -344,11 +344,16 @@ export function monta(radice: HTMLElement) {
       }
     }
     c.fillStyle = MUTED;
-    c.textAlign = 'right';
-    c.fillText('x', colonna(0) - q / 2 - 5, riga(0, 0));
-    c.fillText('y', colonna(0) - q / 2 - 5, riga(0, 1));
     c.textAlign = 'center';
-    c.fillText('height', colonna(ultimo), riga(ultimo, 0) + q / 2 + 10);
+    // Il nome sotto ogni neurone; in uno strato affollato solo nel tag, per non sovrapporre le scritte
+    rete.forma.forEach((n, l) => {
+      if ((Hr - ALTO - 18) / n < q + 12) return;
+      for (let j = 0; j < n; j++) c.fillText(nome(l, j), colonna(l), riga(l, j) + q / 2 + 10);
+    });
+    // I tre tipi di strato, sotto le colonne
+    c.fillText('input', colonna(0), Hr - 6);
+    c.fillText('output', colonna(ultimo), Hr - 6);
+    if (ultimo > 1) c.fillText(ultimo === 2 ? 'hidden layer' : 'hidden layers', (colonna(1) + colonna(ultimo - 1)) / 2, Hr - 6);
   }
   // Grafico del match: stessi assi per tutte le corse, così si confrontano. In basso le correzioni, a sinistra la percentuale
   function disegnaCurva() {
@@ -382,7 +387,7 @@ export function monta(radice: HTMLElement) {
     cc.textAlign = 'left';
     cc.fillText('0', sx0, h - 6);
     cc.textAlign = 'right';
-    cc.fillText(`${FINE / 1000}k corrections`, w - 6, h - 6);
+    cc.fillText(`${FINE / 1000}k training steps`, w - 6, h - 6);
     const linea = (dati: [number, number][], colore: string, alfa: number) => {
       cc.globalAlpha = alfa;
       cc.strokeStyle = colore;
@@ -406,18 +411,18 @@ export function monta(radice: HTMLElement) {
   }
 
   // --- Tag: quello arancione dice cosa fare e sta accanto al comando; quello chiaro spiega ciò che indichi
-  const tagPunto = document.querySelector<HTMLElement>('.tag-punto')!, tagConsiglio = document.querySelector<HTMLElement>('.tag-consiglio')!, pannello = $<HTMLElement>('.pannello');
+  const tagPunto = document.querySelector<HTMLElement>('.tag-punto')!, tagConsiglio = document.querySelector<HTMLElement>('.tag-consiglio')!, pannello = $<HTMLElement>('.pannello'), notaTel = $<HTMLElement>('.nota-tel');
   let consigliato: Element | null = null;
   const consiglia = (el: Element | null) => { if (el !== consigliato) { consigliato?.classList.remove('consigliato'); el?.classList.add('consigliato'); consigliato = el; } };
   const cosaProvare = (): [string, HTMLElement | null] => {
     if (anima || salita) return ['', null];
     if (disegno) return ['paint on the grid, then press done', pieni.length ? matita : null];
-    if (soloNeurone()) return ['drag the white squares to cover the fish, then add a layer', piuStrati];
+    if (soloNeurone()) return ['drag the white squares to cover the fish, then add a hidden layer', piuStrati];
     if (inMoto) return ['', null];
     if (!passi) return ['press train to start this run', gioca];
     if (passi < FINE) return [`press ${gioca.textContent}, or change the network`, gioca];
     if (matchMostrato >= 0.95) return ['it got it: try another shape', sagome[([...sagome].findIndex(b => b.dataset.sagoma === nomeSagoma) + 1) % sagome.length] ?? null];
-    if (nascosti.length === 1) return ['one layer gets stuck: add a layer, then train and compare', piuStrati];
+    if (nascosti.length === 1) return ['one hidden layer gets stuck: add another, then train and compare', piuStrati];
     return ['change the network, then train and compare', gioca];
   };
   const spiegaNeurone = () => {
@@ -427,9 +432,9 @@ export function monta(radice: HTMLElement) {
       return `Weight ${f2(w)}: how much ${nome(arco.l - 1, arco.i)} counts for ${nome(arco.l, arco.j)}.\n${w > 0 ? 'Orange pushes up.' : 'Blue pushes down.'}`;
     }
     if (!sel) return '';
-    if (sel.l === 0) return `Input ${nome(0, sel.j)}: the ${sel.j ? 'north-south' : 'east-west'} position on the grid.`;
+    if (sel.l === 0) return `Input layer, ${nome(0, sel.j)}: the ${sel.j ? 'north-south' : 'east-west'} position on the grid.`;
     const entrate = rete.forma[sel.l - 1]!, ultimo = rete.forma.length - 1;
-    const cosa = sel.l === ultimo ? (ultimo === 1 ? 'One neuron: one straight cut.' : 'Output: adds up the layer before it.') : sel.l === 1 ? 'This neuron makes one straight cut.' : 'This neuron combines the cuts before it.';
+    const cosa = sel.l === ultimo ? (ultimo === 1 ? 'One neuron: one straight cut.' : 'Output layer: adds up the last hidden layer.') : sel.l === 1 ? 'First hidden layer: one straight cut.' : 'Deeper hidden layer: combines the cuts before it.';
     let somma = '';
     for (let i = 0; i < entrate; i++) {
       const w = rete.pesi[sel.l - 1]![sel.j * entrate + i]!;
@@ -472,6 +477,11 @@ export function monta(radice: HTMLElement) {
     consiglia(el);
     scrivi2(tagConsiglio, mostra2 ? prova : '');
     if (mostra2) { const q = el!.getBoundingClientRect(); posa(tagConsiglio, q.left, q.top, q.right, q.bottom, dalPannello(el!)); }
+    // Su telefono i tag coprirebbero i grafici: lo stesso testo va nella riga sotto la scena
+    if (matchMedia('(max-width: 760px)').matches) {
+      const testoTel = !tagPunto.hidden ? tagPunto.textContent : !tagConsiglio.hidden ? tagConsiglio.textContent : '';
+      if (notaTel.textContent !== testoTel) notaTel.textContent = testoTel;
+    }
   }
   function scriviNumeri() {
     scrivi($('.lettura'), disegno ? 'match –' : `match ${Math.round(matchMostrato * 100)}%`);
@@ -495,13 +505,13 @@ export function monta(radice: HTMLElement) {
       const e = document.createElement('span');
       e.className = 'colonna';
       e.style.left = `${colonna(l + 1)}px`;
-      e.dataset.spiega = `Neurons in layer ${l + 1}: more neurons, more straight cuts. At most ${MAX_NEURONI}.`;
+      e.dataset.spiega = `Neurons in hidden layer ${l + 1}: more neurons, more straight cuts. At most ${MAX_NEURONI}.`;
       const bottone = (t2: string, azione: string, d: number, spento: boolean) => {
         const q = document.createElement('button');
         q.type = 'button';
         q.textContent = t2;
         q.disabled = spento;
-        q.setAttribute('aria-label', `${azione} layer ${l + 1}`);
+        q.setAttribute('aria-label', `${azione} hidden layer ${l + 1}`);
         q.addEventListener('click', () => cambiaRete(nascosti.map((v, k) => (k === l ? n + d : v))));
         return q;
       };

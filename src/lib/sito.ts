@@ -12,5 +12,5 @@ export const SITO = {
   email: 'riccardo.mondi@polimi.it',
   github: 'https://github.com/btwsonorico',
   linkedin: 'https://www.linkedin.com/in/riccardo-mondi-7717181aa/',
-  bio: 'I help organisations adopt AI, and I build the tools that make it work: from research to code.',
+  bio: 'I work on AI adoption at Politecnico di Milano (Osservatori Digital Innovation). I also write software, and I read too many papers.',
 };

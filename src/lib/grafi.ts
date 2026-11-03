@@ -117,9 +117,9 @@ export async function datiCompetenze(sezione: Sezione) {
     competenze: Object.entries(competenze)
       .filter(([id]) => aree.some(a => a.data.skill === id))
       .map(([id, c]) => ({
-        id, label: c.title, href: `/${percorso}/#${id}`,
+        id, label: c.title, href: `/${percorso}/#${id}`, sintesi: c.summary,
         aree: aree.filter(a => a.data.skill === id).map(a => ({
-          id: a.id, label: a.data.title, href: `/${percorso}/${a.id}/`,
+          id: a.id, label: a.data.title, href: `/${percorso}/#${id}`, sintesi: a.data.summary,
           peso: ('stack' in a.data ? a.data.stack : a.data.methods).length,
           punti: (a.body?.match(/^- /gm) ?? []).length,
         })),

@@ -396,11 +396,23 @@ export function monta(el: HTMLElement, opzioni: { pesca?: boolean } = {}) {
   try { presi = new Set(JSON.parse(localStorage.getItem('misc-pesca-presi') ?? '[]') as string[]); } catch { /* niente */ }
   const conta = document.createElement('p');
   conta.className = 'mono conta-pesca';
-  const scriviConta = () => { conta.textContent = `${amo.stato === 'fermo' ? 'click to cast · ' : ''}${[...presi].filter(id => VOCI.some(v => v.id === id)).length}/${VOCI.length}`; };
-  const scheda = opzioni.pesca ? nuovaScheda(el.parentElement!, 'release ×', () => rilascia()) : null;
+  let serie = 0;
+  const scriviConta = () => { conta.textContent = `${amo.stato === 'fermo' ? 'tap the water · ' : ''}${serie > 1 ? `streak ${serie} · ` : ''}${[...presi].filter(id => VOCI.some(v => v.id === id)).length}/${VOCI.length}`; };
+  const scheda = opzioni.pesca ? nuovaScheda(el.parentElement!, 'release ×', () => rilascia(), giusto => {
+    serie = giusto ? serie + 1 : 0;
+    // Con la risposta sbagliata il pesce resta in acqua: tornerà all'amo più avanti
+    if (giusto) {
+      presi.add(amo.voce!.id);
+      try { localStorage.setItem('misc-pesca-presi', JSON.stringify([...presi])); } catch { /* niente */ }
+    }
+    scriviConta();
+  }) : null;
   if (opzioni.pesca) { el.parentElement!.appendChild(conta); scriviConta(); }
   function lancia() {
-    if (amo.stato === 'mostra') rilascia();
+    if (amo.stato === 'mostra') {
+      if (scheda && !scheda.stato.risposto) return;
+      rilascia();
+    }
     if (amo.stato !== 'fermo') return;
     const nuove = VOCI.filter(v => !presi.has(v.id)), urna = nuove.length ? nuove : VOCI;
     amo.voce = urna[Math.floor(r() * urna.length)]!;
@@ -438,8 +450,6 @@ export function monta(el: HTMLElement, opzioni: { pesca?: boolean } = {}) {
       amo.pos.y = THREE.MathUtils.lerp(amo.y0, QUOTA_MOSTRA, THREE.MathUtils.smoothstep(amo.t, 0, 1));
       if (amo.t >= 1) {
         amo.stato = 'mostra';
-        presi.add(amo.voce!.id);
-        try { localStorage.setItem('misc-pesca-presi', JSON.stringify([...presi])); } catch { /* niente */ }
         scheda?.mostra(amo.voce!);
         scriviConta();
       }

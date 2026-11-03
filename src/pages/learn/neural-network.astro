@@ -4,11 +4,11 @@ import Base from '../../layouts/Base.astro';
 // Rete neurale: la facciata è lo strumento (a sinistra costruisci, alleni e leggi; a destra la griglia), le spiegazioni brevi
 // sono tag che appaiono sul punto, e scorrendo sotto c'è la spiegazione completa. La rete si allena nel browser (src/lib/rete.ts)
 const COME: [string, string][] = [
-  ['What is this?', 'A real neural network, small and simple, running in your browser. It reads a position on the grid and returns a height. It trains on 1,024 points, and the blue outline is the shape they form. Unlike with a real model, its settings are fixed for you: how fast it corrects its weights (the learning rate), how many points it looks at for each correction (64), and how many corrections it makes (20,000). In a real model these take a lot of trial and error.'],
-  ['What does one neuron do?', 'A neuron does three things. It multiplies each input by a weight, adds the results, and limits the total to a fixed range, so the answer cannot grow without end.\nOn this grid the result is one straight cut: the height is high on one side of a line and low on the other. The weights decide where that line goes. With 0 layers you can drag it yourself, and you will see that one straight cut cannot cover a shape like the fish.'],
-  ['What do more neurons and layers add?', 'More neurons in a layer give you more cuts. Each neuron makes its own straight cut, and the output adds them up, so the straight lines combine into a rounded shape. The shape stays rough, because all these neurons can look only at the position.\nA second layer reads the cuts of the first layer instead of the position. So it can combine them into new pieces, such as corners and strips, and a third layer can combine those pieces again.\nThat is why layers help. On the fish, one layer of 6 neurons stops near 70%, two reach about 90% and three go past 95%.'],
-  ['How does it learn?', 'The network starts with random weights, so its first answers are wrong. It answers for a group of points, and the gap from the right heights is the error. Backpropagation goes back through the network to find how much each weight contributed to that error, and gradient descent moves each weight a little in the direction that lowers it.\nOne correction changes very little, so this repeats thousands of times, and the match line rises as it does.'],
-  ['What about large language models?', 'They learn with the same loop, but at a very different scale. They have billions of weights, and each correction has to update all of them. Training the largest ones takes thousands of specialised chips running for weeks or months, and a lot of electricity. Published estimates put those runs at tens of millions of dollars or more. The cost does not stop there: each answer they give also takes computing power.\nThey are also harder to read. Words become long lists of numbers, so the cuts happen in thousands of dimensions, with no grid to look at, and a single neuron rarely has one clear meaning. That is a large part of why they are called black boxes.'],
+  ['What is this?', 'A real neural network, small and simple, running in your browser. Its input layer reads a position on the grid, its hidden layers process it, and its output layer returns a height. The names are the usual ones: x1 and x2 are the inputs, h1.2 is neuron 2 of hidden layer 1, and ŷ is the output. It trains on 1,024 points, and the blue outline is the shape they form. Unlike with a real model, its settings are fixed for you: how fast it corrects its weights (the learning rate), how many points it reads in each training step (the batch size, 64), and how many training steps it runs (20,000). In a real model these take a lot of trial and error.'],
+  ['What does one neuron do?', 'A neuron does three things. It multiplies each input by a weight, adds the results, and limits the total to a fixed range, so the answer cannot grow without end.\nOn this grid the result is one straight cut: the height is high on one side of a line and low on the other. The weights decide where that line goes. With 0 hidden layers you can drag it yourself, and you will see that one straight cut cannot cover a shape like the fish.'],
+  ['What do more neurons and hidden layers add?', 'More neurons in a hidden layer give you more cuts. Each neuron makes its own straight cut, and the output layer adds them up, so the straight lines combine into a rounded shape. The shape stays rough, because all these neurons can look only at the position.\nA second hidden layer reads the cuts of the first one instead of the position. So it can combine them into new pieces, such as corners and strips, and a third can combine those pieces again.\nThat is why hidden layers help. On the fish, one hidden layer of 6 neurons stops near 70%, two reach about 90% and three go past 95%.'],
+  ['How does it learn?', 'The network starts with random weights, so its first answers are wrong. It answers for a group of points, and the gap from the right heights is the error. Backpropagation goes back through the network to find how much each weight contributed to that error, and gradient descent moves each weight a little in the direction that lowers it.\nOne training step changes very little, so this repeats thousands of times, and the match line rises as it does.'],
+  ['What about large language models?', 'They learn with the same loop, but at a very different scale. They have billions of weights, and each training step has to update all of them. Training the largest ones takes thousands of specialised chips running for weeks or months, and a lot of electricity. Published estimates put those runs at tens of millions of dollars or more. The cost does not stop there: each answer they give also takes computing power.\nThey are also harder to read. Words become long lists of numbers, so the cuts happen in thousands of dimensions, with no grid to look at, and a single neuron rarely has one clear meaning. That is a large part of why they are called black boxes.'],
 ];
 ---
 <Base title="Neural network · Riccardo Mondi" description="A small real neural network, running in your browser. Add neurons and layers and teach it to draw." tono="neutro" largo>
@@ -24,19 +24,21 @@ const COME: [string, string][] = [
 
         <div class="mono forme">
           <span class="titolino">shape</span>
-          <button type="button" data-sagoma="house" data-spiega="The easiest shape: three layers can reach 100%.">house</button>
+          <button type="button" data-sagoma="house" data-spiega="The easiest shape: three hidden layers can reach 100%.">house</button>
           <button type="button" data-sagoma="tree" data-spiega="A harder shape: its notches stop the match around 90%.">tree</button>
-          <button type="button" data-sagoma="fish" data-spiega="The hardest for one layer: it needs more layers to get past 90%.">fish</button>
+          <button type="button" data-sagoma="fish" data-spiega="The hardest for one hidden layer: it needs more of them to get past 90%.">fish</button>
           <button type="button" class="matita" data-spiega="Stops the network and lets you paint your own shape on the base of the grid.">draw</button>
           <button type="button" class="pulisci" hidden data-spiega="Erases everything you painted.">clear</button>
         </div>
 
+        <p class="mono nota-tel" aria-live="polite"></p>
+
         <div class="pannello">
           <div class="mono costruisci">
             <span class="titolino">build</span>
-            <div class="contatore strati" data-spiega="Layers. Each one reads the layer before it, and combines its cuts into corners and shapes.">
-              <span>layers</span>
-              <button type="button" class="strati-meno" aria-label="Remove a layer">−</button><b class="strati-n"></b><button type="button" class="strati-piu" aria-label="Add a layer">+</button>
+            <div class="contatore strati" data-spiega="Hidden layers sit between input and output. Each one combines the cuts of the layer before into corners and shapes.">
+              <span>hidden layers</span>
+              <button type="button" class="strati-meno" aria-label="Remove a hidden layer">−</button><b class="strati-n"></b><button type="button" class="strati-piu" aria-label="Add a hidden layer">+</button>
             </div>
           </div>
           <div class="rete-box">
@@ -45,10 +47,10 @@ const COME: [string, string][] = [
           </div>
           <div class="mono azioni">
             <span class="titolino">train</span>
-            <button type="button" class="gioca" data-spiega="Training: the network tries points, measures the error, and corrects its weights with backpropagation."></button>
+            <button type="button" class="gioca" data-spiega="Training: each step tries some points, measures the error, and updates the weights with backpropagation."></button>
             <button type="button" class="azzera" data-spiega="Sets the weights back to random. This run stays in the chart.">restart</button>
-            <button type="button" class="un-passo" data-spiega="Slows down and shows one correction: try, error, backpropagation.">one step</button>
-            <span class="nota-solo">add a layer to start training</span>
+            <button type="button" class="un-passo" data-spiega="Slows down and shows one training step: try, error, backpropagation.">one step</button>
+            <span class="nota-solo">add a hidden layer to start training</span>
           </div>
           <div class="mono andamento">
             <span class="titolino">result</span>
@@ -106,7 +108,7 @@ const COME: [string, string][] = [
   .pannello.spento { opacity: .35; pointer-events: none; }
   .costruisci { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; font-size: 13px; }
   .contatore { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); }
-  .contatore > span { width: 56px; color: var(--muted); font-size: 12px; }
+  .contatore > span { width: 96px; white-space: nowrap; color: var(--muted); font-size: 12px; }
   .contatore b { min-width: 2ch; font-weight: 400; font-size: 15px; text-align: center; }
   .contatore button { width: 28px; height: 28px; padding: 0; font-size: 15px; }
   .rete-box { position: relative; flex: 1 1 0; min-height: 170px; }
@@ -137,6 +139,7 @@ const COME: [string, string][] = [
   .errore { color: var(--muted); white-space: nowrap; }
   .curva { display: block; width: 100%; height: 124px; margin-top: 2px; }
   /* Tag sul punto: stesso stile delle etichette delle scene */
+  .nota-tel { display: none; }
   .tag-punto, .tag-consiglio { position: fixed; left: 0; top: 0; z-index: 5; max-width: 300px; padding: 4px 8px; background: var(--bg); border: 1px solid var(--fg); color: var(--fg); font-size: 12px; line-height: 1.45; white-space: pre-line; pointer-events: none; }
   .tag-consiglio { border-color: var(--arancio); color: var(--arancio); }
   .tag-punto[hidden], .tag-consiglio[hidden] { display: none; }
@@ -166,6 +169,7 @@ const COME: [string, string][] = [
     .gioca { flex: 1 1 100%; padding: 10px; }
     .azioni button:not(.gioca) { flex: 1 1 40%; padding: 9px; }
     .curva { height: 140px; }
-    .tag-punto, .tag-consiglio { max-width: calc(100vw - 24px); }
+    .tag-punto, .tag-consiglio { display: none !important; }
+    .nota-tel { display: block; order: 1; min-height: 4.4em; margin: 0; color: var(--arancio); font-size: 12px; line-height: 1.45; white-space: pre-line; }
   }
 </style>

@@ -3,7 +3,7 @@ title: Mixture of experts, or how to be huge and cheap
 date: 2026-10-24
 kind: source
 lang: en
-topics: [open, llms]
+topics: [open, llms, defining]
 summary: Total parameters set the memory you need, active parameters set the cost of each token. The architecture behind trillion-parameter open models.
 sources:
   - type: paper

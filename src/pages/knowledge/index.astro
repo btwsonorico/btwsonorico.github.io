@@ -15,6 +15,8 @@ const righe = (kind: string) => scritti.filter(s => s.data.kind === kind).map(s 
   etichetta: [s.data.sources.find(f => f.role === 'main')?.type, s.data.lang].filter(Boolean).join(' · '),
   temi: s.data.topics,
 }));
+// I paper e le notizie più influenti: stanno anche nella loro lista normale
+const definenti = [...righe('essay'), ...righe('thought'), ...righe('source')].filter(r => r.temi.includes('defining'));
 ---
 <Base title="Knowledge · Riccardo Mondi" description="Knowledge by Riccardo Mondi: essays, thoughts and notes on AI papers, talks and books." tono="arancio" largo>
   <main class="affianca">
@@ -24,6 +26,7 @@ const righe = (kind: string) => scritti.filter(s => s.data.kind === kind).map(s 
     </header>
     <div class="a-grafo"><Grafo dati={dati} /></div>
     <div class="a-resto">
+      {definenti.length > 0 && <Lista titolo="#defining" righe={definenti} />}
       <Lista titolo="Essays" righe={righe('essay')} />
       <Lista titolo="Thoughts" righe={righe('thought')} />
       <Lista titolo="Notes on sources" righe={righe('source')} />

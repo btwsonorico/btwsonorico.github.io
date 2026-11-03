@@ -1,13 +1,11 @@
 ---
-// Competenze chiave collassabili; dentro ognuna, solo il nome di ogni area e una frase. Il dettaglio è nella pagina dell'area.
+// Competenze chiave collassabili; dentro ognuna, il nome di ogni area e una frase. Un clic porta la scena su quell'area.
 // Usata da Projects e Advisory. Passare sopra una voce evidenzia il suo nodo nella scena.
 import { sezioni, type Sezione } from '../lib/grafi';
 
 interface Props { sezione: Sezione }
 const { sezione } = Astro.props;
 const { competenze: tutte, aree: carica } = sezioni[sezione];
-// Projects si chiama Software: le pagine stanno in /software/
-const percorso = sezione === 'projects' ? 'software' : sezione;
 const aree = await carica();
 const competenze = Object.entries(tutte)
   .map(([id, c]) => ({ id, ...c, aree: aree.filter(a => a.data.skill === id) }))
@@ -26,10 +24,10 @@ const competenze = Object.entries(tutte)
     </summary>
     <ul class="aree">
       {c.aree.map(a => <li>
-        <a class="area" href={`/${percorso}/${a.id}/`} data-id={`area:${a.id}`}>
+        <button type="button" class="area" data-id={`area:${a.id}`}>
           <span class="nome">{a.data.title}</span>
           <span class="nota">{a.data.summary}</span>
-        </a>
+        </button>
       </li>)}
     </ul>
   </details>)}
@@ -49,6 +47,11 @@ const competenze = Object.entries(tutte)
       window.dispatchEvent(new CustomEvent('grafo:zoom', { detail: id }));
     });
   });
+  // Un clic su una voce avvicina la scena e mostra la sua sintesi; su telefono la scena sta sopra, quindi ci torna
+  document.querySelectorAll<HTMLButtonElement>('.competenze .area').forEach(b => b.addEventListener('click', () => {
+    window.dispatchEvent(new CustomEvent('grafo:zoom', { detail: b.dataset.id }));
+    if (innerWidth < 1080) document.querySelector('.a-grafo')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }));
   // Un link a #competenza (dal grafo o dalla home) apre quella voce
   const apri = () => {
     const d = location.hash && document.getElementById(location.hash.slice(1));
@@ -72,7 +75,7 @@ const competenze = Object.entries(tutte)
   details[open] > summary .segno::before { content: '[−]'; }
 
   .aree { list-style: none; margin: 0 0 var(--s2) 48px; padding: 0; }
-  .area { display: flex; flex-direction: column; padding: var(--s1) 0; border-top: 1px dashed var(--line); text-decoration: none; }
+  .area { display: flex; flex-direction: column; width: 100%; padding: var(--s1) 0; border: 0; border-top: 1px dashed var(--line); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
   .area:hover .nome { color: var(--accent); }
   /* Voce aperta da un clic nella scena 3D: un lampo di colore per trovarla */
   .lampo { animation: lampo 1.6s ease-out; }

@@ -34,7 +34,7 @@ const secondarie = s.data.sources.filter(f => f.role === 'secondary');
         <h2 class="mono">Sources</h2>
         <ol class="mono">{secondarie.map(f => <li><span>{f.type}</span> <a href={f.url}>{f.title}</a>{f.author && <span> · {f.author}</span>}</li>)}</ol>
       </section> : null}
-      {aree.length ? <p class="mono usato">applied in {aree.map(p => <a href={`/software/${p.id}/`}>{p.data.title}</a>)}</p> : null}
+      {aree.length ? <p class="mono usato">applied in {aree.map(p => <span>{p.data.title}</span>)}</p> : null}
     </article>
     <nav class="vicini mono">
       {prima ? <a href={`/knowledge/${prima.id}/`}>← {prima.data.title}</a> : <span></span>}

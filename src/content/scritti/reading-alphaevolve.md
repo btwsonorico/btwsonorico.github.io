@@ -3,7 +3,7 @@ title: AlphaEvolve
 date: 2026-10-25
 kind: source
 lang: en
-topics: [research]
+topics: [research, defining]
 summary: An LLM that rewrites an algorithm's code and keeps what works. A simple idea, already used on Google's infrastructure and on open problems in mathematics.
 sources:
   - type: paper

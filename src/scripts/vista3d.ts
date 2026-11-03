@@ -5,8 +5,8 @@ import * as THREE from 'three';
 // e l'evento "grafo:evidenzia" che arriva dalle liste della pagina.
 
 // Dati di una sezione: competenze chiave e le loro aree
-export interface Area { id: string; label: string; href: string; peso: number; punti: number }
-export interface Competenza { id: string; label: string; href: string; aree: Area[] }
+export interface Area { id: string; label: string; href: string; sintesi?: string; peso: number; punti: number }
+export interface Competenza { id: string; label: string; href: string; sintesi?: string; aree: Area[] }
 // Progetto (solo Projects): le aree imparate lì, gli strumenti chiave, le cose che sto iniziando (alberelli)
 export interface Progetto { id: string; label: string; aree: string[]; strumenti: string[]; crescita: string[] }
 export interface DatiCompetenze { competenze: Competenza[]; progetti?: Progetto[] }
@@ -105,6 +105,17 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     el.appendChild(s);
     return s;
   });
+
+  // Sintesi: con lo zoom su un albero, un branco o una competenza, due righe appaiono sotto di lui
+  const sintesi = new Map<string, string>();
+  if (el.dataset.grafo) (JSON.parse(el.dataset.grafo) as DatiCompetenze).competenze?.forEach(k => {
+    if (k.sintesi) sintesi.set(`skill:${k.id}`, k.sintesi);
+    k.aree.forEach(a => { if (a.sintesi) sintesi.set(`area:${a.id}`, a.sintesi); });
+  });
+  const tagSintesi = document.createElement('div');
+  tagSintesi.className = 'sintesi-tag';
+  tagSintesi.hidden = true;
+  el.appendChild(tagSintesi);
 
   const larghezze: number[] = [];
   let w = 1, h = 1, rotY = o.giro ?? 0.4, rotX = o.inclinazione[0], fermo = 0;
@@ -329,6 +340,14 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
       }
     });
     posti.forEach(q => { etichette[q.i]!.style.transform = `translate(${Math.round(q.x)}px, ${Math.round(q.y)}px)`; });
+    const zoomato = zoomId ? punti.findIndex(p => p.id === zoomId) : -1, testo = zoomato >= 0 ? sintesi.get(punti[zoomato]!.id) : undefined;
+    tagSintesi.hidden = !testo;
+    if (testo) {
+      const pz2 = punti[zoomato]!, sc = schermo(zoomato), dentro = `${pz2.label}: ${testo}`;
+      if (tagSintesi.textContent !== dentro) tagSintesi.textContent = dentro;
+      const largo = tagSintesi.offsetWidth, x = THREE.MathUtils.clamp(sc.x - largo / 2, 8, Math.max(8, w - largo - 8)), y = THREE.MathUtils.clamp(sc.y + 26, 8, Math.max(8, h - tagSintesi.offsetHeight - 8));
+      tagSintesi.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+    }
     renderer.render(scene, camera);
     requestAnimationFrame(disegna);
   }

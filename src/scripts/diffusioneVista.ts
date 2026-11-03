@@ -18,7 +18,7 @@ export function monta(radice: HTMLElement) {
   const telaOra = $<HTMLCanvasElement>('.mini-ora'), telaIpotesi = $<HTMLCanvasElement>('.mini-ipotesi');
   const gioca = $<HTMLButtonElement>('.gioca'), cursore = $<HTMLInputElement>('.cursore-tempo'), lettura = $<HTMLElement>('.lettura'), ricordi = $<HTMLElement>('.ricordi');
   const passiB = radice.querySelectorAll<HTMLButtonElement>('[data-passi]');
-  const tagPunto = document.querySelector<HTMLElement>('.tag-punto')!, tagConsiglio = document.querySelector<HTMLElement>('.tag-consiglio')!, pannello = $<HTMLElement>('.pannello');
+  const tagPunto = document.querySelector<HTMLElement>('.tag-punto')!, tagConsiglio = document.querySelector<HTMLElement>('.tag-consiglio')!, pannello = $<HTMLElement>('.pannello'), notaTel = $<HTMLElement>('.nota-tel');
 
   let modello: Modello | null = null, gen: Generazione | null = null, passi = 20, pos = 0, inMoto = false, ultimo = 0, sporco = true, giro = 0.14, gira = false, xPrima = 0, spiegaEl: HTMLElement | null = null;
   let usatoCursore = false, generate = 0, durata = DURATA_MIN;
@@ -175,6 +175,11 @@ export function monta(radice: HTMLElement) {
     const q = el?.getBoundingClientRect(), mostra = !!testo && !!q && tagPunto.hidden && q.bottom > 0 && q.top < innerHeight;
     metti2(tagConsiglio, mostra ? testo : '');
     if (mostra) posa(tagConsiglio, q!, dalPannello(el!));
+    // Su telefono i tag coprirebbero i grafici: lo stesso testo va nella riga sotto la scena
+    if (matchMedia('(max-width: 760px)').matches) {
+      const testoTel = !tagPunto.hidden ? tagPunto.textContent : !tagConsiglio.hidden ? tagConsiglio.textContent : '';
+      if (notaTel.textContent !== testoTel) notaTel.textContent = testoTel;
+    }
   }
 
   // --- Girare la griglia col trascinamento

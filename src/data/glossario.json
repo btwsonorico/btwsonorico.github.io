@@ -17,7 +17,15 @@
             "Computer Vision: It allows computers to “see” and interpret visual information, such as images and videos. It has a wide range of applications, going from facial recognition to self-driving cars"
           ],
           "id": "artificial-intelligence-ai",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "What is AI, in short?",
+            "risposte": [
+              "Computers doing tasks that need human skills",
+              "Software that answers any question correctly",
+              "Programs that run on very large cloud servers"
+            ]
+          }
         },
         {
           "termine": "Machine Learning (ML)",
@@ -40,7 +48,15 @@
             "The ability to automatically learn hierarchical representations of data is what powers modern AI models, such as LLMs and Computer Vision. Deep learning is notoriously data-hungry and computationally expensive. Furthermore, they are described as “black boxes” because the internal decision-making process within the deep layers is difficult for humans to interpret."
           ],
           "id": "machine-learning-ml",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "What makes machine learning different from classic programming?",
+            "risposte": [
+              "It learns patterns from data",
+              "It follows hand-written rules",
+              "It searches a fixed database"
+            ]
+          }
         },
         {
           "termine": "Labeled data",
@@ -49,7 +65,15 @@
           ],
           "punti": [],
           "id": "labeled-data",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What is labeled data?",
+            "risposte": [
+              "Raw data annotated with tags",
+              "Data sorted by date and size",
+              "Data produced by a language model"
+            ]
+          }
         },
         {
           "termine": "Discriminative AI",
@@ -58,7 +82,15 @@
           ],
           "punti": [],
           "id": "discriminative-ai",
-          "livello": "hard"
+          "livello": "hard",
+          "domanda": {
+            "testo": "What does a discriminative model learn?",
+            "risposte": [
+              "The boundaries between classes",
+              "How to generate similar new data",
+              "How to compress its own input"
+            ]
+          }
         },
         {
           "termine": "Generative Artificial Intelligence (GenAI)",
@@ -67,7 +99,15 @@
           ],
           "punti": [],
           "id": "generative-artificial-intelligence-genai",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "What does generative AI do?",
+            "risposte": [
+              "Creates new content from a request",
+              "Ranks existing documents by relevance",
+              "Sorts data into fixed categories"
+            ]
+          }
         }
       ]
     },
@@ -81,7 +121,15 @@
           ],
           "punti": [],
           "id": "foundation-models",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What is a foundation model?",
+            "risposte": [
+              "A general model adapted to many tasks",
+              "A small model built for a single task",
+              "The first model a company ever trained"
+            ]
+          }
         },
         {
           "termine": "Open-source AI models",
@@ -93,7 +141,15 @@
             "New features offered in commercial tools are often rapidly replicated as open-source implementations by the community"
           ],
           "id": "open-source-ai-models",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "What defines an open-source AI model?",
+            "risposte": [
+              "Its code is publicly available",
+              "It is always free to run at scale",
+              "Its training data is always public"
+            ]
+          }
         },
         {
           "termine": "Closed-source AI models",
@@ -104,7 +160,15 @@
             "These solutions act as a convenient building block, but may imply limited control and customization."
           ],
           "id": "closed-source-ai-models",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "How do you usually access a closed-source model?",
+            "risposte": [
+              "Through the provider's API",
+              "By downloading its weights",
+              "By compiling its source code"
+            ]
+          }
         },
         {
           "termine": "Large Language Models (LLMs)",
@@ -117,7 +181,15 @@
             "While the core of an LLM is text prediction, modern commercial systems basically act as a reasoning engine capable of using external tools and functions. Through a mechanism called “Tool calling” (or function calling), the LLM is able to reason and recognize when it needs help, triggering code execution for data analysis or math, instructing specialized image generation models to create visuals, or search the web when it is missing critical information."
           ],
           "id": "large-language-models-llms",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "What is an LLM mainly built for?",
+            "risposte": [
+              "Generating text",
+              "Generating images",
+              "Storing documents"
+            ]
+          }
         },
         {
           "termine": "Small Language Models (SLMs)",
@@ -129,7 +201,15 @@
             "SLMs represent a strategic opportunity for organizations, as they are ideal for resource-constrained environments, such as edge devices and mobile apps, or even for scenarios where AI inferencing needs to be handled locally."
           ],
           "id": "small-language-models-slms",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What is the main advantage of a small language model?",
+            "risposte": [
+              "It needs far less compute",
+              "It knows more than an LLM",
+              "It has a larger vocabulary"
+            ]
+          }
         },
         {
           "termine": "Diffusion Models",
@@ -138,7 +218,15 @@
           ],
           "punti": [],
           "id": "diffusion-models",
-          "livello": "hard"
+          "livello": "hard",
+          "domanda": {
+            "testo": "How does a diffusion model create an image?",
+            "risposte": [
+              "By removing noise step by step",
+              "By blending images it has stored",
+              "By two networks competing together"
+            ]
+          }
         },
         {
           "termine": "Multimodal AI",
@@ -150,7 +238,15 @@
             "Fundamentally, this paradigm is the fusion of all the input modalities and output modalities that humans are familiar with, and this has strong implications for providing additional context to these models, allowing businesses the ability to solve more ambitious problems."
           ],
           "id": "multimodal-ai",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "What can a multimodal model do?",
+            "risposte": [
+              "Handle text, images and audio",
+              "Run on several chips at once",
+              "Answer in several languages"
+            ]
+          }
         },
         {
           "termine": "Token",
@@ -159,7 +255,15 @@
           ],
           "punti": [],
           "id": "token",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What is a token?",
+            "risposte": [
+              "A chunk of text read as one unit",
+              "A password used to call an API",
+              "A complete sentence in a prompt"
+            ]
+          }
         },
         {
           "termine": "Context window",
@@ -172,7 +276,15 @@
             "Recent advancements in modern models have allowed increasingly larger context windows, allowing models to process thousands of pages of text, entire codebases or long videos in a single prompt. While this allows for more “freedom”, it is important to remember that larger context windows also increase computational costs and latency."
           ],
           "id": "context-window",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What is the context window?",
+            "risposte": [
+              "The text a model can consider at once",
+              "The size of the chat box on screen",
+              "The time a session stays open"
+            ]
+          }
         },
         {
           "termine": "Parameters",
@@ -181,7 +293,15 @@
           ],
           "punti": [],
           "id": "parameters",
-          "livello": "hard"
+          "livello": "hard",
+          "domanda": {
+            "testo": "What are a model's parameters?",
+            "risposte": [
+              "Values learned during training",
+              "Settings the user types in",
+              "Questions the model is asked"
+            ]
+          }
         }
       ]
     },
@@ -195,7 +315,15 @@
           ],
           "punti": [],
           "id": "jagged-technological-frontier",
-          "livello": "hard"
+          "livello": "hard",
+          "domanda": {
+            "testo": "What does the jagged frontier describe?",
+            "risposte": [
+              "Strong at some tasks, weak at similar ones",
+              "Equal progress across all kinds of tasks",
+              "Useful for creative work, never for analysis"
+            ]
+          }
         },
         {
           "termine": "Grounding",
@@ -204,7 +332,15 @@
           ],
           "punti": [],
           "id": "grounding",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does grounding give a model?",
+            "risposte": [
+              "Trusted facts when it answers",
+              "More data during its training",
+              "Faster chips for its inference"
+            ]
+          }
         },
         {
           "termine": "Retrieval Augmented Generation (RAG)",
@@ -213,7 +349,15 @@
           ],
           "punti": [],
           "id": "retrieval-augmented-generation-rag",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does RAG add to a model?",
+            "risposte": [
+              "Facts fetched from an outside source",
+              "More hidden layers inside the model",
+              "A longer training on recent data"
+            ]
+          }
         },
         {
           "termine": "Hallucinations",
@@ -222,7 +366,15 @@
           ],
           "punti": [],
           "id": "hallucinations",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "What is a hallucination?",
+            "risposte": [
+              "A confident answer that is wrong",
+              "A refusal to answer a question",
+              "An answer that takes too long"
+            ]
+          }
         },
         {
           "termine": "Explainability",
@@ -231,7 +383,15 @@
           ],
           "punti": [],
           "id": "explainability",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What is explainability about?",
+            "risposte": [
+              "Tracing how a result was produced",
+              "Making every answer longer and clearer",
+              "Translating answers into plain words"
+            ]
+          }
         },
         {
           "termine": "Bias",
@@ -240,7 +400,15 @@
           ],
           "punti": [],
           "id": "bias",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "What is bias in an AI system?",
+            "risposte": [
+              "A systematic error in the results",
+              "A random bug that appears only once",
+              "A setting that makes a model faster"
+            ]
+          }
         },
         {
           "termine": "Human-in-the-loop (HITL)",
@@ -249,7 +417,15 @@
           ],
           "punti": [],
           "id": "human-in-the-loop-hitl",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "What happens in a human-in-the-loop system?",
+            "risposte": [
+              "A person supervises or decides",
+              "A person is fully replaced",
+              "A person only writes the code"
+            ]
+          }
         },
         {
           "termine": "Black box",
@@ -258,7 +434,15 @@
           ],
           "punti": [],
           "id": "black-box",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "Why is an AI system called a black box?",
+            "risposte": [
+              "Its inner reasoning is hard to see",
+              "It runs on servers nobody can access",
+              "Its answers are kept secret by law"
+            ]
+          }
         },
         {
           "termine": "Guardrails",
@@ -267,7 +451,15 @@
           ],
           "punti": [],
           "id": "guardrails",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What are guardrails for?",
+            "risposte": [
+              "Keeping a system within safe limits",
+              "Making the training run much faster",
+              "Storing every past conversation"
+            ]
+          }
         }
       ]
     },
@@ -281,7 +473,15 @@
           ],
           "punti": [],
           "id": "prompt",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "What is a prompt?",
+            "risposte": [
+              "The request sent to a model",
+              "The answer the model returns",
+              "The data used in its training"
+            ]
+          }
         },
         {
           "termine": "Prompt Engineering",
@@ -290,7 +490,15 @@
           ],
           "punti": [],
           "id": "prompt-engineering",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "What is prompt engineering?",
+            "risposte": [
+              "Crafting inputs for better outputs",
+              "Designing the model's architecture",
+              "Tuning the hardware of a server"
+            ]
+          }
         },
         {
           "termine": "Zero-shot Prompting",
@@ -299,7 +507,15 @@
           ],
           "punti": [],
           "id": "zero-shot-prompting",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does a zero-shot prompt include?",
+            "risposte": [
+              "No examples",
+              "One example",
+              "A dataset"
+            ]
+          }
         },
         {
           "termine": "One-shot Prompting",
@@ -308,7 +524,15 @@
           ],
           "punti": [],
           "id": "one-shot-prompting",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does a one-shot prompt include?",
+            "risposte": [
+              "One example",
+              "No examples",
+              "A dataset"
+            ]
+          }
         },
         {
           "termine": "Few-shot Prompting",
@@ -317,7 +541,15 @@
           ],
           "punti": [],
           "id": "few-shot-prompting",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does a few-shot prompt include?",
+            "risposte": [
+              "A small set of examples",
+              "No instructions at all",
+              "Only the expected output"
+            ]
+          }
         },
         {
           "termine": "Chain-of-thought",
@@ -326,7 +558,15 @@
           ],
           "punti": [],
           "id": "chain-of-thought",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does chain-of-thought ask a model to do?",
+            "risposte": [
+              "Reason step by step",
+              "Answer in a single word",
+              "Hand over to another model"
+            ]
+          }
         },
         {
           "termine": "Meta Prompt/System Prompt",
@@ -337,7 +577,15 @@
             "System prompts in the Commercial Models (ChatGPT Web) and System Prompts in the API models are different, hence why users may experience differences in quality and output. Some companies, such as Anthropic, periodically make their system prompt public, in order to be transparent to users and give out good practices in guard-railing and setting behaviors."
           ],
           "id": "meta-prompt-system-prompt",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What is a system prompt?",
+            "risposte": [
+              "Instructions set behind the scenes",
+              "The first message typed by the user",
+              "An error returned by the system"
+            ]
+          }
         }
       ]
     },
@@ -351,7 +599,15 @@
           ],
           "punti": [],
           "id": "ai-orchestration",
-          "livello": "hard"
+          "livello": "hard",
+          "domanda": {
+            "testo": "What does AI orchestration coordinate?",
+            "risposte": [
+              "Models, systems and integrations",
+              "Only the screens of the interface",
+              "Only the billing of API calls"
+            ]
+          }
         },
         {
           "termine": "AI Workflow",
@@ -360,7 +616,15 @@
           ],
           "punti": [],
           "id": "ai-workflow",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What is an AI workflow?",
+            "risposte": [
+              "A process streamlined with AI tools",
+              "A file holding a model's weights",
+              "A list of prompts to memorise"
+            ]
+          }
         },
         {
           "termine": "AI Agents",
@@ -369,7 +633,15 @@
           ],
           "punti": [],
           "id": "ai-agents",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "What makes an AI agent different from a chatbot?",
+            "risposte": [
+              "It plans and acts with tools",
+              "It only answers questions",
+              "It works without a model"
+            ]
+          }
         },
         {
           "termine": "Benchmarks",
@@ -381,7 +653,15 @@
             "ARC-AGI (Abstraction and Reasoning Corpus for Artificial General Intelligence): This benchmark measures AI systems’ fluid intelligence through visual grid-based puzzles, testing abstract reasoning, pattern recognition, and the ability to generalize from minimal examples. The first version of this benchmark (ARC-AGI-1) was introduced in 2019, and a new edition has been launched in 2025, bringing a more challenging benchmark for evaluating state-of-the-art models"
           ],
           "id": "benchmarks",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What are benchmarks for?",
+            "risposte": [
+              "Comparing models with standard tests",
+              "Training models with less data",
+              "Writing better prompts for a model"
+            ]
+          }
         },
         {
           "termine": "Model Context Protocol (MCP)",
@@ -390,7 +670,15 @@
           ],
           "punti": [],
           "id": "model-context-protocol-mcp",
-          "livello": "hard"
+          "livello": "hard",
+          "domanda": {
+            "testo": "What does MCP standardise?",
+            "risposte": [
+              "How assistants connect to tools and data",
+              "How language models are trained at scale",
+              "How chips exchange data inside a server"
+            ]
+          }
         },
         {
           "termine": "APIs (Application Programming Interfaces)",
@@ -399,7 +687,15 @@
           ],
           "punti": [],
           "id": "apis-application-programming-interfaces",
-          "livello": "easy"
+          "livello": "easy",
+          "domanda": {
+            "testo": "What does an API allow?",
+            "risposte": [
+              "Software components to talk to each other",
+              "People to train a model without any code",
+              "A model to run without a server behind it"
+            ]
+          }
         },
         {
           "termine": "MLOps",
@@ -408,7 +704,15 @@
           ],
           "punti": [],
           "id": "mlops",
-          "livello": "hard"
+          "livello": "hard",
+          "domanda": {
+            "testo": "What is MLOps?",
+            "risposte": [
+              "Practices to run ML models reliably",
+              "A special kind of neural network",
+              "A technique for writing prompts"
+            ]
+          }
         }
       ]
     },
@@ -422,7 +726,15 @@
           ],
           "punti": [],
           "id": "human-machine-interface-hmi",
-          "livello": "medium"
+          "livello": "medium",
+          "domanda": {
+            "testo": "What is a human-machine interface?",
+            "risposte": [
+              "What connects a person to a machine",
+              "A chip that runs inside the model",
+              "A set of labels for training data"
+            ]
+          }
         },
         {
           "termine": "Model Abliteration",
@@ -435,7 +747,15 @@
             "Now – Frameworks exist to do this automatically with a single command (Heretic is an example, but others exist)"
           ],
           "id": "model-abliteration",
-          "livello": "hard"
+          "livello": "hard",
+          "domanda": {
+            "testo": "What does model abliteration remove?",
+            "risposte": [
+              "A model's safety refusals",
+              "A model's training data",
+              "A model's memory limit"
+            ]
+          }
         },
         {
           "termine": "Vector Database",
@@ -447,7 +767,15 @@
             "In a vector database, searches run as mathematical operations that look for embedding vectors close to each other. This translates into finding semantically similar content, by finding the nearest vectors in the embedding space."
           ],
           "id": "vector-database",
-          "livello": "hard"
+          "livello": "hard",
+          "domanda": {
+            "testo": "What does a vector database store?",
+            "risposte": [
+              "Numbers that capture meaning",
+              "Raw files in their full format",
+              "Passwords and access tokens"
+            ]
+          }
         },
         {
           "termine": "Mixture of Experts (MoE)",
@@ -456,7 +784,15 @@
           ],
           "punti": [],
           "id": "mixture-of-experts-moe",
-          "livello": "hard"
+          "livello": "hard",
+          "domanda": {
+            "testo": "What does a mixture of experts do?",
+            "risposte": [
+              "Runs only part of the model per token",
+              "Asks human experts to check each answer",
+              "Merges models made by several companies"
+            ]
+          }
         },
         {
           "termine": "Large Reasoning Models",
@@ -465,7 +801,15 @@
           ],
           "punti": [],
           "id": "large-reasoning-models",
-          "livello": "hard"
+          "livello": "hard",
+          "domanda": {
+            "testo": "How do large reasoning models answer?",
+            "risposte": [
+              "They work through steps first",
+              "They reply from memory alone",
+              "They only retrieve documents"
+            ]
+          }
         }
       ]
     }

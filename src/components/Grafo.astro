@@ -100,6 +100,8 @@ const viste: Vista[] = 'viste' in props ? props.viste : [{ nome: '', dati: props
   .scena :global(.anello.tema), .scena :global(.anello.skill) { border-color: var(--accent); }
   .scena :global(.anello.via) { animation: anello 1.8s cubic-bezier(.2, .7, .3, 1) both; }
   @keyframes anello { from { transform: scale(.35); opacity: .7; } to { transform: scale(2.4); opacity: 0; } }
+  .scena :global(.sintesi-tag) { position: absolute; left: 0; top: 0; z-index: 3; width: max-content; max-width: min(300px, calc(100% - 16px)); padding: 4px 8px; border: 1px solid var(--accent); background: var(--bg); color: var(--fg); font-family: var(--mono); font-size: 12px; line-height: 1.45; pointer-events: none; }
+  .scena :global(.sintesi-tag[hidden]) { display: none; }
   .scena :global(.etichetta.attiva) { color: var(--bg); background: var(--fg); padding: 2px 7px; font-size: 14px; z-index: 2; }
   @media (max-width: 640px) {
     /* La scena arriva ai bordi dello schermo; il dito in verticale scorre la pagina, in orizzontale gira la scena */

@@ -5,8 +5,6 @@ import { advisoryPubbliche, areePubbliche, contaTemi, scrittiPubblici } from '..
 export const GET: APIRoute = async ({ site }) => {
   const percorsi = [
     '/', '/software/', '/advisory/', '/knowledge/', '/learn/', '/learn/ai-terms/', '/learn/neural-network/', '/learn/diffusion/',
-    ...(await areePubbliche()).map(a => `/software/${a.id}/`),
-    ...(await advisoryPubbliche()).map(a => `/advisory/${a.id}/`),
     ...(await scrittiPubblici()).map(s => `/knowledge/${s.id}/`),
     ...(await contaTemi()).map(t => `/knowledge/t/${t.nome}/`),
   ];
