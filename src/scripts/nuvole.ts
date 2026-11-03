@@ -16,7 +16,7 @@ import { casuale, mat, pezzo, sasso, linea, tono, terreno, puntiMorbidi, palco, 
 
 const L = 8;
 
-export type Risorsa = { nome: string; href: string; lista?: HTMLElement | null };
+export type Risorsa = { nome: string; href: string; tono: string; lista?: HTMLElement | null };
 
 export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   const r = casuale(23);
@@ -436,7 +436,10 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     return quota;
   };
   // Il rosso di reinforcement learning è quello della barriera di AI terms
-  const mongolfiere = ['#e08a3a', '#5fb6d9', '#6fa646', '#b79ce6', p.chiaro ? '#e0352a' : '#ff4a3d'].slice(0, risorse.length).map((tinta, k) => {
+  // Colore e posto seguono il tono della pagina, non la sua posizione nella lista
+  const TONI = ['arancio', 'azzurro', 'verde', 'lilla', 'rosso'], TINTE = ['#e08a3a', '#5fb6d9', '#6fa646', '#b79ce6', p.chiaro ? '#e0352a' : '#ff4a3d'];
+  const mongolfiere = risorse.map(q => {
+    const k = TONI.indexOf(q.tono), tinta = TINTE[k]!;
     // tono() riporta tutto a verde, azzurro o arancio: il lilla e il rosso restano i loro
     const o = new THREE.Group(), colore = k >= 3 ? new THREE.Color(tinta) : tono(tinta);
     o.add(new THREE.Mesh(geoPallone, new THREE.MeshBasicMaterial({ color: colore })));
@@ -458,7 +461,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     a.className = 'etichetta skill nome-pallone';
     a.href = risorse[k]!.href;
     a.textContent = risorse[k]!.nome.charAt(0).toUpperCase() + risorse[k]!.nome.slice(1);
-    a.dataset.tono = (['arancio', 'azzurro', 'verde', 'lilla', 'rosso'] as const)[k]!;
+    a.dataset.tono = risorse[k]!.tono;
     el.appendChild(a);
     return a;
   });

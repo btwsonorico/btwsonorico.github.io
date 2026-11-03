@@ -1,18 +1,18 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// Learn: la valle è il menu. Ogni mongolfiera porta a una risorsa, la stessa lista sta anche nel testo
+// Learn: la valle è il menu. Ogni mongolfiera porta a una risorsa, la stessa lista sta anche nel testo. L'ordine è un crescendo di difficoltà; il tono lega ogni pagina al suo pallone
 const RISORSE = [
-  { nome: 'neural network', href: '/learn/neural-network/', nota: 'add neurons and layers and teach it to draw' },
-  { nome: 'diffusion model', href: '/learn/diffusion/', nota: 'train one in your browser, then ask for a digit' },
-  { nome: 'decision model', href: '/learn/decision/', nota: 'write anything and watch a tiny model pick an emoji' },
-  { nome: 'AI terms', href: '/learn/ai-terms/', nota: 'take a deep dive into the AI lexicon' },
-  { nome: 'reinforcement learning', href: '/learn/reinforcement/', nota: 'a dog learns to herd from rewards. Try to beat it' },
+  { nome: 'neural network', href: '/learn/neural-network/', nota: 'add neurons and layers and teach it to draw', tono: 'arancio' },
+  { nome: 'reinforcement learning', href: '/learn/reinforcement/', nota: 'a dog learns to herd from rewards. Try to beat it', tono: 'rosso' },
+  { nome: 'diffusion model', href: '/learn/diffusion/', nota: 'train one in your browser, then ask for a digit', tono: 'azzurro' },
+  { nome: 'decision model', href: '/learn/decision/', nota: 'write anything and watch a tiny model pick an emoji', tono: 'verde' },
+  { nome: 'AI terms', href: '/learn/ai-terms/', nota: 'take a deep dive into the AI lexicon', tono: 'lilla' },
 ];
 ---
 <Base title="Learn · Riccardo Mondi" description="AI concepts you can touch: interactive resources by Riccardo Mondi." tono="neutro" largo>
   <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
-  <main class="learn" data-risorse={JSON.stringify(RISORSE.map(({ nome, href }) => ({ nome, href })))}>
+  <main class="learn" data-risorse={JSON.stringify(RISORSE.map(({ nome, href, tono }) => ({ nome, href, tono })))}>
     <h1>Learn</h1>
     <p class="sotto">AI concepts you can touch. Pick a balloon.</p>
     <ul class="lista">
@@ -23,7 +23,7 @@ const RISORSE = [
 
 <script>
   const pagina = document.querySelector<HTMLElement>('[data-risorse]')!;
-  const risorse = (JSON.parse(pagina.dataset.risorse!) as { nome: string; href: string }[]).map(r => ({
+  const risorse = (JSON.parse(pagina.dataset.risorse!) as { nome: string; href: string; tono: string }[]).map(r => ({
     ...r, lista: pagina.querySelector<HTMLElement>(`[data-risorsa="${r.nome}"]`),
   }));
   import('../../scripts/nuvole').then(m => m.monta(document.querySelector<HTMLElement>('.scena3d')!, risorse));
