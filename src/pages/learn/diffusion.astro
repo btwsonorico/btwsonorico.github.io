@@ -8,7 +8,8 @@ const COME: [string, string][] = [
   ['What does the model do in inference?', 'This is the only moment when points move back to the shape. They start from pure noise. At each step the network estimates the noise, the points follow the arrows, and a part of the noise goes away. The height of the points is the noise left.\nThe arrows change with the noise. With a lot of noise they point to the middle of the shape, because many clean points are possible. With little noise they point to the nearest part of the shape. I measured this on the spiral: the average guess is 0.24 from the centre at 95% noise, and 0.70 at 7%, the same as the real shape.\nThe real points are gone at this stage. The model holds only weights, so the new points are not copies. Fewer steps are faster but worse.'],
   ['Why does the error barely fall?', 'Because it starts close to its limit. A noisy point could come from many real points, so even a perfect network can only give the average of them. I calculated this limit from the spiral data: 0.27, the dashed line. In one test run the error went from 0.36 at step 100 to 0.27 at step 8,000.\nThe last small gain is the part that matters. It is the precision at low noise, where the points settle on the line. In the same run, new points within 0.07 of the shape went from 29% to 83%. So watch the on shape value, not only the error.'],
   ['What does the noise slider do?', 'It sets the most noise the network sees in training. Inference always starts from pure noise, so with less noise the network never practises the first part of the way back.\nI trained on the spiral for 6,000 steps, three times at each setting, and counted how much of the shape the new points reach. With up to 100% noise they reach 96 to 99%. With up to 26% they reach 72 to 85%, and with up to 14% only 43 to 68%. The error rises at low settings, because a little noise is harder to estimate. So a low error does not always mean a better model.'],
-  ['What changes on images?', 'The method stays the same. An image is one point with many values: here 784, one for each pixel of a 28 by 28 digit. The arrows exist there too, in 784 dimensions, so nobody can draw them. Training adds noise to real digits, and inference starts from noise and asks for one digit.\nThe network does change, because a row of plain layers does not know which pixels are neighbours. This one is a small U-Net with 196,081 weights, trained once on 60,000 digits, before this page was published. Your browser downloads a 784 KB file and does all the calculation. It reads which digit you asked for at every step, which is the same idea as a prompt with ten possible requests. It is a small model, and many digits come out crooked.'],
+  ['What changes on images?', 'The method stays the same. What goes in is what comes out: train on points and you get points, train on images and you get images. The star above is not one result. It is 300 separate points, and the network never sees them together. A digit is one result: the network takes its 784 values at once, one for each pixel of a 28 by 28 image. The arrows exist there too, in 784 dimensions, so nobody can draw them. Training adds noise to real digits, and inference starts from noise and asks for one digit.\nThe network does change, because a row of plain layers does not know which pixels are neighbours. This one is a small U-Net with 196,081 weights, trained once on 60,000 digits, before this page was published. Your browser downloads a 784 KB file and does all the calculation. It reads which digit you asked for at every step, which is the same idea as a prompt with ten possible requests. It is a small model, and many digits come out crooked.'],
+  ['Does the starting noise decide the result?', 'It does not decide the digit. Generate a digit, pick another one, and press same noise: the start is identical, and the network still goes to the digit you asked for. So any noise can become any digit. The noise only changes how the result looks, which is why two new digits from different noise are never the same. And the same noise with the same digit gives the same image.\nLarge image models work like this too: the prompt says what, the starting noise picks one of the many images that fit.'],
   ['Does it work in 3D?', 'Yes. The concept stays the same, with one more dimension. On this page a point has 2 values, x and y. Add z, and the model can learn the points on the surface of a 3D object. Training and inference do not change: add noise, estimate it, remove it step by step.'],
   ['What about large image models?', 'They use the same loop, but the setup is more complex. Three parts change:\nA compressed image. They usually do not work on pixels. A second network compresses the image, the diffusion loop runs on the compressed version, and that network then rebuilds the pixels. This costs much less.\nA text prompt. A third network turns the prompt into numbers, and the model reads them at every step. It is the same idea as asking for a digit here, with far more possible requests.\nA much larger network, with billions of weights, trained on a very large number of images.\nThere is no GAN in any of this. A GAN trains a second network to judge the first, and generates in one pass. A diffusion model measures only the error on the noise, and generates in many steps.'],
 ];
@@ -22,46 +23,48 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         <a href="#how-it-works" class="mono">how it works ↓</a>
         <p class="mono messaggio">It learns one skill: to estimate the noise in an image. To generate, it starts from pure noise and removes it, step by step.</p>
         <h2>1. A tiny model, trained by you</h2>
-        <p class="mono messaggio">Its "images" are points with only 2 values, x and y, so you can see all of it. It trains here in your browser, in about 30 seconds.</p>
+        <p class="mono messaggio">It learns from points and makes points: 2 values each, x and y. It trains in your browser, in about 30 seconds.</p>
       </header>
 
       <div class="banco">
         <canvas class="tela-spirale" role="img" aria-label="A tilted square with a shape made of blue points. Arrows on the square show where the network sends a point at the current amount of noise. During training, an orange line adds noise to one point. During inference, new white points drop towards the square and form the shape."></canvas>
         <p class="mono nota-tel" aria-live="polite"></p>
         <div class="mono forme" role="group" aria-label="Shape">
-          <button type="button" data-forma="star">star</button>
-          <button type="button" data-forma="spiral">spiral</button>
-          <button type="button" data-forma="draw">draw</button>
-          <button type="button" class="pulisci" hidden>clear</button>
+          <button type="button" data-forma="star" data-spiega="The real data: 1,024 points along the outline of a star.">star</button>
+          <button type="button" data-forma="spiral" data-spiega="The real data: 1,024 points along a spiral.">spiral</button>
+          <button type="button" data-forma="draw" data-spiega="Drag on the square to make your own data, then train on it.">draw</button>
+          <button type="button" class="pulisci" hidden data-spiega="Erases your drawing and the model trained on it.">clear</button>
         </div>
 
         <div class="pannello">
           <div class="mono sezione">
             <span class="titolino">training</span>
             <ol class="racconto">
-              <li>take a real point</li>
-              <li class="arancio">add random noise</li>
-              <li>the network estimates the noise</li>
-              <li>remove it: the gap is the error</li>
-              <li>correct the weights, repeat</li>
+              <li data-spiega="Every training step does all of this on 64 real points at once. The picture follows only 1, so you can see it.">take 64 real points (you see 1)</li>
+              <li class="arancio" data-spiega="Each point gets its own random amount, from almost none to pure noise. So the network practises on every level.">add random noise</li>
+              <li data-spiega="The network sees only the noisy point and its noise level. It answers with 2 numbers: the noise in x and in y.">the network estimates the noise</li>
+              <li data-spiega="Removing the estimated noise gives a guess of the clean point: the white line. The dashed line is the gap from the real point.">remove it: the gap is the error</li>
+              <li data-spiega="Backpropagation moves all 8,898 weights a little, to reduce the error on these 64 points. Then new points, new noise.">correct the weights, repeat</li>
             </ol>
             <div class="riga">
-              <button type="button" class="gioca"></button>
+              <button type="button" class="gioca" data-spiega="Runs 8,000 training steps of 64 points each. Nothing leaves your browser."></button>
               <button type="button" class="un-passo" data-spiega="Plays one training step slowly, on one point. A real step does this on 64 points at once.">one step</button>
-              <button type="button" class="azzera" hidden>restart</button>
+              <button type="button" class="azzera" hidden data-spiega="Sets the weights back to random.">restart</button>
             </div>
-            <span class="errore"></span>
-            <canvas class="curva" role="img" aria-label="The error during training, with a dashed line at the lowest possible error"></canvas>
-            <div class="estremi"><span>most noise in training</span><span class="lettura-rumore"></span></div>
-            <input class="cursore-rumore" type="range" min="4" max="50" value="50" aria-label="The most noise the network sees in training" />
-            <p class="spiega">Less noise: gaps in the new shape.</p>
+            <span class="errore" data-spiega="Error: how far the estimated noise is from the real noise. On shape: how many new points land within 0.07 of the real shape."></span>
+            <canvas class="curva" role="img" aria-label="The error during training, with a dashed line at the lowest possible error" data-spiega="Orange: the error. Dashed: the lowest error any network can reach on this data. It is not zero, because a noisy point could come from many real points."></canvas>
+            <div data-spiega="The most noise the network sees in training. Inference always starts from pure noise, so with less practice the new points leave gaps in the shape. Moving it restarts training.">
+              <div class="estremi"><span>most noise in training</span><span class="lettura-rumore"></span></div>
+              <input class="cursore-rumore" type="range" min="4" max="50" value="50" aria-label="The most noise the network sees in training" />
+              <p class="spiega">Less noise: gaps in the new shape.</p>
+            </div>
           </div>
 
           <div class="mono sezione">
             <span class="titolino">inference</span>
             <p class="spiega">The real points are gone. 300 random points start at full noise. At each step the network estimates their noise, and they move along the arrows.</p>
             <div class="riga">
-              <button type="button" class="genera">generate</button>
+              <button type="button" class="genera" data-spiega="Makes 300 new points. The model uses only its weights, so the points are not copies of the real ones.">generate</button>
               <div class="passi" role="group" aria-label="Steps" data-spiega="How many steps it takes to remove the noise. Fewer steps are faster but worse.">
                 <span>steps</span>
                 <button type="button" data-passi="5">5</button>
@@ -80,7 +83,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     <section class="schermo" data-diffusione>
       <header class="testa">
         <h2>2. A larger model, already trained</h2>
-        <p class="mono messaggio">Same method, on real images. Above, one result is one dot on the square. Here, one result is the whole grid: 784 values, one per pixel. You do not train this model. You only run inference.</p>
+        <p class="mono messaggio">Same method: train on points and you get points, train on images and you get images. Here one result is the whole grid, 784 values at once. You do not train this model. You only run inference.</p>
       </header>
 
       <div class="banco">
@@ -89,10 +92,12 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
         <table class="mono confronto">
           <thead><tr><th></th><th>model 1</th><th>model 2</th></tr></thead>
           <tbody>
-            <tr><th>values per result</th><td>2</td><td>784</td></tr>
-            <tr><th>weights</th><td>8,898</td><td>196,081</td></tr>
-            <tr><th>training data</th><td>1,024 points</td><td>60,000 digits</td></tr>
-            <tr><th>training time</th><td>30 s, by you</td><td>25 min, by me</td></tr>
+            <tr data-spiega="What it learns from, and what it gives back. Points in, points out. Images in, images out."><th>learns and makes</th><td>points</td><td>images</td></tr>
+            <tr data-spiega="One question to the network, without counting the noise level and the digit. Model 1 sees one point, and it does not know about the others. Model 2 sees the whole image at once."><th>one call, in and out</th><td>2 numbers</td><td>784 numbers</td></tr>
+            <tr data-spiega="At 20 steps. Model 1 makes 300 separate points, so it calls the network 300 times per step. Model 2 makes one image, so it calls the network once per step, but each call is far larger."><th>calls to generate</th><td>6,000</td><td>20</td></tr>
+            <tr data-spiega="The numbers the model learns in training. They are all it keeps: no real point, no real image."><th>weights</th><td>8,898</td><td>196,081</td></tr>
+            <tr data-spiega="The real examples it practises on. The digits come from MNIST."><th>training data</th><td>1,024 points</td><td>60,000 digits</td></tr>
+            <tr data-spiega="Model 1 trains on your device. I trained model 2 once, on a CPU, and your browser downloads the result: a 784 KB file."><th>training time</th><td>30 s, by you</td><td>25 min, by me</td></tr>
           </tbody>
         </table>
 
@@ -101,21 +106,21 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
             <span class="titolino">training, already done</span>
             <p class="spiega">Done once, on 60,000 real digits. One example:</p>
             <div class="trittico">
-              <figure><canvas class="mini-vera" role="img" aria-label="A real digit"></canvas><figcaption>real digit</figcaption></figure>
-              <figure><canvas class="mini-sporca" role="img" aria-label="The same digit with noise"></canvas><figcaption>+ noise</figcaption></figure>
-              <figure><canvas class="mini-stima" role="img" aria-label="The noise as the network estimates it"></canvas><figcaption>estimated noise</figcaption></figure>
+              <figure data-spiega="One of the real digits used in training."><canvas class="mini-vera" role="img" aria-label="A real digit"></canvas><figcaption>real digit</figcaption></figure>
+              <figure data-spiega="The same digit with a random amount of noise. This is all the network sees, plus the digit it should be."><canvas class="mini-sporca" role="img" aria-label="The same digit with noise"></canvas><figcaption>+ noise</figcaption></figure>
+              <figure data-spiega="What the trained network really answers here: the noise alone. In training, the error is the gap between this and the real noise."><canvas class="mini-stima" role="img" aria-label="The noise as the network estimates it"></canvas><figcaption>estimated noise</figcaption></figure>
             </div>
           </div>
 
           <div class="mono sezione">
             <span class="titolino">inference, you run this</span>
-            <p class="spiega">784 random values start as pure noise. At each step the network estimates the noise and removes a part.</p>
-            <div class="cifre" role="group" aria-label="Digit">
+            <p class="spiega">784 random values. At each step the network removes a part of their noise.</p>
+            <div class="cifre" role="group" aria-label="Digit" data-spiega="Your request. The network reads it at every step, like a prompt with ten possible answers.">
               {CIFRE.map(n => <button type="button" data-cifra={n}>{n}</button>)}
             </div>
             <div class="riga">
-              <button type="button" class="gioca"></button>
-              <div class="passi" role="group" aria-label="Steps" data-spiega="How many steps it takes to remove the noise. Fewer steps are faster but worse.">
+              <button type="button" class="gioca" data-spiega="Starts from new random noise. Your browser does all the calculation."></button>
+              <div class="passi" role="group" aria-label="Steps" data-spiega="How many steps it takes to remove the noise. Fewer steps are faster but worse. Changing it repeats the last image from the same noise.">
                 <span>steps</span>
                 <button type="button" data-passi="5">5</button>
                 <button type="button" data-passi="20">20</button>
@@ -124,10 +129,11 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
             </div>
             <p class="lettura lettura-passo" aria-live="polite"></p>
             <div class="uscita">
-              <figure><canvas class="mini-ora" role="img" aria-label="The image at this step"></canvas><figcaption>now</figcaption></figure>
+              <figure data-spiega="The same image as the grid, seen from above."><canvas class="mini-ora" role="img" aria-label="The image at this step"></canvas><figcaption>now</figcaption></figure>
               <div>
                 <div class="ricordi"></div>
                 <span class="etichetta">last digits</span>
+                <button type="button" class="stesso" disabled data-spiega="Starts again from the same noise, and asks for the digit you picked. Noise does not decide the digit: your request does. Noise only changes how it looks."></button>
               </div>
             </div>
           </div>
@@ -159,7 +165,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   .testa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px var(--s2); }
   .testa a { color: var(--fg); font-size: 12px; white-space: nowrap; }
   .testa h2 { flex: 1 1 100%; }
-  .confronto { position: absolute; top: 24px; right: 0; z-index: 1; border-collapse: collapse; background: var(--bg); color: var(--fg); font-size: 12px; pointer-events: none; }
+  .confronto { position: absolute; top: 24px; right: 0; z-index: 1; border-collapse: collapse; background: var(--bg); color: var(--fg); font-size: 12px; }
   .confronto th, .confronto td { padding: 2px 0 2px 16px; font-weight: 400; text-align: left; white-space: nowrap; }
   .confronto thead th, .confronto tbody th { color: var(--muted); }
   .confronto tr > :first-child { padding-left: 0; }
@@ -208,6 +214,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   figcaption, .etichetta { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; }
   .trittico { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .uscita { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; margin-top: 10px; }
+  .stesso { display: block; width: 100%; margin-top: 8px; padding: 5px 4px; font-size: 12px; }
   .ricordi { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; min-height: 44px; }
   .ricordi :global(button) { width: 42px; height: 42px; padding: 2px; border: 1px solid var(--line); background: var(--bg); cursor: pointer; }
   .ricordi :global(button:hover) { border-color: var(--fg); }

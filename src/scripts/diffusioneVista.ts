@@ -16,18 +16,18 @@ export function monta(radice: HTMLElement) {
   const SOPRA = Array.from({ length: 16 }, (_, k) => misto(misto(BG, LINE, 0.7), ARANCIO, k / 15)), LATI = SOPRA.map(c => misto(c, BG, 0.55));
   const tela = $<HTMLCanvasElement>('.tela-griglia'), t = tela.getContext('2d')!, telaOra = $<HTMLCanvasElement>('.mini-ora');
   const telaVera = $<HTMLCanvasElement>('.mini-vera'), telaSporca = $<HTMLCanvasElement>('.mini-sporca'), telaStima = $<HTMLCanvasElement>('.mini-stima');
-  const gioca = $<HTMLButtonElement>('.gioca'), ricordi = $<HTMLElement>('.ricordi'), lettura = $<HTMLElement>('.lettura-passo'), cifreB = radice.querySelectorAll<HTMLButtonElement>('[data-cifra]'), passiB = radice.querySelectorAll<HTMLButtonElement>('[data-passi]');
+  const gioca = $<HTMLButtonElement>('.gioca'), stesso = $<HTMLButtonElement>('.stesso'), ricordi = $<HTMLElement>('.ricordi'), lettura = $<HTMLElement>('.lettura-passo'), cifreB = radice.querySelectorAll<HTMLButtonElement>('[data-cifra]'), passiB = radice.querySelectorAll<HTMLButtonElement>('[data-passi]');
   const tagPunto = $<HTMLElement>('.tag-punto'), tagConsiglio = $<HTMLElement>('.tag-consiglio'), pannello = $<HTMLElement>('.pannello'), notaTel = $<HTMLElement>('.nota-tel');
 
   let modello: Modello | null = null, esempi: Uint8Array | null = null, cifra = 7, inMoto = false, prossimo = 0, sporco = true, giro = 0.42, gira = false, xPrima = 0, spiegaEl: HTMLElement | null = null, visibile = false;
-  let generate = 0, prossimoEsempio = 0, giroEsempio = 0, passi = 20, tempi = tempiDi(passi), stati: Float32Array[] = [], cifraGen = cifra;
+  let generate = 0, provato = false, prossimoEsempio = 0, giroEsempio = 0, passi = 20, tempi = tempiDi(passi), stati: Float32Array[] = [], cifraGen = cifra;
   let attuale: Float32Array = new Float32Array(D).fill(-1);
 
   // --- Griglia
   let W = 0, H = 0, Wp = 0;
   const piano = () => {
     const sinistra = innerWidth > 760 ? Wp : 0, libero = W - sinistra - (innerWidth > 760 ? 24 : 0);
-    const S = Math.min(libero / 2.95, (H - 24) / (2 * Math.SQRT2 * PIATTO + ALTEZZA * 1.5));
+    const S = Math.min(libero / (innerWidth > 760 ? 3.3 : 2.95), (H - 24) / (2 * Math.SQRT2 * PIATTO + ALTEZZA * 1.5));
     return { S, cx: sinistra + libero / 2, cy: H / 2 + 12 + (S * ALTEZZA) / 2, co: Math.cos(giro), si: Math.sin(giro) };
   };
   const profondo = new Float32Array(D), ordine = Array.from({ length: D }, (_, i) => i);
@@ -93,8 +93,9 @@ export function monta(radice: HTMLElement) {
   }
 
   // --- Inference
+  const una = (n: number) => `${n === 8 ? 'an' : 'a'} ${n}`;
   const scriviPasso = (k: number) => scrivi(lettura, k >= passi ? 'finished' : `step ${k} of ${passi} · ${Math.round(quotaRumore(tempi[k]!) * 100)}% noise left`);
-  const metti = (si: boolean) => { inMoto = si; scrivi(gioca, si ? 'generating' : `generate a ${cifra}`); gioca.disabled = si || !modello; };
+  const metti = (si: boolean) => { inMoto = si; scrivi(gioca, si ? 'generating' : `generate ${una(cifra)}`); gioca.disabled = si || !modello; stesso.disabled = si || !stati.length; };
   const nuova = (partenza: Float32Array, c: number) => {
     if (!modello) return;
     tempi = tempiDi(passi);
@@ -109,6 +110,7 @@ export function monta(radice: HTMLElement) {
     metti(true);
   };
   gioca.addEventListener('click', () => nuova(rumorePuro(), cifra));
+  stesso.addEventListener('click', () => { if (stati.length && !inMoto) { provato = true; nuova(stati[0]!, cifra); } });
   const scegliPassi = (n: number) => {
     passi = n;
     passiB.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.passi) === n)));
@@ -119,17 +121,19 @@ export function monta(radice: HTMLElement) {
   const scegliCifra = (n: number) => {
     cifra = n;
     cifreB.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.cifra) === n)));
-    if (!inMoto && modello) scrivi(gioca, `generate a ${n}`);
+    if (!inMoto && modello) scrivi(gioca, `generate ${una(n)}`);
+    scrivi(stesso, `same noise, make ${una(n)}`);
     prossimoEsempio = 0;
   };
   cifreB.forEach(b => b.addEventListener('click', () => scegliCifra(Number(b.dataset.cifra))));
 
   // Le ultime immagini: un clic rifà la stessa generazione dallo stesso rumore
-  const storia: Float32Array[] = [];
+  const storia: { partenza: Float32Array; c: number }[] = [];
   function ricorda() {
     const partenza = stati[0]!, finale = stati[stati.length - 1]!, c = cifraGen;
-    if (storia.includes(partenza)) return;
-    storia.unshift(partenza);
+    stesso.disabled = false;
+    if (storia.some(s => s.partenza === partenza && s.c === c)) return;
+    storia.unshift({ partenza, c });
     storia.splice(RICORDI);
     const b = document.createElement('button'), tl = document.createElement('canvas');
     b.type = 'button';
@@ -155,9 +159,9 @@ export function monta(radice: HTMLElement) {
     const dalPannello = (el: Element) => (el.closest('.pannello') ? pannello.getBoundingClientRect() : undefined);
     if (spiegaEl) { metti2(tagPunto, spiegaEl.dataset.spiega ?? ''); posa(tagPunto, spiegaEl.getBoundingClientRect(), dalPannello(spiegaEl)); }
     else metti2(tagPunto, '');
-    const testo = modello && !generate ? 'pick a digit and generate it' : '', q = gioca.getBoundingClientRect(), mostra = !!testo && tagPunto.hidden && q.bottom > 0 && q.top < innerHeight;
+    const el = generate ? stesso : gioca, testo = !modello ? '' : !generate ? 'pick a digit and generate it' : !provato && !inMoto ? 'now pick another digit: same start, other result' : '', q = el.getBoundingClientRect(), mostra = !!testo && tagPunto.hidden && q.bottom > 0 && q.top < innerHeight;
     metti2(tagConsiglio, mostra ? testo : '');
-    if (mostra) posa(tagConsiglio, q, dalPannello(gioca));
+    if (mostra) posa(tagConsiglio, q, dalPannello(el));
     // Su telefono i tag coprirebbero i grafici: lo stesso testo va nella riga sotto la scena
     if (matchMedia('(max-width: 760px)').matches) {
       const testoTel = !tagPunto.hidden ? tagPunto.textContent : !tagConsiglio.hidden ? tagConsiglio.textContent : '';
