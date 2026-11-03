@@ -28,8 +28,3 @@ An Anthropic paper. The authors map the personas a language model can adopt as d
 **Locking behaviour.** The authors were able to lock the model on this direction and stop it from drifting away. This is a strong result for safety, and also for companies: a model held in a stable role for each function.
 
 **The mirror image of refusal.** [Abliteration](/knowledge/reading-refusal-direction/) finds the refusal direction in open models and removes it, so the model can no longer say no. Here a direction is used the other way: not to remove a behaviour, but to control it. It should be a very relevant idea for the alignment we will need.
-
-## Where it is weak
-
-- **Activations, not weights.** The method acts on the model's internal states while it runs. It needs deep access to the model: something the lab has, and open models allow.
-- **One axis is not the whole character.** It explains a main direction, not everything a model can become.

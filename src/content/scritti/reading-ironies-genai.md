@@ -34,8 +34,3 @@ The proposed fixes come from human factors: continuous feedback, personalisation
 **Adoption problems are not new.** The literature on automation has studied them for a long time, since Bainbridge's "Ironies of automation" in 1983.
 
 **With AI they matter more and more.** The person moves to evaluating outputs that are more and more abstract: not a number on a dial, but a report, an analysis, a plan. And they do it while interacting with many interfaces and systems at the same time, each with its own logic.
-
-## Where it is weak
-
-- **A position paper, not an experiment.** It maps known problems onto GenAI; it does not measure how large they are.
-- **The fixes are design principles.** They are reasonable, but not tested at scale.

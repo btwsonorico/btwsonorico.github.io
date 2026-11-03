@@ -31,8 +31,3 @@ The authors study 13 open chat models, up to 72B parameters. In each one, refusi
 **Not only language models.** The same logic can apply to diffusion models, the ones that generate images and video: research has shown that concepts can be erased from them, and brought back.
 
 **What is not possible yet.** Today this works only where you have the weights. Hacking the weights of a closed model is too hard to discuss for now, but it may become possible in the future.
-
-## Where it is weak
-
-- **Thirteen models of 2024.** Newer models may spread refusal over more than one direction.
-- **Removing refusal is not free.** It can change other behaviours in ways that are hard to see.

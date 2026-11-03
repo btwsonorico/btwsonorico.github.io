@@ -49,8 +49,3 @@ The router changes the choice token by token, so the model keeps most of its ski
 Models grow faster than hardware, so activations must stay small for the model to run at all.
 
 **An idea the Chinese labs pushed forward.** Mixture of experts is an old idea, made modern by Google in 2017. The Chinese labs have contributed a lot to it, with publications and open-source projects: many small experts plus a few "shared" ones that every token uses (DeepSeekMoE), load balancing without extra loss terms, and trillion-parameter models released with open weights, papers that explain the recipe and the real numbers on total and active parameters. Today it is the standard architecture of open frontier models.
-
-## Where it is weak
-
-- **Memory stays the bottleneck.** To run a model with trillions of parameters you still need to hold all of it. That is why local engines such as DwarfStar compress the weights to 2 bits.
-- **More moving parts.** Routing, load balancing and many experts make training and serving harder: see the engine work in [DeepInfer](/knowledge/reading-deepinfer/).

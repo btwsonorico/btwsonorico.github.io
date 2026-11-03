@@ -45,8 +45,3 @@ A framework from Google DeepMind. Today, agent systems split tasks with simple r
 | Subjectivity | Is success a fact or a preference? |
 
 A task that is critical, irreversible and hard to verify should stay with a person, or be delegated only with close monitoring. A task that is cheap, reversible and easy to check is a good first candidate for an agent.
-
-## Where it is weak
-
-- **It is a framework, not an experiment.** It says what to consider, not how much each characteristic weighs or where the thresholds are.
-- **Accountability is only sketched.** Who answers at the end of a long chain of agents is discussed, but not solved.

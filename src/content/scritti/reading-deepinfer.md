@@ -35,12 +35,6 @@ On 20 October 2026 DeepSeek open-sourced DeepInfer, the engine it uses to serve 
 
 **It widens the gap with closed models.** For DeepSeek we now know, better than for any proprietary model, what works and what the margins on GPU use are.
 
-## Where it is weak
-
-- **The KV cache stays out.** My reading is that DeepSeek keeps it as a competitive advantage. The README only says it is "not included in this release", so it may come later.
-- **One model, two chips.** It is a copy of one internal setup, not a general tool. The most common NVIDIA generation (Hopper) is not supported.
-- **The numbers are DeepSeek's own.** Nobody has measured them independently yet.
-
 ## What to watch
 
 How many other players, open and closed, will follow this example and publish how they serve their models.

@@ -31,9 +31,3 @@ An open-source MCP server (MIT licence). It connects coding agents such as Claud
 **Software will become more and more open source.** If an agent can read the binary, there is no real competitive value left in keeping the code closed. Users will be more and more inclined to use a general-purpose model, plus skills that reproduce the single functions they need, instead of buying the whole product.
 
 **Rewriting is not copying, interfaces are borderline.** Rewriting a piece of software in another language often does not, by itself, infringe copyright. Reproducing an interface in full is a more borderline question.
-
-## Where it is weak
-
-- **The law is not simple.** Copyright protects the expression of code, not what it does. But many licences forbid reverse engineering, and in the EU decompiling is allowed mainly to make programs work together.
-- **Reading a binary is not having the product.** Data, servers, network effects and support stay with the original company.
-- **Real value is debated.** Some ask what REA adds over an agent that uses Ghidra directly.

@@ -31,8 +31,3 @@ An evolutionary coding agent from Google DeepMind. A pipeline of LLMs edits the 
 **Mathematics with consequences for hardware.** It found a way to multiply 4×4 complex matrices with 48 multiplications, the first improvement on Strassen's method in this setting in 56 years. Matrix multiplication is what hardware does when it computes, so these results will show up later as progress in technology.
 
 **A simple idea.** In a sense it is a really simple concept, and it is remarkable that it works with the technology we have today.
-
-## Where it is weak
-
-- **It needs a score.** The loop works only where an automatic evaluator can measure the result: code, maths, scheduling. Most business problems do not have one.
-- **Constructions, not proofs.** Terence Tao tested it on 67 problems: it works much better in the hands of an expert, and it finds candidate solutions rather than proofs.

@@ -45,8 +45,3 @@ A field experiment with 758 BCG consultants on 18 realistic tasks, with and with
 **Good at the task, hard to judge the output.** Structuring a report is a good example. AI is extremely good at writing, but a report has many implicit criteria. That makes the quality of the output hard to quantify and to see, so the task can look inside the frontier while it is not.
 
 **Centaurs and cyborgs are splitting into more modes.** The paper describes centaurs, who divide the work with the AI, and cyborgs, who mix it continuously. With so much new technology available, these two ways of working are breaking up into many different modes and ideas. A later study by the same group already adds a third: self-automators, who hand over the whole task.
-
-## Where it is weak
-
-- **The frontier moves.** The experiment used GPT-4 in 2023; today's models sit on a different line, and the map must be redrawn often.
-- **One company, one profession.** Consultants at BCG, on tasks designed for the study.

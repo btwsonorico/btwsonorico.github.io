@@ -29,9 +29,3 @@ An essay by Andrea Pignataro, founder of ION, published during the February 2026
 **Adoption is on the task, not on the process.** Today companies use AI on single tasks. The value flows out, towards the platform, and little comes back inside, because the process itself does not change.
 
 **That is why open source and local inference will prevail.** If the grammar is the asset, the only safe way to use AI on it is with models you run yourself.
-
-## Where it is weak
-
-- **The mechanism is not proven.** Enterprise API terms usually exclude training on customer data. The risk is in aggregate signals (usage, feedback, product design) and is hard to measure.
-- **The author has a stake.** ION sells enterprise software and was hit by the sell-off.
-- **Open models are not free.** Running them locally costs hardware and skills, and the frontier is still often closed. "Inevitably prevalent" is a forecast, not a fact.
