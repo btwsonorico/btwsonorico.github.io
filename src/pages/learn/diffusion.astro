@@ -1,38 +1,84 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// Modello di diffusion: la facciata mostra una faccia che esce dal rumore; sotto c'è la spiegazione. Il modello è già allenato
-// (scripts/allena-facce.mjs) e gira nel browser (src/lib/diffusione.ts)
+// Diffusion: prima una spirale da allenare nel browser (src/lib/spirale.ts), poi le cifre con un modello già allenato (src/lib/cifre.ts,
+// scripts/allena-cifre.py). Le spiegazioni brevi sono tag sul punto, e scorrendo sotto c'è la spiegazione completa.
 const COME: [string, string][] = [
-  ['What is this?', 'A real diffusion model, very small, running in your browser. It draws faces of 16 by 16 pixels. Each pixel is one block on the grid, and a taller, brighter block means a higher pixel value. It was trained once, before this page was published, on 4,000 faces drawn by a small program. The model is a 75 KB file, smaller than most photos.'],
-  ['How did it learn?', 'Training takes a face and buries it under a random amount of noise. The network then has to guess the clean face from that mess. With a little noise the guess is easy, with a lot of noise it can only guess something like an average face. After thousands of examples it has learned what a face tends to look like at every level of noise.'],
-  ['How does it draw a new face?', 'It starts from pure noise, with no face in it at all. At every step the network makes its guess of the finished face, and the image moves a small part of the way towards that guess. With less noise left, the next guess is more precise. Look at the guess while the blocks move: it starts as a blurry average, and slowly commits to one face.'],
-  ['How is the noise removed, exactly?', 'The network reads the noisy image x_t and the step number, and returns x0, its guess of the clean face. Every noisy image is a known mix of two parts: x_t = signal × x0 + noise × ε. So once the network has its guess, the noise ε follows by subtraction: ε = (x_t - signal × x0) / noise.\nThe next image uses the same two parts with a smaller share of noise: next = new signal × x0 + new noise × ε. No random noise enters along the way, so the same start always gives the same face. This rule is called DDIM. The small images and the two lines in the panel show these values at each step.'],
-  ['Why small steps?', 'Because the first guess is only a blur, jumping straight to it would give you a blur. Small steps let each guess correct the one before. Change the number of steps to see it: 50 steps take more calculations than 5, and large models make the same trade between speed and quality.'],
-  ['Why a different face each time?', 'Each face starts from different noise, and small differences early on push the guesses towards different faces. The model is not retrieving a stored picture: it holds no images, only weights. Press one of the last faces to replay it. Same noise, same face.'],
-  ['What is this network, and what are its limits?', 'It is a multilayer perceptron with 37,504 weights. It takes 260 inputs (256 pixels and 4 numbers for the step), passes them through two hidden layers of 64 ReLU neurons, and returns 256 pixels. Training measures only the difference between its guess and the real face. There is no GAN here: no second network judges the result.\nA perceptron does not know which pixels are neighbours. It works here because the faces are tiny and always centred, and it would fail on real photos. It has no prompt, and it can only draw the kinds of faces it has seen.'],
-  ['What do large image models do differently?', 'They keep the same loop and change the network. A U-Net or a transformer reuses the same filters across the image, so it learns local shapes once and applies them everywhere. They usually do not work on pixels: an autoencoder first compresses the image into a smaller latent image, and the steps happen there. They also read a prompt, which steers every guess towards what you asked for. All this takes billions of weights, not 37,504.'],
+  ['What is this?', 'Two real diffusion models running in your browser. The first is very small and you train it yourself on 1,024 points that form a spiral: each point has only two values, so you can see all of it. The second has already been trained on 60,000 handwritten digits. It works the same way on images, where each image is one point with 784 values.\nUnlike with a real model, the settings are fixed for you: the learning rate, the batch size (64) and the number of training steps (8,000).'],
+  ['Is it different from the neural network page?', 'The network is the same kind of thing, but it does a different job. On that page it answers one fixed question: how high is the grid at this position? It learns one shape, and it can only give that shape back.\nHere it reads a noisy point and the step t, and it answers another question: what noise moved this point? That answer is not a new drawing. The new drawing comes from the loop around the network, which asks that question many times and moves the point a little each time.'],
+  ['Why does it need noise to learn?', 'Training needs examples of what to undo. So it takes a real point and adds a little random noise, and then a little more, for 50 steps. Move t to see it: each point goes on a random walk away from the spiral, until nothing of the spiral is left.\nAt every training step the network gets one of these noisy points and the value of t, and it has to name the noise. The gap from the real noise is the error, and backpropagation corrects the weights, exactly as on the neural network page.'],
+  ['What do the arrows show?', 'Each arrow starts at a position on the grid and points to where the network thinks the clean point is. So it shows the direction that removes the noise. Before training the arrows are random. As the error falls, they turn towards the spiral.\nThey also change with t. With a lot of noise, the network cannot know which part of the spiral a point came from, so its best answer is the centre. With little noise, it knows where the point is, so the arrows point to the nearest part of the spiral. Move t after training to see the change.'],
+  ['How does it make something new?', 'It starts from pure noise, with no spiral in it. At every step the network estimates the noise, the point moves a small part of the way along the arrow, and the next step has less noise.\nPress generate and look at the white points. They come from a cloud and settle on the spiral, but they are not copies of the training points. The model holds no points, only weights. The number under the button is the share of new points that land close to the spiral.'],
+  ['How is the noise removed, exactly?', 'Every noisy image is a known mix of two parts: x_t = signal × x0 + noise × ε. The second model estimates ε. From it, the clean guess follows by subtraction: x0 = (x_t - noise × ε) / signal.\nThe next image uses the same two parts with a smaller share of noise: next = new signal × x0 + new noise × ε. This rule is called DDIM. No new randomness enters along the way, so the same start always gives the same image. The three small images and the two lines in the panel show these values at each step.'],
+  ['What changes from points to images?', 'The loop does not change, but the network does. A row of plain layers does not know which pixels are neighbours. So the digit model is a small U-Net with 196,081 weights. It uses filters that slide across the image, reduces it from 28 by 28 to 7 by 7 to see the whole digit, and then returns to full size to fix the details.\nIt also reads which digit you asked for, at every step. That is the same idea as a prompt, with only ten possible requests. The weights are a 784 KB file, which your browser downloads once. All the calculation then runs on your device, one step at a time.'],
+  ['What about large image models?', 'They use the same loop on a very different scale, with billions of weights and thousands of chips for training. They usually do not work on pixels: an autoencoder first compresses the image into a smaller one, and the steps happen there. A long text prompt steers every step, through a model that turns words into numbers.\nThere is no GAN in any of this. A GAN trains a second network to judge the first one, and it generates in one pass. A diffusion model has one network, measures only the gap from the real noise, and generates in many steps.'],
 ];
+const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 ---
-<Base title="Diffusion · Riccardo Mondi" description="Watch a small real diffusion model draw a face out of noise, in your browser." tono="neutro" largo>
-  <main class="rn" data-diffusione>
-    <div class="schermo">
+<Base title="Diffusion · Riccardo Mondi" description="Train a tiny diffusion model on a spiral in your browser, then watch a small real model draw digits out of noise." tono="neutro" largo>
+  <main class="rn">
+    <section class="schermo" data-spirale>
       <header class="testa">
-        <h1>Watch a diffusion model draw a face in your browser</h1>
+        <h1>Teach a diffusion model to remove noise in your browser</h1>
         <a href="#how-it-works" class="mono">how it works ↓</a>
       </header>
 
-      <section class="banco">
-        <canvas class="tela-griglia" role="img" aria-label="A grid with one block for each pixel of the image. A taller, brighter block means a higher pixel value. Noise looks like random terrain, and a finished face looks like a clear image in relief."></canvas>
-
+      <div class="banco">
+        <canvas class="tela-spirale" role="img" aria-label="A square with a blue spiral of training points and a field of arrows. The arrows show where the network thinks the clean point is. Before training they are random, and after training they point back to the spiral."></canvas>
         <p class="mono nota-tel" aria-live="polite"></p>
 
         <div class="pannello">
           <div class="mono sezione">
+            <span class="titolino">train</span>
+            <div class="riga">
+              <button type="button" class="gioca" data-spiega="Each training step adds noise to some points, asks the network to name that noise, and updates the weights with backpropagation."></button>
+              <button type="button" class="azzera" data-spiega="Starts again with random weights.">restart</button>
+            </div>
+          </div>
+
+          <div class="mono sezione" data-spiega="The step t. At 0 the points are clean, at 50 only noise is left. The orange lines show the random walk of a few points.">
+            <span class="titolino">noise</span>
+            <input class="cursore-t" type="range" min="0" max="50" value="0" aria-label="Noise step t" />
+            <div class="estremi"><span>clean</span><span class="lettura lettura-t"></span><span>noise</span></div>
+          </div>
+
+          <div class="mono sezione">
             <span class="titolino">generate</span>
             <div class="riga">
+              <button type="button" class="genera" data-spiega="Starts 300 new points from pure noise and moves them along the arrows, step by step.">generate 300 points</button>
+              <span class="vicini" data-spiega="The share of new points that land close to a real point of the spiral."></span>
+            </div>
+          </div>
+
+          <div class="mono sezione ultima">
+            <span class="titolino">result</span>
+            <span class="errore"></span>
+            <canvas class="curva" role="img" aria-label="The error during training"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="mono tag-punto" hidden></div>
+      <div class="mono tag-consiglio" hidden></div>
+    </section>
+
+    <section class="schermo" data-diffusione>
+      <header class="testa">
+        <h2>The same idea on images: ask for a digit</h2>
+      </header>
+
+      <div class="banco">
+        <canvas class="tela-griglia" role="img" aria-label="A grid with one block for each pixel of a 28 by 28 image. A taller, brighter block means a higher pixel value. Noise looks like random terrain, and a finished digit looks like a clear image in relief."></canvas>
+        <p class="mono nota-tel" aria-live="polite"></p>
+
+        <div class="pannello">
+          <div class="mono sezione">
+            <span class="titolino">ask for a digit</span>
+            <div class="cifre" role="group" aria-label="Digit" data-spiega="The network reads this at every step. It is the same idea as a prompt, with ten possible requests.">
+              {CIFRE.map(n => <button type="button" data-cifra={n}>{n}</button>)}
+            </div>
+            <div class="riga spazio">
               <button type="button" class="gioca" data-spiega="Starts from new random noise and removes it step by step."></button>
-              <div class="passi" role="group" aria-label="Steps" data-spiega="How many steps it takes to remove the noise. More steps give a cleaner face.">
+              <div class="passi" role="group" aria-label="Steps" data-spiega="How many steps it takes to remove the noise. More steps usually give a cleaner digit, but take longer.">
                 <span>steps</span>
                 <button type="button" data-passi="5">5</button>
                 <button type="button" data-passi="20">20</button>
@@ -41,42 +87,45 @@ const COME: [string, string][] = [
             </div>
           </div>
 
-          <div class="mono sezione" data-spiega="Move through the generation, from pure noise to the finished face.">
+          <div class="mono sezione" data-spiega="Move through the generation, from pure noise to the finished digit.">
             <span class="titolino">time</span>
-            <input class="cursore-tempo" type="range" min="0" max="1000" value="0" aria-label="Time, from noise to face" />
-            <div class="estremi"><span>noise</span><span class="lettura"></span><span>face</span></div>
+            <input class="cursore-tempo" type="range" min="0" max="1000" value="0" aria-label="Time, from noise to digit" />
+            <div class="estremi"><span>noise</span><span class="lettura"></span><span>digit</span></div>
           </div>
 
           <div class="mono sezione">
             <span class="titolino">what the network sees</span>
             <div class="coppia">
               <figure data-spiega="x_t, the image at this step: what the network reads."><canvas class="mini-ora" role="img" aria-label="The image at this step"></canvas><figcaption>now, x_t</figcaption></figure>
-              <figure data-spiega="x0, the network's guess of the finished face at this step. It starts blurry and slowly commits."><canvas class="mini-ipotesi" role="img" aria-label="The guess of the network"></canvas><figcaption>guess, x0</figcaption></figure>
-              <figure data-spiega="ε, the noise left once the guess is taken out of the image. It disappears at the end."><canvas class="mini-rumore" role="img" aria-label="The noise the network finds"></canvas><figcaption>noise, ε</figcaption></figure>
+              <figure data-spiega="x0, the clean digit that follows from the noise estimate. It starts blurry and slowly commits."><canvas class="mini-ipotesi" role="img" aria-label="The guess of the network"></canvas><figcaption>guess, x0</figcaption></figure>
+              <figure data-spiega="ε, the noise that the network finds in the image. It disappears at the end."><canvas class="mini-rumore" role="img" aria-label="The noise the network finds"></canvas><figcaption>noise, ε</figcaption></figure>
             </div>
             <div class="formula" data-spiega="Each image is a mix of the guess and the noise. Each step lowers the share of noise."><span class="f-ora"></span><span class="f-dopo"></span></div>
           </div>
 
           <div class="mono sezione">
-            <span class="titolino">last faces</span>
+            <span class="titolino">last digits</span>
             <div class="ricordi"></div>
           </div>
         </div>
-      </section>
-    </div>
+      </div>
+      <div class="mono tag-punto" hidden></div>
+      <div class="mono tag-consiglio" hidden></div>
+    </section>
 
     <section class="spiegone" id="how-it-works">
       <h2 class="mono">how it works</h2>
       {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3>{testo.split('\n').map(p => <p>{p}</p>)}</article>)}
+      <p class="mono fonte">The spiral and the arrows come from <a href="https://www.3blue1brown.com/lessons/diffusion-models/">the guest video by Welch Labs on 3Blue1Brown</a>. The digits come from MNIST.</p>
     </section>
   </main>
-  <div class="mono tag-punto" hidden></div>
-  <div class="mono tag-consiglio" hidden></div>
 </Base>
 
 <script>
-  import { monta } from '../../scripts/diffusioneVista';
-  monta(document.querySelector<HTMLElement>('[data-diffusione]')!);
+  import { monta as montaSpirale } from '../../scripts/spiraleVista';
+  import { monta as montaCifre } from '../../scripts/diffusioneVista';
+  montaSpirale(document.querySelector<HTMLElement>('[data-spirale]')!);
+  montaCifre(document.querySelector<HTMLElement>('[data-diffusione]')!);
 </script>
 
 <style>
@@ -85,7 +134,7 @@ const COME: [string, string][] = [
   .schermo { display: flex; flex-direction: column; gap: var(--s2); height: calc(100vh - 62px); min-height: 560px; padding-bottom: var(--s2); }
   .testa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px var(--s2); }
   .testa a { color: var(--fg); font-size: 12px; white-space: nowrap; }
-  h1 { margin: 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
+  h1, .testa h2 { margin: 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
   button { padding: 5px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; transition: color .12s, border-color .12s; }
   button:hover:not(:disabled) { border-color: var(--fg); color: var(--fg); }
   button:disabled { cursor: default; }
@@ -94,12 +143,23 @@ const COME: [string, string][] = [
   .titolino { display: block; margin-bottom: 8px; color: var(--fg); font-size: 14px; }
   .titolino::before { content: '// '; color: var(--muted); }
   .banco { position: relative; flex: 1 1 0; min-height: 0; }
-  .tela-griglia { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
+  .tela-griglia, .tela-spirale { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
+  .tela-griglia { cursor: grab; }
   .tela-griglia:active { cursor: grabbing; }
   .pannello { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; gap: 12px; width: clamp(320px, 30%, 400px); overflow: hidden; }
   .sezione + .sezione { padding-top: 12px; border-top: 1px solid var(--line); }
   .sezione { font-size: 13px; color: var(--fg); }
   .riga { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+  .genera, .azzera { font-size: 13px; }
+  .vicini, .errore { display: block; color: var(--muted); font-size: 12px; }
+  .cursore-t { display: block; width: 100%; margin: 0; accent-color: var(--fg); cursor: pointer; }
+  .curva { display: block; width: 100%; height: 110px; margin-top: 4px; }
+  .ultima { flex: 1 1 auto; min-height: 0; }
+  .cifre { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
+  .cifre button { padding: 5px 0; }
+  .spazio { margin-top: 8px; }
+  .fonte { color: var(--muted); font-size: 12px; }
+  .fonte a { color: var(--fg); }
   .gioca { min-width: 112px; padding: 7px 16px; background: var(--fg); border-color: var(--fg); color: var(--bg); font-size: 15px; }
   .gioca:hover:not(:disabled) { background: var(--bg); border-color: var(--fg); color: var(--fg); }
   .gioca:disabled { background: var(--bg); border-color: var(--line); color: var(--muted); }
@@ -131,10 +191,12 @@ const COME: [string, string][] = [
   @media (max-width: 760px) {
     .rn { padding: 0 16px; }
     .schermo { height: auto; min-height: 0; gap: var(--s1); }
-    h1 { font-size: 20px; }
+    h1, .testa h2 { font-size: 20px; }
     .banco { display: contents; }
     .testa { order: 0; }
-    .tela-griglia { position: static; display: block; order: 1; height: 320px; }
+    .tela-griglia, .tela-spirale { position: static; display: block; order: 1; height: 320px; }
+    .cifre button { padding: 10px 0; }
+    .curva { height: 130px; }
     .formula { font-size: 11px; }
     .pannello { position: static; order: 2; width: 100%; overflow: visible; }
     .gioca { flex: 1 1 100%; padding: 10px; }

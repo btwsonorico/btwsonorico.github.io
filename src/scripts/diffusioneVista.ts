@@ -1,27 +1,29 @@
-import { caricaModello, genera, LATO, rumorePuro, type Generazione, type Modello } from '../lib/diffusione';
+import { caricaModello, D, LATO, passo, quotaRumore, rumorePuro, tempiDi, type Modello } from '../lib/cifre';
 
-// Vista del modello di diffusion: ogni pixel della faccia è un blocco, alto e chiaro quanto il suo valore.
-// Il rumore è un terreno a caso; a ogni passo i blocchi si avvicinano all'ipotesi della rete, finché resta una faccia in rilievo.
-const D = LATO * LATO, ALTEZZA = 0.14, GIRO_MAX = 1, PIATTO = 0.78, DURATA_PASSO = 110, DURATA_MIN = 2200, RICORDI = 6;
+// Vista del modello sulle cifre: ogni pixel è un blocco, alto e chiaro quanto il suo valore.
+// Il rumore è un terreno a caso; a ogni passo i blocchi si avvicinano all'ipotesi della rete, finché resta la cifra in rilievo.
+const ALTEZZA = 0.1, GIRO_MAX = 1, PIATTO = 0.78, DURATA_MIN = 1600, RICORDI = 6;
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
 const rgb = (hex: string) => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] as const; };
-const misto = (a: string, b: string, t: number) => { const A = rgb(a), B = rgb(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i]! - v) * t)).join(',')})`; };
+const misto = (a: string, b: string, t: number) => { const A = rgb(a), B = rgb(b); return `#${A.map((v, i) => Math.round(v + (B[i]! - v) * t).toString(16).padStart(2, '0')).join('')}`; };
 const calmo = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+type Generazione = { stati: Float32Array[]; ipotesi: Float32Array[]; rumori: Float32Array[]; rumore: number[]; tempi: number[]; cifra: number };
 
 export function monta(radice: HTMLElement) {
   const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
   const scrivi = (el: Element, t: string) => { if (el.textContent !== t) el.textContent = t; };
   const BG = tono('--bg'), LINE = tono('--line'), ARANCIO = tono('--arancio');
   const [bR, bG, bB] = rgb(BG), [oR, oG, oB] = rgb(ARANCIO);
-  const SOPRA = Array.from({ length: 16 }, (_, k) => misto(misto(BG, LINE, 0.7), ARANCIO, k / 15)), LATI = SOPRA.map(c => { const [a, b, d] = c.slice(4, -1).split(',').map(Number) as [number, number, number]; return `rgb(${Math.round(a + (bR - a) * 0.55)},${Math.round(b + (bG - b) * 0.55)},${Math.round(d + (bB - d) * 0.55)})`; });
+  const SOPRA = Array.from({ length: 16 }, (_, k) => misto(misto(BG, LINE, 0.7), ARANCIO, k / 15)), LATI = SOPRA.map(c => misto(c, BG, 0.55));
   const tela = $<HTMLCanvasElement>('.tela-griglia'), t = tela.getContext('2d')!;
   const telaOra = $<HTMLCanvasElement>('.mini-ora'), telaIpotesi = $<HTMLCanvasElement>('.mini-ipotesi'), telaRumore = $<HTMLCanvasElement>('.mini-rumore'), formulaOra = $<HTMLElement>('.f-ora'), formulaDopo = $<HTMLElement>('.f-dopo');
   const gioca = $<HTMLButtonElement>('.gioca'), cursore = $<HTMLInputElement>('.cursore-tempo'), lettura = $<HTMLElement>('.lettura'), ricordi = $<HTMLElement>('.ricordi');
-  const passiB = radice.querySelectorAll<HTMLButtonElement>('[data-passi]');
-  const tagPunto = document.querySelector<HTMLElement>('.tag-punto')!, tagConsiglio = document.querySelector<HTMLElement>('.tag-consiglio')!, pannello = $<HTMLElement>('.pannello'), notaTel = $<HTMLElement>('.nota-tel');
+  const passiB = radice.querySelectorAll<HTMLButtonElement>('[data-passi]'), cifreB = radice.querySelectorAll<HTMLButtonElement>('[data-cifra]');
+  const tagPunto = $<HTMLElement>('.tag-punto'), tagConsiglio = $<HTMLElement>('.tag-consiglio'), pannello = $<HTMLElement>('.pannello'), notaTel = $<HTMLElement>('.nota-tel');
 
-  let modello: Modello | null = null, gen: Generazione | null = null, passi = 20, pos = 0, inMoto = false, ultimo = 0, sporco = true, giro = 0.14, gira = false, xPrima = 0, spiegaEl: HTMLElement | null = null;
-  let usatoCursore = false, generate = 0, durata = DURATA_MIN;
+  let modello: Modello | null = null, gen: Generazione | null = null, passi = 20, cifra = 7, pos = 0, inMoto = false, prossimo = 0, sporco = true, giro = 0.14, gira = false, xPrima = 0, spiegaEl: HTMLElement | null = null, visibile = false;
+  let usatoCursore = false, generate = 0, attesa = 100;
   let attuale = rumorePuro(), ipotesi = new Float32Array(D).fill(-1), trovato = attuale.slice();
 
   // --- Griglia
@@ -50,12 +52,12 @@ export function monta(radice: HTMLElement) {
     // Dal fondo verso chi guarda: ogni blocco copre quelli dietro
     ordine.sort((a, b) => profondo[b]! - profondo[a]!);
     t.strokeStyle = BG;
-    t.lineWidth = 0.75;
+    t.lineWidth = 0.5;
     t.lineJoin = 'round';
+    const angoli = [[-1, 1], [1, 1], [1, -1], [-1, -1]] as const;
     for (const i of ordine) {
       const [u, v] = centro(i), h = Math.max(0, Math.min(1, (attuale[i]! + 1) / 2)), k = Math.round(h * 15);
-      const giu = [[u - M, v + M], [u + M, v + M], [u + M, v - M], [u - M, v - M]].map(([a, b]) => px(a!, b!, 0));
-      const su = [[u - M, v + M], [u + M, v + M], [u + M, v - M], [u - M, v - M]].map(([a, b]) => px(a!, b!, h));
+      const giu = angoli.map(([a, b]) => px(u + a * M, v + b * M, 0)), su = angoli.map(([a, b]) => px(u + a * M, v + b * M, h));
       for (let e = 0; e < 4; e++) { const f = (e + 1) % 4; faccia([giu[e]!, giu[f]!, su[f]!, su[e]!], LATI[k]!); }
       faccia(su, SOPRA[k]!);
     }
@@ -87,75 +89,85 @@ export function monta(radice: HTMLElement) {
   const vaiA = (f: number) => {
     if (!gen) return;
     pos = Math.max(0, Math.min(1, f));
-    const u = pos * passi;
+    const u = Math.min(pos * passi, gen.stati.length - 1);
     miscela(gen.stati, u, attuale);
-    miscela(gen.ipotesi, u, ipotesi);
-    miscela(gen.rumori, u, trovato);
+    miscela(gen.ipotesi, Math.min(u, gen.ipotesi.length - 1), ipotesi);
+    miscela(gen.rumori, Math.min(u, gen.rumori.length - 1), trovato);
     cursore.value = String(Math.round(pos * 1000));
     sporco = true;
   };
   const scriviTempo = () => {
     if (!gen) { scrivi(lettura, 'pure noise'); scrivi(formulaOra, 'now  = 0.00 × guess + 1.00 × noise'); scrivi(formulaDopo, 'next: press generate'); return; }
-    const u = pos * passi, k = Math.min(passi - 1, Math.floor(u)), rumore = u >= passi ? 0 : gen.rumore[k]! + (gen.rumore[k + 1]! - gen.rumore[k]!) * (u - k);
-    scrivi(lettura, `step ${Math.round(u)} of ${passi} · noise ${Math.round(rumore * 100)}%`);
-    // Le due quote vere di questo passo e del prossimo: segnale² + rumore² = 1
-    const q = Math.min(passi, Math.round(u)), adesso = gen.rumore[q]!, prossimo = gen.rumore[Math.min(passi, q + 1)]!, riga = (n: string, r: number) => `${n} = ${Math.sqrt(1 - r * r).toFixed(2)} × guess + ${r.toFixed(2)} × noise`;
+    const u = pos * passi, q = Math.min(passi, Math.round(u)), adesso = gen.rumore[q]!, dopo = gen.rumore[Math.min(passi, q + 1)]!, riga = (n: string, r: number) => `${n} = ${Math.sqrt(1 - r * r).toFixed(2)} × guess + ${r.toFixed(2)} × noise`;
+    scrivi(lettura, `step ${q} of ${passi} · noise ${Math.round(adesso * 100)}%`);
     scrivi(formulaOra, riga('now ', adesso));
-    scrivi(formulaDopo, riga('next', prossimo));
+    scrivi(formulaDopo, riga('next', dopo));
   };
-  const metti = (si: boolean) => { inMoto = si; scrivi(gioca, si ? 'generating' : 'generate'); gioca.disabled = si || !modello; };
-  const nuova = (partenza: Float32Array) => {
+  const metti = (si: boolean) => { inMoto = si; scrivi(gioca, si ? 'generating' : `generate a ${cifra}`); gioca.disabled = si || !modello; cursore.disabled = si; };
+  const avanzaPasso = () => {
+    const k = gen!.stati.length - 1, { pulita, rumore, nuovo } = passo(modello!, gen!.stati[k]!, gen!.tempi[k]!, gen!.tempi[k + 1]!, gen!.cifra);
+    gen!.ipotesi.push(pulita);
+    gen!.rumori.push(rumore);
+    gen!.stati.push(nuovo);
+  };
+  const chiudi = () => {
+    gen!.ipotesi.push(gen!.stati[passi]!);
+    gen!.rumori.push(new Float32Array(D));
+    vaiA(1);
+    metti(false);
+    ricorda();
+  };
+  const nuova = (partenza: Float32Array, c: number) => {
     if (!modello) return;
-    gen = genera(modello, passi, partenza);
-    durata = Math.max(DURATA_MIN, passi * DURATA_PASSO);
-    attuale = gen.stati[0]!.slice();
-    ipotesi = gen.ipotesi[0]!.slice();
-    pos = 0;
+    const tempi = tempiDi(passi);
+    gen = { stati: [partenza], ipotesi: [], rumori: [], rumore: tempi.map(quotaRumore), tempi, cifra: c };
+    attesa = Math.max(40, DURATA_MIN / passi);
     generate++;
-    if (calmo) { vaiA(1); ricorda(); return; }
+    if (calmo) { for (let k = 0; k < passi; k++) avanzaPasso(); chiudi(); return; }
+    avanzaPasso();
     vaiA(0);
-    ultimo = performance.now();
+    prossimo = performance.now();
     metti(true);
   };
-  gioca.addEventListener('click', () => nuova(rumorePuro()));
+  gioca.addEventListener('click', () => nuova(rumorePuro(), cifra));
   const scegliPassi = (n: number) => {
     passi = n;
     passiB.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.passi) === n)));
     // Stesso rumore di prima con un altro numero di passi: si vede cosa cambia
-    if (gen) nuova(gen.stati[0]!);
+    if (gen && !inMoto) nuova(gen.stati[0]!, gen.cifra);
+  };
+  const scegliCifra = (n: number) => {
+    cifra = n;
+    cifreB.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.cifra) === n)));
+    if (!inMoto && modello) scrivi(gioca, `generate a ${n}`);
   };
   passiB.forEach(b => b.addEventListener('click', () => scegliPassi(Number(b.dataset.passi))));
-  cursore.addEventListener('input', () => { metti(false); usatoCursore = true; vaiA(Number(cursore.value) / 1000); });
+  cifreB.forEach(b => b.addEventListener('click', () => scegliCifra(Number(b.dataset.cifra))));
+  cursore.addEventListener('input', () => { usatoCursore = true; vaiA(Number(cursore.value) / 1000); });
 
-  // Le ultime facce: un clic rifà la stessa generazione dallo stesso rumore
+  // Le ultime immagini: un clic rifà la stessa generazione dallo stesso rumore
   const storia: Float32Array[] = [];
   function ricorda() {
     if (!gen) return;
-    const partenza = gen.stati[0]!, finale = gen.stati[gen.stati.length - 1]!;
+    const partenza = gen.stati[0]!, finale = gen.stati[gen.stati.length - 1]!, c = gen.cifra;
     if (storia.includes(partenza)) return;
     storia.unshift(partenza);
     storia.splice(RICORDI);
-    const b = document.createElement('button'), c = document.createElement('canvas');
+    const b = document.createElement('button'), tl = document.createElement('canvas');
     b.type = 'button';
-    b.setAttribute('aria-label', 'Replay this face');
-    b.dataset.spiega = 'Replay this face from the same noise. Same noise, same face.';
-    b.append(c);
-    b.addEventListener('click', () => nuova(partenza));
+    b.setAttribute('aria-label', `Replay this ${c}`);
+    b.dataset.spiega = 'Replays this image from the same noise. Same noise, same image.';
+    b.append(tl);
+    b.addEventListener('click', () => { if (!inMoto) nuova(partenza, c); });
     ricordi.prepend(b);
     while (ricordi.children.length > RICORDI) ricordi.lastElementChild!.remove();
-    mini(c, finale);
+    mini(tl, finale);
   }
 
   // --- Tag
   const posa = (tag: HTMLElement, q: DOMRect, fuoriDa?: DOMRect) => {
     const w = tag.offsetWidth, h = tag.offsetHeight, vw = innerWidth, vh = innerHeight;
-    let x: number, y: number;
-    if (vw <= 760) { x = Math.max(8, Math.min(vw - w - 8, q.left)); y = q.bottom + 6 + h > vh ? q.top - h - 6 : q.bottom + 6; }
-    else {
-      const destra = fuoriDa ? fuoriDa.right : q.right;
-      x = destra + 10 + w < vw - 8 ? destra + 10 : Math.max(8, q.left - w - 10);
-      y = Math.max(8, Math.min(vh - h - 8, (q.top + q.bottom) / 2 - h / 2));
-    }
+    const destra = fuoriDa ? fuoriDa.right : q.right, x = destra + 10 + w < vw - 8 ? destra + 10 : Math.max(8, q.left - w - 10), y = Math.max(8, Math.min(vh - h - 8, (q.top + q.bottom) / 2 - h / 2));
     tag.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
   };
   const metti2 = (tag: HTMLElement, testo: string) => { tag.hidden = !testo; if (testo) scrivi(tag, testo); };
@@ -166,7 +178,7 @@ export function monta(radice: HTMLElement) {
     if (spiegaEl) { metti2(tagPunto, spiegaEl.dataset.spiega ?? ''); posa(tagPunto, spiegaEl.getBoundingClientRect(), dalPannello(spiegaEl)); }
     else metti2(tagPunto, '');
     let testo = '', el: HTMLElement | null = null;
-    if (modello && !generate) { testo = 'press generate to start from pure noise'; el = gioca; }
+    if (modello && !generate) { testo = 'pick a digit, then generate it from pure noise'; el = gioca; }
     else if (modello && !inMoto && generate === 1 && !usatoCursore) { testo = 'drag time to go back through the steps'; el = cursore; }
     const q = el?.getBoundingClientRect(), mostra = !!testo && !!q && tagPunto.hidden && q.bottom > 0 && q.top < innerHeight;
     metti2(tagConsiglio, mostra ? testo : '');
@@ -191,24 +203,26 @@ export function monta(radice: HTMLElement) {
     sporco = true;
   };
   new ResizeObserver(misura).observe(tela);
+  new IntersectionObserver(v => { visibile = v.some(x => x.isIntersecting); if (visibile) sporco = true; }, { rootMargin: '60px' }).observe(tela);
   misura();
-  scegliPassi(20);
-  metti(false);
+  passiB.forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.passi) === passi)));
+  scegliCifra(cifra);
   gioca.disabled = true;
   scrivi(gioca, 'loading');
-  caricaModello('/learn/facce.bin').then(m => { modello = m; metti(false); sporco = true; }).catch(() => { scrivi(gioca, 'could not load'); });
+  caricaModello('/learn/cifre.bin').then(m => { modello = m; metti(false); sporco = true; }).catch(() => { scrivi(gioca, 'could not load'); });
   document.fonts?.ready.then(() => { sporco = true; });
 
   const ciclo = (ora: number) => {
     requestAnimationFrame(ciclo);
-    if (inMoto) {
-      const dt = ora - ultimo;
-      ultimo = ora;
-      vaiA(pos + dt / durata);
-      if (pos >= 1) { metti(false); ricorda(); }
+    // Un passo della rete alla volta, così la pagina resta viva e si vede l'immagine pulirsi davvero
+    if (inMoto && ora >= prossimo) {
+      const k = gen!.stati.length - 1;
+      vaiA(k / passi);
+      if (k >= passi) chiudi();
+      else { avanzaPasso(); prossimo = ora + attesa; }
     }
-    if (W) aggiornaTag();
-    if (!sporco || !W) return;
+    if (W && visibile) aggiornaTag();
+    if (!sporco || !W || !visibile) return;
     sporco = false;
     disegnaGriglia();
     mini(telaOra, attuale);
