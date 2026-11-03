@@ -79,7 +79,8 @@ function sali(x: Float32Array, canali: number, lato: number, accanto: Float32Arr
 export function stima(m: Modello, x: Float32Array, t: number, cifra: number) {
   const u = t / T, ing = new Float32Array(18);
   [1, 2, 4, 8].forEach((k, i) => { ing[i * 2] = Math.sin(Math.PI * k * u); ing[i * 2 + 1] = Math.cos(Math.PI * k * u); });
-  ing[8 + cifra] = 1;
+  // Con cifra negativa la richiesta è neutra: un decimo per ognuna delle dieci cifre
+  if (cifra < 0) ing.fill(0.1, 8); else ing[8 + cifra] = 1;
   const e = lineare(m.c2, relu(lineare(m.c1, ing)));
   const h1 = res(m.r1, relu(conv(m.ini, x, 28)), 28, e);
   const h2 = res(m.r2, relu(conv(m.d1, h1, 28, 2)), 14, e);
@@ -104,9 +105,12 @@ export function sporca(x0: Float32Array, t: number) {
   return x;
 }
 
-// Un passo: stima il rumore, ricava l'immagine pulita, e prepara l'immagine del passo dopo con meno rumore
+// Guidance: quanto spingere nella direzione che la cifra chiesta aggiunge alla risposta neutra. Con 1 non c'è nessuna spinta
+const GUIDA = 3;
+
+// Un passo: stima il rumore con la guidance, ricava l'immagine pulita, e prepara l'immagine del passo dopo con meno rumore
 export function passo(m: Modello, x: Float32Array, t: number, dopo: number, cifra: number) {
-  const o = stima(m, x, t, cifra), a = abar[t]!, d = dopo > 0 ? abar[dopo]! : 1;
+  const chiesta = stima(m, x, t, cifra), neutra = stima(m, x, t, -1), o = neutra.map((v, i) => v + GUIDA * (chiesta[i]! - v)), a = abar[t]!, d = dopo > 0 ? abar[dopo]! : 1;
   const pulita = new Float32Array(D), rumore = new Float32Array(D), nuovo = new Float32Array(D);
   for (let i = 0; i < D; i++) {
     const p = Math.max(-1, Math.min(1, (x[i]! - Math.sqrt(1 - a) * o[i]!) / Math.sqrt(a))), e = (x[i]! - Math.sqrt(a) * p) / Math.sqrt(1 - a);
