@@ -12,6 +12,6 @@ export const SITO = {
   email: 'riccardo.mondi@polimi.it',
   github: 'https://github.com/btwsonorico',
   linkedin: 'https://www.linkedin.com/in/riccardo-mondi-7717181aa/',
-  bio: "I'm drawn to what's new and to how different fields connect, which is why I love innovation, and also why I read too many papers.",
+  bio: "I'm drawn to what's new and to how different fields connect, which is why I love innovation (and also why I read way too many papers).",
   dove: '@Polimi',
 };
