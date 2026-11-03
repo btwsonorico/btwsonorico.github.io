@@ -71,9 +71,11 @@ export function monta(radice: HTMLElement) {
     c.globalAlpha = 0.9;
     c.stroke();
     c.globalAlpha = 1;
-    // La forma vera, sempre visibile sotto
-    c.fillStyle = BLU;
-    for (let i = 0; i < dati.length / 2; i++) c.fillRect(px(dati[i * 2]!) - 1, py(dati[i * 2 + 1]!) - 1, 2, 2);
+    // La forma vera. Mentre si genera sparisce: i punti nuovi nascono solo dai pesi
+    if (!nuovi) {
+      c.fillStyle = BLU;
+      for (let i = 0; i < dati.length / 2; i++) c.fillRect(px(dati[i * 2]!) - 1, py(dati[i * 2 + 1]!) - 1, 2, 2);
+    }
     // I tratti che si stanno disegnando
     c.strokeStyle = BLU;
     c.lineWidth = 2;

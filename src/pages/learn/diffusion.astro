@@ -4,23 +4,24 @@ import Base from '../../layouts/Base.astro';
 // Diffusion: prima una spirale da allenare nel browser (src/lib/spirale.ts), poi le cifre con un modello già allenato (src/lib/cifre.ts,
 // scripts/allena-cifre.py). Le spiegazioni brevi sono tag sul punto, e scorrendo sotto c'è la spiegazione completa.
 const COME: [string, string][] = [
-  ['What is this?', 'Two real diffusion models running in your browser. The first is very small and you train it yourself on 1,024 points that form a shape: a spiral, a star or one you draw. Each point has only two values, so you can see all of it. The second has already been trained on 60,000 handwritten digits. It works the same way on images, where each image is one point with 784 values.\nUnlike with a real model, the settings are fixed for you: the learning rate, the batch size (64) and the number of training steps (8,000).'],
+  ['What is this?', 'Two real diffusion models running in your browser, in two steps. The first shows how training works: it is very small and you train it yourself on 1,024 points that form a shape: a spiral, a star or one you draw. Each point has only two values, so you can see all of it. The second shows what a trained model can do. It is a larger model that uses the same method, already trained on 60,000 handwritten digits. For it, each image is one point with 784 values.\nUnlike with a real model, the settings are fixed for you: the learning rate, the batch size (64) and the number of training steps (8,000).'],
   ['Is it different from the neural network page?', 'The network is the same kind of thing, but it does a different job. On that page it answers one fixed question: how high is the grid at this position? It learns one shape, and it can only give that shape back.\nHere it reads a noisy point and its step number, and it answers another question: what noise moved this point? That answer is not a new drawing. The new drawing comes from the loop around the network, which asks that question many times and moves the point a little each time.'],
   ['Why does it need noise to learn?', 'Training needs examples of what to undo. So it takes a real point and shakes it at random, a little at a time, for 50 steps. This random movement is the noise. Move the slider to see it: each point goes on a random walk away from the shape, until nothing of the shape is left.\nAt every training step the network gets one of these noisy points and its step number, and it has to name the noise. The gap from the real noise is the error, and backpropagation corrects the weights, exactly as on the neural network page.'],
   ['What do the arrows show?', 'Each arrow starts at a position on the grid and points to where the network thinks the clean point is. So it shows the direction that removes the noise. Before training the arrows are random. As the error falls, they turn towards the shape.\nThey also change with the amount of noise. With a lot of noise, the network cannot know which part of the shape a point came from, so its best answer is the centre. With little noise, it knows where the point is, so the arrows point to the nearest part of the shape. Move the slider after training to see the change.'],
-  ['How does it make something new?', 'It starts from pure noise, with no shape in it. At every step the network estimates the noise, the point moves a small part of the way along the arrow, and the next step has less noise.\nPress generate and look at the white points. They come from a cloud and settle on the shape, but they are not copies of the training points. The model holds no points, only weights. The number next to the button is the share of new points that land close to the shape.'],
+  ['How does it make something new?', 'It starts from pure noise, with no shape in it. At every step the network estimates the noise, the point moves a small part of the way along the arrow, and the next step has less noise.\nPress generate. The real points disappear, and the white points come from a cloud and settle on the shape. They are not copies of the training points: the model holds no points, only weights. The number next to the button is the share of new points that land close to the shape.'],
   ['How is the noise removed, exactly?', 'Every noisy image is a known mix of two parts: x_t = signal × x0 + noise × ε. The second model estimates ε. From it, the clean guess follows by subtraction: x0 = (x_t - noise × ε) / signal.\nThe next image uses the same two parts with a smaller share of noise: next = new signal × x0 + new noise × ε. This rule is called DDIM. No new randomness enters along the way, so the same start always gives the same image.'],
   ['What changes from points to images?', 'The loop does not change, but the network does. A row of plain layers does not know which pixels are neighbours. So the digit model is a small U-Net with 196,081 weights. It uses filters that slide across the image, reduces it from 28 by 28 to 7 by 7 to see the whole digit, and then returns to full size to fix the details.\nIt also reads which digit you asked for, at every step. That is the same idea as a prompt, with only ten possible requests. The weights are a 784 KB file, which your browser downloads once. All the calculation then runs on your device, one step at a time.'],
   ['What about large image models?', 'They use the same loop on a very different scale, with billions of weights and thousands of chips for training. They usually do not work on pixels: an autoencoder first compresses the image into a smaller one, and the steps happen there. A long text prompt steers every step, through a model that turns words into numbers.\nThere is no GAN in any of this. A GAN trains a second network to judge the first one, and it generates in one pass. A diffusion model has one network, measures only the gap from the real noise, and generates in many steps.'],
 ];
 const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 ---
-<Base title="Diffusion · Riccardo Mondi" description="Train a tiny diffusion model on a spiral in your browser, then watch a small real model draw digits out of noise." tono="neutro" largo>
+<Base title="Diffusion · Riccardo Mondi" description="See how a diffusion model is trained by training one in your browser, then ask a larger trained model to draw a digit out of noise." tono="neutro" largo>
   <main class="rn">
     <section class="schermo" data-spirale>
       <header class="testa">
-        <h1>Teach a diffusion model to remove noise in your browser</h1>
+        <h1>1. See how a diffusion model is trained</h1>
         <a href="#how-it-works" class="mono">how it works ↓</a>
+        <p class="sotto">Train a real one from zero, here in your browser, on a shape simple enough to watch.</p>
       </header>
 
       <div class="banco">
@@ -57,7 +58,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
           <div class="mono sezione">
             <span class="titolino">generate</span>
             <div class="riga">
-              <button type="button" class="genera" data-spiega="Starts 300 new points from pure noise and moves them along the arrows, step by step.">generate 300 points</button>
+              <button type="button" class="genera" data-spiega="Starts 300 new points from pure noise and moves them along the arrows. The real points disappear: the new ones come only from the weights.">generate 300 points</button>
               <span class="vicini" data-spiega="The share of new points that land close to a real point of the spiral."></span>
             </div>
           </div>
@@ -75,7 +76,8 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
     <section class="schermo" data-diffusione>
       <header class="testa">
-        <h2>The same idea on images: ask for a digit</h2>
+        <h2>2. Ask a trained model for an image</h2>
+        <p class="sotto">The same method on real images: a larger model, already trained on 60,000 digits, draws the one you ask for.</p>
       </header>
 
       <div class="banco">
@@ -141,6 +143,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   .schermo { display: flex; flex-direction: column; gap: var(--s2); height: calc(100vh - 62px); min-height: 560px; padding-bottom: var(--s2); }
   .testa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px var(--s2); }
   .testa a { color: var(--fg); font-size: 12px; white-space: nowrap; }
+  .testa .sotto { flex: 1 0 100%; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.4; }
   h1, .testa h2 { margin: 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
   button { padding: 5px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; transition: color .12s, border-color .12s; }
   button:hover:not(:disabled) { border-color: var(--fg); color: var(--fg); }
