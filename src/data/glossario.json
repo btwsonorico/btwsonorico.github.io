@@ -25,7 +25,8 @@
               "Software that answers any question correctly",
               "Programs that run on very large cloud servers"
             ]
-          }
+          },
+          "sotto": "Foundations"
         },
         {
           "termine": "Machine Learning (ML)",
@@ -56,7 +57,44 @@
               "It follows hand-written rules",
               "It searches a fixed database"
             ]
-          }
+          },
+          "sotto": "Foundations"
+        },
+        {
+          "termine": "Neural Network",
+          "definizione": [
+            "A model made of layers of simple units called neurons. Each neuron multiplies its inputs by weights, adds them up and passes the result on. Training changes the weights until the outputs match the examples."
+          ],
+          "punti": [],
+          "id": "neural-network",
+          "livello": "easy",
+          "domanda": {
+            "testo": "What does training change in a neural network?",
+            "risposte": [
+              "The weights of the connections",
+              "The number of its users",
+              "The language of its code"
+            ]
+          },
+          "sotto": "Foundations"
+        },
+        {
+          "termine": "Deep Learning",
+          "definizione": [
+            "Machine learning with neural networks that have many layers. The first layers find simple patterns and the later layers combine them into complex ones. Most modern AI, generative AI included, is built on deep learning."
+          ],
+          "punti": [],
+          "id": "deep-learning",
+          "livello": "easy",
+          "domanda": {
+            "testo": "What makes learning \"deep\"?",
+            "risposte": [
+              "Many layers in the network",
+              "Very long training sessions",
+              "A very large set of rules"
+            ]
+          },
+          "sotto": "Foundations"
         },
         {
           "termine": "Labeled data",
@@ -73,7 +111,80 @@
               "Data sorted by date and size",
               "Data produced by a language model"
             ]
-          }
+          },
+          "sotto": "Learning"
+        },
+        {
+          "termine": "Reinforcement Learning",
+          "definizione": [
+            "A way of learning by trial and error. An agent takes actions in an environment, receives rewards or penalties, and learns which actions pay off over time. It needs no labeled examples, only a measure of success."
+          ],
+          "punti": [],
+          "id": "reinforcement-learning",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What guides reinforcement learning?",
+            "risposte": [
+              "Rewards for its actions",
+              "Labels on each example",
+              "Rules written by experts"
+            ]
+          },
+          "sotto": "Learning"
+        },
+        {
+          "termine": "Overfitting",
+          "definizione": [
+            "A model overfits when it learns its training data too closely, noise included. It scores well on that data and poorly on new data. More data, simpler models and regularisation all reduce the problem."
+          ],
+          "punti": [],
+          "id": "overfitting",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What is the sign of overfitting?",
+            "risposte": [
+              "Good on training data, poor on new data",
+              "Poor on training data, good on new data",
+              "Equally poor results on every kind of data"
+            ]
+          },
+          "sotto": "Learning"
+        },
+        {
+          "termine": "Continual Learning",
+          "definizione": [
+            "Training a model on new data over time without starting again. The main obstacle is catastrophic forgetting: learning something new can overwrite what the model already knew."
+          ],
+          "punti": [],
+          "id": "continual-learning",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What is the main risk of continual learning?",
+            "risposte": [
+              "Forgetting what it already knew",
+              "Running out of data to read",
+              "Learning the same task too fast"
+            ]
+          },
+          "sotto": "Learning"
+        },
+        {
+          "termine": "Genetic Algorithms",
+          "definizione": [
+            "Optimisation methods inspired by natural selection. They keep a population of candidate solutions, score them, and combine and mutate the best ones to form the next generation. They need no gradient, so they suit problems that are hard to differentiate."
+          ],
+          "punti": [],
+          "id": "genetic-algorithms",
+          "livello": "hard",
+          "domanda": {
+            "testo": "How do genetic algorithms improve a solution?",
+            "risposte": [
+              "They mutate and combine the best ones",
+              "They follow the gradient of the error",
+              "They ask a person to rank each option"
+            ]
+          },
+          "sotto": "Learning"
         },
         {
           "termine": "Discriminative AI",
@@ -90,7 +201,8 @@
               "How to generate similar new data",
               "How to compress its own input"
             ]
-          }
+          },
+          "sotto": "Kinds of AI"
         },
         {
           "termine": "Generative Artificial Intelligence (GenAI)",
@@ -107,7 +219,8 @@
               "Ranks existing documents by relevance",
               "Sorts data into fixed categories"
             ]
-          }
+          },
+          "sotto": "Kinds of AI"
         }
       ]
     },
@@ -129,7 +242,8 @@
               "A small model built for a single task",
               "The first model a company ever trained"
             ]
-          }
+          },
+          "sotto": "Model types"
         },
         {
           "termine": "Open-source AI models",
@@ -149,7 +263,8 @@
               "It is always free to run at scale",
               "Its training data is always public"
             ]
-          }
+          },
+          "sotto": "Model types"
         },
         {
           "termine": "Closed-source AI models",
@@ -168,7 +283,8 @@
               "By downloading its weights",
               "By compiling its source code"
             ]
-          }
+          },
+          "sotto": "Model types"
         },
         {
           "termine": "Large Language Models (LLMs)",
@@ -189,7 +305,8 @@
               "Generating images",
               "Storing documents"
             ]
-          }
+          },
+          "sotto": "Model types"
         },
         {
           "termine": "Small Language Models (SLMs)",
@@ -209,7 +326,8 @@
               "It knows more than an LLM",
               "It has a larger vocabulary"
             ]
-          }
+          },
+          "sotto": "Model types"
         },
         {
           "termine": "Diffusion Models",
@@ -226,7 +344,8 @@
               "By blending images it has stored",
               "By two networks competing together"
             ]
-          }
+          },
+          "sotto": "Model types"
         },
         {
           "termine": "Multimodal AI",
@@ -246,7 +365,26 @@
               "Run on several chips at once",
               "Answer in several languages"
             ]
-          }
+          },
+          "sotto": "Model types"
+        },
+        {
+          "termine": "Large Action Models (LAMs)",
+          "definizione": [
+            "Models designed to carry out actions in software, not only to produce text. They learn how interfaces work and operate them for the user. The term is less established than LLM, and vendors use it in different ways."
+          ],
+          "punti": [],
+          "id": "large-action-models-lams",
+          "livello": "hard",
+          "domanda": {
+            "testo": "What do large action models aim to produce?",
+            "risposte": [
+              "Actions inside software",
+              "Longer written answers",
+              "Images from a text prompt"
+            ]
+          },
+          "sotto": "Model types"
         },
         {
           "termine": "Token",
@@ -263,7 +401,8 @@
               "A password used to call an API",
               "A complete sentence in a prompt"
             ]
-          }
+          },
+          "sotto": "Building blocks"
         },
         {
           "termine": "Context window",
@@ -284,7 +423,8 @@
               "The size of the chat box on screen",
               "The time a session stays open"
             ]
-          }
+          },
+          "sotto": "Building blocks"
         },
         {
           "termine": "Parameters",
@@ -301,7 +441,98 @@
               "Settings the user types in",
               "Questions the model is asked"
             ]
-          }
+          },
+          "sotto": "Building blocks"
+        },
+        {
+          "termine": "Embedding",
+          "definizione": [
+            "A list of numbers that represents the meaning of a piece of text, an image or another object. Similar meanings get nearby numbers, so software can compare meaning by measuring distance. Embeddings are the basis of semantic search and RAG."
+          ],
+          "punti": [],
+          "id": "embedding",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does closeness between two embeddings mean?",
+            "risposte": [
+              "Their meanings are similar",
+              "Their lengths are identical",
+              "They come from the same file"
+            ]
+          },
+          "sotto": "Building blocks"
+        },
+        {
+          "termine": "Latent Space",
+          "definizione": [
+            "A compressed space where a model represents its data. Each point stands for a possible input, and nearby points look alike. Many image models run their diffusion steps in latent space because it is far smaller than the pixels."
+          ],
+          "punti": [],
+          "id": "latent-space",
+          "livello": "hard",
+          "domanda": {
+            "testo": "Why do image models work in a latent space?",
+            "risposte": [
+              "It is much smaller than the pixels",
+              "It stores every training image",
+              "It removes the need for training"
+            ]
+          },
+          "sotto": "Building blocks"
+        },
+        {
+          "termine": "Transformer",
+          "definizione": [
+            "The neural network architecture behind most large language models, introduced in 2017. It reads a whole sequence at once and uses attention to relate each element to the others. It runs well in parallel, which made very large models practical."
+          ],
+          "punti": [],
+          "id": "transformer",
+          "livello": "hard",
+          "domanda": {
+            "testo": "What mechanism defines a transformer?",
+            "risposte": [
+              "Attention across the sequence",
+              "Rules written for each language",
+              "Two networks competing together"
+            ]
+          },
+          "sotto": "How they are built"
+        },
+        {
+          "termine": "Attention",
+          "definizione": [
+            "A mechanism that lets a model weigh how relevant each part of its input is to the part it is processing. In \"the cat sat because it was tired\", attention can link \"it\" to \"cat\". It is the central operation of a transformer."
+          ],
+          "punti": [],
+          "id": "attention",
+          "livello": "hard",
+          "domanda": {
+            "testo": "What does attention calculate?",
+            "risposte": [
+              "How relevant each part of the input is",
+              "How much memory the model has left",
+              "How long the final answer should be"
+            ]
+          },
+          "sotto": "How they are built"
+        },
+        {
+          "termine": "Fine-tuning",
+          "definizione": [
+            "Training an existing model further on a smaller, specific dataset. The model keeps what it knows and adapts to a task, a style or a domain. It costs far less than training a model from scratch."
+          ],
+          "punti": [],
+          "id": "fine-tuning",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does fine-tuning start from?",
+            "risposte": [
+              "A model already trained",
+              "A network with random weights",
+              "A set of written rules"
+            ]
+          },
+          "sotto": "How they are built"
         }
       ]
     },
@@ -323,41 +554,8 @@
               "Equal progress across all kinds of tasks",
               "Useful for creative work, never for analysis"
             ]
-          }
-        },
-        {
-          "termine": "Grounding",
-          "definizione": [
-            "Grounding data is information provided to a language model at inference time to help it generate responses that are more accurate and relevant to a user’s query. This process of “grounding the model” involves supplementing the model with data that was not part of its original training. This data may come from internal or external sources, and it is combined with the user’s query to construct the prompt that is sent to the model during a specific inference call (Microsoft). A “grounded” system often offers the option to cite the sources of its answers, allowing the user to verify its outputs."
-          ],
-          "punti": [],
-          "id": "grounding",
-          "livello": "medium",
-          "domanda": {
-            "testo": "What does grounding give a model?",
-            "risposte": [
-              "Trusted facts when it answers",
-              "More data during its training",
-              "Faster chips for its inference"
-            ]
-          }
-        },
-        {
-          "termine": "Retrieval Augmented Generation (RAG)",
-          "definizione": [
-            "RAG is an AI framework for enabling LLMs to retrieve facts from an external knowledge base. Vector databases are key to supporting RAG implementations. RAG helps ensure that a model is linked to the most current and reliable facts, and that the users have access to the sources so that its claims can be verified. “Grounding” the LLM in trusted data can help reduce model hallucinations and provide reliable answers."
-          ],
-          "punti": [],
-          "id": "retrieval-augmented-generation-rag",
-          "livello": "medium",
-          "domanda": {
-            "testo": "What does RAG add to a model?",
-            "risposte": [
-              "Facts fetched from an outside source",
-              "More hidden layers inside the model",
-              "A longer training on recent data"
-            ]
-          }
+          },
+          "sotto": "Limits of models"
         },
         {
           "termine": "Hallucinations",
@@ -374,7 +572,8 @@
               "A refusal to answer a question",
               "An answer that takes too long"
             ]
-          }
+          },
+          "sotto": "Limits of models"
         },
         {
           "termine": "Explainability",
@@ -391,7 +590,8 @@
               "Making every answer longer and clearer",
               "Translating answers into plain words"
             ]
-          }
+          },
+          "sotto": "Limits of models"
         },
         {
           "termine": "Bias",
@@ -408,24 +608,8 @@
               "A random bug that appears only once",
               "A setting that makes a model faster"
             ]
-          }
-        },
-        {
-          "termine": "Human-in-the-loop (HITL)",
-          "definizione": [
-            "Human-in-the-loop refers to a system or process in which a human actively participates in the operation, supervision or decision making of an automated system. In the context of AI, HITL implies that humans are involved at some point in the AI workflow to ensure accuracy, safety, accountability or ethical decision-making, while still achieving the benefits of automation (IBM)."
-          ],
-          "punti": [],
-          "id": "human-in-the-loop-hitl",
-          "livello": "easy",
-          "domanda": {
-            "testo": "What happens in a human-in-the-loop system?",
-            "risposte": [
-              "A person supervises or decides",
-              "A person is fully replaced",
-              "A person only writes the code"
-            ]
-          }
+          },
+          "sotto": "Limits of models"
         },
         {
           "termine": "Black box",
@@ -442,7 +626,62 @@
               "It runs on servers nobody can access",
               "Its answers are kept secret by law"
             ]
-          }
+          },
+          "sotto": "Limits of models"
+        },
+        {
+          "termine": "Grounding",
+          "definizione": [
+            "Grounding data is information provided to a language model at inference time to help it generate responses that are more accurate and relevant to a user’s query. This process of “grounding the model” involves supplementing the model with data that was not part of its original training. This data may come from internal or external sources, and it is combined with the user’s query to construct the prompt that is sent to the model during a specific inference call (Microsoft). A “grounded” system often offers the option to cite the sources of its answers, allowing the user to verify its outputs."
+          ],
+          "punti": [],
+          "id": "grounding",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does grounding give a model?",
+            "risposte": [
+              "Trusted facts when it answers",
+              "More data during its training",
+              "Faster chips for its inference"
+            ]
+          },
+          "sotto": "Reliability"
+        },
+        {
+          "termine": "Retrieval Augmented Generation (RAG)",
+          "definizione": [
+            "RAG is an AI framework for enabling LLMs to retrieve facts from an external knowledge base. Vector databases are key to supporting RAG implementations. RAG helps ensure that a model is linked to the most current and reliable facts, and that the users have access to the sources so that its claims can be verified. “Grounding” the LLM in trusted data can help reduce model hallucinations and provide reliable answers."
+          ],
+          "punti": [],
+          "id": "retrieval-augmented-generation-rag",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does RAG add to a model?",
+            "risposte": [
+              "Facts fetched from an outside source",
+              "More hidden layers inside the model",
+              "A longer training on recent data"
+            ]
+          },
+          "sotto": "Reliability"
+        },
+        {
+          "termine": "Human-in-the-loop (HITL)",
+          "definizione": [
+            "Human-in-the-loop refers to a system or process in which a human actively participates in the operation, supervision or decision making of an automated system. In the context of AI, HITL implies that humans are involved at some point in the AI workflow to ensure accuracy, safety, accountability or ethical decision-making, while still achieving the benefits of automation (IBM)."
+          ],
+          "punti": [],
+          "id": "human-in-the-loop-hitl",
+          "livello": "easy",
+          "domanda": {
+            "testo": "What happens in a human-in-the-loop system?",
+            "risposte": [
+              "A person supervises or decides",
+              "A person is fully replaced",
+              "A person only writes the code"
+            ]
+          },
+          "sotto": "Control and security"
         },
         {
           "termine": "Guardrails",
@@ -459,7 +698,26 @@
               "Making the training run much faster",
               "Storing every past conversation"
             ]
-          }
+          },
+          "sotto": "Control and security"
+        },
+        {
+          "termine": "Prompt Injection",
+          "definizione": [
+            "An attack that hides instructions in the content a model reads, such as a web page or an email. The model can follow them as if they came from the user. It matters most for agents, because they can act on what they read."
+          ],
+          "punti": [],
+          "id": "prompt-injection",
+          "livello": "medium",
+          "domanda": {
+            "testo": "Where can a prompt injection hide?",
+            "risposte": [
+              "In the content a model reads",
+              "In the chips of the server",
+              "In the weights of the model"
+            ]
+          },
+          "sotto": "Control and security"
         }
       ]
     },
@@ -481,7 +739,8 @@
               "The answer the model returns",
               "The data used in its training"
             ]
-          }
+          },
+          "sotto": "Basics"
         },
         {
           "termine": "Prompt Engineering",
@@ -498,75 +757,8 @@
               "Designing the model's architecture",
               "Tuning the hardware of a server"
             ]
-          }
-        },
-        {
-          "termine": "Zero-shot Prompting",
-          "definizione": [
-            "In generative AI, a zero-shot prompt is a prompt that enables a large language model (LLM) to perform a task without any additional training or examples. A zero-shot prompt relies solely on the model's pre-existing knowledge to generate a response."
-          ],
-          "punti": [],
-          "id": "zero-shot-prompting",
-          "livello": "medium",
-          "domanda": {
-            "testo": "What does a zero-shot prompt include?",
-            "risposte": [
-              "No examples",
-              "One example",
-              "A dataset"
-            ]
-          }
-        },
-        {
-          "termine": "One-shot Prompting",
-          "definizione": [
-            "A prompt that contains one example demonstrating how the large language model should respond. (Google)"
-          ],
-          "punti": [],
-          "id": "one-shot-prompting",
-          "livello": "medium",
-          "domanda": {
-            "testo": "What does a one-shot prompt include?",
-            "risposte": [
-              "One example",
-              "No examples",
-              "A dataset"
-            ]
-          }
-        },
-        {
-          "termine": "Few-shot Prompting",
-          "definizione": [
-            "In generative AI, \"few-shot\" refers to a type of prompt that includes a small number of examples to guide the model's response. These examples help the model understand the desired output format, phrasing, scope, or general patterning of the response. Few-shot prompts are often used to regulate the output of language models, ensuring that they generate responses that are accurate, high-quality, and consistent with the user's expectations. By providing the model with a few relevant examples, the user can influence the model's behavior and obtain more satisfactory results. (Google)"
-          ],
-          "punti": [],
-          "id": "few-shot-prompting",
-          "livello": "medium",
-          "domanda": {
-            "testo": "What does a few-shot prompt include?",
-            "risposte": [
-              "A small set of examples",
-              "No instructions at all",
-              "Only the expected output"
-            ]
-          }
-        },
-        {
-          "termine": "Chain-of-thought",
-          "definizione": [
-            "In generative AI, Chain-of-Thought (CoT) is a prompting technique that encourages the large language model (LLM) to explicitly detail its reasoning process before arriving at a conclusion. This involves prompting the model to show the intermediate steps it takes to solve a problem, rather than just providing the final answer. This method can significantly improve the LLM's performance on complex reasoning tasks. (Google)"
-          ],
-          "punti": [],
-          "id": "chain-of-thought",
-          "livello": "medium",
-          "domanda": {
-            "testo": "What does chain-of-thought ask a model to do?",
-            "risposte": [
-              "Reason step by step",
-              "Answer in a single word",
-              "Hand over to another model"
-            ]
-          }
+          },
+          "sotto": "Basics"
         },
         {
           "termine": "Meta Prompt/System Prompt",
@@ -585,7 +777,98 @@
               "The first message typed by the user",
               "An error returned by the system"
             ]
-          }
+          },
+          "sotto": "Basics"
+        },
+        {
+          "termine": "Temperature",
+          "definizione": [
+            "A setting that controls how random the output of a model is. Low values favour the most likely words and give more predictable answers. High values give more varied answers, and more errors."
+          ],
+          "punti": [],
+          "id": "temperature",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does a higher temperature give?",
+            "risposte": [
+              "More varied answers",
+              "More accurate answers",
+              "Faster answers"
+            ]
+          },
+          "sotto": "Basics"
+        },
+        {
+          "termine": "Zero-shot Prompting",
+          "definizione": [
+            "In generative AI, a zero-shot prompt is a prompt that enables a large language model (LLM) to perform a task without any additional training or examples. A zero-shot prompt relies solely on the model's pre-existing knowledge to generate a response."
+          ],
+          "punti": [],
+          "id": "zero-shot-prompting",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does a zero-shot prompt include?",
+            "risposte": [
+              "No examples",
+              "One example",
+              "A dataset"
+            ]
+          },
+          "sotto": "Techniques"
+        },
+        {
+          "termine": "One-shot Prompting",
+          "definizione": [
+            "A prompt that contains one example demonstrating how the large language model should respond. (Google)"
+          ],
+          "punti": [],
+          "id": "one-shot-prompting",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does a one-shot prompt include?",
+            "risposte": [
+              "One example",
+              "No examples",
+              "A dataset"
+            ]
+          },
+          "sotto": "Techniques"
+        },
+        {
+          "termine": "Few-shot Prompting",
+          "definizione": [
+            "In generative AI, \"few-shot\" refers to a type of prompt that includes a small number of examples to guide the model's response. These examples help the model understand the desired output format, phrasing, scope, or general patterning of the response. Few-shot prompts are often used to regulate the output of language models, ensuring that they generate responses that are accurate, high-quality, and consistent with the user's expectations. By providing the model with a few relevant examples, the user can influence the model's behavior and obtain more satisfactory results. (Google)"
+          ],
+          "punti": [],
+          "id": "few-shot-prompting",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does a few-shot prompt include?",
+            "risposte": [
+              "A small set of examples",
+              "No instructions at all",
+              "Only the expected output"
+            ]
+          },
+          "sotto": "Techniques"
+        },
+        {
+          "termine": "Chain-of-thought",
+          "definizione": [
+            "In generative AI, Chain-of-Thought (CoT) is a prompting technique that encourages the large language model (LLM) to explicitly detail its reasoning process before arriving at a conclusion. This involves prompting the model to show the intermediate steps it takes to solve a problem, rather than just providing the final answer. This method can significantly improve the LLM's performance on complex reasoning tasks. (Google)"
+          ],
+          "punti": [],
+          "id": "chain-of-thought",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does chain-of-thought ask a model to do?",
+            "risposte": [
+              "Reason step by step",
+              "Answer in a single word",
+              "Hand over to another model"
+            ]
+          },
+          "sotto": "Techniques"
         }
       ]
     },
@@ -607,7 +890,8 @@
               "Only the screens of the interface",
               "Only the billing of API calls"
             ]
-          }
+          },
+          "sotto": "Agents and orchestration"
         },
         {
           "termine": "AI Workflow",
@@ -624,7 +908,8 @@
               "A file holding a model's weights",
               "A list of prompts to memorise"
             ]
-          }
+          },
+          "sotto": "Agents and orchestration"
         },
         {
           "termine": "AI Agents",
@@ -641,7 +926,80 @@
               "It only answers questions",
               "It works without a model"
             ]
-          }
+          },
+          "sotto": "Agents and orchestration"
+        },
+        {
+          "termine": "Model Context Protocol (MCP)",
+          "definizione": [
+            "The Model Context Protocol is an open standard introduced by Anthropic in late 2024 to standardize how AI assistants and LLMs connect to external systems. It addresses the fragmentation of integrations in the current AI ecosystem by standardizing two-way communication for LLMs to dynamically access and interact with external tools, data sources, and services to perform information retrieval, tool calling and even actions. This protocol reduces the need for custom connections, such as APIs, to integrate each new AI model and external systems."
+          ],
+          "punti": [],
+          "id": "model-context-protocol-mcp",
+          "livello": "hard",
+          "domanda": {
+            "testo": "What does MCP standardise?",
+            "risposte": [
+              "How assistants connect to tools and data",
+              "How language models are trained at scale",
+              "How chips exchange data inside a server"
+            ]
+          },
+          "sotto": "Agents and orchestration"
+        },
+        {
+          "termine": "Multi-Agent Systems (MAS)",
+          "definizione": [
+            "Systems in which several agents work on a shared problem, each with its own role and view. They cooperate, compete or negotiate. The hard parts are coordination, shared context and finding who caused an error."
+          ],
+          "punti": [],
+          "id": "multi-agent-systems-mas",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What is a hard part of a multi-agent system?",
+            "risposte": [
+              "Coordinating the agents",
+              "Finding enough servers",
+              "Writing a longer prompt"
+            ]
+          },
+          "sotto": "Agents and orchestration"
+        },
+        {
+          "termine": "Multi-Agent Reinforcement Learning (MARL)",
+          "definizione": [
+            "Reinforcement learning with several agents that learn at the same time. Each agent changes the environment of the others, so what worked yesterday may stop working today. This makes training less stable than with a single agent."
+          ],
+          "punti": [],
+          "id": "multi-agent-reinforcement-learning-marl",
+          "livello": "hard",
+          "domanda": {
+            "testo": "Why is MARL harder than single-agent learning?",
+            "risposte": [
+              "Each agent changes what the others face",
+              "Each agent needs its own labeled dataset",
+              "Each agent must use a different language"
+            ]
+          },
+          "sotto": "Agents and orchestration"
+        },
+        {
+          "termine": "Cognitive Swarm Intelligence",
+          "definizione": [
+            "An approach that gets collective problem solving from many simple agents, inspired by ants and bees. No single agent controls the group: the result comes from local interactions. The term is not used in a single, fixed way."
+          ],
+          "punti": [],
+          "id": "cognitive-swarm-intelligence",
+          "livello": "hard",
+          "domanda": {
+            "testo": "Who controls a swarm?",
+            "risposte": [
+              "No single agent",
+              "The largest agent",
+              "A human supervisor"
+            ]
+          },
+          "sotto": "Agents and orchestration"
         },
         {
           "termine": "Benchmarks",
@@ -661,24 +1019,8 @@
               "Training models with less data",
               "Writing better prompts for a model"
             ]
-          }
-        },
-        {
-          "termine": "Model Context Protocol (MCP)",
-          "definizione": [
-            "The Model Context Protocol is an open standard introduced by Anthropic in late 2024 to standardize how AI assistants and LLMs connect to external systems. It addresses the fragmentation of integrations in the current AI ecosystem by standardizing two-way communication for LLMs to dynamically access and interact with external tools, data sources, and services to perform information retrieval, tool calling and even actions. This protocol reduces the need for custom connections, such as APIs, to integrate each new AI model and external systems."
-          ],
-          "punti": [],
-          "id": "model-context-protocol-mcp",
-          "livello": "hard",
-          "domanda": {
-            "testo": "What does MCP standardise?",
-            "risposte": [
-              "How assistants connect to tools and data",
-              "How language models are trained at scale",
-              "How chips exchange data inside a server"
-            ]
-          }
+          },
+          "sotto": "Production"
         },
         {
           "termine": "APIs (Application Programming Interfaces)",
@@ -695,7 +1037,8 @@
               "People to train a model without any code",
               "A model to run without a server behind it"
             ]
-          }
+          },
+          "sotto": "Production"
         },
         {
           "termine": "MLOps",
@@ -712,7 +1055,62 @@
               "A special kind of neural network",
               "A technique for writing prompts"
             ]
-          }
+          },
+          "sotto": "Production"
+        },
+        {
+          "termine": "Inference",
+          "definizione": [
+            "Running a trained model to get an output, as opposed to training it. Each request costs compute, so inference is the recurring cost of an AI product. Speed and cost per token are its main measures."
+          ],
+          "punti": [],
+          "id": "inference",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What is inference?",
+            "risposte": [
+              "Running a trained model",
+              "Training a model on data",
+              "Cleaning a set of labels"
+            ]
+          },
+          "sotto": "Production"
+        },
+        {
+          "termine": "Kubernetes",
+          "definizione": [
+            "Open-source software that runs containerised applications across many machines. It starts copies, replaces those that fail and scales them with demand. AI teams use it to serve models and to schedule work on GPUs."
+          ],
+          "punti": [],
+          "id": "kubernetes",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does Kubernetes manage?",
+            "risposte": [
+              "Containers across many machines",
+              "Weights inside a neural network",
+              "Prompts sent to a language model"
+            ]
+          },
+          "sotto": "Production"
+        },
+        {
+          "termine": "Kafka",
+          "definizione": [
+            "Apache Kafka is an open-source platform for streams of events. Producers write events to ordered logs and consumers read them at their own pace. In AI systems it often carries live data to models and features."
+          ],
+          "punti": [],
+          "id": "kafka",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What does Kafka move?",
+            "risposte": [
+              "Streams of events",
+              "Trained model files",
+              "Messages between people"
+            ]
+          },
+          "sotto": "Production"
         }
       ]
     },
@@ -720,21 +1118,130 @@
       "titolo": "Other terms",
       "voci": [
         {
-          "termine": "Human-Machine Interface (HMI)",
+          "termine": "Large Reasoning Models",
           "definizione": [
-            "A Human-Machine Interface (HMI) is a user interface or dashboard that connects a person to a machine, system or device. It is often used in the context of industrial processes, and they can be used for: visually displaying data, track measures, trends and tags, oversee KPIs, monitor machine inputs and outputs"
+            "Specialized LLMs that went through reasoning-focused fine-tuning. Unlike normal LLMs, which generate answers immediately, reasoning models are trained to solve problems step by step. This is what agents need to plan complex, multi-step tasks. A reasoning model is trained on problems with verifiably correct answers and, through reinforcement learning, it learns to produce reasoning sequences that lead to correct answers. When the model reasons before generating, it produces an internal chain of thought that breaks the problem down step by step before giving an answer."
           ],
           "punti": [],
-          "id": "human-machine-interface-hmi",
-          "livello": "medium",
+          "id": "large-reasoning-models",
+          "livello": "hard",
           "domanda": {
-            "testo": "What is a human-machine interface?",
+            "testo": "How do large reasoning models answer?",
             "risposte": [
-              "What connects a person to a machine",
-              "A chip that runs inside the model",
-              "A set of labels for training data"
+              "They work through steps first",
+              "They reply from memory alone",
+              "They only retrieve documents"
             ]
-          }
+          },
+          "sotto": "Special models"
+        },
+        {
+          "termine": "Graph Neural Networks (GNNs)",
+          "definizione": [
+            "Neural networks that work on graphs: nodes joined by edges. Each node updates itself with information from its neighbours. They suit data defined by relations, such as molecules, social networks and transport systems."
+          ],
+          "punti": [],
+          "id": "graph-neural-networks-gnns",
+          "livello": "hard",
+          "domanda": {
+            "testo": "What kind of data do GNNs work on?",
+            "risposte": [
+              "Nodes joined by edges",
+              "Pixels in a fixed grid",
+              "Sentences in a sequence"
+            ]
+          },
+          "sotto": "Special models"
+        },
+        {
+          "termine": "Temporal GNNs",
+          "definizione": [
+            "Graph neural networks for graphs that change over time, as nodes and edges appear, disappear or change their values. They learn from both the structure and the order of events. Examples are fraud detection and traffic forecasting."
+          ],
+          "punti": [],
+          "id": "temporal-gnns",
+          "livello": "hard",
+          "domanda": {
+            "testo": "What do temporal GNNs add to a GNN?",
+            "risposte": [
+              "Changes in the graph over time",
+              "A larger number of image pixels",
+              "A longer prompt for each node"
+            ]
+          },
+          "sotto": "Special models"
+        },
+        {
+          "termine": "Mixture of Experts (MoE)",
+          "definizione": [
+            "MoE is an architecture that divides a large language model into a series of experts, which are specialized neural subnetworks (there can be hundreds). A routing mechanism activates the experts needed for a specific task. A merge process then combines the output of the active experts into a single representation that continues through the rest of the model. This is a very efficient way to scale model size without a proportional increase in compute costs, because only the necessary experts are activated, using only a fraction of the total parameters."
+          ],
+          "punti": [],
+          "id": "mixture-of-experts-moe",
+          "livello": "hard",
+          "domanda": {
+            "testo": "What does a mixture of experts do?",
+            "risposte": [
+              "Runs only part of the model per token",
+              "Asks human experts to check each answer",
+              "Merges models made by several companies"
+            ]
+          },
+          "sotto": "Efficiency"
+        },
+        {
+          "termine": "KV Cache",
+          "definizione": [
+            "Memory that stores the keys and values a transformer has already calculated for earlier tokens. With it, each new token does not repeat that work, so generation is much faster. It uses a lot of memory on long contexts."
+          ],
+          "punti": [],
+          "id": "kv-cache",
+          "livello": "hard",
+          "domanda": {
+            "testo": "What does the KV cache avoid?",
+            "risposte": [
+              "Repeating work on earlier tokens",
+              "Downloading the weights each time",
+              "Sending the prompt over the network"
+            ]
+          },
+          "sotto": "Efficiency"
+        },
+        {
+          "termine": "Distillation",
+          "definizione": [
+            "Training a small student model to copy the outputs of a large teacher model. The student keeps much of the skill at a fraction of the cost, because it learns from the teacher's answers and not only from raw data."
+          ],
+          "punti": [],
+          "id": "distillation",
+          "livello": "hard",
+          "domanda": {
+            "testo": "What does a distilled model learn from?",
+            "risposte": [
+              "A larger teacher model",
+              "A smaller student model",
+              "A list of written rules"
+            ]
+          },
+          "sotto": "Efficiency"
+        },
+        {
+          "termine": "Quantization",
+          "definizione": [
+            "Storing the weights of a model with fewer bits, for example 8 instead of 32. The model takes less memory and runs faster, often with a small loss in quality. It is a common way to run large models on ordinary hardware."
+          ],
+          "punti": [],
+          "id": "quantization",
+          "livello": "hard",
+          "domanda": {
+            "testo": "What does quantization reduce?",
+            "risposte": [
+              "The bits used for each weight",
+              "The number of possible users",
+              "The length of each prompt"
+            ]
+          },
+          "sotto": "Efficiency"
         },
         {
           "termine": "Model Abliteration",
@@ -755,7 +1262,26 @@
               "A model's training data",
               "A model's memory limit"
             ]
-          }
+          },
+          "sotto": "Model internals"
+        },
+        {
+          "termine": "Human-Machine Interface (HMI)",
+          "definizione": [
+            "A Human-Machine Interface (HMI) is a user interface or dashboard that connects a person to a machine, system or device. It is often used in the context of industrial processes, and they can be used for: visually displaying data, track measures, trends and tags, oversee KPIs, monitor machine inputs and outputs"
+          ],
+          "punti": [],
+          "id": "human-machine-interface-hmi",
+          "livello": "medium",
+          "domanda": {
+            "testo": "What is a human-machine interface?",
+            "risposte": [
+              "What connects a person to a machine",
+              "A chip that runs inside the model",
+              "A set of labels for training data"
+            ]
+          },
+          "sotto": "Interfaces and data"
         },
         {
           "termine": "Vector Database",
@@ -775,58 +1301,11 @@
               "Raw files in their full format",
               "Passwords and access tokens"
             ]
-          }
-        },
-        {
-          "termine": "Mixture of Experts (MoE)",
-          "definizione": [
-            "MoE is an architecture that divides a large language model into a series of experts, which are specialized neural subnetworks (there can be hundreds). A routing mechanism activates the experts needed for a specific task. A merge process then combines the output of the active experts into a single representation that continues through the rest of the model. This is a very efficient way to scale model size without a proportional increase in compute costs, because only the necessary experts are activated, using only a fraction of the total parameters."
-          ],
-          "punti": [],
-          "id": "mixture-of-experts-moe",
-          "livello": "hard",
-          "domanda": {
-            "testo": "What does a mixture of experts do?",
-            "risposte": [
-              "Runs only part of the model per token",
-              "Asks human experts to check each answer",
-              "Merges models made by several companies"
-            ]
-          }
-        },
-        {
-          "termine": "Large Reasoning Models",
-          "definizione": [
-            "Specialized LLMs that went through reasoning-focused fine-tuning. Unlike normal LLMs, which generate answers immediately, reasoning models are trained to solve problems step by step. This is what agents need to plan complex, multi-step tasks. A reasoning model is trained on problems with verifiably correct answers and, through reinforcement learning, it learns to produce reasoning sequences that lead to correct answers. When the model reasons before generating, it produces an internal chain of thought that breaks the problem down step by step before giving an answer."
-          ],
-          "punti": [],
-          "id": "large-reasoning-models",
-          "livello": "hard",
-          "domanda": {
-            "testo": "How do large reasoning models answer?",
-            "risposte": [
-              "They work through steps first",
-              "They reply from memory alone",
-              "They only retrieve documents"
-            ]
-          }
+          },
+          "sotto": "Interfaces and data"
         }
       ]
     }
   ],
-  "daDefinire": [
-    "KV Cache",
-    "Large Action Models (LAMs)",
-    "Cognitive Swarm Intelligence",
-    "Multi-Agent Systems (MAS)",
-    "Multi-Agent Reinforcement Learning (MARL)",
-    "Graph Neural Networks (GNNs)",
-    "Temporal GNNs",
-    "Kubernetes",
-    "Kafka",
-    "Continual Learning",
-    "Genetic Algorithms",
-    "Distillation",
-    "Quantization"
-  ]
+  "daDefinire": []
 }

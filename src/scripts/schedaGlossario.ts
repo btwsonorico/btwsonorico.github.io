@@ -65,7 +65,7 @@ export function nuovaScheda(contenitore: HTMLElement, azione: string, alClic: ()
     mostra(v: Voce) {
       corrente = v;
       stato.risposto = false;
-      sezione.textContent = `// ${v.sezione} · ${v.livello}`;
+      sezione.textContent = `// ${v.sezione} / ${v.sotto} · ${v.livello}`;
       titolo.textContent = v.domanda.testo;
       bottone.hidden = true;
       const giusta = v.domanda.risposte[0]!;
