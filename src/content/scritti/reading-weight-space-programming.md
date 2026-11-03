@@ -16,7 +16,6 @@ sources:
     author: Rikiya Takehi, 2026
     url: https://rikiyat.github.io/blog/weight-space-programming/
     role: secondary
-draft: true
 ---
 
 ## What it is
