@@ -66,9 +66,9 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
               <button type="button" class="genera" data-spiega="Makes 300 new points. The model uses only its weights, so the points are not copies of the real ones.">generate</button>
               <div class="passi" role="group" aria-label="Steps" data-spiega="How many steps it takes to remove the noise. Fewer steps are faster but worse.">
                 <span>steps</span>
+                <button type="button" data-passi="1">1</button>
                 <button type="button" data-passi="5">5</button>
                 <button type="button" data-passi="20">20</button>
-                <button type="button" data-passi="50">50</button>
               </div>
             </div>
             <p class="lettura lettura-nuovi" aria-live="polite"></p>
@@ -93,7 +93,7 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
           <tbody>
             <tr data-spiega="What it learns from, and what it gives back. Points in, points out. Images in, images out."><th>learns and makes</th><td>points</td><td>images</td></tr>
             <tr data-spiega="One question to the network, without counting the noise level and the digit. Model 1 sees one point, and it does not know about the others. Model 2 sees the whole image at once."><th>one call, in and out</th><td>2 numbers</td><td>784 numbers</td></tr>
-            <tr data-spiega="Calls to the network for one generation. Model 1 makes 300 separate points, so it calls the network 300 times per step. Model 2 makes one image and calls the network twice per step, once with your digit and once with a neutral request. Each of its calls is far larger. Press 5, 20 or 50 steps to see it change."><th class="chiamate-testa">calls at 20 steps</th><td class="chiamate-1">6,000</td><td class="chiamate-2">40</td></tr>
+            <tr data-spiega="Calls to the network for one generation. Model 1 makes 300 separate points, so it calls the network 300 times per step. Model 2 makes one image and calls the network twice per step, once with your digit and once with a neutral request. Each of its calls is far larger. Press 1, 5 or 20 steps to see it change."><th class="chiamate-testa">calls at 20 steps</th><td class="chiamate-1">6,000</td><td class="chiamate-2">40</td></tr>
             <tr data-spiega="The numbers the model learns in training. They are all it keeps: no real point, no real image."><th>weights</th><td>8,898</td><td>196,081</td></tr>
             <tr data-spiega="The real examples it practises on. The digits come from MNIST."><th>training data</th><td>1,024 points</td><td>60,000 digits</td></tr>
             <tr data-spiega="Model 1 trains on your device. I trained model 2 once, on a CPU, and your browser downloads the result: a 784 KB file."><th>training time</th><td>30 s, by you</td><td>25 min, by me</td></tr>
@@ -121,9 +121,9 @@ const CIFRE = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
               <button type="button" class="gioca" data-spiega="Starts from new random noise. At each step the network answers twice, and guidance pushes the image towards your digit. Your browser does all the calculation."></button>
               <div class="passi" role="group" aria-label="Steps" data-spiega="How many steps it takes to remove the noise. Fewer steps are faster but worse. Changing it repeats the last image from the same noise.">
                 <span>steps</span>
+                <button type="button" data-passi="1">1</button>
                 <button type="button" data-passi="5">5</button>
                 <button type="button" data-passi="20">20</button>
-                <button type="button" data-passi="50">50</button>
               </div>
             </div>
             <p class="lettura lettura-passo" aria-live="polite"></p>
