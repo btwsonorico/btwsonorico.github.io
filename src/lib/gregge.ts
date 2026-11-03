@@ -211,21 +211,16 @@ export function punteggi(pesi: ArrayLike<number>, o: ArrayLike<number>, u = new 
 }
 export const N_PESI = STRATI.slice(1).reduce((a, n, l) => a + n * (STRATI[l]! + 1), 0);
 
-// --- Il premio. Quello buono premia l'avvicinamento di tutte e la fine, e toglie punti per ogni pecora che esce. "ingressi" conta solo chi entra: è sbagliato di proposito
-export type Prima = { l: number; d: number; dentro: Uint8Array };
+// --- Il premio: premia l'avvicinamento di tutte e la fine, e toglie punti per ogni pecora che esce
+export type Prima = { l: number; d: number };
 function lontananza(m: Mondo) {
   let s = 0;
   for (let i = 0; i < PECORE; i++) s += Math.min(6, Math.max(0, Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) - RAGGIO));
   return s / PECORE / 6;
 }
 const quante = (m: Mondo) => { let d = 0; for (let i = 0; i < PECORE; i++) if (Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) < RAGGIO) d++; return d; };
-export const inizioPremio = (m: Mondo): Prima => ({ l: lontananza(m), d: quante(m), dentro: new Uint8Array(PECORE) });
-export function premio(tipo: string, prima: Prima, m: Mondo) {
-  if (tipo === 'ingressi') {
-    let e = 0;
-    for (let i = 0; i < PECORE; i++) { const ora = Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) < RAGGIO ? 1 : 0; if (ora && !prima.dentro[i]) e++; prima.dentro[i] = ora; }
-    return e / 10;
-  }
+export const inizioPremio = (m: Mondo): Prima => ({ l: lontananza(m), d: quante(m) });
+export function premio(prima: Prima, m: Mondo) {
   const l = lontananza(m), d = quante(m), r = 8 * (prima.l - l) + 3 * (d - prima.d) / PECORE - 0.003 + (m.finito ? 3 + 2 * (1 - m.tempo / LIMITE) : 0);
   prima.l = l; prima.d = d;
   return r;

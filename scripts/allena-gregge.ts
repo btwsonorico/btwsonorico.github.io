@@ -1,6 +1,6 @@
 // @ts-nocheck
 // Allena il cane del gregge con PPO e salva le tappe. Il gregge è src/lib/gregge.ts, lo stesso della pagina /learn/reinforcement/.
-// Si lancia con: npx tsx scripts/allena-gregge.ts <cartella di uscita> <premio: buono|ingressi> [decisioni totali] [processi]
+// Si lancia con: npx tsx scripts/allena-gregge.ts <cartella di uscita> [decisioni totali] [processi]
 import { isMainThread, parentPort, Worker, workerData } from 'node:worker_threads';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -21,7 +21,6 @@ const avantiV = (pesi: ArrayLike<number>, o: ArrayLike<number>) => {
 
 if (!isMainThread) {
   // --- Un processo gioca: raccoglie quello che vede, le azioni e i premi con la rete del momento
-  const tipo: string = workerData.tipo;
   let seme: number = workerData.seme, m = nuovoMondo(seme++), prima = inizioPremio(m);
   parentPort!.on('message', ({ pp, pv }: { pp: Float32Array; pv: Float64Array }) => {
     const obs = new Float32Array(PER_PROCESSO * N_VISTA), az = new Uint8Array(PER_PROCESSO), lp = new Float32Array(PER_PROCESSO), val = new Float32Array(PER_PROCESSO + 1), rew = new Float32Array(PER_PROCESSO), fine = new Uint8Array(PER_PROCESSO);
@@ -38,7 +37,7 @@ if (!isMainThread) {
       obs.set(o, t * N_VISTA); az[t] = a; lp[t] = Math.log(pr[a]! / tot); val[t] = avantiV(pv, o);
       agisci(m, a, dgx, dgz);
       for (let k = 0; k < OGNI && !m.finito; k++) avanza(m);
-      rew[t] = premio(tipo, prima, m);
+      rew[t] = premio(prima, m);
       if (m.finito || m.tempo >= LIMITE) {
         fine[t] = 1;
         if (m.finito) tempi.push(m.tempo);
@@ -49,7 +48,7 @@ if (!isMainThread) {
     parentPort!.postMessage({ obs, az, lp, val, rew, fine, tempi });
   });
 } else {
-  const [uscita, tipo = 'buono', totale = '1500000', processi = '10'] = process.argv.slice(2);
+  const [uscita, totale = '4000000', processi = '10'] = process.argv.slice(2);
   mkdirSync(uscita!, { recursive: true });
   const TAPPE = [0, 20000, 60000, 150000, 400000, 800000, 1500000, 3000000, 6000000];
   const nP = N_PESI, nV = contaPesi(STRATI_V);
@@ -123,7 +122,7 @@ if (!isMainThread) {
     writeFileSync(`${uscita}/${nome}.json`, JSON.stringify({ passi, ...e }));
     console.log('TAPPA', nome, JSON.stringify(e));
   };
-  const lavoratori = Array.from({ length: Number(processi) }, (_, i) => new Worker(fileURLToPath(import.meta.url), { workerData: { tipo, seme: 100000 + i * 100000 } }));
+  const lavoratori = Array.from({ length: Number(processi) }, (_, i) => new Worker(fileURLToPath(import.meta.url), { workerData: { seme: 100000 + i * 100000 } }));
   const raccogli = () => Promise.all(lavoratori.map(w => new Promise<any>(ok => { w.once('message', ok); w.postMessage({ pp: Float32Array.from(P), pv: V }); })));
   const t0 = Date.now(), fino = Number(totale);
   let fatti = 0, tappa = 1;

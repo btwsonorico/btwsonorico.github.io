@@ -467,15 +467,15 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   let pesiAI: Float32Array | null = null, attesaAI = 0, aiGioca = false;
   const mondoAI = nuovoMondo(1), bottoneAI = document.createElement('button');
   bottoneAI.type = 'button';
-  bottoneAI.textContent = 'let the AI herd';
-  bottoneAI.style.cssText = 'position:absolute;right:16px;bottom:32px;padding:4px 8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:12px var(--mono);cursor:pointer;pointer-events:auto';
+  bottoneAI.textContent = 'let the RL dog herd';
+  bottoneAI.style.cssText = 'position:absolute;right:16px;bottom:72px;z-index:2;padding:4px 8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:12px var(--mono);cursor:pointer;pointer-events:auto';
   if (PECORE === PECORE_AI) el.appendChild(bottoneAI);
   bottoneAI.addEventListener('pointerdown', e => e.stopPropagation());
   bottoneAI.addEventListener('click', async () => {
     if (!pesiAI) pesiAI = new Float32Array(await (await fetch('/learn/gregge/fine.bin')).arrayBuffer());
     aiGioca = !aiGioca;
     cane.seduto = false;
-    bottoneAI.textContent = aiGioca ? 'take the dog back' : 'let the AI herd';
+    bottoneAI.textContent = aiGioca ? 'take the dog back' : 'let the RL dog herd';
   });
   const guidaAI = (dt: number) => {
     attesaAI -= dt;

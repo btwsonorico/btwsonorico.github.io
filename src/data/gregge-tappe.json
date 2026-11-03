@@ -3,37 +3,26 @@
   "id": "t0",
   "nome": "start",
   "nota": "Random weights. The dog wanders, and on average 2 sheep are inside after 3 minutes.",
-  "premio": "buono",
   "caso": true
  },
  {
   "id": "t150000",
   "nome": "150k",
-  "nota": "After 150,000 decisions it has not found the idea: 12 sheep inside on average.",
-  "premio": "buono"
+  "nota": "After 150,000 decisions it has not found the idea: 12 sheep inside on average."
  },
  {
   "id": "t400000",
   "nome": "400k",
-  "nota": "After 400,000 it pushes the flock: 91 sheep inside on average, but it finishes only 2 of 24 fields.",
-  "premio": "buono"
+  "nota": "After 400,000 it pushes the flock: 91 sheep inside on average, but it finishes only 2 of 24 fields."
  },
  {
   "id": "t800000",
   "nome": "800k",
-  "nota": "The big jump. After 800,000 it finishes 14 of 24 fields.",
-  "premio": "buono"
+  "nota": "The big jump. After 800,000 it finishes 14 of 24 fields."
  },
  {
   "id": "fine",
   "nome": "4M, final",
-  "nota": "After 4 million it finishes 18 of 24 fields, in 47 seconds at the median. You play against this one.",
-  "premio": "buono"
- },
- {
-  "id": "sbagliato",
-  "nome": "wrong reward",
-  "nota": "Same training, but it earns points for each sheep that enters, and loses nothing when one leaves. It finished 0 of 40 fields: 113 of its 133 entries left again.",
-  "premio": "ingressi"
+  "nota": "After 4 million it finishes 18 of 24 fields, in 47 seconds at the median. You play against this one."
  }
 ]

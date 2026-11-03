@@ -1,7 +1,7 @@
 import { agisci, avanza, DT, inizioPremio, L, LIMITE, meta, N_AZIONI, nuovoMondo, OGNI, OSTACOLI, PECORE, premio, punteggi, RAGGIO, vedi, type Mondo, type Prima } from '../lib/gregge';
 
 // Vista del gregge, dall'alto. Guarda: l'agente gioca con i pesi di una tappa del training. Gioca: il cane segue il puntatore, e l'AI ha già giocato lo stesso campo.
-export type Tappa = { id: string; nome: string; nota: string; premio: string; caso?: boolean };
+export type Tappa = { id: string; nome: string; nota: string; caso?: boolean };
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
 const RECORD = 'misc-rl-record', RECORD_AI = 'misc-rl-record-ai', MIGLIORE_AI = 24.1, ORA_LENTO = 0.25;
 const leggi = (k: string) => { try { return Number(localStorage.getItem(k)) || 0; } catch { return 0; } };
@@ -44,7 +44,7 @@ export function monta(radice: HTMLElement, tappe: Tappa[]) {
     } else if (passi % OGNI === 0) {
       const p = pesi.get(tappa.id);
       if (p) {
-        if (passi) { ultimo = premio(tappa.premio, prima, m); totale += ultimo; }
+        if (passi) { ultimo = premio(prima, m); totale += ultimo; }
         const { o, dgx, dgz } = vedi(m), a = scegli(punteggi(p, o), !!tappa.caso, m.r);
         riferimento = [dgx, dgz];
         agisci(m, a, dgx, dgz);
@@ -56,7 +56,7 @@ export function monta(radice: HTMLElement, tappe: Tappa[]) {
 
   // L'AI gioca lo stesso campo senza grafica, a piccoli pezzi, così la pagina non si blocca: è il tempo da battere
   function calcolaAI(s: number) {
-    const id = ++calcolo, finale = tappe.find(t => t.premio === 'buono' && t.id === 'fine') ?? tappe[tappe.length - 1]!;
+    const id = ++calcolo, finale = tappe.find(t => t.id === 'fine') ?? tappe[tappe.length - 1]!;
     tempoAI = null;
     carica(finale.id).then(p => {
       const a = nuovoMondo(s);
