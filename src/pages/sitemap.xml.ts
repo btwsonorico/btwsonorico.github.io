@@ -4,7 +4,7 @@ import { advisoryPubbliche, areePubbliche, contaTemi, scrittiPubblici } from '..
 // Mappa del sito per i motori di ricerca: le pagine principali e tutte le pagine di aree, testi e temi
 export const GET: APIRoute = async ({ site }) => {
   const percorsi = [
-    '/', '/software/', '/advisory/', '/knowledge/', '/learn/', '/learn/ai-terms/', '/learn/neural-network/', '/learn/diffusion/',
+    '/', '/software/', '/advisory/', '/knowledge/', '/learn/', '/learn/ai-terms/', '/learn/neural-network/', '/learn/diffusion/', '/learn/decision/',
     ...(await scrittiPubblici()).map(s => `/knowledge/${s.id}/`),
     ...(await contaTemi()).map(t => `/knowledge/t/${t.nome}/`),
   ];

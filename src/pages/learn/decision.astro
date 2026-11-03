@@ -1,0 +1,113 @@
+---
+import Base from '../../layouts/Base.astro';
+
+// Decision model: un modello piccolissimo, già allenato (scripts/allena-decisioni.mjs), che gira nel browser (src/scripts/decisioneVista.ts).
+// La facciata è lo strumento: scrivi un messaggio e vedi la scelta; sotto, la soglia su messaggi mai visti, e poi la spiegazione completa.
+const COME: [string, string][] = [
+  ['What is this?', 'A real decision model, very small, running in your browser. It reads a support message and picks one of four answers fixed in advance: billing, bug, account or sales. It returns that choice with a probability, and it never writes a word of text.\\nIt knows 703 words and word pairs, and its file is 28 KB. It was trained once, before this page was published, on 6,000 messages built from sentence templates. Nothing you type leaves your browser.'],
+  ['How is that different from a chatbot?', 'A language model writes its answer one word at a time, and each word takes another pass through the network. A decision model does one pass and scores the fixed answers. So its cost does not grow with the length of an answer, because there is no answer to write.\\nThe output is also easier to use in software. A program can act on \"billing, 0.91\" without having to read a sentence.'],
+  ['How does this one choose?', 'It splits your message into single words and pairs of words. Each word it knows has four learned weights, one for each answer. It adds up the weights of all the words, and the answer with the largest total wins. The coloured words show this: each word takes the colour of the answer it pushes most.\\nThis is why it is so easy to read, and also why it is easy to fool. It has no idea of grammar or order beyond pairs of words.'],
+  ['What does the probability mean?', 'If the model says 0.8 on many messages, it should be right on about 8 of every 10. A model that keeps this promise is called calibrated. A model right after training is often more or less sure than it should be, so this one has one extra number, a temperature, set on 40 handwritten messages that training never saw. It rescales the probabilities and does not change the choice.\\nForty messages is very few, so read this as a demonstration, not as a measurement.'],
+  ['Why a threshold?', 'A decision model is useful because it can say how sure it is. So you can let it act when it is sure, and pass the message to a person when it is not. Move the threshold and look at the squares: each one is a handwritten message from a separate set of 40, which the model had never seen.\\nOn these 40 it gets 34 right. With a threshold of 0.9 it acts on 23 and makes 1 error, and people handle the other 17. A higher threshold means fewer errors and more work for people. Which point is right depends on what an error costs you.'],
+  ['What about real decision models?', 'This page borrows an idea from models such as Jev, by TypeSafe. It is not Jev, and it is not built like it: Jev is closed and runs on a server, so its size and architecture are not public. By its own description, it reads long text and images, and it takes the possible answers with each request. This model knows only four answers and about 700 words and word pairs.\\nThe practical advice stays the same at any size: test your threshold on your own examples before you trust it.'],
+];
+const ESEMPI = ['I was charged twice this month', 'the export crashes on my phone', 'I forgot my password', 'what does it cost for 50 people', 'my account was charged but the page crashes'];
+---
+<Base title="Decision model · Riccardo Mondi" description="A tiny real decision model, running in your browser. Type a message and watch it choose, with a probability." tono="neutro" largo>
+  <main class="rn" data-decisione>
+    <div class="schermo">
+      <header class="testa">
+        <h1>Watch a tiny decision model choose in your browser</h1>
+        <a href="#how-it-works" class="mono">how it works ↓</a>
+      </header>
+
+      <section class="banco">
+        <div class="mono sezione">
+          <span class="titolino">write a support message</span>
+          <textarea class="messaggio" rows="3" maxlength="400" aria-label="Support message" placeholder="type here" spellcheck="false"></textarea>
+          <div class="esempi">
+            {ESEMPI.map(e => <button type="button" data-esempio={e}>{e}</button>)}
+          </div>
+          <p class="parole" aria-label="Your message with each word coloured by the answer it pushes"></p>
+        </div>
+
+        <div class="mono sezione">
+          <span class="titolino">its choice</span>
+          <div class="barre"></div>
+          <p class="esito" aria-live="polite"></p>
+        </div>
+
+        <div class="mono sezione larga">
+          <span class="titolino">when does it act alone?</span>
+          <input class="cursore-soglia" type="range" min="50" max="99" value="90" aria-label="Threshold" />
+          <div class="estremi"><span>acts often</span><span class="lettura"></span><span>asks often</span></div>
+          <div class="casi" role="img" aria-label="One square for each of 40 test messages, sorted by the model's confidence"></div>
+          <p class="legenda"><span class="q giusto"></span>acts, right <span class="q sbagliato"></span>acts, wrong <span class="q chiede"></span>asks a person</p>
+          <p class="dettaglio"></p>
+        </div>
+      </section>
+    </div>
+
+    <section class="spiegone" id="how-it-works">
+      <h2 class="mono">how it works</h2>
+      {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3>{testo.split('\\n').map(p => <p>{p}</p>)}</article>)}
+    </section>
+  </main>
+</Base>
+
+<script>
+  import { monta } from '../../scripts/decisioneVista';
+  monta(document.querySelector<HTMLElement>('[data-decisione]')!);
+</script>
+
+<style>
+  :global(html) { scroll-behavior: smooth; }
+  .rn { padding: 4px 24px 0; }
+  .schermo { display: flex; flex-direction: column; gap: var(--s2); min-height: calc(100vh - 62px); padding-bottom: var(--s2); }
+  .testa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px var(--s2); }
+  .testa a { color: var(--fg); font-size: 12px; white-space: nowrap; }
+  h1 { margin: 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
+  .banco { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s3) 32px; align-items: start; }
+  .larga { grid-column: 1 / -1; padding-top: var(--s2); border-top: 1px solid var(--line); }
+  .sezione { min-width: 0; font-size: 13px; color: var(--fg); }
+  .titolino { display: block; margin-bottom: 8px; color: var(--fg); font-size: 14px; }
+  .titolino::before { content: '// '; color: var(--muted); }
+  .messaggio { display: block; box-sizing: border-box; width: 100%; padding: 10px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); font: inherit; font-size: 15px; line-height: 1.4; resize: vertical; }
+  .messaggio:focus { outline: none; border-color: var(--fg); }
+  .esempi { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .esempi button { padding: 4px 8px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; font-size: 11px; text-align: left; cursor: pointer; }
+  .esempi button:hover { border-color: var(--fg); color: var(--fg); }
+  .parole { min-height: 3em; margin: var(--s1) 0 0; font-size: 15px; line-height: 1.5; color: var(--muted); }
+  .barre :global(.barra-voce) { display: grid; grid-template-columns: 64px minmax(0, 1fr) 44px; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .barre :global(.traccia) { height: 18px; border: 1px solid var(--line); }
+  .barre :global(.pieno) { height: 100%; transition: width .12s; }
+  .barre :global(.num) { text-align: right; }
+  .esito { min-height: 2.6em; margin: var(--s1) 0 0; font-size: 15px; line-height: 1.3; }
+  .cursore-soglia { display: block; width: 100%; margin: 0; accent-color: var(--fg); cursor: pointer; }
+  .estremi { display: flex; justify-content: space-between; gap: var(--s1); margin: 2px 0 var(--s1); color: var(--muted); font-size: 11px; }
+  .lettura { color: var(--fg); text-align: center; }
+  .casi { display: grid; grid-template-columns: repeat(40, minmax(0, 1fr)); gap: 3px; }
+  .casi :global(button) { aspect-ratio: 1; min-width: 0; padding: 0; border: 1px solid var(--line); background: none; cursor: pointer; }
+  .casi :global(.giusto), .q.giusto { background: var(--verde); border-color: var(--verde); }
+  .casi :global(.sbagliato), .q.sbagliato { background: var(--arancio); border-color: var(--arancio); }
+  .casi :global(.scelto) { outline: 1px solid var(--fg); outline-offset: 1px; }
+  .q { display: inline-block; width: 9px; height: 9px; margin: 0 4px 0 10px; border: 1px solid var(--line); vertical-align: -1px; }
+  .q:first-child { margin-left: 0; }
+  .legenda { margin: var(--s1) 0 0; color: var(--muted); font-size: 11px; }
+  .dettaglio { min-height: 3em; margin: 8px 0 0; color: var(--fg); font-size: 13px; line-height: 1.5; }
+  .spiegone { max-width: 720px; margin: 0 auto; padding: var(--s4) 0; border-top: 1px solid var(--line); scroll-margin-top: var(--s2); }
+  .spiegone h2 { margin: 0 0 var(--s3); font-size: 14px; font-weight: 400; color: var(--fg); }
+  .spiegone h2::before { content: '// '; color: var(--muted); }
+  .spiegone article { margin-bottom: var(--s3); }
+  .spiegone h3 { margin: 0 0 4px; font-size: 16px; font-weight: 400; color: var(--fg); }
+  .spiegone p { margin: 0 0 var(--s1); color: var(--muted); font-size: 14px; line-height: 1.7; }
+  @media (max-width: 760px) {
+    .rn { padding: 0 16px; }
+    h1 { font-size: 20px; }
+    .banco { grid-template-columns: minmax(0, 1fr); }
+    .esempi button { padding: 8px 10px; font-size: 12px; }
+    .messaggio { font-size: 16px; }
+    .cursore-soglia { height: 32px; }
+    .casi { grid-template-columns: repeat(20, minmax(0, 1fr)); }
+  }
+</style>
