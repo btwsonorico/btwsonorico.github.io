@@ -1,24 +1,26 @@
 ---
 import Base from '../../layouts/Base.astro';
-import meta from '../../../public/learn/decisore.json';
+import casa from '../../../public/learn/decisore-casa.json';
+import banca from '../../../public/learn/decisore-banca.json';
 
-// Decision model: in cima una casa a filo che si comanda a parole, in inglese o in italiano (src/scripts/casaScena.ts, src/lib/casa.ts).
-// Sotto, lo stesso modello su due dataset veri: Banking77 e CLINC150. Il modello è uno solo (scripts/allena-decisore.py, src/lib/decisore.ts),
-// già allenato, e gira nel browser (src/scripts/decisioneVista.ts). Scorrendo sotto c'è la spiegazione completa.
-const E = meta.esito as any;
-const kb = Math.round((meta.tensori.at(-1)!.valori + 4) / 1024);
+// Decision model: in cima una casetta su un'isola che si comanda a parole, in inglese o in italiano (src/scripts/casaScena.ts, src/lib/casa.ts).
+// Sotto, due dataset veri: Banking77 e CLINC150. Sono due modelli con la stessa forma (scripts/allena-decisore.py, src/lib/decisore.ts),
+// già allenati, che girano nel browser (src/scripts/decisioneVista.ts). Scorrendo sotto c'è la spiegazione completa.
+const E = casa.esito as any, EB = banca.esito as any;
+const kb = (m: typeof casa) => Math.round((m.tensori.at(-1)!.valori + 4) / 1024);
 const COME: [string, string][] = [
-  ['What is this?', `One real decision model, very small, running in your browser. It reads what you write and picks answers from a list it receives with the request. It never writes text: each answer comes with a probability, and the house, or a program, acts on it.\\nAt the top it runs a house. Below, the same model sorts real customer requests from two public datasets. Nothing you type leaves your browser.`],
+  ['What is this?', `A real decision model, very small, running in your browser. It reads what you write and picks answers from a list it receives with the request. It never writes text: each answer comes with a probability, and the house, or a program, acts on it.\\nAt the top it runs a house. Below, a second model with the same shape sorts real customer requests from two public datasets. Nothing you type leaves your browser.`],
   ['How is that different from a chatbot?', 'A language model writes its answer one word at a time, and each word takes another pass through the network. A decision model does one pass and scores answers given in advance. Its cost does not grow with the length of an answer, because there is no answer to write.\\nThe output is also easier to use in software. A program can act on "close the blinds, 94%" without having to read a sentence.'],
-  ['How is the model built?', `It has the shape of open decision models such as GLiNER-Decide: a small bidirectional encoder and a head. Each word becomes a list of ${meta.D} numbers, made from the whole word and its three-letter pieces, so "blinds", "blind" and a typo stay close. Two attention layers let each word read all the others, before and after it.\\nThe answers are text too. The model encodes your sentence and each possible answer with the same encoder, and scores each answer by how close the two are. So the list of answers can change from one request to the next: the house, the bank and the assistant below use the same ${meta.pesi.toLocaleString('en')} weights. A second head labels each word as a room, a colour, a number or nothing. Your browser downloads about ${kb} KB.`],
-  ['How does the house decide?', 'Each command goes through a chain of decisions. A fixed rule splits it at words like "and" or "then". For each piece the model decides the language, then the intent among 26 answers, then a label for each word. If the best intent is below 60%, the house asks you which one you meant; below 25%, or for a request that is not for a house, it refuses.\\nThe last step is not a model: fixed rules turn the decision into an action, using what the house knows. If a room does not exist, or the light is already off, the house says so. The answers are in English, even when you write in Italian: the model matches the two languages in the same space.'],
-  ['What is it trained on, and how good is it?', `On public data, all tested on official test sets that it never saw. Banking77: 13,083 questions to a bank, 77 intents. On its 3,080 test questions it picks the right intent for ${E.banking77.percentuale}%, and the right one is in its top three for ${E.banking77.tra_le_prime_tre}%. CLINC150: 150 intents from ten areas, plus questions that fit none of them. On 4,500 test questions it gets ${E.clinc150.senza_soglia.percentuale}% right; with a threshold that sends uncertain questions to a person, it catches ${E.clinc150.fuori_tema.percentuale}% of the 1,000 questions that fit no intent, and the right answers drop to ${E.clinc150.con_soglia.percentuale}%.\\nThe house learned from MASSIVE, real commands to a voice assistant in English and Italian, and from sentence templates for blinds, heating, TV and scenes. On the MASSIVE test sentences for the house it gets ${E.casa_massive.en.percentuale}% right in English and ${E.casa_massive.it.percentuale}% in Italian. It finds rooms and colours with ${E.etichette.precisione}% precision and ${E.etichette.richiamo}% recall.`],
-  ['Is one shared model better than three?', 'Not here. I trained the same encoder alone on each dataset, with the same steps. Alone, it gets 1 to 3 points more on each task: 88.6% on Banking77, 89.2% on CLINC150, 93.2% and 91.7% on the house in English and Italian. With so few weights, the tasks compete for space.\\nSharing helps in one place: questions that fit no intent. The shared model catches 90.2% of them, the CLINC150 model alone 86.6%, because it has seen what a bank and a house look like. I kept one model because it is one download, and because it shows the main idea: the answers change, the weights stay the same.'],
+  ['How is the model built?', `It has the shape of open decision models such as GLiNER-Decide: a small bidirectional encoder and a head. Each word becomes a list of ${casa.D} numbers, made from the whole word and its three-letter pieces, so "blinds", "blind" and a typo stay close. Two attention layers let each word read all the others, before and after it.\\nThe answers are text too. The model encodes your sentence and each possible answer with the same encoder, and scores each answer by how close the two are. So one model can answer several questions about the same sentence. A second head labels each word as a room, a colour, a number or nothing. Each model has about ${Math.round(casa.pesi / 1000)},000 weights, and your browser downloads about ${kb(casa)} KB for each.`],
+  ['How does the house decide?', `Each command goes through a chain of decisions. A fixed rule splits it at words like "and", "then" or a comma. For each piece the model decides the language, the intent among ${casa.nomi.casa.length} answers, how much to push (a little, normal, a lot, all the way) and a label for each word. If the best intent is below 60%, the house asks you which one you meant; below 25%, or for a request that is not for a house, it refuses.\\nThe last step is not a model: fixed rules turn the decision into an action, using what the house knows. "A bit brighter" moves the light a little, "all the way" to the limit, and a number like 30% wins over both. A command can name one room, several, or all of them; without a room it acts where you are. If a room does not exist, or the light is already off, the house says so.`],
+  ['What is the house trained on, and how good is it?', `On public data first. MASSIVE: real commands to a voice assistant, the same sentences in English and Italian, with rooms and colours marked. Home Assistant intents: the sentence templates of an open smart home, in both languages, for lights, blinds, fans, vacuum, mower, music and timers. CLINC150: its home requests in English, mapped by hand to the house intents. Sentence templates of mine fill the gaps: scenes, undo, coffee, and how much to push.\\nOn the official MASSIVE test sentences for the house it picks the right intent for ${E.casa_massive.en.percentuale}% in English and ${E.casa_massive.it.percentuale}% in Italian, and ${E.casa_clinc.percentuale}% on the CLINC150 test requests. It finds rooms and colours with ${E.etichette.precisione}% precision and ${E.etichette.richiamo}% recall. On ${E.casa_a_mano.en.frasi * 2} sentences that I wrote by hand, with turns of phrase it never saw, it drops to ${Math.round((E.casa_a_mano.en.percentuale + E.casa_a_mano.it.percentuale) / 2)}%: that is the honest number for free speech.`],
+  ['And the bank and the assistant?', `Banking77: 13,083 questions to a bank, 77 intents. On its 3,080 test questions the model picks the right intent for ${EB.banking77.percentuale}%, and the right one is in its top three for ${EB.banking77.tra_le_prime_tre}%. CLINC150: 150 intents from ten areas, plus questions that fit none of them. On 4,500 test questions it gets ${EB.clinc150.senza_soglia.percentuale}% right; with a threshold that sends uncertain questions to a person, it catches ${EB.clinc150.fuori_tema.percentuale}% of the 1,000 questions that fit no intent, and the right answers drop to ${EB.clinc150.con_soglia.percentuale}%.`],
+  ['Why two models and not one?', 'At first one model did everything. With so few weights, the tasks compete for space: alone on each dataset, the same encoder got 1 to 3 points more. So the house has its own model, in English and Italian, and the bank and the assistant share one in English. Each download stays small, and each model spends its weights on its own job.'],
   ['What does the percentage mean?', 'If a model says 80% on many inputs, it should be right on about 8 of every 10. A model that keeps this promise is called calibrated. Each task here has one extra number, a temperature, set on sentences the model did not train on. It rescales the percentages and does not change the choice.\\nThey are still rough. On phrases close to its training examples, the model can say 98% too easily.'],
   ['How does it compare to real decision models?', 'Open decision models such as Laya and GLiNER-Decide have the same shape, with hundreds of millions of weights: about a thousand times more than this one. They also read much more than a few public datasets, so they understand phrasing that this model has never seen.\\nThe practical advice stays the same at any size: test a model on your own examples before you trust its percentages.'],
 ];
-const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bedroom light purple', 'I am freezing', 'movie time', 'good night', 'vacuum the study', 'make me a coffee', 'dim the living room lights to 30 percent', 'turn on the lights in the garage', 'what is the weather tomorrow', 'play some jazz then turn it up', 'set the heating to 22', 'open the blinds in the bedroom, then make it brighter', 'undo',
-  'accendi la luce in cucina e poi chiudi le tapparelle', 'luce viola in camera', 'ho freddo', 'modalità film', 'buonanotte', "passa l'aspirapolvere nello studio", 'fammi un caffè', 'abbassa le luci in soggiorno al 30 per cento', 'accendi la luce in garage', 'che tempo fa domani', 'metti un po di musica e alza il volume', 'sono a casa', 'luce calda in bagno', 'esco'];
+const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bedroom light purple', 'ugh I am freezing', 'movie time', 'good night', 'vacuum the bedroom and the bathroom', 'make me a coffee', 'dim the living room lights a little', 'turn on the lights in the garage', 'what is the weather tomorrow', 'play some jazz in the kitchen then turn it up a lot', 'set the heating to 22', 'the lawn looks like a jungle', 'set a timer for 10 minutes', 'it is so stuffy in the bedroom, get the fan going', 'turn off all the lights', 'blinds halfway in the living room', 'open the blinds just a bit', 'next song', 'undo',
+  'accendi la luce in cucina e poi chiudi le tapparelle', 'luce viola in camera', 'uff che freddo', 'modalità film', 'buonanotte', "passa l'aspirapolvere in camera e in bagno", 'fammi un caffè', 'abbassa un filo le luci in soggiorno', 'accendi la luce in garage', 'che tempo fa domani', 'metti un po di musica ovunque e alza il volume', 'sono a casa', 'luce calda in bagno', "taglia l'erba", 'metti un timer di cinque minuti', 'accendi le lanterne in giardino', 'apri le tapparelle al massimo', 'spegni tutte le luci', 'esco'];
 ---
 <Base title="Decision model · Riccardo Mondi" description="A tiny real decision model in your browser: run a smart home in plain words, in English or Italian, and watch it route real bank and assistant requests." tono="neutro" largo>
   <main class="rn" data-decisione>
@@ -30,11 +32,11 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
 
       <div class="casa">
         <div class="palco">
-          <div class="scena-casa" aria-label="A wireframe house: lights, blinds, heating, music, TV, coffee machine and a robot vacuum. It changes with your commands"></div>
+          <div class="scena-casa" aria-label="A small house on a round island of grass: lamps, lanterns, blinds, a stove, a fan, speakers, a TV, a coffee machine, a timer, a robot vacuum and a lawn mower. It changes with your commands"></div>
           <div class="etichette" aria-hidden="true"></div>
           <div class="mono cielo">
-            <span class="orologio">18:30</span>
-            <input class="ora" type="range" min="0" max="23.99" step="0.05" value="18.5" aria-label="Time of day" />
+            <span class="orologio">15:30</span>
+            <input class="ora" type="range" min="0" max="23.99" step="0.05" value="15.5" aria-label="Time of day" />
           </div>
         </div>
 
@@ -76,7 +78,7 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
     <section class="spiegone" id="how-it-works">
       <h2 class="mono">how it works</h2>
       {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3>{testo.split('\\n').map(p => <p>{p}</p>)}</article>)}
-      <p class="mono fonte">Data: <a href="https://github.com/PolyAI-LDN/task-specific-datasets">Banking77</a> by PolyAI (Casanueva et al., 2020), under CC BY 4.0. <a href="https://github.com/clinc/oos-eval">CLINC150</a> by Larson et al. (2019), under CC BY 3.0. <a href="https://github.com/alexa/massive">MASSIVE 1.1</a> by Amazon (FitzGerald et al., 2022), under CC BY 4.0. The model and the sentence templates are mine.</p>
+      <p class="mono fonte">Data: <a href="https://github.com/PolyAI-LDN/task-specific-datasets">Banking77</a> by PolyAI (Casanueva et al., 2020), under CC BY 4.0. <a href="https://github.com/clinc/oos-eval">CLINC150</a> by Larson et al. (2019), under CC BY 3.0. <a href="https://github.com/alexa/massive">MASSIVE 1.1</a> by Amazon (FitzGerald et al., 2022), under CC BY 4.0. <a href="https://github.com/home-assistant/intents">Home Assistant intents</a> by the Home Assistant community, under CC BY 4.0. The models and the sentence templates are mine.</p>
     </section>
   </main>
 </Base>
@@ -94,17 +96,18 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
   .testa a { color: var(--fg); font-size: 12px; white-space: nowrap; }
   h1 { margin: 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
 
-  .casa { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: var(--s3); align-items: start; }
-  .palco { position: relative; height: min(66vh, 620px); min-height: 380px; border: 1px solid var(--line); overflow: hidden; }
+  /* Il pannello a sinistra, la casa libera sulla pagina a destra: niente riquadro, come le altre scene di Learn */
+  .casa { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: var(--s3); align-items: start; }
+  .casa > .pannello { order: -1; }
+  .palco { position: relative; height: max(460px, calc(100vh - 150px)); }
   /* Di notte il riquadro della casa si scurisce: --notte va da 0 a 1 e lo scrive la scena */
-  .scena-casa { position: absolute; inset: 0; --notte: 0; background: linear-gradient(180deg, color-mix(in srgb, #0d1430 calc(var(--notte) * 55%), transparent), color-mix(in srgb, #1a1530 calc(var(--notte) * 35%), transparent)); }
-  :global([data-theme="light"]) .scena-casa { background: linear-gradient(180deg, color-mix(in srgb, #2a2a48 calc(var(--notte) * 38%), transparent), color-mix(in srgb, #4a3a40 calc(var(--notte) * 22%), transparent)); }
+  .scena-casa { position: absolute; inset: 0; }
   .etichette { position: absolute; inset: 0; pointer-events: none; }
   .etichette :global(span) { position: absolute; left: 0; top: 0; font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; transition: opacity .3s; }
   .etichette :global(.etichetta-stanza.qui) { color: var(--fg); }
   .etichette :global(.etichetta-stanza.qui::after) { content: ' · you'; color: var(--arancio); }
-  .etichette :global(.etichetta-gradi) { color: var(--arancio); }
-  .cielo { position: absolute; left: 12px; right: 12px; bottom: 10px; display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--fg); }
+  .etichette :global(.etichetta-gradi), .etichette :global(.etichetta-timer) { color: var(--arancio); }
+  .cielo { position: absolute; left: 12px; right: 12px; bottom: 4px; max-width: 520px; margin: 0 auto; display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--fg); }
   .ora { flex: 1; accent-color: var(--arancio); }
 
   .pannello { min-width: 0; font-size: 13px; color: var(--fg); }
@@ -120,7 +123,7 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
   .pulsanti .a-caso { margin-top: 0; }
   .nota { margin: var(--s1) 0 var(--s2); color: var(--muted); font-size: 12px; }
   .dove { color: var(--arancio); }
-  .passi { display: flex; flex-direction: column; gap: var(--s2); max-height: min(48vh, 440px); overflow-y: auto; }
+  .passi { display: flex; flex-direction: column; gap: var(--s2); max-height: calc(100vh - 420px); min-height: 200px; overflow-y: auto; }
   .passi :global(.comando-fatto) { border-left: 1px solid var(--line); padding-left: 10px; }
   .passi :global(.detto) { margin: 0 0 6px; color: var(--fg); }
   .passi :global(.passo) { margin: 0 0 10px; }
@@ -158,7 +161,8 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
   .spiegone p { margin: 0 0 var(--s1); color: var(--muted); font-size: 14px; line-height: 1.7; }
   @media (max-width: 900px) {
     .casa { grid-template-columns: minmax(0, 1fr); }
-    .palco { height: 58vh; min-height: 320px; }
+    .casa > .pannello { order: 0; }
+    .palco { height: 64vh; min-height: 340px; }
     .passi { max-height: none; }
   }
   @media (max-width: 760px) {

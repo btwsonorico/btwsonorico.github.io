@@ -1,10 +1,10 @@
 import { carica, decidi, etichette, parole, type Decisore, type Meta } from '../lib/decisore';
-import { applica, dividi, INTENTI, leggi, NOMI, statoIniziale, type Etichette, type Passo, type Stanza, type Stato } from '../lib/casa';
+import { AGISCI, applica, dividi, INTENTI, leggi, NOMI, QUANTI, statoIniziale, type Etichette, type Passo, type Stanza, type Stato } from '../lib/casa';
 import { montaCasa, type Vista } from './casaScena';
 
-// Vista del decision model. In cima la casa: un comando in inglese o in italiano passa per tre decisioni (lingua, intento,
-// etichetta di ogni parola) e la casa fa quello che il modello ha scelto. Sotto, lo stesso modello su due dataset veri:
-// Banking77 e CLINC150. Le risposte possibili sono testo: cambiano da un compito all'altro, il modello resta lo stesso.
+// Vista dei decision model. In cima la casa: un comando in inglese o in italiano passa per quattro decisioni (lingua, intento,
+// quanto spingere, etichetta di ogni parola) e la casa fa quello che il modello ha scelto. Sotto, un secondo modello con la stessa
+// forma su due dataset veri: Banking77 e CLINC150. Le risposte possibili sono testo: cambiano da un compito all'altro.
 
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
 const COLORE_TAG: Record<string, string> = { STANZA: '--arancio', COLORE: '--azzurro', NUMERO: '--verde' };
@@ -25,7 +25,7 @@ function aCaso(pulsante: HTMLButtonElement, area: HTMLTextAreaElement, dopo: () 
 // --- La casa
 function montaCasaVista(radice: HTMLElement, d: Decisore) {
   const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
-  const et: Etichette = { casa: etichette(d, d.meta.compiti.casa!.etichette), lingua: etichette(d, d.meta.compiti.lingua!.etichette) };
+  const et: Etichette = { casa: etichette(d, d.meta.compiti.casa!.etichette), lingua: etichette(d, d.meta.compiti.lingua!.etichette), quanto: etichette(d, d.meta.compiti.quanto!.etichette) };
   const area = $<HTMLTextAreaElement>('.comando'), traccia = $<HTMLElement>('.passi'), ora = $<HTMLInputElement>('.ora'), orologio = $<HTMLElement>('.orologio');
   let stato: Stato = statoIniziale(), dove: Stanza = 'soggiorno', ultimo: string | null = null;
   const storia: Stato[] = [];
@@ -40,7 +40,7 @@ function montaCasaVista(radice: HTMLElement, d: Decisore) {
   segna();
 
   function esegui(q: Passo, scheda: HTMLElement) {
-    const e = applica(stato, q, dove, storia);
+    const e = applica(stato, q, dove, storia, performance.now() / 1000);
     stato = e.stato; vista.imposta(stato);
     if (e.fuoco) vista.fuoco(e.fuoco);
     if (e.fatto && q.intento !== 'annulla') ultimo = q.intento;
@@ -53,10 +53,10 @@ function montaCasaVista(radice: HTMLElement, d: Decisore) {
     // Le parole, colorate dall'etichetta che il modello ha dato a ognuna
     const frase = crea('p', 'frase');
     q.ws.forEach((w, i) => { const sp = crea('span', '', w); const c = COLORE_TAG[q.etichette[i]!]; if (c) { sp.style.color = tono(c); sp.title = q.etichette[i]!.toLowerCase(); } frase.append(i ? ' ' : '', sp); });
-    const chip = crea('p', 'chip', `${q.lingua === 'en' ? 'english' : 'italiano'} ${pc(q.pLingua)}`);
+    const chip = crea('p', 'chip', `${q.lingua === 'en' ? 'english' : 'italiano'} ${pc(q.pLingua)}${q.dosabile && q.decisione !== 'rifiuta' ? ` · ${q.lingua === 'en' ? 'how much' : 'quanto'}: ${QUANTI[q.quanto][q.lingua]} ${pc(q.pQuanto)}` : ''}`);
     const barre = crea('div', 'barre');
     q.prime.forEach((x, k) => { const b = barra(barre, k ? tono('--muted') : tono('--arancio')); b.n.textContent = INTENTI[x.nome]?.[q.lingua] ?? x.nome; b.pieno.style.width = pc(x.p); b.num.textContent = pc(x.p); });
-    const decisione = crea('p', 'decisione', q.ripreso ? `${q.lingua === 'en' ? 'same as before' : 'come prima'}: ${INTENTI[q.intento]?.[q.lingua]}` : q.decisione === 'agisci' ? (q.lingua === 'en' ? 'acts' : 'agisce') : q.decisione === 'chiedi' ? (q.lingua === 'en' ? 'not sure, asks' : 'non è sicuro, chiede') : (q.lingua === 'en' ? 'refuses' : 'rifiuta'));
+    const decisione = crea('p', 'decisione', q.ripreso ? `${q.lingua === 'en' ? 'same as before' : 'come prima'}: ${INTENTI[q.intento]?.[q.lingua]}` : q.decisione === 'agisci' ? (q.lingua === 'en' ? 'acts' : 'agisce') : q.decisione === 'chiedi' ? (q.lingua === 'en' ? 'not sure, asks' : 'non è sicuro, chiede') : q.decisione === 'contesto' ? (q.lingua === 'en' ? 'context only, nothing to do' : 'solo contesto, niente da fare') : (q.lingua === 'en' ? 'refuses' : 'rifiuta'));
     const risposta = crea('p', 'risposta');
     s.append(frase, chip, barre, decisione, risposta);
     if (q.decisione === 'agisci') esegui(q, s);
@@ -69,7 +69,8 @@ function montaCasaVista(radice: HTMLElement, d: Decisore) {
         scelte.append(b);
       });
       s.append(scelte);
-    } else risposta.textContent = q.prime[0]!.nome === 'fuori' ? (q.lingua === 'en' ? 'This is not something the house can do.' : 'Questo la casa non lo sa fare.') : (q.lingua === 'en' ? 'I am not sure what you mean.' : 'Non ho capito cosa vuoi.');
+    } else if (q.decisione === 'contesto') risposta.textContent = '';
+    else risposta.textContent = q.prime[0]!.nome === 'fuori' ? (q.lingua === 'en' ? 'This is not something the house can do.' : 'Questo la casa non lo sa fare.') : (q.lingua === 'en' ? 'I am not sure what you mean.' : 'Non ho capito cosa vuoi.');
     return s;
   }
 
@@ -80,11 +81,25 @@ function montaCasaVista(radice: HTMLElement, d: Decisore) {
     gruppo.append(crea('p', 'detto', `> ${testo}`));
     // Nello stesso comando, un pezzo senza stanza vale per la stanza del pezzo prima: "accendi la luce in camera e chiudi le tapparelle"
     let stanzePrima: Stanza[] = [];
-    for (const pezzo of dividi(testo)) {
+    // Un pezzo di una o due parole senza stanza ("ehm casa", "ok") non è un comando: si attacca al pezzo dopo
+    const pezzi: string[] = [];
+    for (const x of dividi(testo)) {
+      const prec = pezzi[pezzi.length - 1], qp = prec !== undefined && parole(prec).length <= 2 ? leggi(d, et, prec, null) : null;
+      if (qp && !qp.stanze.length && qp.decisione !== 'agisci') pezzi[pezzi.length - 1] = `${prec} ${x}`; else pezzi.push(x);
+    }
+    // Prima si leggono tutti i pezzi, ognuno con l'intento del pezzo prima ("e in bagno")
+    const letti: Passo[] = [];
+    for (const pezzo of pezzi) {
       const q = leggi(d, et, pezzo, ultimo);
       if (!q.stanze.length && !q.tutte && !q.ignota) q.stanze = stanzePrima; else stanzePrima = q.stanze;
-      gruppo.append(scheda(q));
       if (q.decisione === 'agisci' && !q.ripreso && q.intento !== 'annulla' && q.intento !== 'fuori') ultimo = q.intento;
+      letti.push(q);
+    }
+    // Un pezzo incerto accanto a pezzi che agiscono ("che afa in camera, accendi il ventilatore") è contesto, non un rifiuto
+    const altri = letti.some(q => q.decisione === 'agisci');
+    for (const q of letti) {
+      if (altri && letti.length > 1 && q.decisione === 'rifiuta' && (q.prime[0]!.p < AGISCI || q.stanze.length > 0)) q.decisione = 'contesto';
+      gruppo.append(scheda(q));
     }
     traccia.prepend(gruppo);
     while (traccia.children.length > 6) traccia.lastElementChild!.remove();
@@ -129,13 +144,13 @@ function montaCompito(radice: HTMLElement, d: Decisore, nome: string) {
 }
 
 export async function monta(radice: HTMLElement) {
-  try {
-    const [meta, bin] = await Promise.all([fetch('/learn/decisore.json').then(r => r.json() as Promise<Meta>), fetch('/learn/decisore.bin').then(r => r.arrayBuffer())]);
-    const d = carica(meta, bin);
-    montaCasaVista(radice.querySelector<HTMLElement>('[data-casa]')!, d);
-    for (const el of radice.querySelectorAll<HTMLElement>('[data-compito]')) montaCompito(el, d, el.dataset.compito!);
-  } catch (e) {
-    console.error(e);
-    radice.querySelectorAll('.esito, .passi').forEach(x => { x.textContent = 'could not load the model'; });
-  }
+  const scarica = async (nome: string) => {
+    const [meta, bin] = await Promise.all([fetch(`/learn/decisore-${nome}.json`).then(r => r.json() as Promise<Meta>), fetch(`/learn/decisore-${nome}.bin`).then(r => r.arrayBuffer())]);
+    return carica(meta, bin);
+  };
+  // Prima la casa, poi il modello delle demo business
+  try { montaCasaVista(radice.querySelector<HTMLElement>('[data-casa]')!, await scarica('casa')); }
+  catch (e) { console.error(e); radice.querySelectorAll('[data-casa] .passi').forEach(x => { x.textContent = 'could not load the model'; }); }
+  try { const d = await scarica('banca'); for (const el of radice.querySelectorAll<HTMLElement>('[data-compito]')) montaCompito(el, d, el.dataset.compito!); }
+  catch (e) { console.error(e); radice.querySelectorAll('[data-compito] .esito').forEach(x => { x.textContent = 'could not load the model'; }); }
 }
