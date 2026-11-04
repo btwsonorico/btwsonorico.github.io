@@ -26,18 +26,13 @@ function aCaso(pulsante: HTMLButtonElement, area: HTMLTextAreaElement, dopo: () 
 function montaCasaVista(radice: HTMLElement, d: Decisore) {
   const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
   const et: Etichette = { casa: etichette(d, d.meta.compiti.casa!.etichette), lingua: etichette(d, d.meta.compiti.lingua!.etichette), quanto: etichette(d, d.meta.compiti.quanto!.etichette) };
-  const area = $<HTMLTextAreaElement>('.comando'), traccia = $<HTMLElement>('.passi'), ora = $<HTMLInputElement>('.ora'), orologio = $<HTMLElement>('.orologio');
+  const area = $<HTMLTextAreaElement>('.comando'), traccia = $<HTMLElement>('.passi');
   let stato: Stato = statoIniziale(), dove: Stanza = 'soggiorno', ultimo: string | null = null;
   const storia: Stato[] = [];
   const vista: Vista = montaCasa($<HTMLElement>('.scena-casa'), $<HTMLElement>('.etichette'), s => { dove = s; vista.dove(s); vista.fuoco(s, 6); dovEl.textContent = NOMI[s].en; });
   const dovEl = $<HTMLElement>('.dove');
   vista.imposta(stato);
 
-  // L'ora: corre da sola, e il cursore la sposta
-  ora.addEventListener('input', () => { vista.ora.valore = +ora.value; vista.ora.corre = false; });
-  ora.addEventListener('change', () => { vista.ora.corre = true; });
-  const segna = () => { const h = vista.ora.valore; if (vista.ora.corre) ora.value = String(h); orologio.textContent = `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`; requestAnimationFrame(segna); };
-  segna();
 
   function esegui(q: Passo, scheda: HTMLElement) {
     const e = applica(stato, q, dove, storia, performance.now() / 1000);

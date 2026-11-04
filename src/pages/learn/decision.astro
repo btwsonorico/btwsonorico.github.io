@@ -12,7 +12,7 @@ const COME: [string, string][] = [
   ['What is this?', `A real decision model, very small, running in your browser. It reads what you write and picks answers from a list it receives with the request. It never writes text: each answer comes with a probability, and the house, or a program, acts on it.\\nAt the top it runs a house. Below, a second model with the same shape sorts real customer requests from two public datasets. Nothing you type leaves your browser.`],
   ['How is that different from a chatbot?', 'A language model writes its answer one word at a time, and each word takes another pass through the network. A decision model does one pass and scores answers given in advance. Its cost does not grow with the length of an answer, because there is no answer to write.\\nThe output is also easier to use in software. A program can act on "close the blinds, 94%" without having to read a sentence.'],
   ['How is the model built?', `It has the shape of open decision models such as GLiNER-Decide: a small bidirectional encoder and a head. Each word becomes a list of ${casa.D} numbers, made from the whole word and its three-letter pieces, so "blinds", "blind" and a typo stay close. Two attention layers let each word read all the others, before and after it.\\nThe answers are text too. The model encodes your sentence and each possible answer with the same encoder, and scores each answer by how close the two are. So one model can answer several questions about the same sentence. A second head labels each word as a room, a colour, a number or nothing. Each model has about ${Math.round(casa.pesi / 1000)},000 weights, and your browser downloads about ${kb(casa)} KB for each.`],
-  ['How does the house decide?', `Each command goes through a chain of decisions. A fixed rule splits it at words like "and", "then" or a comma. For each piece the model decides the language, the intent among ${casa.nomi.casa.length} answers, how much to push (a little, normal, a lot, all the way) and a label for each word. If the best intent is below 60%, the house asks you which one you meant; below 25%, or for a request that is not for a house, it refuses.\\nThe last step is not a model: fixed rules turn the decision into an action, using what the house knows. "A bit brighter" moves the light a little, "all the way" to the limit, and a number like 30% wins over both. A command can name one room, several, or all of them; without a room it acts where you are. If a room does not exist, or the light is already off, the house says so.`],
+  ['How does the house decide?', `Each command goes through a chain of decisions. A fixed rule splits it at words like "and", "then" or a comma. For each piece the model decides the language, the intent among ${casa.nomi.casa.length} answers, how much to push (a little, normal, a lot, all the way) and a label for each word. If the best intent is below 60%, the house asks you which one you meant; below 25%, or for a request that is not for a house, it refuses.\\nThe last step is not a model: fixed rules turn the decision into an action, using what the house knows. "A bit brighter" moves the light a little, "all the way" to the limit, and a number like 30% wins over both. A command can name one room, several, or all of them; without a room it acts in the room you picked. If a room does not exist, or the light is already off, the house says so.`],
   ['What is the house trained on, and how good is it?', `On public data first. MASSIVE: real commands to a voice assistant, the same sentences in English and Italian, with rooms and colours marked. Home Assistant intents: the sentence templates of an open smart home, in both languages, for lights, blinds, fans, vacuum, mower, music and timers. CLINC150: its home requests in English, mapped by hand to the house intents. Sentence templates of mine fill the gaps: scenes, undo, coffee, and how much to push.\\nOn the official MASSIVE test sentences for the house it picks the right intent for ${E.casa_massive.en.percentuale}% in English and ${E.casa_massive.it.percentuale}% in Italian, and ${E.casa_clinc.percentuale}% on the CLINC150 test requests. It finds rooms and colours with ${E.etichette.precisione}% precision and ${E.etichette.richiamo}% recall. On ${E.casa_a_mano.en.frasi * 2} sentences that I wrote by hand, with turns of phrase it never saw, it drops to ${Math.round((E.casa_a_mano.en.percentuale + E.casa_a_mano.it.percentuale) / 2)}%: that is the honest number for free speech.`],
   ['And the bank and the assistant?', `Banking77: 13,083 questions to a bank, 77 intents. On its 3,080 test questions the model picks the right intent for ${EB.banking77.percentuale}%, and the right one is in its top three for ${EB.banking77.tra_le_prime_tre}%. CLINC150: 150 intents from ten areas, plus questions that fit none of them. On 4,500 test questions it gets ${EB.clinc150.senza_soglia.percentuale}% right; with a threshold that sends uncertain questions to a person, it catches ${EB.clinc150.fuori_tema.percentuale}% of the 1,000 questions that fit no intent, and the right answers drop to ${EB.clinc150.con_soglia.percentuale}%.`],
   ['Why two models and not one?', 'At first one model did everything. With so few weights, the tasks compete for space: alone on each dataset, the same encoder got 1 to 3 points more. So the house has its own model, in English and Italian, and the bank and the assistant share one in English. Each download stays small, and each model spends its weights on its own job.'],
@@ -34,10 +34,6 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
         <div class="palco">
           <div class="scena-casa" aria-label="A small house on a round island of grass: lamps, lanterns, blinds, a stove, a fan, speakers, a TV, a coffee machine, a timer, a robot vacuum and a lawn mower. It changes with your commands"></div>
           <div class="etichette" aria-hidden="true"></div>
-          <div class="mono cielo">
-            <span class="orologio">15:30</span>
-            <input class="ora" type="range" min="0" max="23.99" step="0.05" value="15.5" aria-label="Time of day" />
-          </div>
         </div>
 
         <div class="mono pannello">
@@ -47,7 +43,7 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
             <button type="button" class="invia">send</button>
             <button type="button" class="a-caso" data-frasi={JSON.stringify(COMANDI)}>random command</button>
           </div>
-          <p class="nota">You are in the <span class="dove">living room</span>. Click a room to move there and see it up close.</p>
+          <p class="nota">Commands without a room go to the <span class="dove">living room</span>. Click a room to pick it. The orange things are what the model controls: hover them to see their names.</p>
           <div class="passi" aria-live="polite"></div>
         </div>
       </div>
@@ -99,16 +95,16 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
   /* Il pannello a sinistra, la casa libera sulla pagina a destra: niente riquadro, come le altre scene di Learn */
   .casa { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: var(--s3); align-items: start; }
   .casa > .pannello { order: -1; }
-  .palco { position: relative; height: max(460px, calc(100vh - 150px)); }
+  .palco { position: relative; height: max(460px, calc(100vh - 150px)); overflow: hidden; }
   /* Di notte il riquadro della casa si scurisce: --notte va da 0 a 1 e lo scrive la scena */
   .scena-casa { position: absolute; inset: 0; }
   .etichette { position: absolute; inset: 0; pointer-events: none; }
   .etichette :global(span) { position: absolute; left: 0; top: 0; font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; transition: opacity .3s; }
   .etichette :global(.etichetta-stanza.qui) { color: var(--fg); }
-  .etichette :global(.etichetta-stanza.qui::after) { content: ' · you'; color: var(--arancio); }
+  .etichette :global(.etichetta-stanza.qui) { color: var(--arancio); }
   .etichette :global(.etichetta-gradi), .etichette :global(.etichetta-timer) { color: var(--arancio); }
-  .cielo { position: absolute; left: 12px; right: 12px; bottom: 4px; max-width: 520px; margin: 0 auto; display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--fg); }
-  .ora { flex: 1; accent-color: var(--arancio); }
+  .etichette :global(.etichetta-zzz) { color: var(--muted); letter-spacing: 2px; }
+  .etichette :global(.etichetta-oggetto) { padding: 1px 6px; border: 1px solid var(--arancio); background: var(--bg); color: var(--arancio); transition: opacity .15s; }
 
   .pannello { min-width: 0; font-size: 13px; color: var(--fg); }
   .titolino { display: block; margin-bottom: 8px; color: var(--fg); font-size: 14px; }
@@ -169,7 +165,7 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
     .rn { padding: 0 16px; }
     h1 { font-size: 20px; }
     .due { grid-template-columns: minmax(0, 1fr); gap: var(--s3); }
-    .palco { height: 96vw; min-height: 300px; }
+    .palco { height: 86vw; min-height: 300px; }
     .a-caso, .invia { padding: 10px; }
     .pulsanti > * { flex: 1; }
     .comando, .messaggio { font-size: 16px; }
