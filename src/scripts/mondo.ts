@@ -58,7 +58,7 @@ export function monta(el: HTMLElement) {
     const forma = new THREE.Shape(contorno.map(p => new THREE.Vector2(p.x * scala, -p.z * scala)));
     const strato = new THREE.Mesh(new THREE.ShapeGeometry(forma), new THREE.MeshBasicMaterial({ color: verde, transparent: true, opacity: op * (chiaro ? 1 : 0.45), depthWrite: false }));
     strato.rotation.x = -Math.PI / 2;
-    strato.position.y = -0.02;
+    strato.position.y = -0.03 + scala * 0.004;
     strato.renderOrder = -2;
     gruppo.add(strato);
   }
@@ -139,14 +139,17 @@ export function monta(el: HTMLElement) {
   // --- Stagno (Advisory): acqua azzurra a strati, riva, canne, ninfee e pesci che nuotano in tondo
   const riva = Array.from({ length: 120 }, (_, i) => { const a = (i / 120) * Math.PI * 2, d = raggioStagno(a); return new THREE.Vector3(STAGNO.x + Math.cos(a) * d, 0.005, STAGNO.y + Math.sin(a) * d); });
   gruppo.add(curva(riva, mat('advisory', azzurro, chiaro ? 0.9 : 0.6), true));
-  for (const [scala, op] of [[1, 0.1], [0.75, 0.05], [0.45, 0.05]] as const) {
+  // Ogni strato d'acqua ha la sua quota e il suo ordine: con strati alla stessa altezza, girando la camera, il bordo sfarfallava a righe scure
+  ([[1, 0.1], [0.75, 0.05], [0.45, 0.05]] as const).forEach(([scala, op], k) => {
     const forma = new THREE.Shape(riva.map(p => new THREE.Vector2(STAGNO.x + (p.x - STAGNO.x) * scala, -(STAGNO.y + (p.z - STAGNO.y) * scala))));
-    const strato = new THREE.Mesh(new THREE.ShapeGeometry(forma), pieno('advisory', azzurro, op));
+    const m = pieno('advisory', azzurro, op);
+    m.polygonOffset = true; m.polygonOffsetFactor = -1 - k; m.polygonOffsetUnits = -1 - k;
+    const strato = new THREE.Mesh(new THREE.ShapeGeometry(forma), m);
     strato.rotation.x = -Math.PI / 2;
-    strato.position.y = -0.01;
-    strato.renderOrder = -1;
+    strato.position.y = -0.014 + k * 0.003;
+    strato.renderOrder = -1 + k * 0.01;
     gruppo.add(strato);
-  }
+  });
   const acqua: number[] = [];
   for (let x = STAGNO.x - 2; x <= STAGNO.x + 2; x += 0.2) for (let z = STAGNO.y - 2; z <= STAGNO.y + 2; z += 0.2) if (nelloStagno(x, z, 0.1)) acqua.push(x, -0.01, z);
   gruppo.add(nuvola(acqua, azzurro, 0.02, chiaro ? 0.5 : 0.35));

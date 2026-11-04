@@ -14,7 +14,7 @@ const COME: [string, string][] = [
   ['Does it depend on this view?', 'No. It uses no images and no camera. It reads only numbers about the flock, the dog, the circle and the obstacles, so the view from above is only for you. In the valley on the Learn page, the same weights can guide the dog while you turn the scene.'],
 ];
 ---
-<Base title="Reinforcement learning · Riccardo Mondi" description="Two policies herd 180 sheep. See where the first fails, what fixes it, and try to beat the second." tono="neutro" largo>
+<Base title="Reinforcement learning · Riccardo Mondi" description="Two policies herd 180 sheep. See where the first fails and what fixes it." tono="neutro" largo>
   <main class="rn">
     <section class="schermo" data-gregge data-dati={JSON.stringify(dati)}>
       <header class="testa">
@@ -57,8 +57,8 @@ const COME: [string, string][] = [
               <button type="button" class="un-passo" data-spiega="Moves both dogs by one decision.">one step</button>
               <div class="passi" role="group" aria-label="Speed"><button type="button" data-vel="1">1x</button><button type="button" data-vel="4">4x</button></div>
             </div>
-            <div class="tappe piccole" role="group" aria-label="Training stage of policy 2" data-spiega="Replays policy 2 at this point of its training.">
-              <span>policy 2 at</span>
+            <div class="tappe piccole" role="group" aria-label="Training stage of both policies" data-spiega="Replays both policies at this point of their training, on the same field.">
+              <span>both policies at</span>
               {dati.tappe.map(t => <button type="button" data-tappa={t.id}>{t.nome}</button>)}
             </div>
           </div>

@@ -3,28 +3,33 @@
   {
    "id": "m0",
    "nome": "start",
-   "nota": "Random weights: the dog wanders.",
-   "caso": true
+   "nota": "Random weights: both dogs wander.",
+   "caso": true,
+   "v": "v0"
   },
   {
    "id": "m400k",
    "nome": "400k",
-   "nota": "After 400,000 decisions it finishes 13 of 24 test fields, slowly."
+   "nota": "After 400,000 decisions, policy 1 finishes 2 of 24 test fields and policy 2 finishes 13, slowly.",
+   "v": "v400k"
   },
   {
    "id": "m800k",
    "nome": "800k",
-   "nota": "After 800,000 it finishes 20 of 24, with 176 sheep inside on average."
+   "nota": "After 800,000, policy 1 finishes 14 of 24 and policy 2 finishes 20, with 176 sheep inside on average.",
+   "v": "v800k"
   },
   {
    "id": "m1500k",
    "nome": "1.5M",
-   "nota": "After 1.5 million it finishes all 24, in 35 seconds at the median."
+   "nota": "After 1.5 million, policy 1 finishes 15 of 24 and policy 2 all 24, in 35 seconds at the median.",
+   "v": "v1500k"
   },
   {
    "id": "mfine",
    "nome": "4M",
-   "nota": "Both final policies on the same field. On 100 new fields: 88 finished against 99, 47 s against 26 s."
+   "nota": "Both final policies on the same field. On 100 new fields: 88 finished against 99, 47 s against 26 s.",
+   "v": "v1"
   }
  ],
  "campi": [

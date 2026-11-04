@@ -1,8 +1,8 @@
 import { avanza, DT, L, LATO_MAPPA, LIMITE, meta, N_AZIONI, nuovoMondo, OGNI, OSTACOLI, PECORE, RAGGIO, scegli, type Mondo, type Tipo } from '../lib/gregge';
 
-// Vista del gregge, dall'alto: due prati, lo stesso campo, lo stesso orologio. Guarda: due policy a confronto. Gioca: tu a sinistra, l'AI a destra.
+// Vista del gregge, in isometria: due prati, lo stesso campo, lo stesso orologio. Guarda: due policy a confronto. Gioca: tu a sinistra, l'AI a destra.
 // Sui prati si vede quello che ogni cane legge: la differenza fra le due policy è tutta lì.
-export type Tappa = { id: string; nome: string; nota: string; caso?: boolean };
+export type Tappa = { id: string; v: string; nome: string; nota: string; caso?: boolean };
 export type Campo = { id: string; nome: string; seme: number; nota: string };
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
 const RECORD = 'misc-rl-record', RECORD_AI = 'misc-rl-record-ai';
@@ -32,10 +32,12 @@ export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migli
 
   const scriviBest = () => { scrivi(bestUomo, record ? orologio(record) : '-'); scrivi(bestAI, recordAI ? orologio(recordAI) : '-'); };
   const parti = async () => {
-    const [v1, m2] = await Promise.all([carica('v1'), carica(modo === 'gioca' ? tappe[tappe.length - 1]!.id : tappa.id)]);
+    // Le due policy alla stessa tappa del loro training: v per la prima, m per la seconda
+    const ultima = tappe[tappe.length - 1]!, t = modo === 'gioca' ? ultima : tappa, dopo = t.id === ultima.id ? '' : ` · ${t.nome}`;
+    const [v1, m2] = await Promise.all([carica(t.v), carica(t.id)]);
     prati = modo === 'gioca'
       ? [prato(nuovoMondo(seme), 'tu', null, 'you'), prato(nuovoMondo(seme), 'M', m2, 'the AI')]
-      : [prato(nuovoMondo(seme), 'v1', v1, 'policy 1: 18 numbers'), prato(nuovoMondo(seme), 'M', m2, `policy 2: 18 numbers + map${tappa.id === tappe[tappe.length - 1]!.id ? '' : ` · ${tappa.nome}`}`, !!tappa.caso)];
+      : [prato(nuovoMondo(seme), 'v1', v1, `policy 1: 18 numbers${dopo}`, !!t.caso), prato(nuovoMondo(seme), 'M', m2, `policy 2: 18 numbers + map${dopo}`, !!t.caso)];
     chiuso = false; attesa = 0; resto = 0; sporco = true;
     scrivi(esito, '');
     scriviBest();
@@ -64,30 +66,46 @@ export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migli
   // --- Disegno
   let W = 0, H = 0, Wp = 0, largo = true;
   const CURVA = 64, TITOLO = 18;
+  // I due prati stanno affiancati o uno sopra l'altro: si sceglie la disposizione che li fa più grandi
+  const scala = (w: number, h: number) => Math.min(w / (2 * L + 0.6), (h - TITOLO) / (L + 1.2));
   const riquadri = () => {
     const sinistra = largo ? Wp + 16 : 0, libero = W - sinistra, alto = H - CURVA - 8;
-    return largo
+    const accanto = scala(libero / 2 - 6, alto), sopra = scala(libero, alto / 2 - 4);
+    return accanto >= sopra
       ? [{ x: sinistra, y: 0, w: libero / 2 - 6, h: alto }, { x: sinistra + libero / 2 + 6, y: 0, w: libero / 2 - 6, h: alto }]
-      : [{ x: 0, y: 0, w: W, h: alto / 2 - 4 }, { x: 0, y: alto / 2 + 4, w: W, h: alto / 2 - 4 }];
+      : [{ x: sinistra, y: 0, w: libero, h: alto / 2 - 4 }, { x: sinistra, y: alto / 2 + 4, w: libero, h: alto / 2 - 4 }];
   };
+  // Isometria: il prato è girato di 45 gradi e schiacciato a metà in altezza; h alza un punto dal suolo
+  const K = Math.SQRT1_2;
   const geometria = (r: { x: number; y: number; w: number; h: number }) => {
-    const S = Math.min(r.w, r.h - TITOLO) / (2 * L + 0.4);
-    return { S, cx: r.x + r.w / 2, cy: r.y + TITOLO + (r.h - TITOLO) / 2 };
+    const S = scala(r.w, r.h);
+    return { S, cx: r.x + r.w / 2, cy: r.y + TITOLO + (r.h - TITOLO) / 2 + S * 0.3 };
   };
   function disegnaPrato(q: Prato, r: ReturnType<typeof riquadri>[number]) {
-    const { S, cx, cy } = geometria(r), { m } = q, X = (x: number) => cx + x * S, Y = (z: number) => cy + z * S;
+    const { S, cx, cy } = geometria(r), { m } = q, d = devicePixelRatio;
+    const sx = (x: number, z: number) => cx + (x - z) * S * K, sy = (x: number, z: number, h = 0) => cy + (x + z) * S * K * 0.5 - h * S * 0.8;
+    // Il suolo si disegna con le coordinate del prato: la trasformazione fa il resto (i cerchi diventano ellissi)
+    const suolo = () => c.setTransform(d * S * K, d * S * K * 0.5, -d * S * K, d * S * K * 0.5, d * cx, d * cy);
+    const schermo = () => c.setTransform(d, 0, 0, d, 0, 0);
+    const px = 1 / (S * K);
+    schermo();
     c.fillStyle = FG;
     c.font = `12px ${stile.getPropertyValue('--mono') || 'monospace'}`;
     c.textAlign = 'left';
     c.fillText(q.nome, r.x, r.y + 12);
     c.textAlign = 'right';
     c.fillText(`${m.dentro}/${PECORE} · ${orologio(m.tempo)}${m.finito ? ' · done' : ''}`, r.x + r.w, r.y + 12);
-    c.lineWidth = 1;
+    // Lo spessore del prato: il bordo di sotto e i due fianchi, come una zolla
+    const zolla = S * 0.35;
+    c.strokeStyle = LINE; c.lineWidth = 1;
+    c.beginPath(); c.ellipse(cx, cy + zolla, L * S, L * S * 0.5, 0, 0, Math.PI); c.moveTo(cx - L * S, cy); c.lineTo(cx - L * S, cy + zolla); c.moveTo(cx + L * S, cy); c.lineTo(cx + L * S, cy + zolla); c.stroke();
+    suolo();
+    c.lineWidth = px;
     c.save();
-    c.beginPath(); c.arc(cx, cy, L * S, 0, Math.PI * 2); c.clip();
+    c.beginPath(); c.arc(0, 0, L, 0, Math.PI * 2); c.clip();
     c.strokeStyle = LINE;
     c.beginPath();
-    for (let v = -L; v <= L; v += 2) { c.moveTo(X(v), Y(-L)); c.lineTo(X(v), Y(L)); c.moveTo(X(-L), Y(v)); c.lineTo(X(L), Y(v)); }
+    for (let v = -L; v <= L; v += 2) { c.moveTo(v, -L); c.lineTo(v, L); c.moveTo(-L, v); c.lineTo(L, v); }
     c.stroke();
     // Quello che la policy legge: per la seconda, la mappa intorno al cane, girata come la legge lei
     if (vista && q.chi === 'M') {
@@ -97,7 +115,7 @@ export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migli
         const dx = m.x[i]! - m.cane.x, dz = m.z[i]! - m.cane.z, a = Math.max(0, Math.min(LATO_MAPPA - 1, Math.floor(dx * u[0]! + dz * u[1]! + meta0))), b = Math.max(0, Math.min(LATO_MAPPA - 1, Math.floor(dx * w[0]! + dz * w[1]! + meta0)));
         conte[a * LATO_MAPPA + b] = conte[a * LATO_MAPPA + b]! + 1;
       }
-      const angolo = (a: number, b: number) => [X(m.cane.x + (a - meta0) * u[0]! + (b - meta0) * w[0]!), Y(m.cane.z + (a - meta0) * u[1]! + (b - meta0) * w[1]!)] as const;
+      const angolo = (a: number, b: number) => [m.cane.x + (a - meta0) * u[0]! + (b - meta0) * w[0]!, m.cane.z + (a - meta0) * u[1]! + (b - meta0) * w[1]!] as const;
       for (let a = 0; a < LATO_MAPPA; a++) for (let b = 0; b < LATO_MAPPA; b++) {
         const v = conte[a * LATO_MAPPA + b]!;
         if (!v) continue;
@@ -110,48 +128,54 @@ export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migli
       c.globalAlpha = 1;
     }
     c.restore();
+    c.lineWidth = px;
     c.strokeStyle = LINE;
-    c.beginPath(); c.arc(cx, cy, L * S, 0, Math.PI * 2); c.stroke();
+    c.beginPath(); c.arc(0, 0, L, 0, Math.PI * 2); c.stroke();
+    c.setLineDash([4 * px, 4 * px]);
     c.strokeStyle = MUTED;
-    c.beginPath();
-    for (const o of OSTACOLI) { const g = Math.max(1, o.r * S); c.moveTo(X(o.x) + g, Y(o.z)); c.arc(X(o.x), Y(o.z), g, 0, Math.PI * 2); }
-    c.stroke();
-    c.fillStyle = MUTED;
-    for (const v of m.mucche) c.fillRect(X(v.x) - 2, Y(v.z) - 1.5, 4, 3);
-    c.setLineDash([4, 4]);
-    c.beginPath(); c.arc(X(m.gx), Y(m.gz), RAGGIO * S, 0, Math.PI * 2); c.stroke();
+    c.beginPath(); c.arc(m.gx, m.gz, RAGGIO, 0, Math.PI * 2); c.stroke();
     c.setLineDash([]);
     c.strokeStyle = FG;
-    c.lineWidth = 2;
-    c.beginPath(); c.arc(X(m.gx), Y(m.gz), RAGGIO * S, -Math.PI / 2, -Math.PI / 2 + (m.dentro / PECORE) * Math.PI * 2); c.stroke();
-    c.lineWidth = 1;
-    const lato = Math.max(2, S * 0.1);
-    let cxG = 0, czG = 0, n = 0, far = -1, fd = -1;
-    for (let i = 0; i < PECORE; i++) {
-      const fuori = Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) >= RAGGIO;
-      c.fillStyle = fuori ? FG : BLU;
-      c.fillRect(X(m.x[i]!) - lato / 2, Y(m.z[i]!) - lato / 2, lato, lato);
-      if (fuori) { cxG += m.x[i]!; czG += m.z[i]!; n++; }
-    }
+    c.lineWidth = 2 * px;
+    c.beginPath(); c.arc(m.gx, m.gz, RAGGIO, -Math.PI / 2, -Math.PI / 2 + (m.dentro / PECORE) * Math.PI * 2); c.stroke();
+    c.lineWidth = px;
     // I numeri che leggono tutte e due: il centro del gregge e la pecora più lontana
+    let cxG = 0, czG = 0, n = 0, far = -1, fd = -1;
+    for (let i = 0; i < PECORE; i++) if (Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) >= RAGGIO) { cxG += m.x[i]!; czG += m.z[i]!; n++; }
     if (vista && q.chi !== 'tu' && n) {
       cxG /= n; czG /= n;
-      for (let i = 0; i < PECORE; i++) if (Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) >= RAGGIO) { const d = (m.x[i]! - cxG) ** 2 + (m.z[i]! - czG) ** 2; if (d > fd) { fd = d; far = i; } }
+      for (let i = 0; i < PECORE; i++) if (Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) >= RAGGIO) { const dd = (m.x[i]! - cxG) ** 2 + (m.z[i]! - czG) ** 2; if (dd > fd) { fd = dd; far = i; } }
       c.strokeStyle = ARANCIO;
-      c.setLineDash([3, 3]);
-      c.beginPath(); c.moveTo(X(m.cane.x), Y(m.cane.z)); c.lineTo(X(cxG), Y(czG)); c.moveTo(X(cxG), Y(czG)); c.lineTo(X(m.x[far]!), Y(m.z[far]!)); c.stroke();
+      c.setLineDash([3 * px, 3 * px]);
+      c.beginPath(); c.moveTo(m.cane.x, m.cane.z); c.lineTo(cxG, czG); c.moveTo(cxG, czG); c.lineTo(m.x[far]!, m.z[far]!); c.stroke();
       c.setLineDash([]);
       c.fillStyle = ARANCIO;
-      c.beginPath(); c.arc(X(cxG), Y(czG), 3, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(cxG, czG, 3 * px, 0, Math.PI * 2); c.fill();
     }
     if (sasso) {
       c.strokeStyle = FG;
       c.globalAlpha = Math.max(0, sasso.t);
-      c.beginPath(); c.arc(X(sasso.x), Y(sasso.z), (1.8 - sasso.t) * 0.9 * S, 0, Math.PI * 2); c.stroke();
+      c.beginPath(); c.arc(sasso.x, sasso.z, (1.8 - sasso.t) * 0.9, 0, Math.PI * 2); c.stroke();
       c.globalAlpha = 1;
     }
-    c.fillStyle = ARANCIO;
-    c.fillRect(X(m.cane.x) - 4, Y(m.cane.z) - 4, 8, 8);
+    // L'ombra del cane a terra
+    c.fillStyle = LINE;
+    c.beginPath(); c.arc(m.cane.x, m.cane.z, 0.16, 0, Math.PI * 2); c.fill();
+    schermo();
+    // Sopra il suolo, in ordine di profondità: chi è più vicino copre chi è dietro
+    const cose: [number, () => void][] = [];
+    for (const o of OSTACOLI) {
+      const x = sx(o.x, o.z), y = sy(o.x, o.z), alto = (0.25 + o.r) * S * 0.8;
+      cose.push([o.x + o.z, () => { c.strokeStyle = MUTED; c.beginPath(); c.moveTo(x, y); c.lineTo(x, y - alto); c.stroke(); c.beginPath(); c.ellipse(x, y - alto, Math.max(1.5, o.r * S * 0.8), Math.max(1, o.r * S * 0.5), 0, 0, Math.PI * 2); c.stroke(); }]);
+    }
+    for (const v of m.mucche) { const x = sx(v.x, v.z), y = sy(v.x, v.z, 0.12); cose.push([v.x + v.z, () => { c.fillStyle = MUTED; c.fillRect(x - 3, y - 2, 6, 4); }]); }
+    const lato = Math.max(2, S * 0.11);
+    for (let i = 0; i < PECORE; i++) {
+      const x = m.x[i]!, z = m.z[i]!, fuori = Math.hypot(x - m.gx, z - m.gz) >= RAGGIO, X = sx(x, z), Y = sy(x, z, 0.07);
+      cose.push([x + z, () => { c.fillStyle = fuori ? FG : BLU; c.beginPath(); c.ellipse(X, Y, lato * 0.62, lato * 0.42, 0, 0, Math.PI * 2); c.fill(); }]);
+    }
+    { const X = sx(m.cane.x, m.cane.z), Y = sy(m.cane.x, m.cane.z, 0.12); cose.push([m.cane.x + m.cane.z + 0.01, () => { c.fillStyle = ARANCIO; c.fillRect(X - 4, Y - 5, 8, 7); c.fillRect(X - 2, Y - 8, 4, 3); }]); }
+    cose.sort((a, b) => a[0] - b[0]).forEach(([, f]) => f());
   }
   function disegnaCurva() {
     const x0 = largo ? Wp + 16 + 28 : 28, w = W - x0, y0 = H - CURVA + 4, h = CURVA - 18, durata = Math.max(60, ...prati.map(q => q.m.tempo)), Y = (v: number) => y0 + h - (v / PECORE) * h;
@@ -181,6 +205,7 @@ export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migli
     c.clearRect(0, 0, W, H);
     const r = riquadri();
     prati.forEach((q, k) => disegnaPrato(q, r[k]!));
+    c.setTransform(d, 0, 0, d, 0, 0);
     if (prati.length) disegnaCurva();
     disegnaBussola();
   }
@@ -241,7 +266,8 @@ export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migli
   });
   const alMondo = (e: PointerEvent, k: number) => {
     const q = tela.getBoundingClientRect(), { S, cx, cy } = geometria(riquadri()[k]!);
-    return [(e.clientX - q.left - cx) / S, (e.clientY - q.top - cy) / S] as const;
+    const a = (e.clientX - q.left - cx) / (S * K), b = (e.clientY - q.top - cy) / (S * K * 0.5);
+    return [(a + b) / 2, (b - a) / 2] as const;
   };
   const sulPrato = (e: PointerEvent) => {
     const q = tela.getBoundingClientRect(), x = e.clientX - q.left, y = e.clientY - q.top;

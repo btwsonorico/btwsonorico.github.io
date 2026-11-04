@@ -28,8 +28,6 @@ Researchers at MIT CSAIL give GPT-6 Astra the weights of other neural networks a
 
 **A superhuman ability.** For us humans, editing weights by hand is possible only on very small, very simple networks. Astra named the game a policy plays from its 17,253 weights. It named the language of a 7.16M-weight transformer, and its copying heads, from the middle blocks alone. It repaired a car policy that had never succeeded, by editing 3.5% of its weights: 1,024 successes out of 1,024 episodes. And it wrote a Breakout network starting from all zeros, with only the rules and the source code of the game. That network scores about 20 times more than PPO after 500M steps (on Seaquest it stays at about 60% of PPO).
 
-**With activations and without.** The results are interesting from both sides. With the weights alone, Astra can already tell what a network was trained on. Activations give it a better view of what the weights are doing. To find which of two models had been trained to be sycophantic, it failed in all four attempts from the weights alone. When it could ask for attention patterns, it found the sycophant in all three pairs.
-
 **I read it as emergent.** The paper tests only Astra, so it does not prove this. My bet is that this ability is new with the latest frontier models, and that earlier models did not have it.
 
 **Building blocks for recursive self-improvement.** Less need for training. Open, cheaper models improved for specific tasks. Each of these is a block towards a model that modifies itself. I expect that intelligences creating better forms of themselves for specific tasks will arrive soon.

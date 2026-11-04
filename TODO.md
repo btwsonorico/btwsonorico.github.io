@@ -13,4 +13,4 @@
 - **Sito in italiano e in inglese.** Quando il contenuto è finale: una versione per lingua, con un comando per passare dall'una all'altra. Decide i testi italiani: Riccardo.
 - **Informazioni nel grafico a destra.** Valutare se mostrare direttamente nel grafico a destra alcune informazioni che oggi stanno nelle sottopagine. Decide quali e come: Riccardo.
 - **Nuvole della valle.** Tolte per ora in Learn: per rimetterle basta `CON_NUVOLE = true` in `src/scripts/nuvole.ts`. Decide se e come riprenderle: Riccardo.
-- **Learn: pagine future.** Ordine: neural network, reinforcement learning, un piccolo transformer (da fare), diffusion, decision, AI terms sempre in fondo. Per decision model è proposta una demo sulla priorità al tram a un incrocio, ancora da confermare. Decide: Riccardo.
+- **Learn: pagine future.** Ordine: neural network, reinforcement learning, un piccolo transformer (da fare), diffusion, decision, AI terms sempre in fondo. Decide: Riccardo.

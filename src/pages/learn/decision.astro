@@ -1,61 +1,72 @@
 ---
 import Base from '../../layouts/Base.astro';
+import meta from '../../../public/learn/decisore.json';
 
-// Decision model: in cima un autotagger che sceglie fra 50 emoji (src/lib/emoji.ts, scripts/allena-emoji.py), sotto lo stesso concetto sui ticket
-// (scripts/allena-decisioni.mjs). Tutto è già allenato e gira nel browser (src/scripts/decisioneVista.ts). Scorrendo sotto c'è la spiegazione completa.
+// Decision model: in cima una casa a filo che si comanda a parole, in inglese o in italiano (src/scripts/casaScena.ts, src/lib/casa.ts).
+// Sotto, lo stesso modello su due dataset veri: Banking77 e CLINC150. Il modello è uno solo (scripts/allena-decisore.py, src/lib/decisore.ts),
+// già allenato, e gira nel browser (src/scripts/decisioneVista.ts). Scorrendo sotto c'è la spiegazione completa.
+const E = meta.esito as any;
+const kb = Math.round((meta.tensori.at(-1)!.valori + 4) / 1024);
 const COME: [string, string][] = [
-  ['What is this?', 'Two real decision models, very small, running in your browser. The first reads what you write and picks one of 50 emoji. The second reads a support message and picks one of four teams. Each one returns a choice with a probability, and neither writes a word of text.\\nBoth were trained once, before this page was published. Nothing you type leaves your browser.'],
-  ['How is that different from a chatbot?', 'A language model writes its answer one word at a time, and each word takes another pass through the network. A decision model does one pass and scores answers fixed in advance. So its cost does not grow with the length of an answer, because there is no answer to write.\\nThe output is also easier to use in software. A program can act on \"billing, 91%\" without having to read a sentence.'],
-  ['How does the emoji model read?', 'It starts from word vectors called GloVe: lists of 50 numbers for 20,149 English words, trained by Stanford researchers on billions of words. So it already knows that starving and hungry are close, even if one of them never appears in its examples.\nOn top sits a small encoder, the kind of network that open decision models are built on. An attention layer lets each word read all the others, before and after it. The model averages the words into one list of numbers, and a small head turns that list into a score for each emoji. The orange words are the ones that matter: the model runs again without each word, and a word lights up if the choice falls without it.'],
-  ['What is it trained on, and how good is it?', 'I trained only the encoder, which has 24,626 weights. It learned from about 5,900 examples: 500 sentences written by hand, and keywords for each emoji from the Unicode CLDR project, placed in simple sentences. Your browser downloads about 1.2 MB, almost all of it word vectors.\nOn 50 new sentences, written like the examples, it gets 43 right, and the right emoji is in its top three for 47. On 40 harder sentences, with words outside its examples, it finds the right category of emoji for 24, and it has one in its top three for 35. Without the word vectors, the same test gave 10 and 21. These are small tests that I wrote myself, so read them as rough measures.\nIt still fails often on free text. It has no idea of the world beyond word similarity, and an unknown word simply does not count.'],
-  ['What does the percentage mean?', 'If a model says 80% on many inputs, it should be right on about 8 of every 10. A model that keeps this promise is called calibrated. A model right after training is often more or less sure than it should be, so each model here has one extra number, a temperature, set on handwritten sentences that it did not train on. It rescales the percentages and does not change the choice.\\nThey are still rough. On phrases close to its training examples, the model can say 98% too easily.'],
-  ['Why is the ticket model different?', 'It is simpler on purpose. It has no encoder: each word or pair of words has four weights, one for each team, and it adds them up. The colours show this: each word takes the colour of the team it pushes most. It knows 703 words and word pairs, in a 28 KB file.\\nIt was trained on 6,000 messages built from sentence templates. On 40 new handwritten messages it gets 34 right. With four answers instead of 50, even a very simple model does well.'],
-  ['What about real decision models?', 'Models such as Laya and GLiNER 2.5-Decide are open, and they have the same shape: a bidirectional encoder and a small head. They have hundreds of millions of weights, thousands of times more than the emoji encoder, and they take their possible answers with each request. Jev, by TypeSafe, is closed and runs on a server, so its design is not public.\\nThe practical advice stays the same at any size: test a model on your own examples before you trust its percentages.'],
+  ['What is this?', `One real decision model, very small, running in your browser. It reads what you write and picks answers from a list it receives with the request. It never writes text: each answer comes with a probability, and the house, or a program, acts on it.\\nAt the top it runs a house. Below, the same model sorts real customer requests from two public datasets. Nothing you type leaves your browser.`],
+  ['How is that different from a chatbot?', 'A language model writes its answer one word at a time, and each word takes another pass through the network. A decision model does one pass and scores answers given in advance. Its cost does not grow with the length of an answer, because there is no answer to write.\\nThe output is also easier to use in software. A program can act on "close the blinds, 94%" without having to read a sentence.'],
+  ['How is the model built?', `It has the shape of open decision models such as GLiNER-Decide: a small bidirectional encoder and a head. Each word becomes a list of ${meta.D} numbers, made from the whole word and its three-letter pieces, so "blinds", "blind" and a typo stay close. Two attention layers let each word read all the others, before and after it.\\nThe answers are text too. The model encodes your sentence and each possible answer with the same encoder, and scores each answer by how close the two are. So the list of answers can change from one request to the next: the house, the bank and the assistant below use the same ${meta.pesi.toLocaleString('en')} weights. A second head labels each word as a room, a colour, a number or nothing. Your browser downloads about ${kb} KB.`],
+  ['How does the house decide?', 'Each command goes through a chain of decisions. A fixed rule splits it at words like "and" or "then". For each piece the model decides the language, then the intent among 26 answers, then a label for each word. If the best intent is below 60%, the house asks you which one you meant; below 25%, or for a request that is not for a house, it refuses.\\nThe last step is not a model: fixed rules turn the decision into an action, using what the house knows. If a room does not exist, or the light is already off, the house says so. The answers are in English, even when you write in Italian: the model matches the two languages in the same space.'],
+  ['What is it trained on, and how good is it?', `On public data, all tested on official test sets that it never saw. Banking77: 13,083 questions to a bank, 77 intents. On its 3,080 test questions it picks the right intent for ${E.banking77.percentuale}%, and the right one is in its top three for ${E.banking77.tra_le_prime_tre}%. CLINC150: 150 intents from ten areas, plus questions that fit none of them. On 4,500 test questions it gets ${E.clinc150.senza_soglia.percentuale}% right; with a threshold that sends uncertain questions to a person, it catches ${E.clinc150.fuori_tema.percentuale}% of the 1,000 questions that fit no intent, and the right answers drop to ${E.clinc150.con_soglia.percentuale}%.\\nThe house learned from MASSIVE, real commands to a voice assistant in English and Italian, and from sentence templates for blinds, heating, TV and scenes. On the MASSIVE test sentences for the house it gets ${E.casa_massive.en.percentuale}% right in English and ${E.casa_massive.it.percentuale}% in Italian. It finds rooms and colours with ${E.etichette.precisione}% precision and ${E.etichette.richiamo}% recall.`],
+  ['Is one shared model better than three?', 'Not here. I trained the same encoder alone on each dataset, with the same steps. Alone, it gets 1 to 3 points more on each task: 88.6% on Banking77, 89.2% on CLINC150, 93.2% and 91.7% on the house in English and Italian. With so few weights, the tasks compete for space.\\nSharing helps in one place: questions that fit no intent. The shared model catches 90.2% of them, the CLINC150 model alone 86.6%, because it has seen what a bank and a house look like. I kept one model because it is one download, and because it shows the main idea: the answers change, the weights stay the same.'],
+  ['What does the percentage mean?', 'If a model says 80% on many inputs, it should be right on about 8 of every 10. A model that keeps this promise is called calibrated. Each task here has one extra number, a temperature, set on sentences the model did not train on. It rescales the percentages and does not change the choice.\\nThey are still rough. On phrases close to its training examples, the model can say 98% too easily.'],
+  ['How does it compare to real decision models?', 'Open decision models such as Laya and GLiNER-Decide have the same shape, with hundreds of millions of weights: about a thousand times more than this one. They also read much more than a few public datasets, so they understand phrasing that this model has never seen.\\nThe practical advice stays the same at any size: test a model on your own examples before you trust its percentages.'],
 ];
-const EMOJI = ["pizza night with friends", "late flight to tokyo", "my puppy chewed my shoes", "a bug in my soup", "I'm starving", "my cat hates the rain", "we ordered sushi for the whole office", "one more coffee and I can start", "a cold beer after a long week", "she baked a chocolate cake for me", "the airport is packed this morning", "two weeks on a greek island", "we got lost in the old town", "stuck in traffic for two hours", "the view from the summit was unreal", "my boss wants the report by noon", "sales are finally going up", "I have a dentist appointment on friday", "we need to save more money this year", "my inbox has a thousand unread emails", "I just finished a great novel", "she graduated from university today", "the lab results are in", "I can't stop thinking about this problem", "what if we built an app for that", "my laptop crashed again", "I dropped my phone in the sink", "the robot vacuum got stuck under the sofa", "the login page is broken again", "someone stole my password", "that joke made me spit out my drink", "I cried at the end of the film", "this customer service is making me furious", "I'm in love with this city", "I could sleep for a week", "we won the final in the last minute", "I ran ten kilometres before breakfast", "leg day destroyed me", "the doctor says I need more rest", "I forgot to take my antibiotics", "it has been raining for three days", "finally a sunny weekend", "my tomatoes are growing on the balcony", "the dog ate my homework", "the kitten fell asleep on my keyboard", "we watched a horror movie last night", "this song has been stuck in my head all day", "I stayed up all night playing video games", "she painted the whole wall in blue", "I took a great photo of the sunset", "we are throwing a party on saturday", "it's my birthday and nobody remembered", "I love you more than anything", "we just moved into a new apartment", "our baby took her first steps", "a long hike in the mountains", "grandma makes the best tiramisu", "the train to rome was cancelled", "the startup signed its first client", "the meeting moved to next tuesday", "I bought too much crypto", "my thesis is due in a week", "a neural network wrote this poem", "the wifi at home is terrible", "the printer jammed before my presentation", "we laughed until it hurt", "I am so tired of this rain", "my heart is broken", "the referee ruined the match", "the gym is too crowded in january", "the pharmacy was closed", "snow on the peaks this morning", "my garden is full of bees", "the vet says my dog is fine", "the cat knocked my coffee off the table", "the concert sold out in minutes", "the museum is free on sundays", "look at this old picture of us", "congratulations on the new job", "she blew out forty candles", "happy anniversary my love", "the landlord raised our rent", "my toddler refuses to eat vegetables", "a road trip across the country", "this ramen is incredible", "the startup ran out of money", "the kids are finally asleep", "my knee hurts when I run", "storm clouds over the lake", "a new season of my favourite series", "the deadline is tomorrow and I am calm", "my code works and I have no idea why", "the plane is delayed again", "wine and cheese on the terrace", "I think my neighbour is a spy", "I want to quit my job and open a bakery", "the ocean was freezing but we swam anyway", "our team shipped the feature on friday", "I read too many papers", "the bakery smells amazing this morning"];
-const TICKET = ["I was charged twice this month", "the export crashes on my phone", "I forgot my password", "what does it cost for 50 people", "please refund my last payment", "the dashboard shows the wrong numbers", "I cannot log in to my account", "do you offer a discount for schools", "my invoice has the wrong address", "the app freezes when I upload a file", "how do I change my email", "can someone show us a demo", "you billed me after I cancelled", "the search page returns an error", "please delete my account", "we want to buy 100 seats", "my card was declined", "the report does not load", "I never got the verification code", "what is your enterprise pricing", "why did my subscription go up", "the mobile app keeps crashing", "how do I add a new user", "do you have a plan for startups", "I need a copy of my receipt", "the sync stops working every night", "my account was charged but the page crashes", "can we get a longer trial", "someone logged in from another country", "nothing happens when I click save"];
+const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bedroom light purple', 'I am freezing', 'movie time', 'good night', 'vacuum the study', 'make me a coffee', 'dim the living room lights to 30 percent', 'turn on the lights in the garage', 'what is the weather tomorrow', 'play some jazz then turn it up', 'set the heating to 22', 'open the blinds in the bedroom, then make it brighter', 'undo',
+  'accendi la luce in cucina e poi chiudi le tapparelle', 'luce viola in camera', 'ho freddo', 'modalità film', 'buonanotte', "passa l'aspirapolvere nello studio", 'fammi un caffè', 'abbassa le luci in soggiorno al 30 per cento', 'accendi la luce in garage', 'che tempo fa domani', 'metti un po di musica e alza il volume', 'sono a casa', 'luce calda in bagno', 'esco'];
 ---
-<Base title="Decision model · Riccardo Mondi" description="Tiny real decision models, running in your browser. Write anything and watch one pick an emoji, with a probability." tono="neutro" largo>
+<Base title="Decision model · Riccardo Mondi" description="A tiny real decision model in your browser: run a smart home in plain words, in English or Italian, and watch it route real bank and assistant requests." tono="neutro" largo>
   <main class="rn" data-decisione>
-    <section class="schermo" data-emoji>
+    <section class="schermo" data-casa>
       <header class="testa">
-        <h1>Watch a tiny decision model pick an emoji in your browser</h1>
+        <h1>Run a smart home with a tiny decision model</h1>
         <a href="#how-it-works" class="mono">how it works ↓</a>
       </header>
 
-      <div class="banco">
-        <div class="mono sezione">
-          <span class="titolino">write anything, try to fool it</span>
-          <textarea class="messaggio" rows="3" maxlength="200" aria-label="Your text" placeholder="type here" spellcheck="false">pizza night with friends</textarea>
-          <button type="button" class="a-caso" data-frasi={JSON.stringify(EMOJI)}>random phrase</button>
-          <p class="parole" aria-label="Your words. The words that matter most to the choice are orange"></p>
+      <div class="casa">
+        <div class="palco">
+          <div class="scena-casa" aria-label="A wireframe house: lights, blinds, heating, music, TV, coffee machine and a robot vacuum. It changes with your commands"></div>
+          <div class="etichette" aria-hidden="true"></div>
+          <div class="mono cielo">
+            <span class="orologio">18:30</span>
+            <input class="ora" type="range" min="0" max="23.99" step="0.05" value="18.5" aria-label="Time of day" />
+          </div>
         </div>
 
-        <div class="mono sezione">
-          <div class="scelta" aria-live="polite">
-            <span class="emoji-grande" aria-hidden="true"></span>
-            <div>
-              <span class="emoji-quota"></span>
-              <p class="esito"></p>
-            </div>
+        <div class="mono pannello">
+          <span class="titolino">tell the house, in English or Italian</span>
+          <textarea class="comando" rows="2" maxlength="200" aria-label="Your command" placeholder="type a command, press enter" spellcheck="false">turn on the kitchen light and close the blinds</textarea>
+          <div class="pulsanti">
+            <button type="button" class="invia">send</button>
+            <button type="button" class="a-caso" data-frasi={JSON.stringify(COMANDI)}>random command</button>
           </div>
-          <span class="titolino">its top 5 of 50</span>
-          <div class="barre"></div>
+          <p class="nota">You are in the <span class="dove">living room</span>. Click a room to move there and see it up close.</p>
+          <div class="passi" aria-live="polite"></div>
         </div>
       </div>
     </section>
 
-    <section class="seconda" data-ticket>
-      <h2 class="mono titolo-sezione">the same idea on another job: support tickets</h2>
-      <div class="banco">
-        <div class="mono sezione">
-          <span class="titolino">write a support message</span>
-          <textarea class="messaggio" rows="2" maxlength="400" aria-label="Support message" placeholder="type here" spellcheck="false">I was charged twice this month</textarea>
-          <button type="button" class="a-caso" data-frasi={JSON.stringify(TICKET)}>random message</button>
-          <p class="parole" aria-label="Your message with each word coloured by the team it pushes"></p>
+    <section class="seconda">
+      <h2 class="mono titolo-sezione">the same model, other answers: real customer requests</h2>
+      <div class="due">
+        <div class="mono sezione" data-compito="banking77">
+          <span class="titolino">a bank: 77 intents (Banking77)</span>
+          <textarea class="messaggio" rows="2" maxlength="300" aria-label="Message to the bank" spellcheck="false">my card still has not arrived after two weeks</textarea>
+          <button type="button" class="a-caso">real test question</button>
+          <p class="parole" aria-label="Your words. The words that matter most to the choice are orange"></p>
+          <div class="barre"></div>
+          <p class="esito" aria-live="polite"></p>
         </div>
-        <div class="mono sezione">
-          <span class="titolino">its choice</span>
+        <div class="mono sezione" data-compito="clinc150">
+          <span class="titolino">an assistant: 150 intents, or out of scope (CLINC150)</span>
+          <textarea class="messaggio" rows="2" maxlength="300" aria-label="Message to the assistant" spellcheck="false">how do I say thank you in japanese</textarea>
+          <button type="button" class="a-caso">real test question</button>
+          <p class="parole" aria-label="Your words. The words that matter most to the choice are orange"></p>
           <div class="barre"></div>
           <p class="esito" aria-live="polite"></p>
         </div>
@@ -65,7 +76,7 @@ const TICKET = ["I was charged twice this month", "the export crashes on my phon
     <section class="spiegone" id="how-it-works">
       <h2 class="mono">how it works</h2>
       {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3>{testo.split('\\n').map(p => <p>{p}</p>)}</article>)}
-      <p class="mono fonte">Word vectors: <a href="https://nlp.stanford.edu/projects/glove/">GloVe</a>, by Pennington, Socher and Manning, under the PDDL 1.0. Emoji keywords: <a href="https://cldr.unicode.org/">Unicode CLDR</a>, © Unicode, Inc., under the <a href="https://www.unicode.org/license.txt">Unicode License V3</a>.</p>
+      <p class="mono fonte">Data: <a href="https://github.com/PolyAI-LDN/task-specific-datasets">Banking77</a> by PolyAI (Casanueva et al., 2020), under CC BY 4.0. <a href="https://github.com/clinc/oos-eval">CLINC150</a> by Larson et al. (2019), under CC BY 3.0. <a href="https://github.com/alexa/massive">MASSIVE 1.1</a> by Amazon (FitzGerald et al., 2022), under CC BY 4.0. The model and the sentence templates are mine.</p>
     </section>
   </main>
 </Base>
@@ -82,28 +93,61 @@ const TICKET = ["I was charged twice this month", "the export crashes on my phon
   .testa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px var(--s2); }
   .testa a { color: var(--fg); font-size: 12px; white-space: nowrap; }
   h1 { margin: 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
-  .banco { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s3) 40px; align-items: start; }
-  .seconda { padding: var(--s3) 0; border-top: 1px solid var(--line); }
-  .titolo-sezione { margin: 0 0 var(--s2); font-size: 16px; font-weight: 400; color: var(--fg); }
-  .sezione { min-width: 0; font-size: 13px; color: var(--fg); }
+
+  .casa { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: var(--s3); align-items: start; }
+  .palco { position: relative; height: min(66vh, 620px); min-height: 380px; border: 1px solid var(--line); overflow: hidden; }
+  /* Di notte il riquadro della casa si scurisce: --notte va da 0 a 1 e lo scrive la scena */
+  .scena-casa { position: absolute; inset: 0; --notte: 0; background: linear-gradient(180deg, color-mix(in srgb, #0d1430 calc(var(--notte) * 55%), transparent), color-mix(in srgb, #1a1530 calc(var(--notte) * 35%), transparent)); }
+  :global([data-theme="light"]) .scena-casa { background: linear-gradient(180deg, color-mix(in srgb, #2a2a48 calc(var(--notte) * 38%), transparent), color-mix(in srgb, #4a3a40 calc(var(--notte) * 22%), transparent)); }
+  .etichette { position: absolute; inset: 0; pointer-events: none; }
+  .etichette :global(span) { position: absolute; left: 0; top: 0; font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; transition: opacity .3s; }
+  .etichette :global(.etichetta-stanza.qui) { color: var(--fg); }
+  .etichette :global(.etichetta-stanza.qui::after) { content: ' · you'; color: var(--arancio); }
+  .etichette :global(.etichetta-gradi) { color: var(--arancio); }
+  .cielo { position: absolute; left: 12px; right: 12px; bottom: 10px; display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--fg); }
+  .ora { flex: 1; accent-color: var(--arancio); }
+
+  .pannello { min-width: 0; font-size: 13px; color: var(--fg); }
   .titolino { display: block; margin-bottom: 8px; color: var(--fg); font-size: 14px; }
   .titolino::before { content: '// '; color: var(--muted); }
-  .messaggio { display: block; box-sizing: border-box; width: 100%; padding: 10px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); font: inherit; font-size: 15px; line-height: 1.4; resize: vertical; }
-  .messaggio:focus { outline: none; border-color: var(--fg); }
-  .a-caso { margin-top: 8px; padding: 5px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
-  .a-caso:hover { border-color: var(--fg); color: var(--fg); }
-  .parole { min-height: 3em; margin: var(--s1) 0 0; font-size: 15px; line-height: 1.5; color: var(--muted); }
-  .scelta { display: flex; align-items: center; gap: var(--s2); min-height: 96px; margin-bottom: var(--s2); }
-  .emoji-grande { flex: none; width: 88px; font-size: 72px; line-height: 1; text-align: center; }
-  .emoji-quota { display: block; font-size: 32px; line-height: 1.1; }
-  .scelta .esito { min-height: 0; margin: 2px 0 0; color: var(--muted); font-size: 13px; }
-  .barre :global(.barra-voce) { display: grid; grid-template-columns: 64px minmax(0, 1fr) 44px; align-items: center; gap: 8px; margin-bottom: 8px; }
-  [data-emoji] .barre :global(.barra-voce) { grid-template-columns: 28px minmax(0, 1fr) 44px; }
-  [data-emoji] .barre :global(.nome) { font-size: 18px; line-height: 1; }
-  .barre :global(.traccia) { height: 18px; border: 1px solid var(--line); }
-  .barre :global(.pieno) { height: 100%; transition: width .12s; }
-  .barre :global(.num) { text-align: right; }
-  .esito { min-height: 1.4em; margin: var(--s1) 0 0; font-size: 15px; line-height: 1.3; }
+  .comando, .messaggio { display: block; width: 100%; padding: 10px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); font: inherit; font-size: 15px; line-height: 1.4; resize: vertical; }
+  .comando:focus, .messaggio:focus { outline: none; border-color: var(--fg); }
+  .pulsanti { display: flex; gap: 8px; margin-top: 8px; }
+  .invia, .a-caso, .scelte :global(button) { padding: 5px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; }
+  .invia { color: var(--fg); border-color: var(--muted); }
+  .invia:hover, .a-caso:hover, .scelte :global(button:hover) { border-color: var(--fg); color: var(--fg); }
+  .a-caso { margin-top: 8px; }
+  .pulsanti .a-caso { margin-top: 0; }
+  .nota { margin: var(--s1) 0 var(--s2); color: var(--muted); font-size: 12px; }
+  .dove { color: var(--arancio); }
+  .passi { display: flex; flex-direction: column; gap: var(--s2); max-height: min(48vh, 440px); overflow-y: auto; }
+  .passi :global(.comando-fatto) { border-left: 1px solid var(--line); padding-left: 10px; }
+  .passi :global(.detto) { margin: 0 0 6px; color: var(--fg); }
+  .passi :global(.passo) { margin: 0 0 10px; }
+  .passi :global(.frase) { margin: 0; font-size: 14px; color: var(--muted); }
+  .passi :global(.chip) { margin: 2px 0 4px; font-size: 11px; color: var(--muted); }
+  .passi :global(.decisione) { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+  .passi :global(.passo.agisci .decisione) { color: var(--verde); }
+  .passi :global(.passo.chiedi .decisione) { color: var(--arancio); }
+  .passi :global(.risposta) { margin: 2px 0 0; font-size: 14px; color: var(--fg); }
+  .passi :global(.niente .risposta) { color: var(--muted); }
+  .scelte { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  /* Le barre nascono dallo script: lo stile le raggiunge con :global */
+  .rn :global(.barra-voce) { display: grid; grid-template-columns: minmax(96px, 150px) minmax(0, 1fr) 40px; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12px; }
+  .rn :global(.barra-voce .nome) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rn :global(.barra-voce .traccia) { height: 12px; border: 1px solid var(--line); }
+  .rn :global(.barra-voce .pieno) { height: 100%; transition: width .12s; }
+  .rn :global(.barra-voce .num) { text-align: right; }
+
+  .seconda { padding: var(--s3) 0; border-top: 1px solid var(--line); }
+  .titolo-sezione { margin: 0 0 var(--s2); font-size: 16px; font-weight: 400; color: var(--fg); }
+  .due { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s3) 40px; align-items: start; }
+  .sezione { min-width: 0; font-size: 13px; color: var(--fg); }
+  .sezione .barre { margin-top: var(--s1); }
+  .sezione :global(.barra-voce) { grid-template-columns: minmax(120px, 210px) minmax(0, 1fr) 40px; margin-bottom: 6px; }
+  .parole { min-height: 1.6em; margin: var(--s1) 0 0; font-size: 15px; line-height: 1.5; color: var(--muted); }
+  .esito { min-height: 1.4em; margin: var(--s1) 0 0; font-size: 14px; line-height: 1.3; }
+
   .fonte { color: var(--muted); font-size: 12px; }
   .fonte a { color: var(--fg); }
   .spiegone { max-width: 720px; margin: 0 auto; padding: var(--s4) 0; border-top: 1px solid var(--line); scroll-margin-top: var(--s2); }
@@ -112,16 +156,18 @@ const TICKET = ["I was charged twice this month", "the export crashes on my phon
   .spiegone article { margin-bottom: var(--s3); }
   .spiegone h3 { margin: 0 0 4px; font-size: 16px; font-weight: 400; color: var(--fg); }
   .spiegone p { margin: 0 0 var(--s1); color: var(--muted); font-size: 14px; line-height: 1.7; }
+  @media (max-width: 900px) {
+    .casa { grid-template-columns: minmax(0, 1fr); }
+    .palco { height: 58vh; min-height: 320px; }
+    .passi { max-height: none; }
+  }
   @media (max-width: 760px) {
     .rn { padding: 0 16px; }
     h1 { font-size: 20px; }
-    .banco { grid-template-columns: minmax(0, 1fr); gap: var(--s2); }
-    .a-caso { width: 100%; padding: 10px; }
-    .messaggio { font-size: 16px; }
-    .parole { min-height: 1.6em; }
-    [data-emoji] .messaggio { height: 72px; }
-    [data-emoji] .banco { gap: 4px; }
-    .scelta { min-height: 80px; margin-bottom: var(--s1); }
-    .emoji-grande { width: 72px; font-size: 60px; }
+    .due { grid-template-columns: minmax(0, 1fr); gap: var(--s3); }
+    .palco { height: 96vw; min-height: 300px; }
+    .a-caso, .invia { padding: 10px; }
+    .pulsanti > * { flex: 1; }
+    .comando, .messaggio { font-size: 16px; }
   }
 </style>
