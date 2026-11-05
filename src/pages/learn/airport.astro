@@ -1,0 +1,41 @@
+---
+import Base from '../../layouts/Base.astro';
+
+// L'aeroporto: una scena a filo, ancora senza un concetto da spiegare. Non è nell'elenco di Learn finché non ha uno scopo (vedi TODO.md)
+---
+<Base title="Airport · Riccardo Mondi" description="A small wireframe airport on an island, where planes take off, fly a circuit and land." tono="neutro" largo>
+  <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
+  <main class="aeroporto">
+    <h1>Airport</h1>
+    <p class="sotto">A small airport on an island. Each plane keeps its distance from the one ahead.</p>
+    <ul class="mono voli" aria-live="off"></ul>
+  </main>
+</Base>
+
+<script>
+  import { monta } from '../../scripts/aeroporto';
+  const voli = document.querySelector<HTMLElement>('.voli')!;
+  monta(document.querySelector<HTMLElement>('.scena3d')!, righe => {
+    voli.replaceChildren(...righe.map(r => {
+      const li = document.createElement('li'), nome = document.createElement('span');
+      nome.textContent = r.nome;
+      li.append(nome, r.fase);
+      return li;
+    }));
+  });
+</script>
+
+<style>
+  .fondo3d { position: fixed; top: 64px; bottom: 0; left: 0; right: 0; z-index: 0; }
+  .scena3d { position: absolute; inset: 0; overflow: hidden; touch-action: pan-y; }
+  .aeroporto { position: relative; z-index: 1; pointer-events: none; padding-top: var(--s2); }
+  .aeroporto > * { max-width: 420px; margin: 0 0 var(--s1); }
+  h1 { font-size: 33px; font-weight: 400; line-height: 1.1; }
+  .sotto { color: var(--muted); }
+  .voli { padding: 0; list-style: none; font-size: 12px; line-height: 1.6; color: var(--muted); }
+  .voli :global(span) { display: inline-block; width: 8ch; color: var(--arancio); }
+  :global(.barra), :global(.piede) { position: relative; z-index: 1; }
+  @media (max-width: 640px) {
+    .fondo3d { top: 250px; }
+  }
+</style>
