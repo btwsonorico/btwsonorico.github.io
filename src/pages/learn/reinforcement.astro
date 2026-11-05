@@ -3,25 +3,14 @@ import Base from '../../layouts/Base.astro';
 import dati from '../../data/gregge-tappe.json';
 
 // Reinforcement learning: lo stesso gregge di Learn, visto dall'alto. A sinistra il ciclo dell'agente, le tappe del training e la gara. La simulazione è src/lib/gregge.ts
-// Le due policy a confronto, con le misure fatte sugli stessi campi di prova
-const DIFFERENZE: [string, string, string][] = [
-  ['What it reads', '18 numbers', '18 numbers + 2 maps of the sheep'],
-  ['Moves', '9', '17: it can also walk slowly'],
-  ['Reward', 'each sheep is worth the same', 'the last sheep are worth more'],
-  ['Training games', 'always from the start', 'also new circles and near the end'],
-  ['Finished, 300 new fields', '266', '299'],
-  ['Median time', '46 s', '25 s'],
-  ['Finished, stone at 10 s (60 fields)', '28', '60'],
-  ['Finished, new circle with the flock where it is', '98 of 171', '230 of 235'],
-];
 const COME: [string, string][] = [
   ['What is this?', 'A real reinforcement learning agent, running in your browser. Nobody shows the dog what good herding looks like. It tries moves, gets points, and its weights slowly change to earn more points. On the neural network page, the network receives the right answer for each point. Here there is no right answer, only a score that arrives later.'],
   ['What is a policy?', 'The rule that turns what the dog reads into a move. Here it is a small network. About 4 times a second it reads some numbers and picks a move: one of 9 for policy 1, one of 17 for policy 2, which can also walk slowly. A policy is the result of training, and it has only what training gave it: the reward shapes what it wants, and its inputs limit what it can notice.'],
   ['How does it learn?', 'The dog plays many games at once. After each batch, the moves that went better than expected become more likely, and the others less likely. This method is called PPO. Both policies took 4 million decisions, a few hours on a CPU, once, before this page was published. Your browser only plays the result.'],
   ['What is the reward?', 'Points when the flock gets closer to the circle and when a sheep enters. Points lost when a sheep leaves, and a little as time passes. A prize when all 180 are inside.\nA prize at the end alone would not work: a dog that moves at random almost never gets all 180 inside, so it would have nothing to learn from.\nIn policy 2 the last sheep are worth more: the last one is worth about 5 times the average, and losing it costs the same.'],
   ['How did policy 1 fail?', 'On average it looked good: it finished 88 of 100 new fields. The average hid precise errors. On some fields it got most of the flock inside and then lost it. On others it stood still, or ran for 3 minutes without closing. It reads only 18 numbers, such as the centre of the flock and the farthest sheep. When the flock splits, those numbers say little about where the pieces are.'],
-  ['What fixed it?', 'First, I tried more punishment: points lost for a scattered flock, for each exit, for each second. It made things worse. After 2 million decisions the dog almost stopped touching the sheep, because moving cost more than standing still. I stopped that run.\nThen I kept nearly the same reward and changed what the dog reads: the same 18 numbers plus a map of 256 cells around it, with the sheep still outside the circle. The reward changed only a little: a larger prize for finishing early, and a small cost when time runs out. I did not test the map alone, so I cannot split the credit exactly.\nThat version had two weak points: it did not see the sheep already inside, and it often lost games when a new circle appeared with the flock where it was, as on the Learn page. So I retrained from zero with a second map for the sheep inside, 8 slow moves, last sheep worth more, games that continue with a new circle, and half of the games starting near the end. Each addition changed little alone. Together they beat the previous version on all my tests.'],
-  ['How good is it now?', 'On 100 new fields, policy 2 finished 99, with a median of 25 seconds. Policy 1 finished 88, with a median of 47. On another 200 fields, policy 2 finished all 200.\nA stone thrown at the flock after 10 seconds is a harder test, because training never saw one. On 60 fields, policy 1 finished 28, and policy 2 finished all 60. When the circle moves and the flock stays where it is, policy 1 finished 98 of 171 games and policy 2 finished 230 of 235. It is still not perfect, and it is not proof that it beats people: try it.'],
+  ['What changed in training?', 'Policy 2 was trained with a second reading of the field: two maps of 256 cells around the dog, one for the sheep outside the circle and one for those inside. It got 8 slow moves. The last sheep are worth more, about 5 times the average for the very last one. Games can continue with a new circle, and half of them start near the end, where policy 1 made its errors.\nMore punishment did not help: with points lost for each exit and each second, the dog almost stopped touching the sheep, so I stopped that run.'],
+  ['What did it gain?', 'On 300 new fields, policy 2 finished 299 and policy 1 finished 266, with a median of 25 seconds against 46.\nWith a stone thrown at the flock after 10 seconds, which training never saw, it finished all 60 fields against 28. When the circle moves and the flock stays where it is, it finished 230 of 235 games against 98 of 171. It is still not perfect, and it is not proof that it beats people: try it.'],
   ['Does it depend on this view?', 'No. It uses no images and no camera. It reads only numbers about the flock, the dog, the circle and the obstacles, so the view is only for you. In the valley on the Learn page, the same weights can guide the dog while you turn the scene.'],
 ];
 ---
@@ -87,13 +76,6 @@ const COME: [string, string][] = [
 
     <section class="spiegone" id="how-it-works">
       <h2 class="mono">how it works</h2>
-      <article>
-        <h3>What changes between the two policies?</h3>
-        <table class="differenze">
-          <thead><tr><th></th><th>policy 1</th><th>policy 2</th></tr></thead>
-          <tbody>{DIFFERENZE.map(([cosa, a, b]) => <tr><th scope="row">{cosa}</th><td>{a}</td><td>{b}</td></tr>)}</tbody>
-        </table>
-      </article>
       {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3>{testo.split('\n').map(p => <p>{p}</p>)}</article>)}
     </section>
   </main>
@@ -149,10 +131,6 @@ const COME: [string, string][] = [
   .spiegone h2 { margin: 0 0 var(--s3); font-size: 14px; font-weight: 400; color: var(--fg); }
   .spiegone h2::before { content: '// '; color: var(--muted); }
   .spiegone article { margin-bottom: var(--s3); }
-  .differenze { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.45; }
-  .differenze th, .differenze td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-weight: 400; color: var(--muted); }
-  .differenze thead th { color: var(--fg); font-family: var(--mono); font-size: 12px; }
-  .differenze td:last-child { color: var(--fg); }
   .spiegone h3 { margin: 0 0 4px; font-size: 16px; font-weight: 400; color: var(--fg); }
   .spiegone p { margin: 0 0 var(--s1); color: var(--muted); font-size: 14px; line-height: 1.7; }
   @media (max-width: 760px) {
