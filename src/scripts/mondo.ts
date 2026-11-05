@@ -264,27 +264,31 @@ export function monta(el: HTMLElement) {
   const griglia = new Map<number, number[]>();
   const chiave = (x: number, y: number, z: number) => ((Math.floor(x / VICINI) + 512) * 1024 + (Math.floor(y / VICINI) + 512)) * 1024 + (Math.floor(z / VICINI) + 512);
   const centroPrima = CENTRO_STORMO.clone(), centroLento = CENTRO_STORMO.clone(), destra = new THREE.Vector3(), rotazioneInversa = new THREE.Quaternion();
-  // Con l'intro lo stormo aspetta: parte quando la madre lascia il nido, dalla stessa parte, e da più vicino per non far attendere
+  // Con l'intro lo stormo è già sul posto, invisibile: gli uccelli a pixel si raccolgono dove sta, e quando il paesaggio si scioglie
+  // compaiono a poco a poco quelli veri. Niente viaggio da destra: gli uccelli non escono mai dallo schermo
   let conIntro = false;
+  const radice = document.documentElement, rettangolo = () => el.getBoundingClientRect();
+  puntoStormo.alSchermo = (x, y) => { if (radice.dataset.intro) { const q = rettangolo(); radice.dataset.stormo = `${q.left + x},${q.top + y}`; } };
   const muoviStormo = (t: number, dt: number) => {
-    if (voloInizio < 0 && document.documentElement.dataset.intro === 'on') { conIntro = true; return; }
+    if (voloInizio < 0 && radice.dataset.intro === 'on') { conIntro = true; geoStormo.setDrawRange(0, 0); return; }
+    if (conIntro) geoStormo.setDrawRange(0, Math.round(THREE.MathUtils.clamp((t - Math.max(0, voloInizio)) / 1.6, 0, 1) * UCCELLI) * 4);
     // Primo fotogramma: tutti fuori pagina a destra, già in volo verso sinistra
     if (voloInizio < 0) {
       voloInizio = t;
       destra.set(1, 0, 0).applyQuaternion(rotazioneInversa.copy(gruppo.quaternion).invert());
-      partenza.copy(CENTRO_STORMO).addScaledVector(destra, t === 0 ? 0 : conIntro ? 9 : 15);
+      partenza.copy(CENTRO_STORMO).addScaledVector(destra, t === 0 || conIntro ? 0 : 15);
       for (let i = 0; i < UCCELLI; i++) {
         pos.set([partenza.x + posto[i * 3]! * 1.6 + (caso() - 0.5) * 1.5, partenza.y + posto[i * 3 + 1]! + (caso() - 0.5) * 0.4, partenza.z + posto[i * 3 + 2]! * 1.6 + (caso() - 0.5) * 1.5], i * 3);
-        vel.set([-destra.x * 1.5, 0, -destra.z * 1.5], i * 3);
+        if (conIntro) { const a = caso() * 6.28; vel.set([Math.cos(a) * 0.7, 0, Math.sin(a) * 0.7], i * 3); } else vel.set([-destra.x * 1.5, 0, -destra.z * 1.5], i * 3);
       }
       verso.copy(partenza); centroPrima.copy(partenza); centroLento.copy(partenza);
     }
-    const uArrivo = t === 0 ? 1 : THREE.MathUtils.clamp((t - voloInizio) / DURATA_ARRIVO, 0, 1), inArrivo = uArrivo < 1;
+    const uArrivo = t === 0 || conIntro ? 1 : THREE.MathUtils.clamp((t - voloInizio) / DURATA_ARRIVO, 0, 1), inArrivo = uArrivo < 1;
     if (inArrivo) verso.lerpVectors(partenza, CENTRO_STORMO, 1 - (1 - uArrivo) ** 2);
     else posizioneGuida(t, dt);
     // Calma: da 0 (in viaggio) a 1 (stormo normale). Sale piano, dalla seconda metà del viaggio ai secondi dopo l'arrivo:
     // velocità, richiamo, vortice e confini cambiano gradualmente, così non c'è nessuno scatto
-    const calma = t === 0 ? 1 : THREE.MathUtils.smootherstep(t - voloInizio, DURATA_ARRIVO * 0.45, DURATA_ARRIVO * 1.7);
+    const calma = t === 0 || conIntro ? 1 : THREE.MathUtils.smootherstep(t - voloInizio, DURATA_ARRIVO * 0.45, DURATA_ARRIVO * 1.7);
     // Arrivato: lo stormo è davvero sopra la scena. Solo allora si può cliccare
     if (!arrivato && !inArrivo && centroPrima.distanceTo(CENTRO_STORMO) < 2.5) arrivato = true;
     puntoStormo.spento = !arrivato;

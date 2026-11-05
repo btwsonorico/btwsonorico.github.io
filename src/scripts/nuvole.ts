@@ -467,13 +467,15 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   });
   let acceso = -1, dallaLista = -1;
   // L'AI della pagina di reinforcement learning può guidare il cane: legge gli stessi numeri, quindi la scena può girare. Su telefono guida sempre lei
-  let pesiAI: Float32Array | null = null, attesaAI = 0, aiGioca = false;
+  let pesiAI: Float32Array | null = null, attesaAI = 0, aiGioca = true;
   const mondoAI = nuovoMondo(1), bottoneAI = document.createElement('button');
   bottoneAI.type = 'button';
-  bottoneAI.textContent = 'let the RL dog herd';
+  bottoneAI.textContent = 'take the dog back';
   bottoneAI.style.cssText = 'position:absolute;right:16px;bottom:72px;z-index:2;padding:4px 8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:12px var(--mono);cursor:pointer;pointer-events:auto';
   const caricaAI = async () => { pesiAI ??= new Float32Array(await (await fetch('/learn/gregge/mfine.bin')).arrayBuffer()); };
-  if (p.telefono) { aiGioca = true; caricaAI(); } else el.appendChild(bottoneAI);
+  // Il cane parte sempre con l'AI; sul computer si può riprendere. Su telefono guida sempre lei
+  caricaAI();
+  if (!p.telefono) el.appendChild(bottoneAI);
   bottoneAI.addEventListener('pointerdown', e => e.stopPropagation());
   bottoneAI.addEventListener('click', async () => {
     await caricaAI();

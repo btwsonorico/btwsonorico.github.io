@@ -15,7 +15,7 @@ export interface DatiCompetenze { competenze: Competenza[]; progetti?: Progetto[
 // base (facoltativa): con la base, il punto si tocca lungo tutto il segmento base-ancora (per esempio un albero intero).
 // spento: il punto non si vede e non si tocca (per esempio i pali dei progetti nella vista per competenza).
 // tono (facoltativo): colore della sezione per l'etichetta (verde, azzurro, arancio), per le scene con più sezioni.
-export interface Punto { id: string; label: string; href: string; hub: boolean; famiglia: string; ancora: THREE.Object3D; base?: THREE.Object3D; spento?: boolean; tono?: string }
+export interface Punto { alSchermo?: (x: number, y: number) => void; id: string; label: string; href: string; hub: boolean; famiglia: string; ancora: THREE.Object3D; base?: THREE.Object3D; spento?: boolean; tono?: string }
 
 interface Opzioni {
   camera: THREE.Vector3;
@@ -319,6 +319,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
 
     const posti = punti.map((p, i) => {
       const sc = schermo(i);
+      punti[i]!.alSchermo?.(sc.x, sc.y);
       const a = acceso(p.famiglia, p.id);
       const mostra = !p.spento && sc.z < 1 && (i === fuoco || (p.hub && a > 0.15) || (!!f && f.hub && f.famiglia === p.famiglia));
       etichette[i]!.style.opacity = mostra ? '1' : '0';
