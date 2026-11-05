@@ -437,10 +437,10 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   };
   // Il rosso di reinforcement learning è quello della barriera di AI terms
   // Colore e posto seguono il tono della pagina, non la sua posizione nella lista
-  const TONI = ['arancio', 'azzurro', 'verde', 'lilla', 'rosso'], TINTE = ['#e08a3a', '#5fb6d9', '#6fa646', '#b79ce6', p.chiaro ? '#e0352a' : '#ff4a3d'];
+  const TONI = ['arancio', 'azzurro', 'verde', 'lilla', 'rosso', 'giallo'], TINTE = ['#e08a3a', '#5fb6d9', '#6fa646', '#b79ce6', p.chiaro ? '#e0352a' : '#ff4a3d', p.chiaro ? '#c9a514' : '#e6c229'];
   const mongolfiere = risorse.map(q => {
     const k = TONI.indexOf(q.tono), tinta = TINTE[k]!;
-    // tono() riporta tutto a verde, azzurro o arancio: il lilla e il rosso restano i loro
+    // tono() riporta tutto a verde, azzurro o arancio: il lilla, il rosso e il giallo restano i loro
     const o = new THREE.Group(), colore = k >= 3 ? new THREE.Color(tinta) : tono(tinta);
     o.add(new THREE.Mesh(geoPallone, new THREE.MeshBasicMaterial({ color: colore })));
     o.add(new THREE.LineSegments(spicchi, new THREE.LineBasicMaterial({ color: colore.clone().offsetHSL(0, 0, -0.18) })));
@@ -452,8 +452,8 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     o.add(fiamma);
     o.scale.setScalar(GRANDE);
     g.add(o);
-    const y = [3.2, 2.5, 3.7, 3.0, 2.8][k]!;
-    return { o, fiamma, cx: [-0.8, 2.8, -2.6, 1.1, 0.5][k]!, cz: [-1.4, -1.6, -3, -3.4, 1][k]!, y, fase: k * 2.1, quota: y, aDestra: k > 0 };
+    const y = [3.2, 2.5, 3.7, 3.0, 2.8, 3.3][k]!;
+    return { o, fiamma, cx: [-0.8, 2.8, -2.6, 1.1, 0.5, 4.3][k]!, cz: [-1.4, -1.6, -3, -3.4, 1, 0.2][k]!, y, fase: k * 2.1, quota: y, aDestra: k > 0 };
   });
   // Nome di ogni mongolfiera: un link vero, che segue il pallone sullo schermo
   const nomi = mongolfiere.map((_, k) => {

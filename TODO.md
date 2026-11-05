@@ -14,4 +14,4 @@
 - **Informazioni nel grafico a destra.** Valutare se mostrare direttamente nel grafico a destra alcune informazioni che oggi stanno nelle sottopagine. Decide quali e come: Riccardo.
 - **Nuvole della valle.** Tolte per ora in Learn: per rimetterle basta `CON_NUVOLE = true` in `src/scripts/nuvole.ts`. Decide se e come riprenderle: Riccardo.
 - **Learn: pagine future.** Ordine: neural network, reinforcement learning, un piccolo transformer (da fare), diffusion, decision, AI terms sempre in fondo. Decide: Riccardo.
-- **Aeroporto: a che cosa serve.** La scena sta in `/learn/airport/`, ma non è nell'elenco di Learn e non spiega ancora nessun concetto. La lista degli aerei e le loro fasi sono già separate dalla grafica, quindi ogni aereo può rappresentare altro. Decide l'uso e se metterla nell'elenco: Riccardo.
+- **Aeroporto: a che cosa serve.** La scena sta in `/learn/airport/`, è nell'elenco di Learn ma non spiega ancora nessun concetto. La lista degli aerei e le loro fasi sono già separate dalla grafica, quindi ogni aereo può rappresentare altro. Decide l'uso: Riccardo.
