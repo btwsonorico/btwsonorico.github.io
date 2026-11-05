@@ -264,12 +264,15 @@ export function monta(el: HTMLElement) {
   const griglia = new Map<number, number[]>();
   const chiave = (x: number, y: number, z: number) => ((Math.floor(x / VICINI) + 512) * 1024 + (Math.floor(y / VICINI) + 512)) * 1024 + (Math.floor(z / VICINI) + 512);
   const centroPrima = CENTRO_STORMO.clone(), centroLento = CENTRO_STORMO.clone(), destra = new THREE.Vector3(), rotazioneInversa = new THREE.Quaternion();
+  // Con l'intro lo stormo aspetta: parte quando la madre lascia il nido, dalla stessa parte, e da più vicino per non far attendere
+  let conIntro = false;
   const muoviStormo = (t: number, dt: number) => {
+    if (voloInizio < 0 && document.documentElement.dataset.intro === 'on') { conIntro = true; return; }
     // Primo fotogramma: tutti fuori pagina a destra, già in volo verso sinistra
     if (voloInizio < 0) {
       voloInizio = t;
       destra.set(1, 0, 0).applyQuaternion(rotazioneInversa.copy(gruppo.quaternion).invert());
-      partenza.copy(CENTRO_STORMO).addScaledVector(destra, t === 0 ? 0 : 15);
+      partenza.copy(CENTRO_STORMO).addScaledVector(destra, t === 0 ? 0 : conIntro ? 9 : 15);
       for (let i = 0; i < UCCELLI; i++) {
         pos.set([partenza.x + posto[i * 3]! * 1.6 + (caso() - 0.5) * 1.5, partenza.y + posto[i * 3 + 1]! + (caso() - 0.5) * 0.4, partenza.z + posto[i * 3 + 2]! * 1.6 + (caso() - 0.5) * 1.5], i * 3);
         vel.set([-destra.x * 1.5, 0, -destra.z * 1.5], i * 3);
