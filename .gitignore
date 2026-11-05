@@ -6,3 +6,4 @@ dist/
 .astro/
 export/
 .claude/
+.obsidian/
