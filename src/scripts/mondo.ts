@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { crescita, colori, tonoSezione, vista, type Punto } from './vista3d';
 import { famigliaCervi } from './cervi';
+import { ponte } from '../lib/ponteStormo';
 
 // Il mondo dell'About: le tre sezioni del sito in un solo diorama, nello stile di bosco e laghetto.
 // A terra, su un prato verde: un piccolo bosco (Software) e uno stagno con i pesci (Advisory).
@@ -264,14 +265,13 @@ export function monta(el: HTMLElement) {
   const griglia = new Map<number, number[]>();
   const chiave = (x: number, y: number, z: number) => ((Math.floor(x / VICINI) + 512) * 1024 + (Math.floor(y / VICINI) + 512)) * 1024 + (Math.floor(z / VICINI) + 512);
   const centroPrima = CENTRO_STORMO.clone(), centroLento = CENTRO_STORMO.clone(), destra = new THREE.Vector3(), rotazioneInversa = new THREE.Quaternion();
-  // Con l'intro lo stormo è già sul posto, invisibile: gli uccelli a pixel si raccolgono dove sta, e quando il paesaggio si scioglie
-  // compaiono a poco a poco quelli veri. Niente viaggio da destra: gli uccelli non escono mai dallo schermo
-  let conIntro = false;
-  const radice = document.documentElement, rettangolo = () => el.getBoundingClientRect();
-  puntoStormo.alSchermo = (x, y) => { if (radice.dataset.intro) { const q = rettangolo(); radice.dataset.stormo = `${q.left + x},${q.top + y}`; } };
+  // Con l'intro lo stormo vola già al suo posto, invisibile. Scrive dove sta sullo schermo: ogni uccello a pixel arriva sul suo,
+  // e l'intro dice quanti sono arrivati. Solo quelli si vedono: lo stormo che si alza dalla foresta è questo stesso. Niente viaggio da destra
+  let conIntro = false, verso3d: ((v: THREE.Vector3) => { x: number; y: number }) | null = null;
+  const radice = document.documentElement, qui3d = new THREE.Vector3();
   const muoviStormo = (t: number, dt: number) => {
-    if (voloInizio < 0 && radice.dataset.intro === 'on') { conIntro = true; geoStormo.setDrawRange(0, 0); return; }
-    if (conIntro) geoStormo.setDrawRange(0, Math.round(THREE.MathUtils.clamp((t - Math.max(0, voloInizio)) / 1.6, 0, 1) * UCCELLI) * 4);
+    if (voloInizio < 0 && radice.dataset.intro) conIntro = true;
+    if (conIntro) geoStormo.setDrawRange(0, (radice.dataset.intro ? ponte.visibili : UCCELLI) * 4);
     // Primo fotogramma: tutti fuori pagina a destra, già in volo verso sinistra
     if (voloInizio < 0) {
       voloInizio = t;
@@ -388,6 +388,11 @@ export function monta(el: HTMLElement) {
       vertici[o + 9] = x + sx; vertici[o + 10] = y + alza; vertici[o + 11] = z + sz;
     }
     geoStormo.attributes.position!.needsUpdate = true;
+    if (radice.dataset.intro && verso3d) {
+      const q = el.getBoundingClientRect();
+      ponte.xy ??= new Float32Array(UCCELLI * 2);
+      for (let i = 0; i < UCCELLI; i++) { const p = verso3d(qui3d.set(pos[i * 3]!, pos[i * 3 + 1]!, pos[i * 3 + 2]!)); ponte.xy[i * 2] = q.left + p.x; ponte.xy[i * 2 + 1] = q.top + p.y; }
+    }
   };
   const nuovoPuntatore = (raggio: THREE.Raycaster | null) => {
     if (!raggio) { raggioPuntatore = null; return; }
@@ -445,6 +450,7 @@ export function monta(el: HTMLElement) {
   // Su schermi larghi il diorama sta a destra: a sinistra c'è il testo della pagina
   const largo = el.clientWidth > 700;
   vista(el, gruppo, punti, {
+    conProiezione: f => { verso3d = f; },
     // Sul telefono la camera è più vicina: il riquadro è stretto e la vista si allontana già da sola
     camera: largo ? new THREE.Vector3(0, 3.6, 12.5) : new THREE.Vector3(0, 3, 9.5),
     // La camera guarda un po' più in basso: il mondo sale verso il centro dello schermo

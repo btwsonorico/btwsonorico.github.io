@@ -15,7 +15,7 @@ export interface DatiCompetenze { competenze: Competenza[]; progetti?: Progetto[
 // base (facoltativa): con la base, il punto si tocca lungo tutto il segmento base-ancora (per esempio un albero intero).
 // spento: il punto non si vede e non si tocca (per esempio i pali dei progetti nella vista per competenza).
 // tono (facoltativo): colore della sezione per l'etichetta (verde, azzurro, arancio), per le scene con più sezioni.
-export interface Punto { alSchermo?: (x: number, y: number) => void; id: string; label: string; href: string; hub: boolean; famiglia: string; ancora: THREE.Object3D; base?: THREE.Object3D; spento?: boolean; tono?: string }
+export interface Punto { id: string; label: string; href: string; hub: boolean; famiglia: string; ancora: THREE.Object3D; base?: THREE.Object3D; spento?: boolean; tono?: string }
 
 interface Opzioni {
   camera: THREE.Vector3;
@@ -27,6 +27,8 @@ interface Opzioni {
   entra?: { raggio: number; alto: number; dietro: number; sinistra: () => number };
   // Chiamata a ogni fotogramma: muove gli oggetti e li accende o spegne
   aggiorna: (t: number, acceso: (famiglia: string, id: string) => number) => void;
+  // Dà a chi la chiede una funzione che porta un punto della scena sullo schermo, in pixel
+  conProiezione?: (f: (v: THREE.Vector3) => { x: number; y: number }) => void;
   // Chiamata subito dopo aggiorna: serve alla crescita iniziale, che ha l'ultima parola sulle scale
   dopo?: (t: number) => void;
   // Rotazione iniziale intorno all'asse verticale (0.4 se manca), rotazione lenta automatica (sì se manca)
@@ -132,6 +134,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     const v = o.getWorldPosition(vettore).project(camera);
     return { x: (v.x * 0.5 + 0.5) * w, y: (-v.y * 0.5 + 0.5) * h, z: v.z };
   };
+  o.conProiezione?.(v => { v.applyMatrix4(gruppo.matrixWorld).project(camera); return { x: (v.x * 0.5 + 0.5) * w, y: (-v.y * 0.5 + 0.5) * h }; });
   // Distanza sullo schermo fra il puntatore e un punto, o il segmento base-ancora se il punto ha una base
   const distanza = (p: Punto, x: number, y: number) => {
     if (p.spento) return Infinity;
@@ -319,7 +322,6 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
 
     const posti = punti.map((p, i) => {
       const sc = schermo(i);
-      punti[i]!.alSchermo?.(sc.x, sc.y);
       const a = acceso(p.famiglia, p.id);
       const mostra = !p.spento && sc.z < 1 && (i === fuoco || (p.hub && a > 0.15) || (!!f && f.hub && f.famiglia === p.famiglia));
       etichette[i]!.style.opacity = mostra ? '1' : '0';
