@@ -1,11 +1,11 @@
 // Intro della home, una volta per sessione. Mescola gli stili e va dal vicino al lontano.
 // Si parte appena più vicino, in una foresta fatta di caratteri che si muovono, con la nebbia e la polvere che passano.
-// In primo piano galoppa una famiglia di cervi: pixel art bianca, a forme tonde, l'opposto dei caratteri. Escono da dietro un albero e spariscono dietro un altro.
+// Fra gli alberi galoppa una famiglia di cervi: sagome bianche tonde, a piena risoluzione, l'opposto dei caratteri. Escono da dietro un albero e spariscono dietro un altro.
 // Poi la camera si allontana: si vede la valle, compare il nome, e dagli alberi si alza lo stormo.
 // È lo stesso della home: ogni uccello a pixel arriva sul suo uccello 3D e gli passa il posto. La foresta si scioglie dal basso, il nome sale nella barra.
 import { ponte } from '../lib/ponteStormo';
 
-const T = { cervi: 0.5, apre: 3.2, aperto: 4.2, nome: 3.2, stormo: 3.4, via: 4.9, durata: 1.4 };
+const T = { cervi: 0.5, apre: 3.4, aperto: 4.4, nome: 3.4, stormo: 3.6, via: 5, durata: 1.4 };
 
 type Tela = HTMLCanvasElement;
 type Ctx = CanvasRenderingContext2D;
@@ -43,6 +43,12 @@ export function monta(el: HTMLElement) {
   cf.width = W; cf.height = H;
   cv.after(cf);
   const f = cf.getContext('2d')!;
+  // Una terza tela per i cervi, a piena risoluzione e senza pixel: curve lisce contro i caratteri
+  const dpr = Math.min(devicePixelRatio || 1, 2), cd = document.createElement('canvas');
+  cd.width = Math.round(innerWidth * dpr); cd.height = Math.round(innerHeight * dpr);
+  cd.style.cssText = 'position:absolute;inset:0;display:block;width:100%;height:100%;image-rendering:auto';
+  cf.after(cd);
+  const d = cd.getContext('2d')!;
   const VICINO = W > H ? 1.2 : 1.15, META = 1 / (2 * VICINO);
   g.imageSmoothingEnabled = false; f.imageSmoothingEnabled = false;
   const caso = semeCaso(7);
@@ -164,70 +170,96 @@ export function monta(el: HTMLElement) {
     }
   };
 
-  // --- I cervi: pixel art bianca, senza ombre, a forme tonde. Ogni fotogramma si disegna una volta su una griglia di pixel grossi.
-  // La corsa è un galoppo a zampe alternate, col corpo quasi orizzontale, e ogni tanto un salto
+  // --- I cervi: bianco pieno, nessuna ombra, nessun dettaglio. Curve lisce, ridisegnate a ogni fotogramma.
+  // Le zampe non sono angoli scritti a mano: ogni zoccolo segue una traiettoria, fermo a terra mentre il corpo avanza, poi alzato e portato avanti.
+  // Il ginocchio si ricava dalla lunghezza dei due tratti, sempre piegato dal lato giusto: indietro per le posteriori, avanti per le anteriori.
   type Tipo = 'cervo' | 'cerva' | 'piccolo';
-  const BIANCO = chiaro ? testo : '#ffffff', LS = 72, HS = 70, SUOLO = 66;
-  const quadro = (tipo: Tipo, sc: number, ph: number, salto: number) => {
-    const c = tela(LS, HS), q = c.getContext('2d')!;
-    q.fillStyle = BIANCO;
-    // Pieno o vuoto, mai sfumato: dischi di pixel, che danno i bordi tondi
-    const disco = (x: number, y: number, r: number) => { const R0 = Math.ceil(r); for (let j = -R0; j <= R0; j++) for (let i = -R0; i <= R0; i++) if (i * i + j * j <= r * r + 0.3) q.fillRect(Math.round(x) + i, Math.round(y) + j, 1, 1); };
-    const seg = (x0: number, y0: number, x1: number, y1: number, r0: number, r1: number) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0)) * 2 + 1; for (let i = 0; i <= n; i++) { const k = i / n; disco(x0 + (x1 - x0) * k, y0 + (y1 - y0) * k, r0 + (r1 - r0) * k); } };
-    const ell = (cx: number, cy: number, rx: number, ry: number, a: number) => { const R0 = Math.ceil(Math.max(rx, ry)), co = Math.cos(a), si = Math.sin(a); for (let y = -R0; y <= R0; y++) for (let x = -R0; x <= R0; x++) { const u0 = (x * co + y * si) / rx, v = (-x * si + y * co) / ry; if (u0 * u0 + v * v <= 1) q.fillRect(Math.round(cx) + x, Math.round(cy) + y, 1, 1); } };
-    const s2 = sc, gamba = tipo === 'piccolo' ? 1.1 : 1, l1 = 12 * s2 * gamba, l2 = 13.5 * s2 * gamba, alto = tipo === 'cervo' ? 1 : 0.9, testa = tipo === 'piccolo' ? 1.22 : 1, corto = tipo === 'piccolo' ? 0.82 : 1;
-    // Il salto stende le zampe e inclina il corpo; la corsa lo tiene quasi orizzontale, con un piccolo su e giù
-    const inAria = salto >= 0 ? Math.sin(Math.PI * salto) : 0, a = salto >= 0 ? (0.5 - salto) * 0.5 : Math.sin(ph * 6.283) * 0.035;
-    const bx = 30, by = SUOLO - (l1 + l2) * 0.93 - (salto >= 0 ? 0 : Math.abs(Math.sin(ph * 6.283)) * 1.1), co = Math.cos(a), si = Math.sin(a), P = (x: number, y: number): [number, number] => [bx + (x * co + y * si) * s2, by + (-x * si + y * co) * s2];
-    const zampa = (ax: number, ay: number, dietro: boolean, off: number) => {
-      const [hx, hy] = P(ax, ay), f0 = (ph + off) * 6.283;
-      // Di corsa la zampa oscilla e si piega quando torna avanti; nel salto si stende, avanti o indietro
-      const ang = salto >= 0 ? (dietro ? -1 : 1) * (0.25 + inAria * 0.95) : Math.sin(f0) * (dietro ? 0.72 : 0.82);
-      const su = salto >= 0 ? (1 - inAria) * 0.8 : Math.max(0, Math.cos(f0));
-      const shin = ang + (dietro ? 0.28 + su * 0.95 : -(0.1 + su * 1.25)), kx = hx + Math.sin(ang) * l1, ky = hy + Math.cos(ang) * l1;
-      seg(hx, hy, kx, ky, 1.5 * s2, 0.7), seg(kx, ky, kx + Math.sin(shin) * l2, ky + Math.cos(shin) * l2, 0.7, 0.45);
-    };
-    zampa(-10 * corto, 0.5, true, 0); zampa(-8 * corto, 1, true, 0.16); zampa(9 * corto, 1, false, 0.5); zampa(11 * corto, 0.5, false, 0.66);
-    const [cx0, cy0] = P(0, 0); ell(cx0, cy0, 12.5 * s2 * corto, 3.5 * s2 * alto, a);
-    const [rx0, ry0] = P(-9 * corto, -0.4); ell(rx0, ry0, 4.6 * s2, 4.2 * s2 * alto, a);
-    const [px0, py0] = P(9 * corto, 0.2); ell(px0, py0, 4.4 * s2, 4.3 * s2 * alto, a);
-    const [cdx, cdy] = P(-14 * corto, -3.2); ell(cdx, cdy, 2.5 * s2, 1.3 * s2, -0.7 + a);
-    // Collo avanti e in alto, testa tonda, orecchio
-    const [n0x, n0y] = P(10.5 * corto, -2.5), nx = n0x + 5.5 * s2, ny = n0y - 8.5 * s2;
-    seg(n0x, n0y, nx, ny, 2.4 * s2, 1.4 * s2);
-    ell(nx + 2.6 * s2 * testa, ny - 0.3, 3.5 * s2 * testa, 1.9 * s2 * testa, 0.15);
-    const lung = tipo === 'cervo' ? 2.4 : 3.3;
-    ell(nx - 1.5 * s2, ny - 2.8 * s2 * testa, 1.2 * s2, lung * s2, -0.6);
-    if (tipo === 'cervo') {
-      // Il palco: grande e tirato indietro, come nella corsa di un cervo vero
-      const a0x = nx - 0.3, a0y = ny - 2 * s2, am = (dx: number, dy: number): [number, number] => [a0x + dx * s2, a0y + dy * s2];
-      const v = [[0, 0, -2.5, -5], [-2.5, -5, -7, -9], [-7, -9, -11, -14], [-2.5, -5, -0.5, -10], [-7, -9, -5.5, -14], [-11, -14, -9.5, -18], [-11, -14, -14.5, -16]] as const;
-      for (const [x0, y0, x1, y1] of v) { const [a1, b1] = am(x0, y0), [a2, b2] = am(x1, y1); seg(a1, b1, a2, b2, 0.55, 0.45); }
-    }
-    return c;
+  const BIANCO = chiaro ? testo : '#ffffff', PASSO = 20, APPOGGIO = 0.3, ALZA = 7.5;
+  const zoccolo = (fase: number, centro: number): [number, number] => {
+    const p = ((fase % 1) + 1) % 1;
+    if (p < APPOGGIO) return [centro + PASSO / 2 - (p / APPOGGIO) * PASSO, 0];
+    const w = (p - APPOGGIO) / (1 - APPOGGIO), e = w * w * (3 - 2 * w);
+    return [centro - PASSO / 2 + e * PASSO, -Math.sin(Math.PI * w) * ALZA];
   };
-  // Ognuno con la sua grandezza e il suo passo; i salti cadono in punti diversi del percorso
-  const LATO = innerWidth < 700 ? 1 : 2;
-  const FAMIGLIA = ([['cervo', 0.84, 1.05, 0.74, 0.5, [0.56]], ['cerva', 0.76, 0.68, 0.8, 0.46, [0.34, 0.72]], ['piccolo', 0.52, 0, 0.77, 0.38, [0.24, 0.62]], ['piccolo', 0.48, 0.36, 0.71, 0.36, [0.46]]] as const).map(([tipo, sc, ritardo, quota, passo, salti], i) => ({
-    tipo: tipo as Tipo, ritardo, quota, passo, salti, seme: i * 1.7 + 0.4,
-    corsa: Array.from({ length: 8 }, (_, k) => quadro(tipo as Tipo, sc, k / 8, -1)),
-    balzo: Array.from({ length: 6 }, (_, k) => quadro(tipo as Tipo, sc, 0, (k + 0.5) / 6)),
-  })).sort((a, b) => a.quota - b.quota);
-  const CORSA = 1.9, DURA_SALTO = 0.17;
-  const disegnaCervi = (t: number) => {
-    if (t < T.cervi || t > T.cervi + CORSA + 0.6) return;
-    for (const a of FAMIGLIA) {
-      const u0 = (t - T.cervi - a.ritardo) / CORSA;
-      if (u0 <= 0 || u0 >= 1) continue;
-      const salto = a.salti.find(v => u0 >= v && u0 < v + DURA_SALTO), w = salto === undefined ? -1 : (u0 - salto) / DURA_SALTO;
-      const x = W * (ENTRA + (ESCE - ENTRA) * (u0 + Math.sin(t * 2.7 + a.seme) * 0.012)), piede = H * (a.quota + Math.sin(u0 * 3.5 + a.seme) * 0.008);
-      const fr = w >= 0 ? a.balzo[Math.min(5, Math.floor(w * 6))]! : a.corsa[Math.floor(((t - T.cervi) / a.passo + a.seme) * 8) % 8]!, su = w >= 0 ? Math.sin(Math.PI * w) * 15 * LATO : 0;
-      const dx = Math.round(x / LATO) * LATO - (30 * LATO), dy = Math.round((piede - SUOLO * LATO - su) / LATO) * LATO;
-      f.drawImage(fr, dx, dy, LS * LATO, HS * LATO);
-      // Le celle di un albero più vicino del cervo tornano davanti a lui
-      const rB = Math.floor(piede / CH), c0 = Math.max(0, Math.floor(dx / CW)), c1 = Math.min(C - 1, Math.ceil((dx + LS * LATO) / CW)), r0 = Math.max(0, Math.floor(dy / CH)), r1 = Math.min(R - 1, Math.ceil((dy + HS * LATO) / CH));
-      for (let r = r0; r <= r1; r++) for (let q = c0; q <= c1; q++) if (baseAlbero[r * C + q]! > rB) f.clearRect(q * CW, r * CH, CW, CH);
+  const gamba = (hx: number, hy: number, fx: number, fy: number, l1: number, l2: number, verso: number, w1: number, w2: number) => {
+    const dx = fx - hx, dy = fy - hy, dist = Math.min(l1 + l2 - 0.05, Math.hypot(dx, dy)), a = Math.acos(Math.max(-1, Math.min(1, (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist)))), base = Math.atan2(dy, dx) + verso * a;
+    const kx = hx + Math.cos(base) * l1, ky = hy + Math.sin(base) * l1, r = l2 / dist, px2 = hx + (fx - hx) * Math.min(1, 1), py = hy + (fy - hy) * Math.min(1, 1);
+    void r;
+    d.lineWidth = w1; d.beginPath(); d.moveTo(hx, hy); d.lineTo(kx, ky); d.stroke();
+    d.lineWidth = w2; d.beginPath(); d.moveTo(kx, ky); d.lineTo(px2, py); d.stroke();
+  };
+  const disegnaCervo = (x: number, suolo: number, s: number, tipo: Tipo, ph: number) => {
+    const corto = tipo === 'piccolo' ? 0.8 : 1, grossa = tipo === 'piccolo' ? 1.2 : 1, alto = tipo === 'cervo' ? 1 : 0.88, l1 = 10.5, l2 = 11;
+    // Il corpo ondula appena: si abbassa quando gli zoccoli toccano, e ondeggia avanti e indietro
+    const su = Math.sin((ph - 0.08) * 6.283) * 1.2, inclina = Math.sin((ph + 0.1) * 6.283) * 0.055;
+    d.save();
+    d.translate(x, suolo); d.scale(s, s);
+    d.fillStyle = BIANCO; d.strokeStyle = BIANCO; d.lineCap = 'round'; d.lineJoin = 'round';
+    const by = -19 + su, co = Math.cos(inclina), si = Math.sin(inclina), P = (a: number, b: number): [number, number] => [a * co - b * si, by + a * si + b * co];
+    // Le quattro zampe: prima le posteriori, poi le anteriori, sfasate come in un galoppo
+    const [h1x, h1y] = P(-10.5 * corto, 1.5), [h2x, h2y] = P(-8.5 * corto, 2), [f1x, f1y] = P(9 * corto, 2), [f2x, f2y] = P(10.5 * corto, 1.5);
+    const piedi = [zoccolo(ph, -8 * corto), zoccolo(ph + 0.13, -6.5 * corto), zoccolo(ph + 0.55, 10 * corto), zoccolo(ph + 0.68, 11.5 * corto)];
+    gamba(h1x, h1y, piedi[0]![0], piedi[0]![1], l1, l2, 1, 2.6, 1.15);
+    gamba(h2x, h2y, piedi[1]![0], piedi[1]![1], l1, l2, 1, 2.6, 1.15);
+    gamba(f1x, f1y, piedi[2]![0], piedi[2]![1], l1, l2, -1, 2.1, 1.05);
+    gamba(f2x, f2y, piedi[3]![0], piedi[3]![1], l1, l2, -1, 2.1, 1.05);
+    d.translate(0, by); d.rotate(inclina);
+    // Una sola forma morbida: groppa piena, schiena lunga, petto profondo, pancia che risale verso le zampe posteriori
+    d.beginPath();
+    d.moveTo(-15.5 * corto, -1.5 * alto);
+    d.bezierCurveTo(-13 * corto, -6 * alto, -6 * corto, -5.3 * alto, 2 * corto, -4.8 * alto);
+    d.bezierCurveTo(7 * corto, -4.8 * alto, 11 * corto, -6.5 * alto, 14 * corto, -4 * alto);
+    d.bezierCurveTo(16 * corto, -0.5 * alto, 13.5 * corto, 5 * alto, 9.5 * corto, 5.2 * alto);
+    d.bezierCurveTo(4 * corto, 5 * alto, -3 * corto, 2.2 * alto, -8 * corto, 3 * alto);
+    d.bezierCurveTo(-11 * corto, 7 * alto, -17 * corto, 5 * alto, -15.5 * corto, -1.5 * alto);
+    d.fill();
+    // La coda
+    d.save(); d.translate(-15.2 * corto, -2.4 * alto); d.rotate(-0.65); d.beginPath(); d.ellipse(-1.6, 0, 2.6, 1.15, 0, 0, 6.3); d.fill(); d.restore();
+    // Collo teso in avanti, come nella corsa; la testa compensa l'ondulazione e resta quasi ferma
+    const nx = 20.5 * corto, ny = -11.5 - su * 0.35;
+    d.beginPath(); d.moveTo(8 * corto, -5.2 * alto); d.quadraticCurveTo(14 * corto, -7.5, nx - 2.3, ny - 1.9); d.lineTo(nx + 1.4, ny + 2.1); d.quadraticCurveTo(nx - 2.2, ny + 7, 13 * corto, 3.4 * alto); d.closePath(); d.fill();
+    d.save(); d.translate(nx, ny); d.rotate(-inclina); d.scale(grossa, grossa);
+    d.beginPath(); d.ellipse(2.3, 0.6, 4.7, 2.3, 0.2, 0, 6.3); d.fill();
+    const orecchio = tipo === 'cervo' ? 2.5 : tipo === 'cerva' ? 3.5 : 3.8;
+    d.save(); d.translate(-1.2, -1.3); d.rotate(-0.85); d.beginPath(); d.ellipse(0, -orecchio * 0.8, 1.1, orecchio, 0, 0, 6.3); d.fill(); d.restore();
+    if (tipo === 'cervo') {
+      d.lineWidth = 1;
+      d.beginPath(); d.moveTo(0.6, -1.8); d.bezierCurveTo(-0.5, -6, -4, -9, -7, -14); d.moveTo(-1.4, -5.8); d.quadraticCurveTo(-0.8, -9, 1.6, -11.5); d.moveTo(-3.7, -9); d.quadraticCurveTo(-3.8, -12.5, -1.6, -15.5); d.moveTo(-5.6, -11.8); d.quadraticCurveTo(-8.5, -13.5, -10.5, -13); d.stroke();
     }
+    d.restore();
+    d.restore();
+  };
+  // La scala viene dagli alberi: un albero vicino è alto circa 4 volte un cervo adulto. Più lontano vuol dire più piccolo e più in alto
+  const SCALA = ((R * 0.38 * CH) / 185);
+  const FAMIGLIA = ([['cervo', 1, 0.8, 0.74, 1.02], ['cerva', 0.9, 0.3, 0.8, 0.98], ['piccolo', 0.6, 0, 0.775, 1.05], ['piccolo', 0.56, 0.55, 0.715, 1]] as const)
+    .map(([tipo, sc, ritardo, quota, ritmo], i) => ({ tipo: tipo as Tipo, sc, ritardo, quota, ritmo, seme: i * 1.7 + 0.4 }));
+  const CORSA = 2.2;
+  let camera = 1;
+  const disegnaCervi = (t: number) => {
+    d.setTransform(1, 0, 0, 1, 0, 0);
+    d.clearRect(0, 0, cd.width, cd.height);
+    if (t < T.cervi || t > T.cervi + CORSA + 1) return;
+    const ox = innerWidth * 0.5, oy = innerHeight * 0.72, k = px * camera * dpr;
+    d.setTransform(k, 0, 0, k, ox * (1 - camera) * dpr, oy * (1 - camera) * dpr);
+    d.globalCompositeOperation = 'source-over';
+    const lista = FAMIGLIA.map(a => {
+      const u0 = (t - T.cervi - a.ritardo) / (CORSA / a.ritmo);
+      // Un po' di irregolarità: ognuno accelera e rallenta per conto suo, e la strada ondula leggermente
+      const u1 = u0 + Math.sin(u0 * 7 + a.seme) * 0.012, prof = (a.quota - 0.6) / 0.3, s = a.sc * SCALA * (0.72 + prof * 0.55);
+      const x = W * (ENTRA + (ESCE - ENTRA) * u1), suolo = H * (a.quota + Math.sin(u0 * 4 + a.seme) * 0.006);
+      // Gli zoccoli non scivolano: la fase del passo dipende dalla strada fatta
+      const giro2 = (PASSO / APPOGGIO) * s, ph = x / giro2 + a.seme;
+      return { a, u0, s, x, suolo, ph };
+    }).sort((p, q) => p.suolo - q.suolo);
+    for (const c of lista) if (c.u0 > 0 && c.u0 < 1) disegnaCervo(c.x, c.suolo, c.s, c.a.tipo, c.ph);
+    // I due alberi vicini stanno davanti ai cervi: li si toglie con la loro sagoma, e ricompaiono i caratteri
+    d.globalCompositeOperation = 'destination-out';
+    d.fillStyle = '#000';
+    for (const v of [ENTRA, ESCE]) {
+      const h = Math.round(R * 0.38), base = Math.round(R * 0.89) * CH, cc = Math.round(C * v) * CW + 1, m = h * 0.3 * CW;
+      d.beginPath(); d.moveTo(cc, base - h * CH); d.lineTo(cc + m, base); d.lineTo(cc - m, base); d.closePath(); d.fill();
+    }
+    d.globalCompositeOperation = 'source-over';
   };
 
   // --- Lo stormo: ogni uccello parte da una chioma e arriva sul suo uccello 3D. Quando è arrivato, il 3D gli prende il posto
@@ -267,6 +299,7 @@ export function monta(el: HTMLElement) {
     const lontano = liscio((t - T.apre) / (T.aperto - T.apre)), sc = 1 + (VICINO * (1 + Math.min(t, T.apre) * 0.018) - 1) * (1 - lontano);
     const forma = sc > 1.001 ? `scale(${sc})` : '';
     cv.style.transform = forma; cf.style.transform = forma;
+    camera = sc;
     if (conta++ % 2 === 0 || u0 > 0) disegnaValle(t, q);
     f.clearRect(0, 0, W, H);
     disegnaCervi(t);
