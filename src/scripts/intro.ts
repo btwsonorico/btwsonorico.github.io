@@ -49,7 +49,7 @@ export function monta(el: HTMLElement) {
   cf.width = W; cf.height = H;
   cv.after(cf);
   const f = cf.getContext('2d')!;
-  for (const c of [cv, cf]) Object.assign(c.style, { left: `${sinistra}px`, top: `${sopra}px`, right: 'auto', bottom: 'auto', width: `${larghezza}px`, height: `${altezza}px`, transformOrigin: `${FUOCO * 100}% 86%` });
+  for (const c of [cv, cf]) Object.assign(c.style, { left: `${sinistra}px`, top: `${sopra}px`, right: 'auto', bottom: 'auto', width: `${larghezza}px`, height: `${altezza}px` });
   g.imageSmoothingEnabled = false; f.imageSmoothingEnabled = false;
   const caso = semeCaso(7);
   nome.textContent = '';
@@ -180,7 +180,7 @@ export function monta(el: HTMLElement) {
       } else if (k === ERBA) l += Math.sin(c * 0.14 + r * 0.5 - t * 2.3 + n) * 0.17;
       else if (k === STELLA) l *= 0.55 + 0.45 * Math.sin(t * (1 + n * 4) + n * 20);
       else if (k === ALBERO) l += Math.sin(c * 0.3 - t * 1.1 + r * 0.2) * 0.03;
-      // Nebbia leggera finché la camera è vicina
+      // Nebbia leggera nei primi secondi, che poi si apre
       if (buio > 0 && !copre[i]) { const b = 0.5 + 0.28 * Math.sin(c * 0.07 + t * 0.55 + Math.sin(r * 0.17 + t * 0.3) * 1.6) + 0.22 * Math.sin(r * 0.21 - t * 0.4 + c * 0.05); l *= 1 - buio * 0.35 * (1 - Math.max(0.2, b)); }
       const liv = Math.max(0, Math.min(LIVELLI - 1, Math.floor(l * LIVELLI))), rampa = RAMPE[acqua && k !== STELLA ? ACQUA : k]!;
       const qui = t < t0[i]! + 0.22 ? Math.floor(t * 28 + n * 40) % rampa.length : Math.min(rampa.length - 1, Math.floor((Math.max(0, l) + n * 0.1) * rampa.length));
@@ -314,12 +314,8 @@ export function monta(el: HTMLElement) {
   };
 
   let conta = 0;
-  const VICINO = largo ? 1.12 : 1.06;
   const disegno = (t: number) => {
     const u0 = (t - T.via) / T.durata, q = u0 > 0 ? liscio(u0 * 1.05) * 1.02 : 0;
-    // La camera: appena più vicina ai cervi, poi si allontana fino a mostrare tutto
-    const lontano = liscio((t - T.apre) / (T.aperto - T.apre)), sc = 1 + (VICINO - 1) * (1 - lontano), forma = sc > 1.001 ? `scale(${sc})` : '';
-    cv.style.transform = forma; cf.style.transform = forma;
     if (conta++ % 2 === 0 || u0 > 0) disegnaValle(t, q);
     f.clearRect(0, 0, W, H);
     disegnaCervi(t);
