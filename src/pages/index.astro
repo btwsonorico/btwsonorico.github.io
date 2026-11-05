@@ -89,6 +89,8 @@ const PAGINE = [
   /* Il testo della home compare alla fine, quando il nome è sfumato */
   .about { transition: opacity .5s; }
   :global(html[data-intro]) .about { opacity: 0; }
+  /* Il nome compare solo quando l'intro lo scrive */
+  .intro-nome:not(.pronto) { visibility: hidden; }
   .intro-salta { position: absolute; right: 16px; bottom: 12px; margin: 0; font-size: 12px; color: var(--muted); }
   #intro.in-volo .intro-salta { display: none; }
   /* Il mondo copre tutto lo schermo, dietro al testo; il testo lascia passare il puntatore tranne sui link */

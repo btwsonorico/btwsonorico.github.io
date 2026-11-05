@@ -197,6 +197,7 @@ export function monta(el: HTMLElement) {
   type Tipo = 'cervo' | 'cerva' | 'piccolo';
   const BIANCO = chiaro ? testo : '#ffffff', PASSO = 20, FOTOGRAMMI = 10;
   nome.style.color = BIANCO;
+  nome.classList.add('pronto');
   let d: Ctx = f, minimo = 1;
   const mix = (a: number, b: number, k: number) => a + (b - a) * k;
   const appoggio = (g: number) => mix(0.3, 0.62, g), passoDi = (g: number) => mix(PASSO, 13, g);
