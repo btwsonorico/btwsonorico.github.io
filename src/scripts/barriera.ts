@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { casuale, mat as matSito, pezzo, scuoti, sasso, unisci, terreno, nastri, puntiMorbidi, palco, tema, type Extra, type Nastro, type Palco } from './natura';
-import { VOCI, type Voce } from '../lib/glossario';
+import { TINTE_SEZIONI, VOCI, type Voce } from '../lib/glossario';
 import { nuovaScheda } from './schedaGlossario';
 
 // Barriera corallina: un fondale aperto, tutto sott'acqua, nello stile del laghetto. Al centro una torre di rocce a
@@ -267,7 +267,7 @@ export function monta(el: HTMLElement, opzioni: { pesca?: boolean } = {}) {
   const geoPesce = unisci([new THREE.OctahedronGeometry(1, 0).scale(0.022, 0.034, 0.07), coda]).scale(1.15, 1.15, 1.15);
   type Banco = { mesh: THREE.InstancedMesh; n: number; pos: Float32Array; vel: Float32Array; meta: THREE.Vector3; fase: number; paura: number; scala: Float32Array };
   const SEZIONI = new Set(VOCI.map(v => v.indiceSezione)).size;
-  const TINTE_BANCHI = ['#d9ecf2', '#f7cf4f', '#f0603f', '#3e6795', '#f2c14e', '#ff9fb4'];
+  const TINTE_BANCHI = TINTE_SEZIONI;
   // Pesca: tanti banchi quante sezioni del glossario, stesso numero di pesci in tutto
   const quanti = opzioni.pesca ? Array.from({ length: SEZIONI }, () => Math.round((p.telefono ? 140 : 272) / SEZIONI)) : p.telefono ? [58, 46, 36] : [112, 90, 70];
   const banchi: Banco[] = (opzioni.pesca ? quanti.map((_, b) => TINTE_BANCHI[b % TINTE_BANCHI.length]!) : ['#d9ecf2', '#f7cf4f', '#f0603f']).map((c, b) => {
