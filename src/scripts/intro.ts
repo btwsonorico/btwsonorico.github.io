@@ -358,6 +358,8 @@ export function monta(el: HTMLElement) {
     return;
   }
   ['pointerdown', 'keydown', 'wheel'].forEach(e => addEventListener(e, salta, { passive: true }));
+  // Una sicurezza: se il dispositivo non ce la fa, la home si apre comunque
+  setTimeout(chiudi, 12000);
   const giro = (ms: number) => {
     if (finito) return;
     // Anche su un telefono lento l'intro dura lo stesso tempo: salta fotogrammi, non rallenta
