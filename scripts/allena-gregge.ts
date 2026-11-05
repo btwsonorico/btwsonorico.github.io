@@ -1,14 +1,16 @@
 // @ts-nocheck
 // Allena il cane del gregge con PPO e salva le tappe. Il gregge è src/lib/gregge.ts, lo stesso della pagina /learn/reinforcement/.
-// Si lancia con: npx tsx scripts/allena-gregge.ts <cartella di uscita> <run: v1|M> [decisioni totali] [processi]
+// Si lancia con: npx tsx scripts/allena-gregge.ts <cartella di uscita> <run: v1|M|P|Q|R> [decisioni totali] [processi]
 import { isMainThread, parentPort, Worker, workerData } from 'node:worker_threads';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { agisci, avanza, inizioPremio, LIMITE, N_AZIONI, N_VISTA, N_VISTA_MAPPA, nuovoMondo, OGNI, premio, punteggi, vedi, vediMappa, type Mondo } from '../src/lib/gregge';
+import { agisci, avanza, inizioPremio, L, LIMITE, N_AZIONI as NA9, N_AZIONI_P, N_VISTA, N_VISTA_MAPPA, N_VISTA_P, nuovoCerchio, nuovoMondo, OGNI, PECORE, premio, punteggi, RAGGIO, vedi, vediDue, vediMappa, type Mondo } from '../src/lib/gregge';
 
 // Run M: il cane vede anche la mappa del gregge
-const CON_MAPPA = (isMainThread ? process.argv[3] : workerData.run) === 'M', N_V = CON_MAPPA ? N_VISTA_MAPPA : N_VISTA, vista = (m: Mondo) => (CON_MAPPA ? vediMappa(m) : vedi(m));
-const STRATI = [N_V, 64, 64, N_AZIONI], STRATI_V = [N_V, 64, 64, 1], PER_PROCESSO = 1024, LAMBDA = 0.95, CLIP = 0.2, EPOCHE = 4, GRUPPO = 512, LR = 3e-4;
+const RUN = isMainThread ? process.argv[3] : workerData.run, CON_MAPPA = RUN === 'M', DUE = RUN === 'P' || RUN === 'Q' || RUN === 'R', N_V = DUE ? N_VISTA_P : CON_MAPPA ? N_VISTA_MAPPA : N_VISTA, NA = DUE ? N_AZIONI_P : NA9, vista = (m: Mondo) => (DUE ? vediDue(m) : CON_MAPPA ? vediMappa(m) : vedi(m));
+// SEGUITO: quante partite ripartono con il gregge dov'è, come in Learn
+const SEGUITO = Number(process.env.SEGUITO ?? 0);
+const STRATI = [N_V, 64, 64, NA], STRATI_V = [N_V, 64, 64, 1], PER_PROCESSO = 1024, LAMBDA = 0.95, CLIP = 0.2, EPOCHE = 4, GRUPPO = 512, LR = 3e-4;
 const contaPesi = (s: number[]) => s.slice(1).reduce((a, n, l) => a + n * (s[l]! + 1), 0);
 
 const avantiV = (pesi: ArrayLike<number>, o: ArrayLike<number>) => {
@@ -25,20 +27,35 @@ if (!isMainThread) {
   // --- Un processo gioca: raccoglie quello che vede, le azioni e i premi con la rete del momento
   const { run } = workerData;
   let seme: number = workerData.seme;
-  const nuovo = () => nuovoMondo(seme++);
+  // Run R: metà delle partite parte già nel finale, con quasi tutte dentro e le ultime sparse: è il momento in cui il cane sbaglia
+  const nuovo = () => {
+    const q = nuovoMondo(seme++);
+    if (run === 'R' && Math.random() < 0.5) {
+      const fuori = 2 + Math.floor(Math.random() * 28), base = Math.random() * 6.28;
+      for (let i = 0; i < PECORE; i++) {
+        const a = Math.random() * 6.28, d = i < fuori ? RAGGIO + 0.3 + Math.random() * 3 : Math.sqrt(Math.random()) * (RAGGIO - 0.25), g = i < fuori ? base + (Math.random() - 0.5) * 2.5 : a;
+        q.x[i] = q.gx + Math.cos(g) * d; q.z[i] = q.gz + Math.sin(g) * d;
+        const r0 = Math.hypot(q.x[i]!, q.z[i]!);
+        if (r0 > L - 1.8) { q.x[i] = q.x[i]! * (L - 1.8) / r0; q.z[i] = q.z[i]! * (L - 1.8) / r0; }
+      }
+      const a = base + (Math.random() - 0.5) * 2, d = RAGGIO + 2 + Math.random() * 2;
+      q.cane.x = q.cane.mx = q.gx + Math.cos(a) * d; q.cane.z = q.cane.mz = q.gz + Math.sin(a) * d;
+    }
+    return q;
+  };
   let m = nuovo(), prima = inizioPremio(m);
   parentPort!.on('message', ({ pp, pv }: { pp: Float32Array; pv: Float64Array }) => {
     const obs = new Float32Array(PER_PROCESSO * N_V), az = new Uint8Array(PER_PROCESSO), lp = new Float32Array(PER_PROCESSO), val = new Float32Array(PER_PROCESSO + 1), rew = new Float32Array(PER_PROCESSO), fine = new Uint8Array(PER_PROCESSO);
     const tempi: number[] = [];
     for (let t = 0; t < PER_PROCESSO; t++) {
-      const { o, dgx, dgz } = vista(m), u = punteggi(pp, o, undefined, STRATI);
+      const { o, dgx, dgz } = vista(m), u = punteggi(pp, o, new Float64Array(NA), STRATI);
       let mx = -Infinity;
-      for (let a = 0; a < N_AZIONI; a++) if (u[a]! > mx) mx = u[a]!;
+      for (let a = 0; a < NA; a++) if (u[a]! > mx) mx = u[a]!;
       let tot = 0;
-      const pr = new Float64Array(N_AZIONI);
-      for (let a = 0; a < N_AZIONI; a++) { pr[a] = Math.exp(u[a]! - mx); tot += pr[a]!; }
+      const pr = new Float64Array(NA);
+      for (let a = 0; a < NA; a++) { pr[a] = Math.exp(u[a]! - mx); tot += pr[a]!; }
       let q = Math.random() * tot, a = 0;
-      while (a < N_AZIONI - 1 && q >= pr[a]!) { q -= pr[a]!; a++; }
+      while (a < NA - 1 && q >= pr[a]!) { q -= pr[a]!; a++; }
       obs.set(o, t * N_V); az[t] = a; lp[t] = Math.log(pr[a]! / tot); val[t] = avantiV(pv, o);
       agisci(m, a, dgx, dgz);
       for (let k = 0; k < OGNI && !m.finito; k++) avanza(m);
@@ -46,7 +63,8 @@ if (!isMainThread) {
       if (m.finito || m.tempo >= LIMITE) {
         fine[t] = 1;
         if (m.finito) tempi.push(m.tempo);
-        m = nuovo(); prima = inizioPremio(m);
+        if (m.finito && Math.random() < SEGUITO) nuovoCerchio(m); else m = nuovo();
+        prima = inizioPremio(m);
       }
     }
     val[PER_PROCESSO] = avantiV(pv, vista(m).o);
@@ -110,9 +128,9 @@ if (!isMainThread) {
     for (let s = 0; s < semi; s++) {
       const m = nuovoMondo(1000 + s);
       while (!m.finito && m.tempo < LIMITE) {
-        const { o, dgx, dgz } = vista(m), u = punteggi(pesi, o, undefined, STRATI);
+        const { o, dgx, dgz } = vista(m), u = punteggi(pesi, o, new Float64Array(NA), STRATI);
         let a = 0;
-        for (let q = 1; q < N_AZIONI; q++) if (u[q]! > u[a]!) a = q;
+        for (let q = 1; q < NA; q++) if (u[q]! > u[a]!) a = q;
         agisci(m, a, dgx, dgz);
         for (let k = 0; k < OGNI && !m.finito; k++) avanza(m);
       }
@@ -162,18 +180,18 @@ if (!isMainThread) {
           const i = ordine[q]!, o = obs.subarray(i * N_V, (i + 1) * N_V), a = az[i]!, A = (adv[i]! - ma) / sa;
           un(P, STRATI, o, gP, u => {
             let mx = -Infinity;
-            for (let k = 0; k < N_AZIONI; k++) if (u[k]! > mx) mx = u[k]!;
+            for (let k = 0; k < NA; k++) if (u[k]! > mx) mx = u[k]!;
             let tot = 0;
-            const pr = new Float64Array(N_AZIONI);
-            for (let k = 0; k < N_AZIONI; k++) { pr[k] = Math.exp(u[k]! - mx); tot += pr[k]!; }
-            for (let k = 0; k < N_AZIONI; k++) pr[k] = pr[k]! / tot;
+            const pr = new Float64Array(NA);
+            for (let k = 0; k < NA; k++) { pr[k] = Math.exp(u[k]! - mx); tot += pr[k]!; }
+            for (let k = 0; k < NA; k++) pr[k] = pr[k]! / tot;
             const rapporto = Math.exp(Math.log(pr[a]!) - lp[i]!), c = rapporto > 1 + CLIP ? 1 + CLIP : rapporto < 1 - CLIP ? 1 - CLIP : rapporto;
-            const coef = A * rapporto <= A * c ? -A * rapporto : 0, d = new Float64Array(N_AZIONI);
-            for (let k = 0; k < N_AZIONI; k++) {
+            const coef = A * rapporto <= A * c ? -A * rapporto : 0, d = new Float64Array(NA);
+            for (let k = 0; k < NA; k++) {
               d[k] = coef * ((k === a ? 1 : 0) - pr[k]!);
               // Entropia: tiene viva l'esplorazione
               let dh = 0;
-              for (let w = 0; w < N_AZIONI; w++) dh += (Math.log(pr[w]! + 1e-12) + 1) * pr[w]! * ((w === k ? 1 : 0) - pr[k]!);
+              for (let w = 0; w < NA; w++) dh += (Math.log(pr[w]! + 1e-12) + 1) * pr[w]! * ((w === k ? 1 : 0) - pr[k]!);
               d[k] = d[k]! + ENTROPIA * dh;
             }
             return d;

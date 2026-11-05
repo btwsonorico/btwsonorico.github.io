@@ -1,4 +1,4 @@
-import { avanza, DT, L, LATO_MAPPA, LIMITE, meta, N_AZIONI, nuovoMondo, OGNI, OSTACOLI, PECORE, RAGGIO, scegli, type Mondo, type Tipo } from '../lib/gregge';
+import { avanza, DT, L, LATO_MAPPA, LIMITE, meta, N_AZIONI, N_AZIONI_P, nuovoMondo, OGNI, OSTACOLI, PECORE, RAGGIO, scegli, type Mondo, type Tipo } from '../lib/gregge';
 
 // Vista del gregge, in isometria: due prati, lo stesso campo, lo stesso orologio. Guarda: due policy a confronto. Gioca: tu a sinistra, l'AI a destra.
 // Sui prati si vede quello che ogni cane legge: la differenza fra le due policy è tutta lì.
@@ -26,7 +26,7 @@ export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migli
     if (!pesi.has(id)) pesi.set(id, new Float32Array(await (await fetch(`/learn/gregge/${id}.bin`)).arrayBuffer()));
     return pesi.get(id)!;
   };
-  const prato = (m: Mondo, chi: Prato['chi'], p: Float32Array | null, nome: string, caso = false): Prato => ({ m, chi, pesi: p, caso, passi: 0, dgx: 1, dgz: 0, pr: new Float64Array(N_AZIONI).fill(1 / N_AZIONI), storia: [0], nome });
+  const prato = (m: Mondo, chi: Prato['chi'], p: Float32Array | null, nome: string, caso = false): Prato => ({ m, chi, pesi: p, caso, passi: 0, dgx: 1, dgz: 0, pr: new Float64Array(N_AZIONI_P).fill(1 / N_AZIONI_P), storia: [0], nome });
   let prati: Prato[] = [], modo: 'guarda' | 'gioca' = 'guarda', seme = Math.floor(Math.random() * 1e9), campo: Campo | null = null, tappa = tappe[tappe.length - 1]!, fermo = false, chiuso = false, attesa = 0, vel = 1, resto = 0, oraPrima = performance.now(), visibile = false, sporco = true;
   let spiegaEl: HTMLElement | null = null, sopra = false, px = 0, pz = 0, vista = true, record = leggi(RECORD), recordAI = leggi(RECORD_AI) || migliorAI, sasso: { x: number; z: number; t: number } | null = null;
 
@@ -36,8 +36,8 @@ export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migli
     const ultima = tappe[tappe.length - 1]!, t = modo === 'gioca' ? ultima : tappa, dopo = t.id === ultima.id ? '' : ` · ${t.nome}`;
     const [v1, m2] = await Promise.all([carica(t.v), carica(t.id)]);
     prati = modo === 'gioca'
-      ? [prato(nuovoMondo(seme), 'tu', null, 'you'), prato(nuovoMondo(seme), 'M', m2, 'the AI')]
-      : [prato(nuovoMondo(seme), 'v1', v1, `policy 1: 18 numbers${dopo}`, !!t.caso), prato(nuovoMondo(seme), 'M', m2, `policy 2: 18 numbers + map${dopo}`, !!t.caso)];
+      ? [prato(nuovoMondo(seme), 'tu', null, 'you'), prato(nuovoMondo(seme), 'P', m2, 'the AI')]
+      : [prato(nuovoMondo(seme), 'v1', v1, `policy 1: 18 numbers${dopo}`, !!t.caso), prato(nuovoMondo(seme), 'P', m2, `policy 2: 18 numbers + 2 maps${dopo}`, !!t.caso)];
     chiuso = false; attesa = 0; resto = 0; sporco = true;
     scrivi(esito, '');
     scriviBest();
@@ -107,11 +107,13 @@ export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migli
     c.beginPath();
     for (let v = -L; v <= L; v += 2) { c.moveTo(v, -L); c.lineTo(v, L); c.moveTo(-L, v); c.lineTo(L, v); }
     c.stroke();
-    // Quello che la policy legge: per la seconda, la mappa intorno al cane, girata come la legge lei
-    if (vista && q.chi === 'M') {
-      const u = [q.dgx, q.dgz], w = [-q.dgz, q.dgx], conte = new Float32Array(LATO_MAPPA * LATO_MAPPA), meta0 = LATO_MAPPA / 2;
+    // Quello che la policy legge: per la seconda, due mappe intorno al cane, girate come le legge lei: le pecore fuori e quelle dentro
+    if (vista && q.chi === 'P') {
+      const u = [q.dgx, q.dgz], w = [-q.dgz, q.dgx], meta0 = LATO_MAPPA / 2;
+      for (const dentro of [false, true]) {
+      const conte = new Float32Array(LATO_MAPPA * LATO_MAPPA);
       for (let i = 0; i < PECORE; i++) {
-        if (Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) < RAGGIO) continue;
+        if ((Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) < RAGGIO) !== dentro) continue;
         const dx = m.x[i]! - m.cane.x, dz = m.z[i]! - m.cane.z, a = Math.max(0, Math.min(LATO_MAPPA - 1, Math.floor(dx * u[0]! + dz * u[1]! + meta0))), b = Math.max(0, Math.min(LATO_MAPPA - 1, Math.floor(dx * w[0]! + dz * w[1]! + meta0)));
         conte[a * LATO_MAPPA + b] = conte[a * LATO_MAPPA + b]! + 1;
       }
@@ -120,10 +122,11 @@ export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migli
         const v = conte[a * LATO_MAPPA + b]!;
         if (!v) continue;
         c.globalAlpha = Math.min(0.55, 0.14 + v * 0.03);
-        c.fillStyle = ARANCIO;
+        c.fillStyle = dentro ? BLU : ARANCIO;
         c.beginPath();
         c.moveTo(...angolo(a, b)); c.lineTo(...angolo(a + 1, b)); c.lineTo(...angolo(a + 1, b + 1)); c.lineTo(...angolo(a, b + 1));
         c.closePath(); c.fill();
+      }
       }
       c.globalAlpha = 1;
     }
@@ -211,7 +214,7 @@ export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migli
   }
   // La bussola: quanto la seconda policy vuole ogni mossa adesso. Il quadrato al centro è stare fermo
   function disegnaBussola() {
-    const q = prati.find(p => p.chi === 'M');
+    const q = prati.find(p => p.chi === 'P');
     const d = devicePixelRatio, w = bussola.clientWidth, h = bussola.clientHeight;
     if (!w || !q) return;
     if (bussola.width !== w * d || bussola.height !== h * d) { bussola.width = w * d; bussola.height = h * d; }
@@ -223,7 +226,7 @@ export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migli
     cb.strokeStyle = ARANCIO;
     cb.lineWidth = 2;
     cb.beginPath();
-    for (let a = 1; a < N_AZIONI; a++) { const t = base + ((a - 1) * Math.PI) / 4, l = Math.min(1, Math.sqrt(q.pr[a]!)) * R; cb.moveTo(cx, cy); cb.lineTo(cx + Math.cos(t) * l, cy + Math.sin(t) * l); }
+    for (let a = 1; a < N_AZIONI; a++) { const t = base + ((a - 1) * Math.PI) / 4, l = Math.min(1, Math.sqrt(q.pr[a]! + q.pr[a + 8]!)) * R; cb.moveTo(cx, cy); cb.lineTo(cx + Math.cos(t) * l, cy + Math.sin(t) * l); }
     cb.stroke();
     cb.lineWidth = 1;
     cb.fillStyle = FG;

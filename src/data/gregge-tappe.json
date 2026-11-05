@@ -1,34 +1,34 @@
 {
  "tappe": [
   {
-   "id": "m0",
+   "id": "r0",
    "nome": "start",
    "nota": "Random weights: both dogs wander.",
    "caso": true,
    "v": "v0"
   },
   {
-   "id": "m400k",
+   "id": "r400k",
    "nome": "400k",
-   "nota": "After 400,000 decisions, policy 1 finishes 2 of 24 test fields and policy 2 finishes 13, slowly.",
+   "nota": "After 400,000 decisions, policy 1 finishes 2 of 24 test fields and policy 2 finishes 6, slowly.",
    "v": "v400k"
   },
   {
-   "id": "m800k",
+   "id": "r800k",
    "nome": "800k",
-   "nota": "After 800,000, policy 1 finishes 14 of 24 and policy 2 finishes 20, with 176 sheep inside on average.",
+   "nota": "After 800,000, policy 1 is ahead: it finishes 14 of 24, and policy 2 finishes 7.",
    "v": "v800k"
   },
   {
-   "id": "m1500k",
+   "id": "r1500k",
    "nome": "1.5M",
-   "nota": "After 1.5 million, policy 1 finishes 15 of 24 and policy 2 all 24, in 35 seconds at the median.",
+   "nota": "After 1.5 million, policy 2 passes it: 21 of 24 against 15, with 177 sheep inside on average.",
    "v": "v1500k"
   },
   {
-   "id": "mfine",
+   "id": "rfine",
    "nome": "4M",
-   "nota": "Both final policies on the same field. On 100 new fields: 88 finished against 99, 47 s against 26 s.",
+   "nota": "Both final policies on the same field. On 100 new fields: 88 finished against 99, 47 s against 25 s.",
    "v": "v1"
   }
  ],
@@ -37,20 +37,20 @@
    "id": "perde",
    "nome": "loses the flock",
    "seme": 1011,
-   "nota": "Policy 1 gets 147 sheep inside, then lets them all out. Policy 2 finishes in 54 s."
+   "nota": "Policy 1 gets 147 sheep inside, then lets them all out. Policy 2 finishes in 27 s."
   },
   {
    "id": "ferma",
    "nome": "gets stuck",
    "seme": 1019,
-   "nota": "Policy 1 stands still for 57% of the game. Policy 2 finishes in 79 s, with many sheep leaving on the way."
+   "nota": "Policy 1 stands still for 57% of the game. Policy 2 finishes in 31 s."
   },
   {
    "id": "chiude",
    "nome": "never closes",
    "seme": 1003,
-   "nota": "Policy 1 runs for 3 minutes and stops at 103 sheep. Policy 2 finishes in 24 s."
+   "nota": "Policy 1 runs for 3 minutes and stops at 103 sheep. Policy 2 finishes in 30 s."
   }
  ],
- "migliorAI": 13.9
+ "migliorAI": 13.5
 }

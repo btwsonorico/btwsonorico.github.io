@@ -189,8 +189,9 @@ export function vedi(m: Mondo, o: Float32Array = new Float32Array(N_VISTA)) {
 // Azione 0: fermo. Le altre: una delle otto direzioni, rispetto al riferimento qui sopra
 export function agisci(m: Mondo, a: number, dgx: number, dgz: number) {
   if (!a) { meta(m, m.cane.x, m.cane.z); return; }
-  const t = ((a - 1) * Math.PI) / 4, u = Math.cos(t), w = Math.sin(t);
-  meta(m, m.cane.x + (u * dgx - w * dgz) * 2, m.cane.z + (u * dgz + w * dgx) * 2);
+  // Le azioni oltre l'ottava sono le stesse direzioni al passo: la meta è vicina, quindi il cane rallenta
+  const lenta = a > 8, t = (((lenta ? a - 8 : a) - 1) * Math.PI) / 4, u = Math.cos(t), w = Math.sin(t), l = lenta ? 0.4 : 2;
+  meta(m, m.cane.x + (u * dgx - w * dgz) * l, m.cane.z + (u * dgz + w * dgx) * l);
 }
 
 // La rete dell'agente: 18 numeri entrano, 64 e 64 neuroni, 9 punteggi escono
@@ -226,9 +227,36 @@ export function vediMappa(m: Mondo) {
   return { o, dgx, dgz };
 }
 
+// Due mappe: le pecore fuori, come in M, e le pecore già dentro il cerchio, così il cane vede chi rischia di spaventare
+export const N_AZIONI_P = 17, N_VISTA_P = N_VISTA_MAPPA + LATO_MAPPA * LATO_MAPPA, STRATI_P = [N_VISTA_P, 64, 64, N_AZIONI_P];
+export function vediDue(m: Mondo) {
+  const { o: base, dgx, dgz } = vediMappa(m), o = new Float32Array(N_VISTA_P);
+  o.set(base);
+  for (let i = 0; i < PECORE; i++) {
+    if (Math.hypot(m.x[i]! - m.gx, m.z[i]! - m.gz) >= RAGGIO) continue;
+    const dx = m.x[i]! - m.cane.x, dz = m.z[i]! - m.cane.z, u = dx * dgx + dz * dgz, w = -dx * dgz + dz * dgx;
+    const a = Math.max(0, Math.min(LATO_MAPPA - 1, Math.floor(u + LATO_MAPPA / 2))), b = Math.max(0, Math.min(LATO_MAPPA - 1, Math.floor(w + LATO_MAPPA / 2))), k = N_VISTA_MAPPA + a * LATO_MAPPA + b;
+    o[k] = o[k]! + 0.05;
+  }
+  return { o, dgx, dgz };
+}
+
+// Un cerchio nuovo con il gregge dov'è: come quando il gioco di Learn riparte, senza rimettere a posto pecore e cane
+export function nuovoCerchio(m: Mondo) {
+  let cx = 0, cz = 0;
+  for (let i = 0; i < PECORE; i++) { cx += m.x[i]!; cz += m.z[i]!; }
+  cx /= PECORE; cz /= PECORE;
+  for (let prova = 0; prova < 400; prova++) {
+    const a = m.r() * 6.28, d = Math.sqrt(m.r()) * (L - RAGGIO - 0.8), x = Math.cos(a) * d, z = Math.sin(a) * d;
+    if (Math.hypot(x - cx, z - cz) > RAGGIO + 1.5 && OSTACOLI.every(o => Math.hypot(x - o.x, z - o.z) >= o.r + RAGGIO * 0.75)) { m.gx = x; m.gz = z; break; }
+  }
+  m.finito = false; m.tempo = 0; m.dentro = 0;
+}
+
 // --- Il premio. v1 è la prima run. M è uguale, con più premio se finisce presto e un piccolo costo se scade il tempo con pecore fuori.
 // Nessuna punizione per chi spinge: con troppe punizioni il cane smette di toccare le pecore
-export const PREMI: Record<string, { scadenza: number; finaleVel: number }> = { v1: { scadenza: 0, finaleVel: 2 }, M: { scadenza: 1, finaleVel: 4 } };
+// Q e R: premio convesso, l'ultima pecora vale circa 5 volte la media di oggi, e perderla costa altrettanto
+export const PREMI: Record<string, { scadenza: number; finaleVel: number; convesso?: boolean }> = { v1: { scadenza: 0, finaleVel: 2 }, M: { scadenza: 1, finaleVel: 4 }, P: { scadenza: 1, finaleVel: 4 }, Q: { scadenza: 1, finaleVel: 4, convesso: true }, R: { scadenza: 1, finaleVel: 4, convesso: true } };
 export type Prima = { l: number; d: number };
 function misure(m: Mondo) {
   let s = 0, d = 0;
@@ -242,7 +270,8 @@ function misure(m: Mondo) {
 export const inizioPremio = (m: Mondo): Prima => misure(m);
 export function premio(nome: string, prima: Prima, m: Mondo) {
   const f = PREMI[nome] ?? PREMI.v1!, q = misure(m);
-  let r = 8 * (prima.l - q.l) + 3 * (q.d - prima.d) / PECORE - 0.003;
+  const dd = (q.d - prima.d) / PECORE;
+  let r = 8 * (prima.l - q.l) - 0.003 + (f.convesso ? 1.5 * dd + 4.5 * ((q.d / PECORE) ** 3 - (prima.d / PECORE) ** 3) : 3 * dd);
   if (m.finito) r += 3 + f.finaleVel * (1 - m.tempo / LIMITE);
   else if (m.tempo >= LIMITE) r -= f.scadenza * (1 - q.d / PECORE);
   prima.l = q.l; prima.d = q.d;
@@ -250,16 +279,16 @@ export function premio(nome: string, prima: Prima, m: Mondo) {
 }
 
 // --- Una policy: cosa legge, e la mossa che sceglie. Tiene anche quanto vuole ogni mossa, per la bussola
-export type Tipo = 'v1' | 'M';
+export type Tipo = 'v1' | 'M' | 'P';
 export function scegli(tipo: Tipo, pesi: ArrayLike<number>, m: Mondo, pr?: Float64Array, caso = false) {
-  const { o, dgx, dgz } = tipo === 'M' ? vediMappa(m) : vedi(m), u = punteggi(pesi, o, undefined, tipo === 'M' ? STRATI_MAPPA : STRATI);
+  const na = tipo === 'P' ? N_AZIONI_P : N_AZIONI, { o, dgx, dgz } = tipo === 'P' ? vediDue(m) : tipo === 'M' ? vediMappa(m) : vedi(m), u = punteggi(pesi, o, new Float64Array(na), tipo === 'P' ? STRATI_P : tipo === 'M' ? STRATI_MAPPA : STRATI);
   let mx = -Infinity, a = 0, tot = 0;
-  for (let k = 0; k < N_AZIONI; k++) if (u[k]! > mx) { mx = u[k]!; a = k; }
+  for (let k = 0; k < na; k++) if (u[k]! > mx) { mx = u[k]!; a = k; }
   if (pr || caso) {
-    const q = pr ?? new Float64Array(N_AZIONI);
-    for (let k = 0; k < N_AZIONI; k++) { q[k] = Math.exp(u[k]! - mx); tot += q[k]!; }
-    for (let k = 0; k < N_AZIONI; k++) q[k] = q[k]! / tot;
-    if (caso) { let z = m.r(); a = 0; while (a < N_AZIONI - 1 && z >= q[a]!) { z -= q[a]!; a++; } }
+    const q = pr ?? new Float64Array(na);
+    for (let k = 0; k < na; k++) { q[k] = Math.exp(u[k]! - mx); tot += q[k]!; }
+    for (let k = 0; k < na; k++) q[k] = q[k]! / tot;
+    if (caso) { let z = m.r(); a = 0; while (a < na - 1 && z >= q[a]!) { z -= q[a]!; a++; } }
   }
   agisci(m, a, dgx, dgz);
   return { a, dgx, dgz };

@@ -472,7 +472,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   bottoneAI.type = 'button';
   bottoneAI.textContent = 'take the dog back';
   bottoneAI.style.cssText = 'position:absolute;right:16px;bottom:72px;z-index:2;padding:4px 8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:12px var(--mono);cursor:pointer;pointer-events:auto';
-  const caricaAI = async () => { pesiAI ??= new Float32Array(await (await fetch('/learn/gregge/mfine.bin')).arrayBuffer()); };
+  const caricaAI = async () => { pesiAI ??= new Float32Array(await (await fetch('/learn/gregge/rfine.bin')).arrayBuffer()); };
   // Il cane parte sempre con l'AI; sul computer si può riprendere. Su telefono guida sempre lei
   caricaAI();
   if (!p.telefono) el.appendChild(bottoneAI);
@@ -492,7 +492,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     a.gx = gioco.x; a.gz = gioco.z; a.dentro = gioco.dentro;
     a.cane.x = cane.x; a.cane.z = cane.z; a.cane.verso = cane.verso; a.cane.vel = cane.vel;
     mucche.forEach((m, i) => { const q = a.mucche[i]; if (q) { q.x = m.x; q.z = m.z; } });
-    scegli('M', pesiAI, a);
+    scegli('P', pesiAI, a);
     metaCane.set(a.cane.mx, a.cane.mz);
   };
   const fiancoCamera = new THREE.Vector3();
