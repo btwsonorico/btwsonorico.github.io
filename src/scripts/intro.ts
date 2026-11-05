@@ -1,11 +1,11 @@
 // Intro della home, una volta per sessione. Mescola tre stili e va dal piccolo al grande.
 // Una macchia di caratteri colorati al centro dello schermo si ingrandisce fino a diventare una foresta di notte, tutta in ASCII.
-// Dal bosco esce una famiglia di cervi: sagome bianche piene, senza dettagli, come i cervi del sito.
+// Dal bosco esce di corsa una famiglia di cervi: blocchi bianchi piatti, in contrasto con i caratteri, e bianchi come i cervi del sito.
 // Dalle chiome si alza lo stormo. È lo stesso della home: ogni uccello a pixel arriva sul suo uccello 3D e lì gli passa il posto.
 // La foresta si scioglie dal basso, e il nome sale nella barra in alto.
 import { ponte } from '../lib/ponteStormo';
 
-const T = { zoom: 1.4, nome: 1.2, cervi: 1.5, stormo: 3.1, via: 4.8, durata: 1.55 };
+const T = { zoom: 1.4, nome: 1.2, cervi: 1.55, stormo: 2.9, via: 4.8, durata: 1.55 };
 
 type Tela = HTMLCanvasElement;
 type Ctx = CanvasRenderingContext2D;
@@ -140,51 +140,27 @@ export function monta(el: HTMLElement) {
     }
   };
 
-  // --- I cervi: sagome bianche piene, senza dettagli, con un sottile bordo del colore del fondo che le stacca dai caratteri
-  const LS = 72, HS = 76;
-  const sagoma = (tipo: 'cervo' | 'cerva' | 'piccolo', fase: number) => {
-    const c = tela(LS, HS), q = c.getContext('2d')!, s = tipo === 'piccolo' ? 0.62 : tipo === 'cerva' ? 0.86 : 1, Y = HS - 4;
-    q.fillStyle = testo;
-    const blob = (x: number, y: number, rx: number, ry: number) => q.ellipse ? (q.beginPath(), q.ellipse(x, y, rx, ry, 0, 0, 6.3), q.fill()) : undefined;
-    const lin = (x0: number, y0: number, x1: number, y1: number, sp: number) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0)) * 2; for (let i = 0; i <= n; i++) q.fillRect(Math.round(x0 + ((x1 - x0) * i) / n - sp / 2), Math.round(y0 + ((y1 - y0) * i) / n - sp / 2), Math.ceil(sp), Math.ceil(sp)); };
-    const bx = 30, by = Y - 25 * s, lung = 15 * s, alz = 7.5 * s;
-    blob(bx, by, lung, alz);
-    // Le gambe: dritte e sottili, si alternano a coppie
-    for (const [lx, d] of [[bx - lung * 0.75, 0], [bx - lung * 0.5, Math.PI], [bx + lung * 0.55, Math.PI], [bx + lung * 0.8, 0]] as const) {
-      const a = Math.sin(fase + d) * 4.5 * s;
-      lin(lx, by + alz * 0.5, lx + a, Y, 2.2 * s + 0.4);
+  // --- I cervi: blocchi bianchi pieni, piatti e grossi, senza dettagli, in contrasto con la trama fitta dei caratteri.
+  // Due soli fotogrammi di corsa, come in un vecchio videogioco. Attraversano la radura in gruppo, e al loro passaggio lo stormo si alza
+  const ZAMPE = [['..##.......##.......', '.##.........##......', '.#...........##.....', '#.............#.....'], ['...##.....##........', '...##.....##........', '....##...##.........', '....#.....#.........']];
+  const CORPO = ['..###########.......', '.############.......', '.############.......', '..##########........'];
+  const PALCO = ['............#.#.#.#.', '.............##.##..', '..............###...'];
+  const TESTA = ['...............####.', '..............#####.', '.............###....', '............###.....'];
+  const ORECCHIE = ['...............#.#..'];
+  const CORPI = { cervo: [...PALCO, ...TESTA, ...CORPO], cerva: [...ORECCHIE, ...TESTA, ...CORPO] };
+  const blocchi = (righe: string[], lato: number) => { const c = tela(20 * lato, righe.length * lato), q = c.getContext('2d')!; q.fillStyle = testo; righe.forEach((r, y) => { for (let x = 0; x < 20; x++) if (r[x] === '#') q.fillRect(x * lato, y * lato, lato, lato); }); return c; };
+  const passoCervo = innerWidth < 700 ? 2 : 3;
+  const FAMIGLIA = ([['cervo', passoCervo, 0, 0.8], ['cerva', passoCervo, 0.28, 0.87], ['cerva', Math.max(1, passoCervo - 1), 0.42, 0.765], ['cerva', Math.max(1, passoCervo - 1), 0.62, 0.84], ['cerva', Math.max(1, passoCervo - 1), 0.86, 0.79]] as const).map(([tipo, lato, ritardo, quota]) => ({
+    quadri: ZAMPE.map(z => blocchi([...CORPI[tipo], ...z], lato)), ritardo, quota,
+  }));
+  const CORSA = 1.9;
+  const disegnaCervi = (t: number) => {
+    for (const a of FAMIGLIA) {
+      const u0 = (t - T.cervi - a.ritardo) / CORSA;
+      if (u0 <= 0 || u0 >= 1) continue;
+      const fr = a.quadri[Math.floor(t * 10 + a.ritardo * 9) % 2]!, x = -fr.width + (W + fr.width) * u0, y = H * a.quota - fr.height + (Math.floor(t * 10 + a.ritardo * 9) % 2 ? -passoCervo : 0);
+      f.drawImage(fr, Math.round(x), Math.round(y));
     }
-    // Collo e testa, verso destra; coda; orecchio
-    const cx = bx + lung * 0.9, cy = by - alz * 0.5, tx = cx + 5 * s, ty = cy - 9 * s;
-    lin(cx - 2 * s, cy + 1, tx, ty, 4.6 * s);
-    blob(tx + 3 * s, ty - 0.5 * s, 4.6 * s, 2.7 * s);
-    lin(tx - 2 * s, ty - 3 * s, tx - 5 * s, ty - 7 * s, 1.8 * s + 0.3);
-    lin(bx - lung, by - alz * 0.5, bx - lung - 3 * s, by - alz * 0.1, 2.2 * s);
-    if (tipo === 'cervo') for (const [x0, y0, x1, y1] of [[0, -2, -4, -10], [-4, -10, -9, -13], [-4, -10, -3, -17], [-2, -6, 2, -10]] as const) lin(tx + x0, ty + y0, tx + x1, ty + y1, 1.2);
-    // Solo pieno o vuoto: nessuna sfumatura ai bordi
-    const grezzo = q.getImageData(0, 0, LS, HS);
-    q.clearRect(0, 0, LS, HS);
-    q.fillStyle = testo;
-    for (let y = 0; y < HS; y++) for (let x = 0; x < LS; x++) if (grezzo.data[(y * LS + x) * 4 + 3]! > 110) q.fillRect(x, y, 1, 1);
-    // Il bordo del colore del fondo
-    const d = q.getImageData(0, 0, LS, HS), pieno = (x: number, y: number) => x >= 0 && y >= 0 && x < LS && y < HS && d.data[(y * LS + x) * 4 + 3]! > 100;
-    q.fillStyle = fondo;
-    for (let y = 0; y < HS; y++) for (let x = 0; x < LS; x++) if (!pieno(x, y) && (pieno(x - 1, y) || pieno(x + 1, y) || pieno(x, y - 1) || pieno(x, y + 1))) q.fillRect(x, y, 1, 1);
-    return c;
-  };
-  const FAMIGLIA = (['cervo', 'cerva', 'piccolo', 'piccolo'] as const).map((tipo, i) => ({ quadri: Array.from({ length: 8 }, (_, k) => sagoma(tipo, (k / 8) * Math.PI * 2)), ritardo: i * 0.24, dy: [0, 0.045, -0.025, 0.07][i]!, dx: [0.03, -0.13, 0.17, -0.25][i]! }));
-  // Escono piccoli dal limite del bosco e crescono venendo avanti, come il resto della scena
-  const scalaBase = Math.min(1.5, Math.max(0.75, Math.min(W, H * 1.5) / 300));
-  const disegnaCervi = (t: number, q: number) => {
-    const ordinati = [...FAMIGLIA].sort((a, b) => a.dy - b.dy);
-    for (const a of ordinati) {
-      const u0 = (t - T.cervi - a.ritardo) / 3.2;
-      if (u0 <= 0) continue;
-      const e = 1 - Math.pow(1 - Math.min(1, u0), 1.6), x = W * (0.3 + a.dx + e * 0.3), y = H * (0.665 + e * (0.2 + a.dy)), sc = scalaBase * (0.25 + e * 0.95), w = Math.round(LS * sc), h = Math.round(HS * sc);
-      f.drawImage(a.quadri[Math.floor(t * 9 + a.ritardo * 7) % 8]!, Math.round(x - w / 2), Math.round(y - h), w, h);
-    }
-    // Si sciolgono con la foresta: la home ha già i suoi cervi
-    if (q > 0) for (let r = 0, i = 0; r < R; r++) for (let c = 0; c < C; c++, i++) if (soglie[i]! < q) f.clearRect(c * CW, r * CH, CW, CH);
   };
 
   // --- Lo stormo: ogni uccello parte da una chioma e arriva sul suo uccello 3D. Quando è arrivato, il 3D gli prende il posto
@@ -224,7 +200,7 @@ export function monta(el: HTMLElement) {
     cv.style.transform = sc < 0.999 ? `scale(${sc})` : '';
     if (conta++ % 2 === 0 || u0 > 0 || t < T.zoom) disegnaValle(t, q);
     f.clearRect(0, 0, W, H);
-    disegnaCervi(t, q);
+    disegnaCervi(t);
     disegnaStormo(t);
   };
 
