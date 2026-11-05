@@ -1,13 +1,13 @@
 // Intro della home, una volta per sessione: una vallata di notte fatta solo di caratteri minuscoli e colorati, ombreggiati come un'immagine.
 // Ogni carattere si decifra al suo posto; l'erba ondeggia, l'acqua luccica, le lucciole accendono i caratteri intorno.
-// Il nido e la madre sono caratteri anche loro. Al centro resta solo il nome. Nel passaggio alla home gli uccelli non escono mai
-// dallo schermo: si raccolgono dove vola lo stormo 3D e diventano lui. La valle si scioglie dal nido, e il nome sale nella barra in alto.
+// Il nido e la madre sono caratteri anche loro, e la madre resta sul nido. Al centro resta solo il nome. Un uovo si schiude ed esce un pulcino
+// a becco aperto. Poi lo stormo arriva dal fondo della valle verso lo schermo, sempre più grande: il suo passaggio apre la home,
+// e gli ultimi uccelli si raccolgono dove vola lo stormo 3D e diventano lui. La valle si scioglie dal nido, e il nome sale nella barra in alto.
 
-const T = { ramo: 0, nido: 0.3, uova: 0.7, madre: 1, zoom: 1.7, valle: 1.8, nome: 2.5, schiusa: 3.1, stormo: 3.3, parte: 4.4, via: 5, durata: 1.6 };
+const T = { ramo: 0, nido: 0.3, uova: 0.7, madre: 1, zoom: 1.7, valle: 1.8, nome: 2.5, schiusa: 3.1, passa: 3.85, via: 5, durata: 1.6 };
 
 type Tela = HTMLCanvasElement;
 type Ctx = CanvasRenderingContext2D;
-type P2 = readonly [number, number];
 const tela = (w: number, h: number) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 const semeCaso = (s: number) => () => { s = (s + 0x6d2b79f5) | 0; let z = Math.imul(s ^ (s >>> 15), 1 | s); z = (z + Math.imul(z ^ (z >>> 7), 61 | z)) ^ z; return ((z ^ (z >>> 14)) >>> 0) / 4294967296; };
 const liscio = (x: number) => { const u = Math.max(0, Math.min(1, x)); return u * u * (3 - 2 * u); };
@@ -22,27 +22,14 @@ const GLIFI: Record<string, string[]> = {
   '.': ['...', '...', '...', '...', '.#.'], ',': ['...', '...', '...', '.#.', '#..'], "'": ['.#.', '.#.', '...', '...', '...'], '`': ['#..', '.#.', '...', '...', '...'], ':': ['...', '.#.', '...', '.#.', '...'],
   '-': ['...', '...', '###', '...', '...'], '=': ['...', '###', '...', '###', '...'], '+': ['...', '.#.', '###', '.#.', '...'], '*': ['...', '#.#', '.#.', '#.#', '...'], '~': ['...', '##.', '.##', '...', '...'],
   '^': ['.#.', '#.#', '...', '...', '...'], '/': ['..#', '..#', '.#.', '#..', '#..'], '\\': ['#..', '#..', '.#.', '..#', '..#'], '|': ['.#.', '.#.', '.#.', '.#.', '.#.'], '!': ['.#.', '.#.', '.#.', '...', '.#.'],
-  '#': ['#.#', '###', '#.#', '###', '#.#'], '%': ['#.#', '..#', '.#.', '#..', '#.#'], '&': ['.#.', '#.#', '.#.', '#.#', '.##'], o: ['...', '.#.', '#.#', '.#.', '...'],
+  '_': ['...', '...', '...', '...', '###'], '<': ['..#', '.#.', '#..', '.#.', '..#'], '#': ['#.#', '###', '#.#', '###', '#.#'], '%': ['#.#', '..#', '.#.', '#..', '#.#'], '&': ['.#.', '#.#', '.#.', '#.#', '.##'], o: ['...', '.#.', '#.#', '.#.', '...'],
 };
 const SEGNI = Object.keys(GLIFI), INDICE = new Map(SEGNI.map((s, i) => [s, i]));
 // Le famiglie di celle. Ogni famiglia ha i suoi caratteri, dal più vuoto al più pieno, e 12 livelli di luce
 const ROCCIA = 0, ALBERO = 1, ERBA = 2, ACQUA = 3, STELLA = 4, CALDO = 5, LIVELLI = 12;
 const RAMPE = [".:-=+*", ".'^/\\*#", ".,'`|!/", ".-~=~", ".+*", ".:*+%#"].map(s => [...s].map(c => INDICE.get(c)!));
 
-const curva = (p: readonly P2[], s: number): P2 => {
-  const n = p.length - 1, q = Math.min(n - 1e-4, Math.max(0, s) * n), i = Math.floor(q), t = q - i;
-  const a = p[Math.max(0, i - 1)]!, b = p[i]!, c = p[i + 1]!, d = p[Math.min(n, i + 2)]!, f = (u: number, v: number, w: number, z: number) => 0.5 * (2 * v + (w - u) * t + (2 * u - 5 * v + 4 * w - z) * t * t + (3 * v - u - 3 * w + z) * t * t * t);
-  return [f(a[0], b[0], c[0], d[0]), f(a[1], b[1], c[1], d[1])];
-};
 const pixel = (c: Ctx, x: number, y: number, col: string) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), 1, 1); };
-const disco = (c: Ctx, x: number, y: number, r: number, col: string) => {
-  c.fillStyle = col;
-  const R = Math.ceil(r);
-  for (let j = -R; j <= R; j++) for (let i = -R; i <= R; i++) if (i * i + j * j <= r * r + 0.25) c.fillRect(Math.round(x) + i, Math.round(y) + j, 1, 1);
-};
-const nastro = (c: Ctx, p: readonly P2[], raggio: (s: number) => number, col: string, passi = 70) => {
-  for (let i = 0; i <= passi; i++) { const s = i / passi, [x, y] = curva(p, s); disco(c, x, y, Math.max(0, raggio(s)), col); }
-};
 const linea = (c: Ctx, x0: number, y0: number, x1: number, y1: number, col: string) => {
   const n = Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1));
   for (let i = 0; i <= n; i++) pixel(c, x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n, col);
@@ -173,6 +160,7 @@ export function monta(el: HTMLElement) {
     }
   };
 
+  type Pezzo = { x: number; y: number; k: number; l: number; s: number };
   // --- Gli oggetti: si disegnano prima su piccole tele, poi ogni pixel pieno diventa un carattere
   const NW = 46, NH = 24, CX = 23, CY = 7;
   const davanti = tela(NW, NH), fgn = davanti.getContext('2d')!;
@@ -188,44 +176,29 @@ export function monta(el: HTMLElement) {
   for (let y = 0; y < 11; y++) for (let x = 0; x < 9; x++) if (inUovo(x, y)) pixel(ug, x, y, x > 5 || y > 8 ? '#808080' : '#ffffff');
   const mezzoUovo = tela(9, 6);
   mezzoUovo.getContext('2d')!.drawImage(uovo, 0, -5);
-  const POSTI = [{ x: 4, y: -3 }, { x: 12, y: -4 }, { x: 20, y: -3 }];
-  const pulcino = tela(6, 4), pg = pulcino.getContext('2d')!;
-  ['..#...', '.###..', '#####.', '.####.'].forEach((r, y) => { for (let x = 0; x < 6; x++) if (r[x] === '#') pixel(pg, x, y, '#ff8000'); });
-  const A = '#ff8000', B = '#ffffff';
-
-  const SW = 54, SH = 36;
-  const seduta = (o: number) => {
-    const c = tela(SW, SH), q = c.getContext('2d')!, bob = Math.sin(o) * 0.8, onda = Math.sin(o) * 1.3;
-    const corpo: P2[] = [[9, 7 + bob], [13, 11 + bob * 0.8], [11, 16 + bob * 0.4], [16, 21], [24, 23], [31, 22], [37, 21]];
-    const raggio = (s: number) => { const v = [1.5, 1.4, 1.6, 3.4, 4.2, 2.6, 0.6], k = Math.min(5.99, s * 6), i = Math.floor(k); return v[i]! + (v[i + 1]! - v[i]!) * (k - i); };
-    for (const l of [[[35, 21], [41, 20 + onda * 0.4], [46, 23 - onda * 0.5], [53, 18 + onda]], [[35, 22], [40, 26 + onda * 0.3], [46, 27 - onda * 0.5], [51, 33 + onda]], [[35, 20], [39, 14 + onda * 0.4], [44, 14 - onda * 0.5], [49, 8 + onda]]] as P2[][]) nastro(q, l, s => 1.2 - s * 1.1, A);
-    nastro(q, corpo, raggio, A);
-    nastro(q, [[8, 4 + bob], [12, 1 + bob], [17, 0 + bob], [22, 3 + bob]], s => 0.9 - s * 0.8, A);
-    disco(q, 9, 6 + bob, 2.5, A);
-    linea(q, 6, 6 + bob, 2, 7 + bob, B);
-    return c;
-  };
-  const sedute = [0, 1, 2, 3, 4, 5].map(i => seduta((i / 6) * Math.PI * 2));
-  const FW = 62, FH = 44;
-  const volo = (o: number) => {
-    const c = tela(FW, FH), q = c.getContext('2d')!, cy = 22, s0 = Math.sin(o), s1 = Math.sin(o - 0.9), s2 = Math.sin(o - 1.8), s3 = Math.sin(o - 2.7);
-    const corpo: P2[] = [[6, cy + s0 * 1.2], [12, cy - 1 + s1 * 0.8], [20, cy + s1 * 0.6], [29, cy + s2 * 0.9], [36, cy + s3 * 1.4]];
-    const rb = (s: number) => { const v = [1.4, 1.4, 2.2, 1.6, 0.6], k = Math.min(3.99, s * 4), i = Math.floor(k); return v[i]! + (v[i + 1]! - v[i]!) * (k - i); };
-    for (const off of [-3, 0, 3]) nastro(q, [[35, cy + s3], [42, cy + off * 0.7 + s3 * 3], [51, cy + off * 1.4 - s3 * 3], [61, cy + off * 2 + s2 * 3]], s => 1.1 - s, A);
-    const battuta = Math.sign(s0) * Math.pow(Math.abs(s0), 0.5);
-    const ali = (k: number, dx: number) => {
-      const a = battuta * k, b = Math.sin(o - 0.7) * k * 0.35, bordo: P2[] = [[17 + dx, cy - 1], [14 + dx, cy - 1 - a * 9], [16 + dx, cy - 1 - a * 15 - b * 3], [26 + dx, cy - 1 - a * 19 - b * 5]];
-      nastro(q, bordo, s => 2 - s * 2, A, 50);
-      for (const s of [0.45, 0.65, 0.85]) { const [x, y] = curva(bordo, s); linea(q, x, y, x + 8 * s + 2, y + Math.sign(a || 1) * 4, A); }
-    };
-    ali(0.8, 4);
-    nastro(q, corpo, rb, A);
-    disco(q, 6, cy + s0 * 1.2, 2.2, A);
-    linea(q, 3, cy + s0 * 1.2, 0, cy + 1 + s0 * 1.2, B);
-    ali(1, 0);
-    return c;
-  };
-  const voli = Array.from({ length: 8 }, (_, i) => volo((i / 8) * Math.PI * 2));
+  const POSTI = [{ x: 2, y: -3 }, { x: 10, y: -4 }, { x: 18, y: -3 }];
+  // La madre, scritta a mano carattere per carattere e rivolta a sinistra. Sbatte le palpebre e muove appena la coda
+  const MADRE = (occhio: string, coda: string) => [
+    '      _---_           ',
+    '    /*+*+*+\\          ',
+    `  <=+${occhio}*+*+*+*\\         `,
+    '    \\+*+*+*+*\\___     ',
+    '     |*+%%%%%*+*+\\___ ',
+    `     |+%%%%%%%%*+*+*${coda}`,
+    `      \\*+%%%%%%*+*+/${coda}`,
+    "       `-*+*+*+*+-'   ",
+  ];
+  // Il pulcino nel guscio: pigola, con il becco che si apre e si chiude
+  const PULCINO = (aperto: boolean) => aperto
+    ? ['   _--_  ', '  /o+*+\\ ', ' =/*+*+*|', '   \\+*+*|', ' =-/+*+*|', "  `----' "]
+    : ['   _--_  ', '  /o+*+\\ ', '  |*+*+*|', ' ==+*+*+|', '  |*+*+*|', "  `----' "];
+  const scritta = (righe: string[]): Pezzo[] => righe.flatMap((r, y) => [...r].flatMap((ch, x) => {
+    if (ch === ' ') return [];
+    const bianco = ch === '<' || ch === 'o' || (ch === '=' && x < 5) || (ch === '-' && x < 3);
+    return [{ x, y, k: bianco ? STELLA : CALDO, l: bianco ? 11 : ch === '%' ? 5 : ch === '*' || ch === '+' ? 8 : 11, s: INDICE.get(ch)! }];
+  }));
+  const PULCINI = [scritta(PULCINO(true)), scritta(PULCINO(false))];
+  const MADRI = [scritta(MADRE('o', '==')), scritta(MADRE('-', '==')), scritta(MADRE('o', '=-'))];
   const RW = 300, RH = 60, ramo = tela(RW, RH), rg = ramo.getContext('2d')!;
   const yRamo = (x: number) => 34 + Math.sin(x * 0.045) * 2 + x * 0.05;
   for (let x = 0; x < RW; x++) { const s = Math.min(1.8, 0.3 + x / 40); for (let k = -s; k <= s; k++) pixel(rg, x, yRamo(x) + k, '#808080'); }
@@ -233,9 +206,9 @@ export function monta(el: HTMLElement) {
 
   // Da pixel a celle: le celle sono più alte che larghe, quindi le righe si leggono una ogni 1,5.
   // Il colore del disegno dice la famiglia: arancio per gli uccelli, bianco e grigio per legno e uova
-  type Pezzo = { x: number; y: number; k: number; l: number; s: number };
   const cache = new Map<Tela, Pezzo[]>();
-  const pezzi = (c: Tela) => {
+  const pezzi = (c: Tela | Pezzo[]) => {
+    if (Array.isArray(c)) return c;
     let lista = cache.get(c);
     if (lista) return lista;
     lista = [];
@@ -256,22 +229,26 @@ export function monta(el: HTMLElement) {
   };
   const VARIE = [...'+*#%'].map(c => INDICE.get(c)!), varia = (p: Pezzo, x: number, y: number) => (p.k === CALDO ? VARIE[(x * 7 + y * 13) % 4]! : VARIE[(x * 7 + y * 13) % 2]!);
   // Mette un disegno sulla griglia, a una grandezza intera. Spegne la cella sotto, e rispetta la dissolvenza
-  const posa = (c: Tela, cc: number, rr: number, k: number, q: number, sciogli = true) => {
+  const posa = (c: Tela | Pezzo[], cc: number, rr: number, k: number, q: number, sciogli = true) => {
     for (const p of pezzi(c)) for (let a = 0; a < k; a++) for (let b = 0; b < k; b++) {
       const x = cc + p.x * k + a, y = rr + p.y * k + b;
       if (x < 0 || y < 0 || x >= C || y >= R) continue;
       if (sciogli && q > 0 && soglie[y * C + x]! < q) continue;
       f.fillStyle = fondo; f.fillRect(x * CW, y * CH, CW, CH);
-      copia(f, k > 1 && p.l > 5 ? varia(p, x, y) : p.s, p.k, p.l, x, y);
+      copia(f, k > 1 && p.l > 5 && !Array.isArray(c) ? varia(p, x, y) : p.s, p.k, p.l, x, y);
     }
   };
 
-  // --- Lo stormo piccolo: gli uccelli si alzano dal nido e dagli alberi sul lato destro
-  const destra = alberi.filter(a => a.c > C * 0.4);
-  const piccoli = Array.from({ length: 90 }, (_, i) => {
-    const dalNido = i < 12, s = dalNido ? null : destra[Math.floor(caso() * destra.length)];
-    return { x: dalNido ? nC * CW : s ? s.c * CW : W, y: dalNido ? (nR - 4) * CH : s ? (s.r - s.h) * CH : H * 0.6, vx: -0.2 - caso() * 0.4, vy: -0.5 - caso() * 0.4, t0: T.schiusa + 0.1 + (dalNido ? i * 0.09 : 0.3 + caso() * 1.2), f: caso() * 6, ox: (caso() - 0.5) * W * 0.26, oy: (caso() - 0.5) * H * 0.16, fine: T.via + 0.5 + caso() * 1.1 };
+  // --- Lo stormo: dal punto di fuga, in fondo alla valle. L'onda viene verso lo schermo, sempre più grande, e lo oltrepassa.
+  // Gli ultimi non la seguono: salgono dove vola lo stormo 3D e diventano lui
+  const vx = W / 2, vy = oriz * CH;
+  const onda = Array.from({ length: 130 }, (_, i) => {
+    const a = caso() * 6.28, r = 0.12 + Math.sqrt(caso()) * 0.88;
+    return { a, r, t0: T.passa + (i / 130) * 1.1 + caso() * 0.05, dura: 1.35 + caso() * 0.3, f: caso() * 6 };
   });
+  const piccoli = Array.from({ length: 60 }, () => ({
+    x: vx + (caso() - 0.5) * W * 0.06, y: vy + (caso() - 0.5) * H * 0.04, vx: (caso() - 0.5) * 1.2, vy: -1 - caso(), t0: T.via - 0.1 + caso() * 0.8, f: caso() * 6, ox: (caso() - 0.5) * W * 0.26, oy: (caso() - 0.5) * H * 0.16, fine: T.via + 1 + caso() * 0.6,
+  }));
   const meta = () => {
     const [a, b] = (radice.dataset.stormo ?? '').split(',').map(Number);
     return a !== undefined && b !== undefined && !Number.isNaN(a) && !Number.isNaN(b) && radice.dataset.stormo ? { x: a / px, y: b / px } : { x: W * 0.62, y: H * 0.24 };
@@ -281,9 +258,9 @@ export function monta(el: HTMLElement) {
     for (const b of piccoli) {
       if (t < b.t0) continue;
       const mx = m.x + Math.sin(t * 0.8 + b.f * 0.2) * W * 0.03 + b.ox, my = m.y + Math.cos(t * 1.1 + b.f * 0.2) * H * 0.03 + b.oy, r = dt * 60;
-      b.vx += ((mx - b.x) / W) * 8 * dt + Math.sin(t * 3 + b.f) * 0.012 * r;
-      b.vy += ((my - b.y) / H) * 8 * dt + Math.cos(t * 2.4 + b.f) * 0.012 * r;
-      const v = Math.hypot(b.vx, b.vy), vm = 1.15; if (v > vm) { b.vx *= vm / v; b.vy *= vm / v; }
+      b.vx += ((mx - b.x) / W) * 16 * dt + Math.sin(t * 3 + b.f) * 0.012 * r;
+      b.vy += ((my - b.y) / H) * 16 * dt + Math.cos(t * 2.4 + b.f) * 0.012 * r;
+      const v = Math.hypot(b.vx, b.vy), vm = 3.2; if (v > vm) { b.vx *= vm / v; b.vy *= vm / v; }
       b.x += b.vx * r; b.y += b.vy * r;
     }
   };
@@ -303,18 +280,18 @@ export function monta(el: HTMLElement) {
       }
     }
     if (liscio((t - T.nido) / 0.45) <= 0) return;
-    const sx = 19, sy = -13;
-    if (t >= T.madre && t < T.parte) {
-      const a = 1 - liscio((t - T.madre) / 0.45);
-      if (a > 0) posa(voli[Math.floor(t * 12) % 8]!, x0 + (sx - 3 + Math.round(a * 70)) * k, y0 + (sy - 3 - Math.round(a * 20)) * k, k, q);
-      else posa(sedute[Math.floor(t * 3.2) % 6]!, x0 + sx * k, y0 + sy * k, k, q);
-    }
+    const sx = 26, sy = -4;
+    if (t >= T.madre) posa(MADRI[Math.floor(t * 2.4) % 9 === 0 ? 1 : Math.floor(t * 1.3) % 4 === 3 ? 2 : 0]!, x0 + sx * k, y0 + (sy + Math.round((1 - liscio((t - T.madre) / 0.4)) * 7)) * k, k, q);
     POSTI.forEach((p, i) => {
       const ti = T.uova + i * 0.1;
       if (t < ti) return;
-      const sale = Math.round((1 - liscio((t - ti) / 0.18)) * 5), sch = T.schiusa + i * 0.3, trema = t > T.uova + 0.5 && t < sch + 0.05 ? (Math.floor(t * (t > sch - 0.5 ? 18 : 5) + i) % 2 ? 1 : 0) : 0, py = Math.round(p.y / 1.5);
-      if (t < sch) { posa(uovo, x0 + (p.x + trema) * k, y0 + (py + sale) * k, k, q); return; }
-      if (t < sch + 0.5) posa(pulcino, x0 + (p.x + 2) * k, y0 + (py - 1) * k, k, q);
+      // Solo il primo uovo trema e si apre: gli altri restano interi
+      const sale = Math.round((1 - liscio((t - ti) / 0.18)) * 5), py = Math.round(p.y / 1.5);
+      if (i > 0 || t < T.schiusa) { posa(uovo, x0 + (p.x + (i === 0 && t > T.schiusa - 0.7 ? Math.floor(t * 18) % 2 : 0)) * k, y0 + (py + sale) * k, k, q); return; }
+      // Il pulcino sale dal guscio e pigola, con un piccolo segno sopra la testa a ogni apertura
+      const su = Math.round(liscio((t - T.schiusa) / 0.25) * 2), apre = Math.floor(t * 5) % 2 === 0;
+      posa(PULCINI[apre ? 0 : 1]!, x0 + p.x * k, y0 + (py - 2 + 2 - su) * k, k, q);
+      if (apre) posa(scritta(['!']), x0 + (p.x + 1) * k, y0 + (py - 3 - su) * k, k, q);
       posa(mezzoUovo, x0 + p.x * k, y0 + (py + 3) * k, k, q);
     });
     const parti2 = liscio((t - T.nido) / 0.45);
@@ -330,11 +307,15 @@ export function monta(el: HTMLElement) {
     if (conta++ % 2 === 0 || u0 > 0) disegnaValle(t, q);
     f.clearRect(0, 0, W, H);
     disegnaNido(t, q);
-    if (t >= T.parte) {
-      const a = liscio((t - T.parte) / 1.5), m = meta(), o = curva([[(nC + 19) * CW, (nR - 8) * CH], [(nC - 4) * CW, H * 0.5], [m.x + W * 0.14, m.y + H * 0.1], [m.x, -80]], a);
-      posa(voli[Math.floor(t * 12) % 8]!, Math.round((o[0] - (FW * CW) / 2) / CW), Math.round((o[1] - (FH * CH) / 3) / CH), 1, 0, false);
-    }
     f.fillStyle = arancio;
+    for (const b of onda) {
+      const z = (t - b.t0) / b.dura;
+      if (z <= 0 || z >= 1) continue;
+      // Prospettiva: a ogni passo l'uccello è più vicino, quindi più grande e più lontano dal centro
+      const s = 1 / (1 - z * 0.94), lato = Math.max(1, Math.min(14, Math.round(s * 0.75))), x = vx + Math.cos(b.a) * b.r * W * 0.055 * s, y = vy + Math.sin(b.a) * b.r * H * 0.07 * s - s * H * 0.012;
+      const fo = FORMA[Math.floor(t * 9 + b.f) % 2]!;
+      fo.forEach((r, j) => { for (let i = 0; i < 5; i++) if (r[i] === 'x') f.fillRect(Math.round(x) + (i - 2) * lato, Math.round(y) + (j - 1) * lato, lato, lato); });
+    }
     for (const b of piccoli) {
       if (t < b.t0 || t > b.fine) continue;
       const fo = FORMA[Math.floor(t * 9 + b.f) % 2]!;
