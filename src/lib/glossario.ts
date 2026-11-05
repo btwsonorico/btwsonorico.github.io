@@ -1,9 +1,9 @@
-import dati from '../data/glossario.json';
+import { leggiVoci, type Voce } from './glossarioTesto';
 
-// Glossario: i testi stanno in src/data/glossario.json. Il reef da pesca legge da qui:
-// una voce nuova nel file diventa da sola un termine pescabile.
-export type Voce = (typeof dati.sezioni)[number]['voci'][number] & { sezione: string; indiceSezione: number };
-export const VOCI: Voce[] = dati.sezioni.flatMap((s, indiceSezione) => s.voci.map(v => ({ ...v, sezione: s.titolo, indiceSezione })));
+// Glossario: ogni termine è una nota in src/content/glossario/<numero> <sezione>/. Il reef da pesca legge da qui:
+// una nota nuova diventa da sola un termine pescabile. Per il modello, vedi src/content/template-termine.md.
+export type { Voce };
+export const VOCI: Voce[] = leggiVoci(import.meta.glob('../content/glossario/*/*.md', { query: '?raw', import: 'default', eager: true }) as Record<string, string>);
 
 // Una voce di elenco "Nome: testo" o "Nome – testo" mostra il nome in evidenza
 export const dividi = (punto: string) => {

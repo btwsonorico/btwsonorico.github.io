@@ -105,4 +105,21 @@ const progetti = defineCollection({
   }),
 });
 
-export const collections = { scritti, aree, advisory, progetti };
+// Glossario: un file Markdown per termine, in una cartella "<numero> <sezione>". Il reef legge le note in src/lib/glossario.ts;
+// questa collezione serve a fermare la build se una nota è scritta male.
+const glossario = defineCollection({
+  loader: glob({ pattern: '*/*.md', base: './src/content/glossario' }),
+  schema: z.object({
+    title: z.string(),
+    id: z.string().regex(/^[a-z0-9-]+$/).optional(),
+    order: z.number().optional(),
+    level: z.enum(['easy', 'medium', 'hard']),
+    group: z.string(),
+    question: z.string(),
+    // Sempre tre risposte: la prima è quella giusta, il gioco le mescola
+    answers: z.array(z.string()).length(3),
+    draft: z.boolean().default(false),
+  }),
+});
+
+export const collections = { scritti, aree, advisory, progetti, glossario };
