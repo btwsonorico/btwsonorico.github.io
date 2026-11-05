@@ -82,10 +82,10 @@ const PAGINE = [
 <style>
   /* Intro: copre tutto, anche la barra e il cursore del sito. Il canvas ha pochi pixel, ingranditi senza sfumare */
   #intro { display: none; }
-  :global(html[data-intro]) #intro { display: block; position: fixed; inset: 0; z-index: 2000; background: var(--bg); }
+  :global(html[data-intro]) #intro { display: block; position: fixed; inset: 0; z-index: 2000; overflow: hidden; background: var(--bg); }
   :global(html[data-intro]) #intro.in-volo { background: transparent; pointer-events: none; }
   #intro canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; image-rendering: pixelated; }
-  .intro-nome { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; font-family: var(--mono); font-size: clamp(28px, 5.4vw, 72px); line-height: 1; white-space: nowrap; color: var(--fg); text-shadow: 3px 0 var(--bg), -3px 0 var(--bg), 0 3px var(--bg), 0 -3px var(--bg), 3px 3px var(--bg), -3px -3px var(--bg), 3px -3px var(--bg), -3px 3px var(--bg); }
+  .intro-nome { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); margin: 0; font-family: var(--mono); font-size: clamp(28px, 5.4vw, 72px); line-height: 1; white-space: nowrap; color: var(--fg); text-shadow: 3px 0 var(--bg), -3px 0 var(--bg), 0 3px var(--bg), 0 -3px var(--bg), 3px 3px var(--bg), -3px -3px var(--bg), 3px -3px var(--bg), -3px 3px var(--bg); }
   /* Il testo della home compare alla fine, quando il nome è sfumato */
   .about { transition: opacity .5s; }
   :global(html[data-intro]) .about { opacity: 0; }
