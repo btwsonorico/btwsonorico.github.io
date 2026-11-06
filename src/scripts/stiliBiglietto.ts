@@ -71,7 +71,7 @@ const lime: Stile = {
 };
 
 // ---------------- Risograph: due inchiostri fluo sovrapposti, mezzatinta, il fuori registro che segue l'inclinazione.
-// Davanti e dietro hanno due disegni diversi con gli stessi inchiostri: girando il biglietto se ne scopre un altro
+// Davanti e dietro hanno due disegni diversi con gli stessi inchiostri, a coppie fisse: girando il biglietto si scopre il compagno
 const INCHIOSTRI = [['#ff48b0', '#0078bf'], ['#ffe800', '#765ba7']] as const;
 const FORME: ((a: string, b: string, id: string) => [string, string])[] = [
   // Un profilo con un sole dietro
@@ -80,12 +80,16 @@ const FORME: ((a: string, b: string, id: string) => [string, string])[] = [
   (a, b, id) => [`<circle cx="50" cy="55" r="30" fill="url(#ha${id})"/><circle cx="82" cy="20" r="6" fill="${a}"/>`, `<ellipse cx="50" cy="58" rx="46" ry="11" fill="none" stroke="${b}" stroke-width="4" transform="rotate(-14 50 58)"/><circle cx="40" cy="48" r="10" fill="url(#hb${id})"/>`],
   // Un occhio
   (a, b, id) => [`<path d="M6 55 Q50 10 94 55 Q50 100 6 55 Z" fill="url(#ha${id})"/>`, `<circle cx="50" cy="55" r="20" fill="url(#hb${id})"/><circle cx="50" cy="55" r="8" fill="${b}"/><path d="M6 55 Q50 10 94 55" fill="none" stroke="${b}" stroke-width="2"/>`],
+  // Un razzo che sale in diagonale, con la scia di fumo, la fiammata e le stelle
+  (a, b, id) => [`<circle cx="24" cy="60" r="15" fill="url(#ha${id})"/><circle cx="12" cy="70" r="10" fill="url(#ha${id})"/><circle cx="36" cy="66" r="8" fill="url(#ha${id})"/><path d="M38 48 L26 64 L44 54 Z" fill="${a}"/><circle cx="82" cy="12" r="2" fill="${a}"/><circle cx="70" cy="6" r="1.4" fill="${a}"/><circle cx="92" cy="30" r="1.6" fill="${a}"/><circle cx="16" cy="18" r="1.6" fill="${a}"/>`, `<g transform="rotate(40 58 36)"><path d="M58 8 C66 18 68 34 66 52 L50 52 C48 34 50 18 58 8 Z" fill="url(#hb${id})" stroke="${b}" stroke-width="1.6"/><circle cx="58" cy="28" r="5" fill="none" stroke="${b}" stroke-width="2"/><path d="M50 42 L42 56 L50 52 Z M66 42 L74 56 L66 52 Z" fill="${b}"/></g>`],
 ];
+// Due coppie fisse: l'occhio davanti e la faccia dietro; il pianeta davanti e il razzo dietro
+const COPPIE = [[2, 0], [1, 3]] as const;
 const riso = (grande: boolean) => (c: Contesto) => {
   const [a, b] = una(c, 'ink', () => scegli(INCHIOSTRI, c.r)), id = `r${++uid}`;
-  // Il davanti pesca un disegno, il retro uno degli altri due
-  const kDavanti = una(c, 'forma', () => Math.floor(c.r() * FORME.length)), kRetro = una(c, 'forma-retro', () => (kDavanti + 1 + Math.floor(c.r() * (FORME.length - 1))) % FORME.length);
-  const [ra, rb] = FORME[grande ? kRetro : kDavanti]!(a, b, id);
+  // Il biglietto pesca una coppia: un disegno davanti, il suo compagno dietro
+  const coppia = COPPIE[una(c, 'coppia', () => Math.floor(c.r() * COPPIE.length))]!;
+  const [ra, rb] = FORME[grande ? coppia[1] : coppia[0]]!(a, b, id);
   const defs = `<defs><pattern id="ha${id}" width="3" height="3" patternUnits="userSpaceOnUse"><circle cx="1.5" cy="1.5" r="1.1" fill="${a}"/></pattern><pattern id="hb${id}" width="2.6" height="2.6" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><circle cx="1.3" cy="1.3" r=".8" fill="${b}"/></pattern></defs>`;
   const vb = grande ? '0 0 100 80' : '0 0 100 110';
   return `<div class="rosa"><svg viewBox="${vb}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${defs}${ra}</svg></div><div class="blu"><svg viewBox="${vb}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${defs}${rb}</svg></div>`;
@@ -109,9 +113,10 @@ const notte: Stile = {
 
 // ---------------- Koi Pond, tutto a pixel. Davanti la riva del mare vista dall'alto, con le onde che salgono sulla sabbia;
 // dietro lo stagno: la riva d'erba con i sassi, le ninfee e le koi a sprite che nuotano senza piegarsi su se stesse
+// Due varianti: a colori, e minimal in bianco e nero dove solo le koi hanno colore
 const ACQUE = [
-  { acqua: ['#0b3b45', '#0f5560', '#167080', '#2a8f98', '#6fc3c1'], testo: '#f2f7f2', accento: '#ff7a59', fondo: '#082c34' },
-  { acqua: ['#0c3a2e', '#11533f', '#1a6e52', '#2f8f6a', '#8fd0a8'], testo: '#eff8f1', accento: '#ff8fb4', fondo: '#082c22' },
+  { mono: false, acqua: ['#0b3b45', '#0f5560', '#167080', '#2a8f98', '#6fc3c1'], ui: { fondo: '#082c34', bg: '#0b3b45', pannello: '#0f5560', bordo: '#2a8f98', hover: '#167080', ombra: '#082c34' }, testo: '#f2f7f2', accento: '#ff7a59' },
+  { mono: true, acqua: ['#8f918e', '#a8aaa6', '#c2c3bf', '#d9dad6', '#f2f2ee'], ui: { fondo: '#f4f3ef', bg: '#f4f3ef', pannello: '#e7e6e1', bordo: '#1a1a1a', hover: '#d9d8d2', ombra: '#1a1a1a' }, testo: '#141414', accento: '#e2452c' },
 ] as const;
 const koi: Stile = {
   id: 'koi', ascii: true,
@@ -119,7 +124,10 @@ const koi: Stile = {
   dietro: c => `<canvas data-ascii="koi-grande" data-seme="${semeTela(c)}"></canvas>`,
   variabili: c => {
     const q = una(c, 'acqua', () => scegli(ACQUE, c.r));
-    return { '--acqua-0': q.acqua[0], '--acqua-1': q.acqua[1], '--acqua-2': q.acqua[2], '--acqua-3': q.acqua[3], '--acqua-4': q.acqua[4], '--acqua-a': q.fondo, '--acqua-b': q.acqua[1], '--testo-k': q.testo, '--accento-k': q.accento };
+    return {
+      '--acqua-0': q.acqua[0], '--acqua-1': q.acqua[1], '--acqua-2': q.acqua[2], '--acqua-3': q.acqua[3], '--acqua-4': q.acqua[4], '--koi-mono': q.mono ? '1' : '0',
+      '--ui-fondo': q.ui.fondo, '--ui-bg': q.ui.bg, '--ui-pannello': q.ui.pannello, '--ui-bordo': q.ui.bordo, '--ui-hover': q.ui.hover, '--ui-ombra': q.ui.ombra, '--testo-k': q.testo, '--accento-k': q.accento,
+    };
   },
 };
 
@@ -267,37 +275,51 @@ const mostra = (c: HTMLCanvasElement, im: Immagine) => {
   g.drawImage(im.tela, 0, 0, im.w * (c.width / im.w), im.h * (c.height / im.h));
 };
 const acque = (c: HTMLCanvasElement) => [0, 1, 2, 3, 4].map(k => daHex(varCss(c, `--acqua-${k}`, ['#0b3b45', '#0f5560', '#167080', '#2a8f98', '#6fc3c1'][k]!)));
-const SCHIUMA: Rgb = [244, 241, 230], SABBIA = ['#c9ad78', '#d8bf8a', '#e6d2a2', '#f0e2bb'].map(daHex), BAGNATA = ['#9c855c', '#ae966a'].map(daHex);
+// Le tavolozze delle due varianti: a colori, e in scala di grigi (le koi restano a colori)
+const TAVOLE = {
+  colore: { schiuma: daHex('#f4f1e6'), sabbia: ['#c9ad78', '#d8bf8a', '#e6d2a2', '#f0e2bb'].map(daHex), bagnata: ['#9c855c', '#ae966a'].map(daHex), erba: ['#2f5a2a', '#3f6f30', '#558a3a', '#79a84a'].map(daHex), sasso: ['#5e6b6b', '#7d8a8a', '#a2acab'].map(daHex), foglia: ['#2f6a35', '#3f8040', '#5c9c4c'].map(daHex), petali: ['#e0779f', '#f2a7c3', '#ffd86a'].map(daHex) },
+  mono: { schiuma: daHex('#ffffff'), sabbia: ['#dcdcd7', '#e6e6e1', '#efefea', '#f7f7f3'].map(daHex), bagnata: ['#bdbdb8', '#cacac5'].map(daHex), erba: ['#4a4c49', '#5f615d', '#777975', '#93958f'].map(daHex), sasso: ['#2c2d2c', '#454745', '#6a6c69'].map(daHex), foglia: ['#3a3c3a', '#525451', '#6e706c'].map(daHex), petali: ['#ffffff', '#e2e2de', '#ffffff'].map(daHex) },
+};
+const tavola = (c: HTMLCanvasElement) => (varCss(c, '--koi-mono', '0') === '1' ? TAVOLE.mono : TAVOLE.colore);
+const liscia = (u: number) => u * u * (3 - 2 * u);
+const rumore = (x: number, y: number) => {
+  const x0 = Math.floor(x), y0 = Math.floor(y), fx = liscia(x - x0), fy = liscia(y - y0);
+  const a = hash(x0, y0), b = hash(x0 + 1, y0), c = hash(x0, y0 + 1), d = hash(x0 + 1, y0 + 1);
+  return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+};
+const frattale = (x: number, y: number) => rumore(x, y) * 0.55 + rumore(x * 2.1 + 7, y * 2.1 + 3) * 0.3 + rumore(x * 4.3 + 1, y * 4.3 + 9) * 0.15;
 
 // Davanti: la riva vista dall'alto. Sabbia in alto, il mare in basso; le onde salgono di sbieco e si ritirano,
 // lasciano la sabbia bagnata e un filo di schiuma; sull'acqua corrono le creste e qualche luccichio
 type Onde = { bagnato: Float32Array; luccica: Float32Array; tempo: number; r: () => number };
 function ondeTela(c: HTMLCanvasElement, dt: number, dpr: number, tx: number) {
-  const im = immagine(c, dpr), { w, h } = im, tav = acque(c);
+  const im = immagine(c, dpr), { w, h } = im, tav = acque(c), P = tavola(c);
   const s = prendi<Onde>(c, () => ({ bagnato: new Float32Array(w * h), luccica: new Float32Array(w * h), tempo: casoTela(c)() * 20, r: casoTela(c) }));
   if (s.bagnato.length !== w * h) { s.bagnato = new Float32Array(w * h); s.luccica = new Float32Array(w * h); }
   s.tempo += dt;
   const t = s.tempo, PERIODO = 7, risalita = (f: number) => (f < 0.3 ? 1 - (1 - f / 0.3) ** 3 : 0.5 + 0.5 * Math.cos(((f - 0.3) / 0.7) * Math.PI));
   for (let x = 0; x < w; x++) {
-    // Ogni colonna è un tratto di riva, un po' in ritardo sul vicino: l'onda arriva di sbieco
-    const f = (((t / PERIODO - x * 0.012 - Math.sin(x * 0.11) * 0.05) % 1) + 1) % 1;
-    const bordo = h * 0.42 + risalita(f) * h * 0.2 + Math.sin(x * 0.35 + t * 0.6) * 0.8 + Math.sin(x * 0.13) * 1.6;
+    // Ogni colonna è un tratto di riva, un po' in ritardo sul vicino: l'onda arriva di sbieco. La riva è frastagliata
+    // dal rumore, e ogni onda arriva un po' più su o più giù della precedente
+    const f = (((t / PERIODO - x * 0.012 - (frattale(x * 0.05, 1) - 0.5) * 0.35) % 1) + 1) % 1, onda = Math.floor(t / PERIODO - x * 0.012);
+    const bordo = h * 0.4 + risalita(f) * h * (0.14 + 0.1 * rumore(x * 0.04, onda * 3.7)) + (frattale(x * 0.11, t * 0.05) - 0.5) * 9 + (rumore(x * 0.6, 5) - 0.5) * 2;
     for (let y = 0; y < h; y++) {
       const i = y * w + x, u = h - y;
       if (u < bordo) {
-        const profondo = Math.min(1, (bordo - u) / 22), cresta = Math.max(0, Math.sin(u * 0.45 - t * 2.4 + Math.sin(x * 0.09 + tx) * 1.5)) ** 8;
-        let col = tono(tav, 0.85 - profondo * 0.75 + cresta * 0.35, x, y);
-        const schiuma = bordo - u;
-        if (schiuma < 1.6 || (schiuma < 3 && s.r() < (f < 0.35 ? 0.5 : 0.15))) col = SCHIUMA;
+        // Il fondo e le creste a chiazze: il rumore scorre verso la riva, le creste sono le sue parti più alte
+        const profondo = Math.min(1, (bordo - u) / 22), chiazza = frattale(x * 0.09 + tx, u * 0.13 - t * 0.35), cresta = Math.max(0, chiazza - 0.62) * 3.2;
+        let col = tono(tav, 0.82 - profondo * 0.7 + cresta * 0.45 + (frattale(x * 0.04, u * 0.05 + t * 0.03) - 0.5) * 0.25, x, y);
+        const schiuma = bordo - u, bordoSchiuma = 1.2 + rumore(x * 0.3, t * 0.8) * 2.4;
+        if (schiuma < bordoSchiuma || (schiuma < bordoSchiuma + 2.5 && rumore(x * 0.5, u * 0.5 + t) > (f < 0.35 ? 0.55 : 0.8))) col = P.schiuma;
         s.bagnato[i] = 1;
         if (dt > 0 && s.r() < 0.0008) s.luccica[i] = 1;
-        if (s.luccica[i]! > 0.4) col = SCHIUMA;
+        if (s.luccica[i]! > 0.4) col = P.schiuma;
         s.luccica[i] = Math.max(0, s.luccica[i]! - dt * 1.4);
         metti(im, x, y, col);
       } else {
-        s.bagnato[i] = Math.max(0, s.bagnato[i]! - dt * 0.18);
-        const b = s.bagnato[i]!, grana = hash(x, y) * 0.5 + 0.25;
-        metti(im, x, y, b > 0.15 ? tono(BAGNATA, grana, x, y) : tono(SABBIA, grana + (y / h) * 0.2, x, y));
+        s.bagnato[i] = Math.max(0, s.bagnato[i]! - dt * (0.12 + 0.12 * hash(x, 77)));
+        const b = s.bagnato[i]!, grana = hash(x, y) * 0.35 + frattale(x * 0.12, y * 0.12) * 0.45;
+        metti(im, x, y, b > 0.15 ? tono(P.bagnata, grana, x, y) : tono(P.sabbia, grana + (y / h) * 0.2, x, y));
       }
     }
   }
@@ -306,8 +328,6 @@ function ondeTela(c: HTMLCanvasElement, dt: number, dpr: number, tx: number) {
 
 // Dietro: lo stagno. In alto la riva d'erba con i sassi e qualche fiore; l'acqua è più chiara vicino alla riva, ha strisce
 // di luce che si muovono, ninfee con i fiori e koi a sprite. Le koi girano piano e il corpo si piega poco: niente pesci arrotolati
-const ERBA = ['#2f5a2a', '#3f6f30', '#558a3a', '#79a84a'].map(daHex), SASSO = ['#5e6b6b', '#7d8a8a', '#a2acab'].map(daHex);
-const FOGLIA = ['#2f6a35', '#3f8040', '#5c9c4c'].map(daHex), PETALI = ['#e0779f', '#f2a7c3', '#ffd86a'].map(daHex);
 type KoiPx = { x: number; y: number; a: number; voluta: number; vel: number; spina: { x: number; y: number }[]; misura: number; colore: (t: number, s: number) => Rgb; fase: number };
 type StagnoPx = { pesci: KoiPx[]; ninfee: { x: number; y: number; r: number; fiore: boolean }[]; sassi: { x: number; y: number; r: number }[]; cerchi: { x: number; y: number; r: number; vita: number }[]; tempo: number; r: () => number; riva: (x: number) => number };
 const KW = daHex('#f6f2ea'), KR = daHex('#e2452c'), KK = daHex('#1f1f24'), KG = daHex('#f2b63c'), KG2 = daHex('#ffe08a'), KB = daHex('#b07a40'), KA = daHex('#7f9bb3'), KO = daHex('#e8743a');
@@ -322,9 +342,9 @@ const VARIETA_PX: ((r: () => number) => (t: number, s: number) => Rgb)[] = [
   r => { const a = 0.08 + r() * 0.1; return (t, s) => (t > a && t < a + 0.3 ? KR : t > 0.5 && t < 0.8 && s > 0.2 && Math.round(t * 20 + s * 3) % 3 === 0 ? KK : KW); },
 ];
 function stagnoPixel(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, ty: number) {
-  const im = immagine(c, dpr), { w, h } = im, tav = acque(c);
+  const im = immagine(c, dpr), { w, h } = im, tav = acque(c), P = tavola(c), ERBA = P.erba, SASSO = P.sasso, FOGLIA = P.foglia, PETALI = P.petali;
   const s = prendi<StagnoPx>(c, () => {
-    const r = casoTela(c), riva = (x: number) => h * 0.17 + Math.sin(x * 0.09 + 1) * 2.2 + Math.sin(x * 0.23) * 1.2;
+    const r = casoTela(c), riva = (x: number) => h * 0.16 + (frattale(x * 0.07, 2) - 0.5) * 9 + (rumore(x * 0.4, 6) - 0.5) * 2;
     const pesci: KoiPx[] = Array.from({ length: 6 }, (_, k) => {
       const x = w * (0.15 + r() * 0.7), y = h * (0.35 + r() * 0.55), a = r() * Math.PI * 2, misura = 0.85 + r() * 0.5;
       return { x, y, a, voluta: a, vel: 0, misura, spina: Array.from({ length: 7 }, (_, i) => ({ x: x - Math.cos(a) * 1.7 * misura * i, y: y - Math.sin(a) * 1.7 * misura * i })), colore: VARIETA_PX[Math.floor(r() * VARIETA_PX.length)]!(r), fase: k * 1.3 + r() * 4 };
@@ -340,8 +360,9 @@ function stagnoPixel(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, 
     const bordo = s.riva(x);
     if (y < bordo) { const v = 0.35 + 0.4 * hash(x, y) + (y > bordo - 2 ? -0.3 : 0) + 0.15 * Math.sin(x * 0.5 + y); metti(im, x, y, tono(ERBA, v, x, y)); continue; }
     const vicino = Math.max(0, 1 - (y - bordo) / (h * 0.35));
-    const luce = Math.sin(x * 0.28 + y * 0.12 + t * 0.9 + tx * 2) + Math.sin(x * 0.11 - y * 0.31 - t * 0.6 + ty * 2) + Math.sin((x + y) * 0.07 + t * 0.4);
-    let v = 0.2 + vicino * 0.35 + (luce > 2.1 ? 0.45 : luce > 1.6 ? 0.2 : 0);
+    // La luce a chiazze irregolari, che scorrono piano e seguono l'inclinazione
+    const luce = frattale(x * 0.07 + t * 0.04 + tx, y * 0.09 - t * 0.03 + ty), fondo = frattale(x * 0.03 + 11, y * 0.03 + 5);
+    let v = 0.15 + vicino * 0.3 + (fondo - 0.5) * 0.3 + (luce > 0.68 ? 0.4 : luce > 0.6 ? 0.18 : 0);
     if (y < bordo + 1.5) v = 0.95;
     metti(im, x, y, tono(tav, v, x, y));
   }
