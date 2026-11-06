@@ -6,8 +6,8 @@ import { casuale, curveLivello, linea, mat, palco, pezzo, puntiMorbidi, sasso, S
 // Sei aerei paffuti, uno per sezione del glossario. Finché il loro termine non è indovinato girano in attesa sul mare,
 // uno sopra l'altro. Quando apri una domanda, il suo aereo arriva e atterra sulla pista con un avvicinamento dritto.
 // Se indovini, decolla e gira intorno all'isola, ognuno con il suo percorso e la sua quota, con lo striscione del termine.
-// Intorno: un paesino con la stradina e il pulmino, il pontile e la spiaggia, le pecore sul colle,
-// la pala eolica, il faro, la balena che affiora e si immerge, e le nuvole a filo che si scostano dal puntatore.
+// Intorno: il pontile e la spiaggia, le pecore sul colle, la pala eolica, il faro, e le nuvole a filo che si scostano
+// dal puntatore.
 
 export type Fase = 'holding' | 'landing' | 'boarding' | 'taking off' | 'in the air';
 
@@ -160,30 +160,6 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     luci.pos.set([x, H0 + 0.04, z], i * 3); luci.col.set([c.r, c.g, c.b], i * 3); luci.dim[i] = 0.08;
   }
 
-  // --- La stazioncina: piccola, a filo, con il tetto a onda e le bandierine dei colori delle sezioni
-  scatola(1.5, 0.26, 0.36, 0.5, H0, -0.15, M.edificio);
-  scatola(1.4, 0.13, 0.03, 0.5, H0 + 0.08, 0.035, M.vetro);
-  const onda = new THREE.CylinderGeometry(0.27, 0.27, 1.6, 12, 1, true, Math.PI / 2 - 0.85, 1.7);
-  onda.rotateZ(Math.PI / 2);
-  G.add(pezzo(onda, mat('#6a6a6a', { opacity: 0.08, fili: 0.7, side: THREE.DoubleSide }), 0.5, H0 + 0.06, -0.15));
-  {
-    const filo: number[] = [], bandiere: number[] = [], colori: number[] = [];
-    const yA = H0 + 0.44, n = 10, x0 = -0.25, lungo = 1.5;
-    for (let k = 0; k < n; k++) {
-      const a = x0 + (k / n) * lungo, b = x0 + ((k + 1) / n) * lungo, y = (x: number) => yA - 0.05 * Math.sin(((x - x0) / lungo) * Math.PI * 2) ** 2;
-      filo.push(a, y(a), -0.15, b, y(b), -0.15);
-      const c = new THREE.Color(o.tinte[k % o.tinte.length]!), xm = (a + b) / 2;
-      bandiere.push(a + 0.02, y(a), -0.15, b - 0.02, y(b), -0.15, xm, y(xm) - 0.09, -0.15);
-      for (let q = 0; q < 3; q++) colori.push(c.r, c.g, c.b);
-    }
-    fili(filo, C.muted, 0.7);
-    for (const x of [x0, x0 + lungo]) tubo(0.008, 0.008, 0.34, x, H0, -0.15, M.edificio, 4);
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(bandiere, 3));
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
-    G.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
-  }
-
   // --- La torre: fusto a filo, una bolla di vetro in cima, l'antenna a strisce bianche e rosse, la spia che lampeggia
   const TX = -3.05, TZ = -0.75, TY = altezza(TX, TZ);
   tubo(0.1, 0.17, 1.1, TX, TY, TZ, M.edificio, 10);
@@ -193,10 +169,6 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   for (let k = 0; k < 4; k++) tubo(0.022, 0.022, 0.07, TX, TY + 1.52 + k * 0.07, TZ, pieno(k % 2 ? '#f4f1ea' : '#f0603f'), 8);
   const spia = pezzo(new THREE.SphereGeometry(0.04, 8, 6), new THREE.MeshBasicMaterial({ color: '#f0603f', transparent: true }), TX, TY + 1.84, TZ);
   G.add(spia);
-  const radar = new THREE.Group();
-  radar.position.set(TX, TY + 1.12, TZ);
-  G.add(radar);
-  scatola(0.05, 0.05, 0.05, 0.3, 0, 0, pieno('#f2c14e'), radar);
   tubo(0.008, 0.008, 0.3, -3.6, altezza(-3.6, 0.6), 0.6, M.edificio, 4);
   const manica = new THREE.Group();
   manica.position.set(-3.6, altezza(-3.6, 0.6) + 0.28, 0.6);
@@ -231,65 +203,6 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   }
   G.add(rotore);
 
-  // --- Il paesino: una stradina che curva fra le case, sei case sparse e un po' storte, il campanile, il pulmino
-  const viottolo = new THREE.CatmullRomCurve3([[-2.55, -1.05], [-1.7, -1.3], [-0.8, -1.0], [0.2, -1.35], [1.25, -1.08], [2.2, -1.42], [3.15, -1.05]].map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal');
-  const lungoViottolo = viottolo.getLength(), puntiViottolo = viottolo.getSpacedPoints(80);
-  {
-    const vert: number[] = [], indici: number[] = [], tratti: number[] = [], t = new THREE.Vector3();
-    puntiViottolo.forEach((q, k) => {
-      viottolo.getTangentAt(k / 80, t);
-      const nx = -t.z * 0.065, nz = t.x * 0.065, y = altezza(q.x, q.z) + 0.004;
-      vert.push(q.x + nx, y, q.z + nz, q.x - nx, y, q.z - nz);
-      if (k < 80) indici.push(k * 2, k * 2 + 1, k * 2 + 2, k * 2 + 1, k * 2 + 3, k * 2 + 2);
-      if (k % 4 === 0 && k < 79) { const b = puntiViottolo[k + 2]!; tratti.push(q.x, y + 0.003, q.z, b.x, altezza(b.x, b.z) + 0.007, b.z); }
-    });
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(vert, 3));
-    geo.setIndex(indici);
-    G.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: PISTA, transparent: true, opacity: chiaro ? 0.55 : 0.22, depthWrite: false, side: THREE.DoubleSide })));
-    fili(tratti, chiaro ? '#ffffff' : '#fffaf0', 0.55);
-  }
-  const TETTI = ['#e85d4a', '#f2a43a', '#3e6795', '#8fd6b4', '#ff9fb4', '#f2c14e'];
-  const tetto = (w: number, d: number, h: number) => {
-    const s = new THREE.Shape();
-    s.moveTo(-w / 2 - 0.02, 0); s.lineTo(w / 2 + 0.02, 0); s.lineTo(0, h); s.closePath();
-    const g = new THREE.ExtrudeGeometry(s, { depth: d + 0.04, bevelEnabled: false });
-    g.translate(0, 0, -(d + 0.04) / 2);
-    return g;
-  };
-  // x, z, rotazione, larghezza, profondità, altezza, tetto
-  const CASE = [[-2.1, -1.62, 0.45, 0.26, 0.22, 0.2, 0], [-1.1, -0.68, -0.35, 0.3, 0.2, 0.16, 3], [-0.25, -1.66, 0.2, 0.22, 0.24, 0.26, 2],
-    [0.95, -0.74, 0.7, 0.24, 0.2, 0.18, 4], [1.8, -1.78, -0.25, 0.32, 0.22, 0.17, 1], [2.85, -0.72, 0.3, 0.22, 0.2, 0.22, 5]] as const;
-  CASE.forEach(([x, z, ang, w, d, h, k]) => {
-    const casa = new THREE.Group();
-    casa.position.set(x, altezza(x, z), z);
-    casa.rotation.y = ang;
-    G.add(casa);
-    scatola(w, h, d, 0, 0, 0, M.edificio, casa);
-    casa.add(pezzo(tetto(w, d, 0.12), pieno(TETTI[k]!, 0.12), 0, h, 0));
-    const fronte = d / 2 + 0.002;
-    fili([-0.03, 0, fronte, -0.03, 0.08, fronte, -0.03, 0.08, fronte, 0.03, 0.08, fronte, 0.03, 0.08, fronte, 0.03, 0, fronte], FILO, 0.6, casa);
-    casa.add(pezzo(new THREE.PlaneGeometry(0.04, 0.035), pieno('#ffd23f', 0.1), w / 4, h * 0.6, fronte + 0.001));
-  });
-  // Il campanile, dietro il paese
-  const CAMPANILE = { x: 0.35, z: -2.0 };
-  {
-    const { x, z } = CAMPANILE, y = altezza(x, z);
-    scatola(0.16, 0.5, 0.16, x, y, z, M.edificio);
-    G.add(pezzo(new THREE.ConeGeometry(0.13, 0.2, 4).rotateY(Math.PI / 4), pieno('#e85d4a', 0.12), x, y + 0.6, z));
-    G.add(pezzo(new THREE.CircleGeometry(0.035, 12), pieno('#f4f1ea', 0.1), x, y + 0.4, z + 0.082));
-  }
-  // Il pulmino giallo va avanti e indietro lungo la stradina
-  const pulmino = new THREE.Group();
-  {
-    const corpo2 = new THREE.CapsuleGeometry(0.045, 0.12, 3, 8); corpo2.rotateX(Math.PI / 2);
-    pulmino.add(pezzo(corpo2, pieno('#f2c14e', 0.12), 0, 0.07, 0));
-    pulmino.add(pezzo(new THREE.BoxGeometry(0.095, 0.03, 0.15), vetroP(), 0, 0.09, 0));
-    for (const x of [-0.04, 0.04]) for (const z of [-0.06, 0.06]) pulmino.add(new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), new THREE.MeshBasicMaterial({ color: '#3a332c' })).translateX(x).translateY(0.02).translateZ(z));
-    G.add(pulmino);
-  }
-  function vetroP() { return pieno(chiaro ? '#cfeefa' : '#bfe6f5', 0.12); }
-
   // --- Le pecore sul colle a ovest: palline bianche che brucano e ogni tanto si spostano
   const PECORE = 9, PCX = -2.8, PCZ = -2.05;
   const geoLana = new THREE.IcosahedronGeometry(0.06, 1); geoLana.scale(1.25, 0.9, 1);
@@ -305,6 +218,14 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   });
   pecore.forEach(q => { q.mx = q.x; q.mz = q.z; });
 
+  // Un tetto a due falde, pieno di colore
+  const tetto = (w: number, d: number, h: number) => {
+    const sh = new THREE.Shape();
+    sh.moveTo(-w / 2 - 0.02, 0); sh.lineTo(w / 2 + 0.02, 0); sh.lineTo(0, h); sh.closePath();
+    const g = new THREE.ExtrudeGeometry(sh, { depth: d + 0.04, bevelEnabled: false });
+    g.translate(0, 0, -(d + 0.04) / 2);
+    return g;
+  };
   // --- La spiaggia: ombrelloni e teli, una cabina a strisce, il pontile di legno che entra nel mare
   const SPIAGGIA = [[-1.9, 2.5], [-1.1, 2.72], [-0.2, 2.75], [2.0, 2.45]] as const;
   SPIAGGIA.forEach(([x, z], k) => {
@@ -362,8 +283,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     G.add(ob);
   };
   const vietati = (x: number, z: number) =>
-    (Math.abs(x) < 3 && z > 0.12 && z < 1.0) || (x > -0.4 && x < 1.4 && z > -0.45 && z < 0.12) || puntiViottolo.some(q => Math.hypot(q.x - x, q.z - z) < 0.2) ||
-    CASE.some(([cx, cz]) => Math.hypot(cx - x, cz - z) < 0.3) || Math.hypot(x - CAMPANILE.x, z - CAMPANILE.z) < 0.25 || Math.hypot(x - TX, z - TZ) < 0.45 || Math.hypot(x - FX, z - FZ) < 0.45 ||
+    (Math.abs(x) < 3 && z > 0.12 && z < 1.0) || Math.hypot(x - TX, z - TZ) < 0.45 || Math.hypot(x - FX, z - FZ) < 0.45 ||
     Math.hypot(x - PX, z - PZc) < 0.35 || Math.hypot(x - PCX, z - PCZ) < 0.75 || (z > 2.05 && x > -2.3 && x < 2.9) || Math.hypot(x + 3.6, z - 0.6) < 0.3;
   const posti: [number, number][] = [];
   for (let i = 0; i < 1500 && posti.length < 40; i++) {
@@ -417,73 +337,6 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   const nuovoCerchio = (x: number, z: number, grande: number) => { const c = cerchi.find(q => q.t >= 2.8); if (c) { c.x = x; c.z = z; c.t = 0; c.grande = grande; } };
   const inAcqua = (x: number, z: number) => forma(x, z) > 1;
 
-  // --- La balena: bianca come i cervi della home (nera nel tema chiaro). Una megattera: corpo affusolato con la sezione
-  // ovale, testa piatta, pinne pettorali lunghe e sottili piegate all'indietro, una piccola pinna dorsale, la coda larga
-  // con la tacca in mezzo. Il ventre è appena più scuro, così si legge il volume. Nuota quasi tutta sott'acqua
-  const BIANCO = new THREE.Color(chiaro ? '#23201b' : '#f4f1ea'), VENTRE = BIANCO.clone().lerp(new THREE.Color(chiaro ? '#5a554e' : '#9aa3ad'), 0.6);
-  const balena = new THREE.Group();
-  {
-    // Larghezza, altezza e spostamento in alto del centro lungo il corpo: t = 0 coda, t = 1 muso
-    const curva = (punti: number[][], t: number) => { let i = 0; while (i < punti.length - 2 && punti[i + 1]![0]! < t) i++; const [a, va] = punti[i]!, [b, vb] = punti[i + 1]!; const k = (t - a!) / (b! - a!); return va! + (vb! - va!) * liscio(Math.min(1, Math.max(0, k))); };
-    const LARGO = [[0, 0.02], [0.12, 0.04], [0.3, 0.1], [0.5, 0.165], [0.7, 0.185], [0.86, 0.15], [0.95, 0.09], [1, 0.012]];
-    const ALTO = [[0, 0.035], [0.12, 0.06], [0.3, 0.1], [0.5, 0.14], [0.7, 0.145], [0.86, 0.11], [0.95, 0.065], [1, 0.01]];
-    const CENTRO = [[0, 0], [0.5, 0], [0.85, -0.01], [1, -0.03]];
-    const N = 44, Mg = 18, vert: number[] = [], col: number[] = [], indici: number[] = [];
-    for (let i = 0; i <= N; i++) {
-      const t = i / N, z = -1 + t * 2, w = curva(LARGO, t), h = curva(ALTO, t), c = curva(CENTRO, t);
-      for (let j = 0; j <= Mg; j++) {
-        const a = (j / Mg) * Math.PI * 2, sa = Math.sin(a), ca = Math.cos(a);
-        // Il ventre è un po' più piatto del dorso
-        const y = c + (sa > 0 ? sa * h : sa * h * 0.8);
-        vert.push(ca * w, y, z);
-        const k = THREE.MathUtils.clamp(0.5 - sa * 0.5, 0, 1), q = BIANCO.clone().lerp(VENTRE, k * k);
-        col.push(q.r, q.g, q.b);
-      }
-    }
-    for (let i = 0; i < N; i++) for (let j = 0; j < Mg; j++) { const a = i * (Mg + 1) + j, b = a + Mg + 1; indici.push(a, b, a + 1, b, b + 1, a + 1); }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(vert, 3));
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
-    geo.setIndex(indici);
-    balena.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
-  }
-  const pelle = new THREE.MeshBasicMaterial({ color: BIANCO, side: THREE.DoubleSide }), pelleSotto = new THREE.MeshBasicMaterial({ color: VENTRE, side: THREE.DoubleSide });
-  // Le pinne pettorali: una foglia lunga, attaccata in basso sul fianco, piegata indietro e in giù
-  {
-    const foglia = new THREE.Shape();
-    foglia.moveTo(0, 0.05); foglia.bezierCurveTo(0.2, 0.06, 0.42, -0.02, 0.6, -0.12); foglia.bezierCurveTo(0.42, -0.07, 0.2, -0.06, 0, -0.05); foglia.closePath();
-    const g = new THREE.ShapeGeometry(foglia, 10).rotateX(Math.PI / 2);
-    for (const v of [-1, 1]) {
-      const f = new THREE.Mesh(g, pelleSotto);
-      f.position.set(v * 0.14, -0.07, 0.42);
-      f.scale.set(v, 1, 1);
-      f.rotation.set(0, -v * 0.5, -v * 0.45);
-      balena.add(f);
-    }
-  }
-  // La pinna dorsale, piccola, a due terzi verso la coda
-  {
-    const dorso = new THREE.Shape();
-    dorso.moveTo(0, 0); dorso.lineTo(-0.1, 0); dorso.quadraticCurveTo(-0.06, 0.03, -0.11, 0.055); dorso.quadraticCurveTo(-0.03, 0.04, 0.03, 0); dorso.closePath();
-    const g = new THREE.ShapeGeometry(dorso, 6).rotateY(-Math.PI / 2);
-    balena.add(new THREE.Mesh(g, pelle).translateY(0.09).translateZ(-0.3));
-  }
-  const coda = new THREE.Group();
-  coda.position.z = -0.98;
-  {
-    const lobo = new THREE.Shape();
-    lobo.moveTo(0, 0.02); lobo.bezierCurveTo(0.1, 0.0, 0.22, -0.02, 0.34, -0.14); lobo.bezierCurveTo(0.26, -0.15, 0.13, -0.16, 0.03, -0.11); lobo.lineTo(0, -0.08);
-    lobo.lineTo(-0.03, -0.11); lobo.bezierCurveTo(-0.13, -0.16, -0.26, -0.15, -0.34, -0.14); lobo.bezierCurveTo(-0.22, -0.02, -0.1, 0, 0, 0.02);
-    coda.add(new THREE.Mesh(new THREE.ShapeGeometry(lobo, 12).rotateX(Math.PI / 2), pelle));
-  }
-  balena.add(coda);
-  balena.scale.setScalar(0.62);
-  G.add(balena);
-  const GOCCE = 30, spruzzo = puntiMorbidi(GOCCE), gocce = Array.from({ length: GOCCE }, () => ({ x: 0, y: -9, z: 0, vx: 0, vy: 0, vz: 0, vita: 0 }));
-  G.add(spruzzo.punti);
-  for (let i = 0; i < GOCCE; i++) { spruzzo.col.set([0.85, 0.94, 1], i * 3); spruzzo.dim[i] = 0.07; spruzzo.alfa[i] = 0; }
-  let spruzzato = false;
-
   // --- Nuvole a filo, sparse a caso in tutto il cielo, ognuna con la sua forma. Appaiono piano; il vento le porta tutte
   // nella stessa direzione e, quando escono dal cielo, svaniscono e rinascono dall'altra parte. Il puntatore le scosta
   const VENTO = new THREE.Vector3(1, 0, 0.35).normalize(), CIELO = 10;
@@ -514,7 +367,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   const geoVetro = new THREE.SphereGeometry(0.045, 10, 6); geoVetro.scale(0.9, 0.6, 1.2);
   const geoRuota = new THREE.SphereGeometry(0.026, 8, 6);
   const geoPala = new THREE.BoxGeometry(0.27, 0.032, 0.008), geoMozzo = new THREE.SphereGeometry(0.026, 8, 6);
-  const grigio = pieno('#8a8078', 0.06), vetro = vetroP();
+  const grigio = pieno('#8a8078', 0.06), vetro = pieno(chiaro ? '#cfeefa' : '#bfe6f5', 0.12);
   const nuovoAereo = (colore: string) => {
     const g = new THREE.Group(), dentro = new THREE.Group(), corpo = pieno(colore, 0.1), ali = pieno(new THREE.Color(colore).offsetHSL(0, 0, -0.05).getStyle(), 0.1);
     dentro.position.y = 0.12;
@@ -536,16 +389,22 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   // --- Lo striscione: il termine scritto in aria, che segue la scia dell'aereo in prospettiva, nel colore della sezione
   const SEGMENTI = 18;
   const nuovoStriscione = (testo: string, tinta: string) => {
-    const tela = document.createElement('canvas'), parola = testo.toUpperCase();
+    const tela = document.createElement('canvas');
     tela.width = 1024; tela.height = 96;
     const cx = tela.getContext('2d')!;
     // Solo il testo, senza fondo: nel colore dell'aereo con un bordo scuro, nel mono del sito, come i nomi delle mongolfiere
     const mono = getComputedStyle(document.documentElement).getPropertyValue('--mono').trim() || 'ui-monospace, monospace';
-    cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.lineJoin = 'round';
-    let corpo = 76;
-    do { cx.font = `bold ${corpo}px ${mono}`; corpo -= 2; } while (cx.measureText(parola).width > 990 && corpo > 20);
-    cx.strokeStyle = 'rgba(10,12,16,.85)'; cx.lineWidth = 10; cx.strokeText(parola, 512, 50);
-    cx.fillStyle = tinta; cx.fillText(parola, 512, 50);
+    const scrivi = (t: string) => {
+      const parola = t.toUpperCase();
+      cx.clearRect(0, 0, 1024, 96);
+      cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.lineJoin = 'round';
+      let corpo = 76;
+      do { cx.font = `bold ${corpo}px ${mono}`; corpo -= 2; } while (cx.measureText(parola).width > 990 && corpo > 20);
+      cx.strokeStyle = 'rgba(10,12,16,.85)'; cx.lineWidth = 10; cx.strokeText(parola, 512, 50);
+      cx.fillStyle = tinta; cx.fillText(parola, 512, 50);
+      return THREE.MathUtils.clamp(parola.length * 0.1, 0.9, 1.9);
+    };
+    const lungo = scrivi(testo);
     const mappa = new THREE.CanvasTexture(tela);
     mappa.colorSpace = THREE.SRGBColorSpace;
     mappa.anisotropy = 4;
@@ -564,7 +423,8 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     const fune = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: FILO, transparent: true, opacity: 0 }));
     fune.frustumCulled = false;
     G.add(nastro, fune);
-    return { nastro, fune, pos, lungo: THREE.MathUtils.clamp(parola.length * 0.1, 0.9, 1.9) };
+    const st = { nastro, fune, pos, lungo, cambia: (t: string) => { st.lungo = scrivi(t); mappa.needsUpdate = true; } };
+    return st;
   };
 
   // --- Gli aerei e i loro stati: attesa sul mare, arrivo e atterraggio, fermo sulla pista, decollo, giro con lo striscione
@@ -639,7 +499,6 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   const coda0 = new THREE.Vector3(), tmp = new THREE.Vector3();
   let ultimo = '', tempoLista = 0;
   function aggiorna(s: number, dt: number) {
-    radar.rotation.y = s * 1.6;
     rotore.rotation.z = s * 1.3;
     fascio.rotation.y = s * 0.9;
     manica.rotation.y = 0.4 + Math.sin(s * 0.7) * 0.25;
@@ -761,39 +620,6 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       pc.g.rotation.y = pc.verso;
     });
 
-    // Il pulmino va avanti e indietro sulla strada e si gira alle estremità
-    {
-      const u = 0.5 + Math.sin((s * 0.5) / lungoViottolo) * 0.48, verso = Math.cos((s * 0.5) / lungoViottolo) >= 0 ? 1 : -1;
-      viottolo.getPointAt(u, tmp); viottolo.getTangentAt(u, d);
-      pulmino.position.set(tmp.x - d.z * 0.03 * verso, altezza(tmp.x, tmp.z) + 0.003, tmp.z + d.x * 0.03 * verso);
-      pulmino.rotation.y = Math.atan2(d.x * verso, d.z * verso);
-    }
-
-    // La balena: un giro largo; il ciclo di 16 secondi alterna nuoto sotto, risalita con spruzzo, dorso e tuffo con la coda
-    const bb = -s * 0.06, bx = Math.cos(bb) * 7.1, bz = Math.sin(bb) * 5.4, c = (s % 16) / 16;
-    let y: number, beccheggio: number, colpo = Math.sin(s * 1.4) * 0.3;
-    if (c < 0.45) { y = -0.72; beccheggio = 0; }
-    else if (c < 0.62) { const k = liscio((c - 0.45) / 0.17); y = -0.72 + k * 0.27; beccheggio = 0.12 * Math.sin(k * Math.PI); }
-    else if (c < 0.76) { y = -0.45 + Math.sin(s * 2) * 0.01; beccheggio = 0; colpo = Math.sin(s * 1.4) * 0.15; }
-    else { const k = liscio((c - 0.76) / 0.24); y = -0.45 - k * 0.35; beccheggio = -0.95 * Math.sin(k * Math.PI * 0.85); colpo = 0.35 * Math.sin(k * Math.PI); }
-    balena.position.set(bx, y, bz);
-    balena.rotation.set(0, Math.atan2(Math.sin(bb) * 7.1, -Math.cos(bb) * 5.4), 0);
-    balena.rotateX(-beccheggio);
-    coda.rotation.x = colpo;
-    if (c > 0.63 && c < 0.66 && !spruzzato) {
-      spruzzato = true;
-      tmp.set(0, 0, 0.5).applyQuaternion(balena.quaternion).add(balena.position);
-      gocce.forEach(g => { const a = r() * 6.28, v = 0.12 + r() * 0.18; g.x = tmp.x; g.y = -0.36; g.z = tmp.z; g.vx = Math.cos(a) * v; g.vz = Math.sin(a) * v; g.vy = 1.2 + r() * 0.5; g.vita = 1.4; });
-      nuovoCerchio(bx, bz, 1.1);
-    }
-    if (c < 0.6) spruzzato = false;
-    gocce.forEach((g, i) => {
-      if (g.vita > 0) { g.vita -= dt; g.vy -= dt * 1.8; g.x += g.vx * dt; g.y += g.vy * dt; g.z += g.vz * dt; }
-      spruzzo.pos.set([g.x, g.vita > 0 ? g.y : -9, g.z], i * 3);
-      spruzzo.alfa[i] = g.vita > 0 ? Math.min(1, g.vita) * 0.9 : 0;
-    });
-    spruzzo.aggiorna();
-
     // Le nuvole: il vento le porta; vicino al puntatore gli sbuffi si scostano e poi tornano al loro posto
     const raggio = p.raggio;
     nuvole.forEach(n => {
@@ -865,5 +691,20 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       else if (a.stato === 'arrivo') a.via = true;
       else { a.rotta = rottaDecollo(a, i, false); a.stato = 'decollo'; }
     },
+    // Dopo il suo giro, l'aereo torna in attesa sul mare con un termine nuovo: lo striscione sparisce e si riscrive
+    riposa(i: number, termine: string) {
+      const a = aerei[i];
+      if (!a) return;
+      a.fatto = false;
+      a.striscione.cambia(termine);
+      if (a.stato === 'giro') {
+        const qui = a.g.position.clone(), avanti = qui.clone().add(a.dir.clone().multiplyScalar(1.5));
+        a.f = Math.atan2((avanti.z - ATTESA.z) / 0.75, (avanti.x - ATTESA.x) / 1.05);
+        a.rotta = { ...nuovaRotta([qui, avanti, puntoAttesa(i, a.f), puntoAttesa(i, a.f + 0.35)]), veloce: true };
+        a.stato = 'ritorno';
+      }
+    },
+    // In volo da quanto tempo, per sapere quando farlo tornare
+    inGiro(i: number) { return aerei[i]?.stato === 'giro'; },
   };
 }

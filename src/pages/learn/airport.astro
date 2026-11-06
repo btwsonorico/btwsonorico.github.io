@@ -1,22 +1,21 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// AI terms: il gioco del giorno. Sei aerei, uno per sezione del glossario; indovina il termine e l'aereo parte.
-// Ogni giorno i termini cambiano, uguali per tutti. Logica in src/lib/voloDelGiorno.ts, scena in src/scripts/aeroporto.ts
+// AI terms: sei aerei, uno per sezione del glossario, girano in attesa sul mare con un termine ciascuno. Scegli un volo:
+// l'aereo atterra con la domanda. Indovina e il biglietto entra nell'album; la serie conta i giusti di fila al primo colpo.
+// Logica in src/lib/voli.ts, scena in src/scripts/aeroporto.ts, biglietto in src/scripts/bigliettoImbarco.ts
 ---
-<Base title="AI terms · Riccardo Mondi" description="A daily AI terms trivia: six planes, six boarding passes, the same flights for everyone each day." tono="neutro" largo>
+<Base title="AI terms · Riccardo Mondi" description="An AI terms trivia: six planes, one boarding pass per term, an album to fill and a streak to beat." tono="neutro" largo>
   <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
   <main class="aeroporto">
     <h1>AI terms</h1>
-    <p class="sotto">Six planes, one for each section of the glossary, wait over the sea. Pick a flight: its plane lands with a question. Answer right and it flies around the island with its term. New flights every day, the same for everyone.</p>
-    <p class="mono giorno"></p>
+    <p class="sotto">Six planes, one for each section of the glossary, wait over the sea. Pick a flight: its plane lands with a question. Answer right and its boarding pass goes in your album.</p>
+    <p class="mono punteggio"></p>
     <ol class="mono tabellone" aria-label="departures"></ol>
-    <section class="riepilogo" hidden aria-live="polite">
-      <p class="mono titolo-riepilogo"></p>
-      <p class="quadri" aria-hidden="true"></p>
-      <p class="mono numeri"></p>
-      <button type="button" class="mono condividi">copy result</button>
-      <p class="mono domani"></p>
+    <button type="button" class="mono apri-album" aria-expanded="false"></button>
+    <section class="album" hidden aria-label="your album">
+      <p class="mono nota-album">Saved in this browser. It stays until you clear the site data; Safari clears it after 7 days without a visit.</p>
+      <ul class="pagine-album"></ul>
     </section>
   </main>
 </Base>
@@ -25,15 +24,33 @@ import Base from '../../layouts/Base.astro';
   import '@fontsource/instrument-serif/400-italic.css';
   import { monta, type Fase } from '../../scripts/aeroporto';
   import { nuovoImbarco } from '../../scripts/bigliettoImbarco';
-  import { chiudiGiorno, oggi, partita, quadro, serieOra, testoDaCondividere, voliDel } from '../../lib/voloDelGiorno';
+  import { TINTE_SEZIONI } from '../../lib/glossario';
+  import { album, azzera, incolla, nuovaPartita, nuovoVolo, segnaRisposta, serie, SEZIONI, TOTALE } from '../../lib/voli';
 
-  const adesso = new Date(), { chiave, n } = oggi(adesso), voli = voliDel(chiave), p = partita(chiave, voli.length);
-  const giorno = document.querySelector<HTMLElement>('.giorno')!, tabellone = document.querySelector<HTMLOListElement>('.tabellone')!;
-  const riepilogo = document.querySelector<HTMLElement>('.riepilogo')!;
-  const data = adesso.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-  let fasi: Fase[] = voli.map((_, i) => (p.fatto[i] ? 'in the air' : 'holding'));
+  const adesso = new Date(), recenti: string[] = [];
+  const voli = SEZIONI.map((_, i) => { const v = nuovoVolo(i, recenti); recenti.push(v.voce.id); return v; });
+  const p = nuovaPartita(voli.length);
+  const punteggio = document.querySelector<HTMLElement>('.punteggio')!, tabellone = document.querySelector<HTMLOListElement>('.tabellone')!;
+  const apriAlbum = document.querySelector<HTMLButtonElement>('.apri-album')!, sezAlbum = document.querySelector<HTMLElement>('.album')!, pagine = document.querySelector<HTMLUListElement>('.pagine-album')!;
+  let fasi: Fase[] = voli.map(() => 'holding');
 
-  const scriviGiorno = () => { giorno.textContent = `Daily flights #${n} · ${data} · streak ${serieOra(n).serie}`; };
+  const riassunto = () => { const s = serie(), n = Object.keys(album()).length; return `streak ${s.ora} · best ${s.migliore} · album ${n}/${TOTALE}`; };
+  const scriviPunteggio = () => { punteggio.textContent = riassunto(); apriAlbum.textContent = `${sezAlbum.hidden ? 'open' : 'close'} the album (${Object.keys(album()).length}/${TOTALE})`; };
+  // L'album: una pagina per termine indovinato, nel colore della sezione; quelli al primo colpo hanno la stella
+  const scriviAlbum = () => {
+    const a = album(), voci = Object.entries(a).sort((x, y) => x[1].sezione - y[1].sezione || x[1].termine.localeCompare(y[1].termine));
+    pagine.replaceChildren(...voci.map(([, q]) => {
+      const li = document.createElement('li'), t = document.createElement('span'), m = document.createElement('small');
+      li.style.setProperty('--c', TINTE_SEZIONI[q.sezione % TINTE_SEZIONI.length]!);
+      t.textContent = `${q.primo === 1 ? '★ ' : ''}${q.termine}`;
+      m.textContent = `${q.livello} · ×${q.volte}`;
+      li.append(t, m);
+      return li;
+    }));
+    if (!voci.length) { const li = document.createElement('li'); li.className = 'vuoto'; li.textContent = 'No tickets yet. Answer a flight to start your album.'; pagine.append(li); }
+  };
+  apriAlbum.addEventListener('click', () => { sezAlbum.hidden = !sezAlbum.hidden; apriAlbum.setAttribute('aria-expanded', String(!sezAlbum.hidden)); scriviAlbum(); scriviPunteggio(); });
+
   // Il tabellone delle partenze: una riga per volo, si clicca per aprire il biglietto
   const righe = voli.map((v, i) => {
     const li = document.createElement('li'), b = document.createElement('button'), pallino = document.createElement('i'), codice = document.createElement('span'), nome = document.createElement('span'), stato = document.createElement('span');
@@ -50,52 +67,50 @@ import Base from '../../layouts/Base.astro';
   });
   const scriviTabellone = () => righe.forEach((r, i) => {
     const t = p.tentativi[i]!;
-    r.stato.textContent = p.fatto[i] ? `${quadro(t)} ${fasi[i]}` : t ? `delayed · ${fasi[i]}` : fasi[i]!;
+    r.stato.textContent = p.fatto[i] ? `${t === 1 ? '★ ' : ''}${fasi[i]}` : t ? `delayed · ${fasi[i]}` : fasi[i]!;
     r.b.classList.toggle('partito', p.fatto[i]!);
     r.b.classList.toggle('aperto', imbarco.aperto === i);
   });
 
-  const scriviRiepilogo = () => {
-    const finito = p.fatto.every(Boolean);
-    riepilogo.hidden = !finito;
-    if (!finito) return;
-    const s = serieOra(n), primi = p.tentativi.filter(t => t === 1).length;
-    riepilogo.querySelector('.titolo-riepilogo')!.textContent = `All six flights cleared · #${n}`;
-    riepilogo.querySelector('.quadri')!.textContent = p.tentativi.map(quadro).join(' ');
-    riepilogo.querySelector('.numeri')!.textContent = `${primi}/6 first try · streak ${s.serie} · best ${s.migliore}`;
-    const domani = new Date(adesso.getFullYear(), adesso.getMonth(), adesso.getDate() + 1), ore = Math.max(0, (domani.getTime() - Date.now()) / 36e5);
-    riepilogo.querySelector('.domani')!.textContent = `New flights in ${Math.floor(ore)}h ${Math.floor((ore % 1) * 60)}m`;
-  };
-  const condividi = riepilogo.querySelector<HTMLButtonElement>('.condividi')!;
-  condividi.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(testoDaCondividere(n, p, serieOra(n).serie)); condividi.textContent = 'copied ✓'; }
-    catch { condividi.textContent = 'copy failed'; }
-    setTimeout(() => { condividi.textContent = 'copy result'; }, 1800);
-  });
-
   const scena = monta(document.querySelector<HTMLElement>('.scena3d')!, {
-    tinte: voli.map(v => v.tinta), termini: voli.map(v => v.voce.termine), partiti: [...p.fatto],
+    tinte: voli.map(v => v.tinta), termini: voli.map(v => v.voce.termine), partiti: voli.map(() => false),
     alClic: i => apri(i),
     alCambio: f => { fasi = f; scriviTabellone(); },
   });
+  // Dopo un giro di circa mezzo minuto con lo striscione, l'aereo torna in attesa con un termine nuovo
+  const riposo: number[] = [];
+  const cambia = (i: number) => {
+    if (imbarco.aperto === i) { riposo[i] = window.setTimeout(() => cambia(i), 5000); return; }
+    const v = nuovoVolo(i, recenti);
+    recenti.push(v.voce.id); if (recenti.length > 18) recenti.shift();
+    voli[i] = v;
+    azzera(p, i);
+    scena.riposa(i, v.voce.termine);
+    scriviTabellone();
+  };
   const imbarco = nuovoImbarco(document.body, {
-    giorno: n, data: adesso, voli, partita: p,
+    data: adesso, voli, partita: p, riassunto,
     dopo: (i, giusto) => {
-      if (giusto) {
+      const primo = p.tentativi[i] === 1;
+      if (!giusto) segnaRisposta(false, false);
+      else {
+        segnaRisposta(true, primo);
+        incolla(voli[i]!, p.tentativi[i]!);
         scena.decolla(i);
-        if (p.fatto.every(Boolean)) chiudiGiorno(n);
+        clearTimeout(riposo[i]);
+        riposo[i] = window.setTimeout(() => cambia(i), 32000);
       }
-      scriviTabellone(); scriviGiorno(); scriviRiepilogo();
+      scriviTabellone(); scriviPunteggio(); if (!sezAlbum.hidden) scriviAlbum();
     },
     prossimo: () => {
-      const k = voli.findIndex((_, i) => !p.fatto[i]);
+      const k = voli.findIndex((_, i) => !p.fatto[i] && i !== imbarco.aperto);
       if (k >= 0) apri(k); else chiudi();
     },
     chiudi: () => chiudi(),
   });
   function apri(i: number) { imbarco.mostra(i); if (!p.fatto[i]) scena.chiama(i); scriviTabellone(); }
-  function chiudi() { imbarco.nascondi(); scriviTabellone(); scriviRiepilogo(); righe[0]?.b.focus({ preventScroll: true }); }
-  scriviGiorno(); scriviTabellone(); scriviRiepilogo();
+  function chiudi() { imbarco.nascondi(); scriviTabellone(); righe[0]?.b.focus({ preventScroll: true }); }
+  scriviPunteggio(); scriviTabellone();
 </script>
 
 <style>
@@ -105,7 +120,7 @@ import Base from '../../layouts/Base.astro';
   .aeroporto > * { max-width: 400px; margin: 0 0 var(--s1); }
   h1 { font-size: 33px; font-weight: 400; line-height: 1.1; }
   .sotto { color: var(--muted); }
-  .giorno { font-size: 12px; color: var(--muted); }
+  .punteggio { font-size: 12px; color: var(--muted); }
   .tabellone { padding: 0; list-style: none; font-size: 12px; }
   .tabellone :global(button) {
     pointer-events: auto; display: grid; grid-template-columns: 10px 4.5ch 1fr auto; gap: 10px; align-items: center; width: 100%; padding: 5px 8px;
@@ -116,21 +131,23 @@ import Base from '../../layouts/Base.astro';
   .tabellone :global(.codice-volo) { color: var(--muted); }
   .tabellone :global(.stato-volo) { color: var(--muted); white-space: nowrap; }
   .tabellone :global(.partito .stato-volo) { color: var(--fg); }
-  .riepilogo { pointer-events: auto; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--bg) 85%, transparent); }
-  .riepilogo p { margin: 0 0 6px; font-size: 12px; }
-  .riepilogo .quadri { font-size: 20px; letter-spacing: 2px; }
-  .riepilogo .domani { color: var(--muted); margin: 8px 0 0; }
-  .condividi { padding: 4px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; }
-  .condividi:hover { border-color: var(--muted); }
+  .apri-album { pointer-events: auto; padding: 5px 12px; border: 1px solid var(--line); border-radius: 4px; background: color-mix(in srgb, var(--bg) 80%, transparent); color: var(--fg); font-size: 12px; cursor: pointer; }
+  .apri-album:hover { border-color: var(--muted); }
+  .album { pointer-events: auto; max-height: 40vh; overflow-y: auto; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--bg) 88%, transparent); }
+  .nota-album { margin: 0 0 8px; font-size: 10px; color: var(--muted); }
+  .pagine-album { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .pagine-album :global(li) { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border-left: 4px solid var(--c); border-radius: 3px; background: color-mix(in srgb, var(--c) 14%, var(--bg)); font-size: 12px; }
+  .pagine-album :global(li small) { color: var(--muted); font-family: var(--mono); font-size: 10px; }
+  .pagine-album :global(li.vuoto) { grid-column: 1 / -1; border-left-color: var(--line); color: var(--muted); }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
 
   /* La carta d'imbarco: in basso al centro, sopra la scena */
-  :global(.imbarco) { position: fixed; left: 50%; bottom: 22px; z-index: 3; width: min(940px, calc(100vw - 40px)); transform: translateX(-50%); }
+  :global(.imbarco) { position: fixed; left: 50%; bottom: 22px; z-index: 3; width: min(960px, calc(100vw - 40px)); transform: translateX(-50%); }
   :global(.imbarco[hidden]) { display: none; }
   :global(body:has(.imbarco:not([hidden])) .piede) { visibility: hidden; }
   :global(.imbarco .biglietto) { perspective: 1600px; }
   :global(.imbarco .carta) {
-    --rx: 0deg; --ry: 0deg; --lx: 50%; --ly: 50%; --accento: #f7cf4f; --nero: #15171b; --serif: 'Instrument Serif', Georgia, serif;
+    --rx: 0deg; --ry: 0deg; --lx: 50%; --ly: 50%; --accento: #f7cf4f; --nero: #1f1d1b; --crema: #f3ead6; --rosso: #c8221d; --serif: 'Instrument Serif', Georgia, serif;
     position: relative; display: grid; transform-style: preserve-3d; transition: transform .8s cubic-bezier(.3, 1.3, .5, 1);
     transform: rotateX(var(--rx)) rotateY(var(--ry));
   }
@@ -138,167 +155,139 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .carta.girata) { transform: rotateX(var(--rx)) rotateY(calc(var(--ry) + 180deg)); }
   :global(.imbarco .carta.scossa) { animation: scossa .35s ease-out; }
   @keyframes scossa { 20% { translate: -7px 0; } 45% { translate: 6px 0; } 70% { translate: -3px 0; } }
-  /* Senza puntatore il biglietto ondeggia piano da solo, così la luce si muove anche su telefono */
+  /* Senza puntatore il biglietto ondeggia piano da solo, così la foglia brilla anche su telefono */
   :global(.imbarco .biglietto:not(:has(.puntato))) { transform-style: preserve-3d; animation: ondeggia 6s ease-in-out infinite alternate; }
   @keyframes ondeggia { from { transform: perspective(1600px) rotateX(5deg) rotateY(-9deg); } to { transform: perspective(1600px) rotateX(-5deg) rotateY(9deg); } }
   :global(.imbarco .faccia) {
-    --stub: 336px;
-    grid-area: 1 / 1; position: relative; display: flex; height: 320px; backface-visibility: hidden; -webkit-backface-visibility: hidden;
-    color: var(--nero); background: #f2efe7; border-radius: 6px; overflow: hidden; box-shadow: 0 18px 50px rgb(0 0 0 / .42);
-    -webkit-mask: radial-gradient(circle 10px at calc(100% - var(--stub)) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 10px at calc(100% - var(--stub)) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
-    mask: radial-gradient(circle 10px at calc(100% - var(--stub)) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 10px at calc(100% - var(--stub)) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
+    --stub: 176px;
+    grid-area: 1 / 1; position: relative; display: flex; height: 330px; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    color: var(--nero); background: var(--crema) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .16 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); border-radius: 4px; overflow: hidden; box-shadow: 0 18px 50px rgb(0 0 0 / .42);
+    -webkit-mask: radial-gradient(circle 9px at calc(100% - var(--stub)) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 9px at calc(100% - var(--stub)) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
+    mask: radial-gradient(circle 9px at calc(100% - var(--stub)) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 9px at calc(100% - var(--stub)) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
   }
   :global(.imbarco .faccia *) { color: inherit; }
   :global(.imbarco .mono) { font-family: var(--mono); }
-  :global(.imbarco .faccia > *:not(.grana):not(.sfumatura):not(.filigrana):not(.rosetta):not(.perla):not(.riflesso):not(.segno)) { position: relative; z-index: 1; }
-  /* La superficie: carta con la grana, la sfumatura nel colore della sezione, la filigrana argentata */
-  :global(.imbarco .grana) { position: absolute; inset: 0; z-index: 0; pointer-events: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); opacity: .4; mix-blend-mode: multiply; }
-  :global(.imbarco .sfumatura) { position: absolute; inset: 0; z-index: 0; pointer-events: none; background: linear-gradient(100deg, transparent 34%, color-mix(in srgb, var(--accento) 42%, transparent) 66%, color-mix(in srgb, var(--accento) 70%, transparent) 100%); }
-  :global(.imbarco .retro .sfumatura) { background: linear-gradient(80deg, color-mix(in srgb, var(--accento) 55%, transparent) 0%, transparent 46%, color-mix(in srgb, var(--accento) 30%, transparent) 100%); }
-  :global(.imbarco .filigrana) { position: absolute; inset: 0; z-index: 0; pointer-events: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='10'><g fill='none' stroke='rgba(110,118,130,.28)' stroke-width='.5'><path d='M0 2.5 Q10 0 20 2.5 T40 2.5 T60 2.5 T80 2.5'/><path d='M0 7.5 Q10 5 20 7.5 T40 7.5 T60 7.5 T80 7.5'/></g></svg>"); background-size: 80px 10px; -webkit-mask: linear-gradient(90deg, #000 0 55%, transparent 80%); mask: linear-gradient(90deg, #000 0 55%, transparent 80%); }
-  :global(.imbarco .rosetta) { position: absolute; z-index: 0; left: 36%; top: 50%; width: 270px; height: 270px; translate: -50% -50%; pointer-events: none; color: rgb(110 118 130 / .32); }
-  :global(.imbarco .retro .rosetta) { left: 70%; }
-  :global(.imbarco .rosetta svg) { display: block; width: 100%; height: 100%; }
-  /* La luce perlata: un velo pastello tenue che scorre, e un riflesso dove punta il mouse */
-  :global(.imbarco .perla) {
-    position: absolute; inset: 0; z-index: 2; pointer-events: none; mix-blend-mode: soft-light;
-    background: linear-gradient(115deg, transparent 18%, rgb(255 205 232 / .75) 32%, rgb(200 232 255 / .75) 44%, rgb(255 244 196 / .7) 56%, rgb(220 205 255 / .65) 66%, transparent 80%);
-    background-size: 260% 260%; background-position: var(--lx) var(--ly);
+  :global(.imbarco .faccia > *:not(.bande):not(.riflesso):not(.annullo)) { position: relative; z-index: 1; }
+  /* Le bande di colore della sezione: un grande sole che sorge dal basso, una fascia diagonale, due righe al piede */
+  :global(.imbarco .bande) {
+    position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(circle at 70% 128%, var(--accento) 0 118px, transparent 119px),
+      radial-gradient(circle at 70% 128%, transparent 0 128px, color-mix(in srgb, var(--accento) 55%, transparent) 129px 134px, transparent 135px),
+      linear-gradient(112deg, transparent 0 70%, color-mix(in srgb, var(--accento) 80%, #fff) 70% 73%, transparent 73% 74.5%, var(--accento) 74.5% 77%, transparent 77%),
+      linear-gradient(transparent calc(100% - 16px), var(--accento) calc(100% - 16px) calc(100% - 10px), transparent calc(100% - 10px) calc(100% - 7px), var(--nero) calc(100% - 7px));
   }
-  :global(.imbarco .carta:not(.puntato) .perla) { animation: scorre 6s ease-in-out infinite alternate; }
-  @keyframes scorre { from { background-position: 0% 30%; } to { background-position: 100% 70%; } }
-  :global(.imbarco .riflesso) { position: absolute; inset: 0; z-index: 3; pointer-events: none; mix-blend-mode: overlay; background: linear-gradient(105deg, transparent calc(var(--lx) - 14%), rgb(255 255 255 / .7) var(--lx), transparent calc(var(--lx) + 14%)); opacity: 0; transition: opacity .3s; }
+  :global(.imbarco .carta[data-sezione='1'] .bande) { background: repeating-radial-gradient(ellipse at 100% 120%, color-mix(in srgb, var(--accento) 75%, transparent) 0 12px, transparent 12px 20px, color-mix(in srgb, #f0603f 45%, transparent) 20px 26px, transparent 26px 40px); -webkit-mask: linear-gradient(110deg, transparent 52%, #000 70%); mask: linear-gradient(110deg, transparent 52%, #000 70%); }
+  :global(.imbarco .carta[data-sezione='2'] .bande) { background: repeating-linear-gradient(-60deg, transparent 0 18px, var(--accento) 18px 26px, transparent 26px 30px, #f7a541 30px 34px); -webkit-mask: linear-gradient(100deg, transparent 58%, #000 80%); mask: linear-gradient(100deg, transparent 58%, #000 80%); }
+  :global(.imbarco .carta[data-sezione='4'] .bande) { background: linear-gradient(transparent 0 62%, #e85d4a 62% 66%, #f2a43a 66% 70%, #f7cf4f 70% 74%, var(--accento) 74% 78%, #3e6795 78% 82%, transparent 82%); -webkit-mask: linear-gradient(90deg, transparent 40%, #000 62%); mask: linear-gradient(90deg, transparent 40%, #000 62%); }
+  /* Il riflesso: una lucidatura che segue il mouse */
+  :global(.imbarco .riflesso) { position: absolute; inset: 0; z-index: 5; pointer-events: none; mix-blend-mode: soft-light; background: linear-gradient(105deg, transparent calc(var(--lx) - 16%), rgb(255 255 255 / .85) var(--lx), transparent calc(var(--lx) + 16%)); opacity: 0; transition: opacity .3s; }
   :global(.imbarco .carta.puntato .riflesso) { opacity: 1; }
-  /* Segni di taglio e croci di registro */
-  :global(.imbarco .segno) { position: absolute; z-index: 4; width: 10px; height: 10px; pointer-events: none; border: 0 solid rgb(21 23 27 / .5); }
-  :global(.imbarco .an1) { left: 8px; top: 8px; border-left-width: 1px; border-top-width: 1px; }
-  :global(.imbarco .an2) { right: calc(var(--stub) + 8px); top: 8px; border-right-width: 1px; border-top-width: 1px; }
-  :global(.imbarco .an3) { left: 8px; bottom: 8px; border-left-width: 1px; border-bottom-width: 1px; }
-  :global(.imbarco .an4) { right: calc(var(--stub) + 8px); bottom: 8px; border-right-width: 1px; border-bottom-width: 1px; }
-  :global(.imbarco .croce)::before, :global(.imbarco .croce)::after { content: ''; position: absolute; background: rgb(21 23 27 / .55); }
-  :global(.imbarco .croce)::before { left: 4.5px; top: 0; width: 1px; height: 10px; }
-  :global(.imbarco .croce)::after { top: 4.5px; left: 0; width: 10px; height: 1px; }
-  :global(.imbarco .cr1) { right: 12px; top: 12px; }
-  :global(.imbarco .cr2) { right: 12px; bottom: 12px; }
-  /* Il corpo davanti: titolo grande nel mono del sito, corsivo della sezione, domanda, risposte su righe sottili */
-  :global(.imbarco .corpo) { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 22px 26px 16px; }
-  :global(.imbarco .riga) { margin: 0; font-size: 9px; letter-spacing: .28em; text-transform: uppercase; opacity: .7; }
-  :global(.imbarco .titolo) { margin: 10px 0 0; font-size: 40px; font-weight: 700; line-height: .95; letter-spacing: -.03em; text-transform: uppercase; overflow-wrap: anywhere; }
+  /* Il francobollo a lotteria: dentellato, fascia di sicurezza rosa con il numero rosso, l'illustrazione, il valore */
+  :global(.imbarco .francobollo) {
+    flex: none; align-self: center; display: flex; flex-direction: column; width: 152px; height: 226px; margin-left: 22px; padding: 8px; background: #fffdf6; rotate: -2deg;
+    box-shadow: 0 1px 0 rgb(0 0 0 / .08);
+    -webkit-mask: radial-gradient(circle 4px, #0000 96%, #000) -5px -5px / 10px 10px round, linear-gradient(#000 0 0) 5px 5px / calc(100% - 10px) calc(100% - 10px) no-repeat;
+    mask: radial-gradient(circle 4px, #0000 96%, #000) -5px -5px / 10px 10px round, linear-gradient(#000 0 0) 5px 5px / calc(100% - 10px) calc(100% - 10px) no-repeat;
+  }
+  :global(.imbarco .fascia) { display: grid; place-items: center; height: 26px; background: #f7e3e7 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='9'><g fill='none' stroke='rgba(214,90,120,.45)' stroke-width='.6'><path d='M0 2.5 Q5.5 0 11 2.5 T22 2.5 T33 2.5 T44 2.5'/><path d='M0 6.5 Q5.5 9 11 6.5 T22 6.5 T33 6.5 T44 6.5'/></g></svg>"); background-size: 44px 9px; }
+  :global(.imbarco .seriale) { margin: 0; font-family: var(--mono); font-size: 15px; letter-spacing: .14em; color: var(--rosso); }
+  :global(.imbarco .arte) { flex: 1; min-height: 0; overflow: hidden; }
+  :global(.imbarco .arte svg) { display: block; width: 100%; height: 100%; }
+  :global(.imbarco .valore) { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 2px 0; }
+  :global(.imbarco .valore span) { font-size: 7.5px; letter-spacing: .2em; }
+  :global(.imbarco .valore b) { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: 22px; line-height: .8; }
+  :global(.imbarco .annullo) { position: absolute; z-index: 3; left: 112px; top: 26px; width: 150px; height: 70px; rotate: -9deg; pointer-events: none; mix-blend-mode: multiply; }
+  :global(.imbarco .annullo svg) { display: block; width: 100%; height: 100%; }
+  /* Il corpo: titolo grande nel mono, corsivo della sezione, domanda, risposte su righe sottili */
+  :global(.imbarco .corpo) { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 24px 24px 22px 30px; }
+  :global(.imbarco .riga) { margin: 0; font-size: 9px; letter-spacing: .26em; text-transform: uppercase; opacity: .75; }
+  :global(.imbarco .titolo) { margin: 10px 0 0; font-size: 38px; font-weight: 700; line-height: .95; letter-spacing: -.03em; text-transform: uppercase; overflow-wrap: anywhere; }
   :global(.imbarco .corsivo) { margin: 4px 0 8px; font-family: var(--serif); font-style: italic; font-size: 19px; line-height: 1.1; }
   :global(.imbarco .domanda) { margin: 0 0 8px; font-size: 14px; line-height: 1.35; font-weight: 600; }
-  :global(.imbarco .opzioni) { display: grid; margin-top: auto; border-bottom: 1px solid rgb(21 23 27 / .35); }
+  :global(.imbarco .opzioni) { display: grid; margin-top: auto; border-bottom: 1px solid rgb(31 29 27 / .4); background: rgb(243 234 214 / .55); }
   :global(.imbarco .opzione) {
-    display: flex; gap: 14px; align-items: baseline; width: 100%; min-height: 34px; padding: 8px 8px 8px 2px; border: 0; border-top: 1px solid rgb(21 23 27 / .35);
+    display: flex; gap: 14px; align-items: baseline; width: 100%; min-height: 34px; padding: 8px 8px 8px 4px; border: 0; border-top: 1px solid rgb(31 29 27 / .4);
     background: transparent; color: var(--nero); font: inherit; font-size: 13.5px; line-height: 1.3; text-align: left; cursor: pointer; transition: background .15s, padding .15s;
   }
   :global(.imbarco .opzione span) { flex: none; font-size: 10px; opacity: .55; }
-  :global(.imbarco .opzione:hover:not(:disabled)) { padding-left: 10px; background: color-mix(in srgb, var(--accento) 45%, transparent); }
+  :global(.imbarco .opzione:hover:not(:disabled)) { padding-left: 10px; background: color-mix(in srgb, var(--accento) 55%, transparent); }
   :global(.imbarco .opzione:disabled) { cursor: default; opacity: .45; }
-  :global(.imbarco .opzione.giusta) { opacity: 1; background: var(--nero); color: #f2efe7; padding-left: 10px; }
+  :global(.imbarco .opzione.giusta) { opacity: 1; background: var(--nero); color: var(--crema); padding-left: 10px; }
   :global(.imbarco .opzione.sbagliata) { text-decoration: line-through; }
-  :global(.imbarco .nota) { margin: 7px 0 0; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; opacity: .7; }
-  /* I timbri: solo inchiostro, sopra la domanda, non prendono i clic */
+  :global(.imbarco .nota) { margin: 7px 0 0; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; opacity: .75; }
+  /* I timbri: solo inchiostro, sopra la domanda */
   :global(.imbarco .timbri) { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
   :global(.imbarco .timbro) { position: absolute; width: 124px; height: 124px; transform: rotate(var(--a)); mix-blend-mode: multiply; }
   :global(.imbarco .timbro svg) { display: block; width: 100%; height: 100%; overflow: visible; }
   :global(.imbarco .timbro.cade) { animation: cade .5s cubic-bezier(.2, 1.5, .4, 1) both; }
   @keyframes cade { 0% { transform: rotate(calc(var(--a) - 14deg)) scale(1.9); opacity: 0; } 45% { transform: rotate(var(--a)) scale(.94); opacity: 1; } 70% { transform: rotate(var(--a)) scale(1.03); } 100% { transform: rotate(var(--a)) scale(1); } }
-  /* A destra, davanti: una striscia d'argento, poi il francobollo e i dati del volo */
-  :global(.imbarco .destra) {
-    flex: none; display: flex; gap: 16px; align-items: stretch; width: var(--stub); padding: 18px 18px 16px 34px; border-left: 1.5px dashed rgb(21 23 27 / .45);
-    background: linear-gradient(90deg, #b8bec7, #f4f6f8 35%, #a9b1bb 60%, #eef0f3) no-repeat 0 0 / 14px 100%;
+  /* Il tagliando: carta di sicurezza azzurra, la tratta grande, i dati, il numero rosso, il codice a barre */
+  :global(.imbarco .tagliando) {
+    flex: none; display: flex; flex-direction: column; gap: 8px; width: var(--stub); padding: 22px 16px 22px; border-left: 1.5px dashed rgb(31 29 27 / .5);
+    background: #e3ecf4 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='9'><g fill='none' stroke='rgba(70,110,170,.4)' stroke-width='.6'><path d='M0 2.5 Q5.5 0 11 2.5 T22 2.5 T33 2.5 T44 2.5'/><path d='M0 6.5 Q5.5 9 11 6.5 T22 6.5 T33 6.5 T44 6.5'/></g></svg>"); background-size: 44px 9px;
   }
-  :global(.imbarco .francobollo) {
-    position: relative; flex: none; align-self: center; width: 128px; height: 166px; padding: 7px; rotate: -3deg;
-    background: linear-gradient(125deg, #e2dcff, #fff2c9 30%, #cfeeff 55%, #ffd9ea 80%, #e2dcff); background-size: 220% 220%; background-position: var(--lx) var(--ly);
-    -webkit-mask: radial-gradient(circle 4px, #0000 96%, #000) -5px -5px / 10px 10px round, linear-gradient(#000 0 0) 5px 5px / calc(100% - 10px) calc(100% - 10px) no-repeat;
-    mask: radial-gradient(circle 4px, #0000 96%, #000) -5px -5px / 10px 10px round, linear-gradient(#000 0 0) 5px 5px / calc(100% - 10px) calc(100% - 10px) no-repeat;
-  }
-  :global(.imbarco .scena-f) { position: absolute; inset: 7px; overflow: hidden; }
-  :global(.imbarco .scena-f svg) { display: block; width: 100%; height: 100%; }
-  :global(.imbarco .info) { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-  :global(.imbarco .numero) { margin: 0; font-family: var(--serif); font-style: italic; font-size: 44px; line-height: .8; color: var(--accento); -webkit-text-stroke: .7px rgb(21 23 27 / .55); }
-  :global(.imbarco .rotta) { display: flex; align-items: baseline; gap: 6px; margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.02em; line-height: 1; }
-  :global(.imbarco .rotta i) { font-style: normal; font-family: var(--serif); font-size: 20px; }
+  :global(.imbarco .tratta) { display: flex; align-items: center; gap: 6px; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+  :global(.imbarco .tratta i) { font-style: normal; font-size: 13px; color: var(--rosso); }
+  :global(.imbarco .numero) { margin: 0; font-family: var(--serif); font-style: italic; font-size: 46px; line-height: .8; color: var(--rosso); }
   :global(.imbarco .griglia) { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; margin: 0; font-size: 8.5px; text-transform: uppercase; }
   :global(.imbarco .griglia dt) { opacity: .6; letter-spacing: .14em; }
   :global(.imbarco .griglia dd) { margin: 0; font-size: 10.5px; text-align: right; }
-  :global(.imbarco .codice) { display: flex; height: 32px; margin-top: auto; }
+  :global(.imbarco .tagliando .seriale) { margin-top: auto; font-size: 13px; }
+  :global(.imbarco .codice) { display: flex; height: 30px; }
   :global(.imbarco .codice span) { display: block; height: 100%; background: var(--nero); }
-  :global(.imbarco .cifre) { margin: 0; font-size: 8.5px; letter-spacing: .2em; }
-  /* Dietro: a sinistra la finestra a francobollo con l'immagine olografica; a destra la definizione; in fondo il tagliando */
-  :global(.imbarco .retro) { --stub: 150px; transform: rotateY(180deg); }
-  :global(.imbarco .finestra) {
-    flex: none; align-self: center; width: 44%; height: calc(100% - 28px); margin-left: 14px; padding: 9px;
-    background: linear-gradient(125deg, #e2dcff, #fff2c9 30%, #cfeeff 55%, #ffd9ea 80%, #e2dcff); background-size: 220% 220%; background-position: var(--lx) var(--ly);
-    -webkit-mask: radial-gradient(circle 5px, #0000 96%, #000) -6px -6px / 12px 12px round, linear-gradient(#000 0 0) 6px 6px / calc(100% - 12px) calc(100% - 12px) no-repeat;
-    mask: radial-gradient(circle 5px, #0000 96%, #000) -6px -6px / 12px 12px round, linear-gradient(#000 0 0) 6px 6px / calc(100% - 12px) calc(100% - 12px) no-repeat;
-  }
-  :global(.imbarco .carta:not(.puntato) .finestra), :global(.imbarco .carta:not(.puntato) .francobollo) { animation: scorre 6s ease-in-out infinite alternate; }
-  :global(.imbarco .grafica) { position: absolute; inset: 9px; overflow: hidden; background: #1b2233; }
-  :global(.imbarco .grafica svg) { display: block; width: 100%; height: 100%; }
-  /* L'ologramma sull'immagine: arcobaleno che scorre con la luce, righe sottili e brillantini, come una carta rara */
-  :global(.imbarco .foglia) {
-    position: absolute; inset: 9px; z-index: 2; pointer-events: none; mix-blend-mode: color-dodge; opacity: .5;
-    background-image: repeating-linear-gradient(115deg, #ff7eb3 0%, #ffd56a 6%, #7ef0c8 12%, #7fb7ff 18%, #c39bff 24%, #ff7eb3 30%), repeating-linear-gradient(28deg, transparent 0 3px, rgb(255 255 255 / .35) 3px 4px);
-    background-size: 320% 320%, 100% 100%; background-position: var(--lx) var(--ly), 0 0;
-  }
-  :global(.imbarco .francobollo .foglia) { inset: 7px; opacity: .35; }
-  :global(.imbarco .foglia)::after {
-    content: ''; position: absolute; inset: 0; mix-blend-mode: overlay;
-    background-image: radial-gradient(circle, #fff 0 .8px, transparent 1.4px), radial-gradient(circle, #fff 0 .6px, transparent 1.2px);
-    background-size: 23px 19px, 37px 29px; background-position: 0 0, 11px 7px;
-  }
-  :global(.imbarco .carta:not(.puntato) .foglia) { animation: luccica 5s ease-in-out infinite alternate; }
-  @keyframes luccica { from { background-position: 0% 0%, 0 0; } to { background-position: 100% 100%, 0 0; } }
-  :global(.imbarco .testo-retro) { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 20px 22px 14px; }
-  :global(.imbarco .testa-retro) { display: flex; align-items: baseline; gap: 12px; }
-  :global(.imbarco .esito) { margin: 0; font-size: 9px; letter-spacing: .24em; text-transform: uppercase; }
-  :global(.imbarco .retro .titolo) { margin-top: 8px; font-size: 32px; }
-  :global(.imbarco .retro .corsivo) { font-size: 17px; margin-bottom: 0; }
-  :global(.imbarco .etichetta) { margin: 10px 0 5px; padding-top: 6px; border-top: 1px solid rgb(21 23 27 / .35); font-size: 8.5px; letter-spacing: .3em; text-transform: uppercase; opacity: .7; }
-  :global(.imbarco .definizione) { flex: 1; min-height: 0; overflow-y: auto; font-size: 12.5px; line-height: 1.5; touch-action: pan-y; scrollbar-width: thin; }
+  /* Dietro: il poster grande con il bordo di carta; a destra la definizione su carta di sicurezza rosa */
+  :global(.imbarco .retro) { --stub: 36%; transform: rotateY(180deg); }
+  :global(.imbarco .poster) { flex: none; width: 64%; padding: 12px; }
+  :global(.imbarco .poster svg) { display: block; width: 100%; height: 100%; box-shadow: 0 0 0 1px rgb(31 29 27 / .25); }
+  :global(.imbarco .pannello) { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 18px 20px 14px; border-left: 1.5px dashed rgb(31 29 27 / .5); background: #f7e3e7 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='9'><g fill='none' stroke='rgba(214,90,120,.45)' stroke-width='.6'><path d='M0 2.5 Q5.5 0 11 2.5 T22 2.5 T33 2.5 T44 2.5'/><path d='M0 6.5 Q5.5 9 11 6.5 T22 6.5 T33 6.5 T44 6.5'/></g></svg>"); background-size: 44px 9px; }
+  :global(.imbarco .testa-retro) { display: flex; align-items: baseline; gap: 10px; }
+  :global(.imbarco .esito) { margin: 0; font-size: 9px; letter-spacing: .22em; text-transform: uppercase; }
+  :global(.imbarco .retro .titolo) { margin-top: 8px; font-size: 26px; }
+  :global(.imbarco .retro .corsivo) { font-size: 16px; margin-bottom: 0; }
+  :global(.imbarco .etichetta) { margin: 8px 0 5px; padding-top: 6px; border-top: 1px solid rgb(31 29 27 / .4); font-size: 8.5px; letter-spacing: .3em; text-transform: uppercase; opacity: .75; }
+  :global(.imbarco .definizione) { flex: 1; min-height: 0; overflow-y: auto; font-size: 12px; line-height: 1.5; touch-action: pan-y; scrollbar-width: thin; }
   :global(.imbarco .definizione p) { margin: 0 0 7px; }
   :global(.imbarco .definizione ul) { margin: 0 0 7px; padding-left: 16px; }
   :global(.imbarco .definizione li) { margin-bottom: 4px; }
   :global(.imbarco .definizione strong) { font-weight: 700; }
-  :global(.imbarco .tagliando) { flex: none; display: flex; flex-direction: column; gap: 8px; width: var(--stub); padding: 22px 16px 16px; border-left: 1.5px dashed rgb(21 23 27 / .45); }
-  :global(.imbarco .tag-titolo) { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -.02em; line-height: 1; }
-  :global(.imbarco .collezione) { display: flex; gap: 5px; }
-  :global(.imbarco .collezione i) { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgb(21 23 27 / .55); }
-  :global(.imbarco .collezione i.preso) { background: var(--c); }
+  :global(.imbarco .piede-retro) { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-top: 8px; padding-top: 6px; border-top: 1px dashed rgb(31 29 27 / .45); }
+  :global(.imbarco .piede-retro .seriale) { font-size: 12px; }
+  :global(.imbarco .stato) { margin: 0; font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; opacity: .75; }
   :global(.imbarco .azioni) { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
   :global(.imbarco .azioni button) { padding: 6px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--muted); cursor: pointer; }
   :global(.imbarco .azioni .prossimo), :global(.imbarco .azioni .gira) { color: var(--fg); border-color: var(--muted); }
   :global(.imbarco .azioni button:hover) { color: var(--fg); border-color: var(--fg); }
   :global(.imbarco .azioni button[hidden]) { display: none; }
-  @media (prefers-reduced-motion: reduce) { :global(.imbarco .carta) { transition: none; } :global(.imbarco .biglietto), :global(.imbarco .perla), :global(.imbarco .finestra), :global(.imbarco .francobollo), :global(.imbarco .foglia) { animation: none !important; } }
+  @media (prefers-reduced-motion: reduce) { :global(.imbarco .carta) { transition: none; } :global(.imbarco .biglietto) { animation: none !important; } }
   @media (max-width: 640px) {
     .fondo3d { top: 300px; }
     .sotto { display: none; }
     .tabellone :global(button) { grid-template-columns: 10px 1fr auto; gap: 8px; }
     .tabellone :global(.codice-volo) { display: none; }
     .tabellone :global(.stato-volo) { font-size: 11px; }
-    /* Su telefono il biglietto prende la larghezza dello schermo e va in colonna: il francobollo resta in alto a destra */
+    /* Su telefono il biglietto va in colonna: il francobollo piccolo in alto a destra, il tagliando in basso */
     :global(.imbarco) { left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); width: auto; transform: none; }
     :global(.imbarco .faccia) { height: auto; min-height: 0; flex-direction: column; -webkit-mask: none; mask: none; }
-    :global(.imbarco .segno) { display: none; }
+    :global(.imbarco .francobollo) { position: absolute; right: 10px; top: 10px; width: 84px; height: 124px; margin: 0; padding: 5px; z-index: 3; }
+    :global(.imbarco .fascia) { height: 16px; }
+    :global(.imbarco .francobollo .seriale) { font-size: 9px; }
+    :global(.imbarco .valore b) { font-size: 14px; }
+    :global(.imbarco .annullo) { left: auto; right: 50px; top: 84px; width: 110px; height: 52px; }
     :global(.imbarco .corpo) { padding: 14px 14px 12px; }
-    :global(.imbarco .titolo) { font-size: 26px; }
+    :global(.imbarco .fronte .riga), :global(.imbarco .fronte .titolo), :global(.imbarco .fronte .corsivo), :global(.imbarco .fronte .domanda) { padding-right: 92px; }
+    :global(.imbarco .titolo) { font-size: 24px; }
     :global(.imbarco .opzione) { min-height: 44px; font-size: 14px; }
-    :global(.imbarco .destra) { width: auto; gap: 12px; padding: 12px 14px; border-left: 0; border-top: 1.5px dashed rgb(21 23 27 / .45); background-size: 100% 6px; }
-    :global(.imbarco .francobollo) { width: 62px; height: 78px; padding: 5px; }
-    :global(.imbarco .scena-f), :global(.imbarco .francobollo .foglia) { inset: 5px; }
-    :global(.imbarco .info) { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
-    :global(.imbarco .info .numero) { font-size: 30px; }
-    :global(.imbarco .info .griglia), :global(.imbarco .cifre) { display: none; }
-    :global(.imbarco .codice) { height: 22px; margin: 0 0 0 auto; }
+    :global(.imbarco .tagliando) { width: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 14px 12px; border-left: 0; border-top: 1.5px dashed rgb(31 29 27 / .5); }
+    :global(.imbarco .tagliando .griglia) { display: none; }
+    :global(.imbarco .numero) { font-size: 30px; }
+    :global(.imbarco .tagliando .seriale) { margin: 0; }
+    :global(.imbarco .codice) { height: 22px; margin-left: auto; }
     :global(.imbarco .timbro) { width: 92px; height: 92px; }
-    :global(.imbarco .finestra) { width: auto; height: 170px; margin: 12px 12px 0; align-self: stretch; }
-    :global(.imbarco .testo-retro) { padding: 12px 14px; }
-    :global(.imbarco .retro .titolo) { font-size: 24px; }
-    :global(.imbarco .definizione) { max-height: 30vh; }
-    :global(.imbarco .retro .tagliando) { display: none; }
+    :global(.imbarco .poster) { width: auto; height: 190px; padding: 10px 10px 0; }
+    :global(.imbarco .pannello) { border-left: 0; border-top: 1.5px dashed rgb(31 29 27 / .5); padding: 12px 14px; }
+    :global(.imbarco .retro .titolo) { font-size: 22px; }
+    :global(.imbarco .definizione) { max-height: 28vh; }
     :global(.imbarco .azioni) { flex-wrap: wrap; }
     :global(.imbarco .azioni button) { flex: 1; min-height: 44px; }
   }
