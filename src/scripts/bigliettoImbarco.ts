@@ -1,8 +1,13 @@
 import { dividi } from '../lib/glossario';
 import type { Partita, Volo } from '../lib/voli';
-import { arteDavanti, poster, timbro, tipo, type Livello } from './arteBiglietti';
+import { timbro, tipo, type Livello } from './arteBiglietti';
+import { STILI, casoDa, disegnaAscii } from './stiliBiglietto';
 
-// La carta d'imbarco di AI terms, stile "70s Rapid": ogni sezione è un tipo di biglietto con la sua carta piena e i
+// Il nome dello stile nella riga in alto del biglietto: ogni stile ha il suo, invece di "rapid" per tutti
+const NOME_STILE: Record<string, string> = { rapid: 'rapid', lime: 'bloom', swiss: 'transit', riso: 'riso', chrome: 'chrome', notte: 'night', stampa: 'print' };
+
+// La carta d'imbarco di AI terms. Ogni biglietto pesca uno stile a caso (src/scripts/stiliBiglietto.ts) e una variante;
+// la struttura è sempre la stessa. Lo stile di partenza è "70s Rapid": ogni sezione ha la sua carta piena e i
 // suoi due colori di stampa. Davanti, da sinistra: l'oggetto della tecnologia, la banda in foglia con il motto (argento,
 // oro o olografica secondo il livello), la carta con la domanda, il tagliando su carta di sicurezza
 // con il numero rosso. Risposta sbagliata: timbro rosso e si riprova. Risposta giusta: timbro verde, poi si gira.
@@ -82,7 +87,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   // niente, un'oscillazione lenta. Ogni fotogramma scrive --tx, --ty, --t e gira i gradienti della foglia
   const fermo = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const mano = { x: 0, y: 0, attiva: false }, ora = { x: 0, y: 0 };
-  let giro: { x: number; y: number } | null = null, anima = 0, foglie: Element[] = [];
+  let giro: { x: number; y: number } | null = null, anima = 0, foglie: Element[] = [], tele: HTMLCanvasElement[] = [], ultimoAscii = 0;
   const limita = (v: number) => Math.max(-1, Math.min(1, v));
   const segui = (e: PointerEvent) => {
     const r = biglietto.getBoundingClientRect();
@@ -116,10 +121,32 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     s.transform = fermo ? '' : `perspective(1600px) rotateX(${(-ora.y * 9).toFixed(2)}deg) rotateY(${(ora.x * 12).toFixed(2)}deg)`;
     const ang = 20 + ora.x * 70 + ora.y * 25, sp = ora.x * 0.5;
     foglie.forEach(g => g.setAttribute('gradientTransform', `translate(${sp.toFixed(3)} 0) rotate(${ang.toFixed(1)} .5 .5)`));
+    // Gli stili ASCII: circa 12 fotogrammi al secondo; con il movimento ridotto un fotogramma solo
+    if (tele.length && t - ultimoAscii > 80) { ultimoAscii = t; tele.forEach(c => { if (fermo && c.dataset.fatto) return; disegnaAscii(c, t, ora.x, ora.y); c.dataset.fatto = '1'; }); }
     anima = requestAnimationFrame(passo);
   };
   const avvia = () => { if (!anima) anima = requestAnimationFrame(passo); };
 
+  // --- Il sorteggio dello stile: uno per biglietto, mai lo stesso due volte di fila. Il seme tiene ferme le scelte
+  // della variante, così il retro e un biglietto riaperto combaciano con il davanti
+  const sorteggio = new Map<string, { stile: number; seme: number }>();
+  let ultimoStile = -1, variabiliMesse: string[] = [];
+  const stileDi = (v: Volo) => {
+    let x = sorteggio.get(v.seriale);
+    if (!x) {
+      let k = Math.floor(Math.random() * STILI.length);
+      if (k === ultimoStile) k = (k + 1 + Math.floor(Math.random() * (STILI.length - 1))) % STILI.length;
+      ultimoStile = k;
+      x = { stile: k, seme: 1 + Math.floor(Math.random() * 2147483646) };
+      sorteggio.set(v.seriale, x);
+    }
+    return x;
+  };
+  const disegnaStile = (v: Volo, sera: boolean) => {
+    const x = stileDi(v), st = STILI[x.stile]!, c = { sezione: v.sezione, livello: livelloDi(v), numero: String(v.indice + 1).padStart(2, '0'), termine: v.voce.termine, sera, r: casoDa(x.seme) };
+    const variabili = st.variabili(c), davanti = st.davanti(c), dietro = st.dietro(c);
+    return { st, variabili, davanti, dietro };
+  };
   const p = o.partita, d = o.data, quando = `${String(d.getDate()).padStart(2, '0')} ${MESI[d.getMonth()]} ${d.getFullYear()}`;
   let corrente = -1, attesa = 0, opzioni: HTMLButtonElement[] = [];
   const barre = (dove: HTMLElement, chiave: string) => dove.replaceChildren(...[...chiave.replace(/[\s-]+/g, '')].slice(0, 30).map((c, k) => { const s = el('span'); s.style.width = `${1 + (c.charCodeAt(0) % 3)}px`; s.style.marginRight = `${1 + ((c.charCodeAt(0) + k) % 2)}px`; return s; }));
@@ -135,8 +162,9 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   };
   const retroDi = (v: Volo) => {
     const t = p.tentativi[v.indice]!;
-    svg(quadro, poster(v.sezione, livelloDi(v), t > 1));
+    svg(quadro, disegnaStile(v, t > 1).dietro);
     foglie = [...scheda.querySelectorAll('.foglia-svg')];
+    tele = [...scheda.querySelectorAll<HTMLCanvasElement>('canvas[data-ascii]')];
     esito.textContent = `${String(v.indice + 1).padStart(2, '0')} · ${t <= 1 ? 'cleared at the first try' : `cleared after ${t} tries`}`;
     termineR.textContent = v.voce.termine;
     sezioneR.textContent = `${v.nome}, ${v.voce.sotto.toLowerCase()}`;
@@ -208,15 +236,19 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       const v = o.voli[i]!, n = String(i + 1).padStart(2, '0'), l = livelloDi(v), tp = tipo(v.sezione);
       carta.dataset.livello = l;
       carta.dataset.sezione = String(v.sezione);
-      for (const [k, x] of [['--carta', tp.carta], ['--c1', tp.a], ['--c2', tp.b], ['--tagliando', tp.tagliando]] as const) carta.style.setProperty(k, x);
+      const ds = disegnaStile(v, false);
+      variabiliMesse.forEach(k => carta.style.removeProperty(k));
+      variabiliMesse = Object.keys(ds.variabili);
+      for (const [k, x] of Object.entries(ds.variabili)) carta.style.setProperty(k, x);
+      carta.dataset.stile = ds.st.id;
       carta.style.setProperty('--trama', `url("data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='44' height='9'><g fill='none' stroke='${tp.trama}' stroke-width='.6'><path d='M0 2.5 Q5.5 0 11 2.5 T22 2.5 T33 2.5 T44 2.5'/><path d='M0 6.5 Q5.5 9 11 6.5 T22 6.5 T33 6.5 T44 6.5'/></g></svg>`)}")`);
       carta.classList.add('subito');
       carta.classList.toggle('girata', p.fatto[i]!);
       requestAnimationFrame(() => requestAnimationFrame(() => carta.classList.remove('subito')));
-      svg(arte, arteDavanti(v.sezione, l));
+      svg(arte, ds.davanti);
       banda.className = `banda ${FOGLIA[l]}`;
       motto.textContent = `${tp.motto} · ${n}`;
-      riga.textContent = `rapid · ${v.nome.toLowerCase()} · ${l} class`;
+      riga.textContent = `${NOME_STILE[ds.st.id] ?? ds.st.id} · ${v.nome.toLowerCase()} · ${l} class`;
       termine.textContent = v.voce.termine;
       sezione.textContent = v.voce.sotto.toLowerCase();
       domanda.textContent = v.voce.domanda.testo;
@@ -242,6 +274,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       p.timbri[i]!.forEach(t => metti(t, false));
       if (p.fatto[i]) retroDi(v); else { quadro.replaceChildren(); }
       foglie = [...scheda.querySelectorAll('.foglia-svg')];
+      tele = [...scheda.querySelectorAll<HTMLCanvasElement>('canvas[data-ascii]')];
       bottoni();
       scheda.hidden = false;
       avvia();
