@@ -44,23 +44,6 @@ const rapid: Stile = {
   variabili: c => { const t = tipo(c.sezione); return { '--carta': t.carta, '--c1': t.a, '--c2': t.b, '--tagliando': t.tagliando }; },
 };
 
-// ---------------- Rainbow: la carta piena e sei bande di colore larghe che attraversano tutto il davanti, sotto la domanda.
-// Dietro le stesse bande si piegano in un arcobaleno che sorge da un orizzonte, con una stella
-const BANDE = [
-  { carta: '#e5532b', bande: ['#f4a43a', '#f7cf4f', '#3a8f8a', '#2a5a9a', '#7a3a8a', '#e5532b'], c1: '#1d2b4a', c2: '#f7cf4f', tagliando: '#f6dfe5', cielo: '#f3e7cf' },
-  { carta: '#1d2b4a', bande: ['#f7cf4f', '#f4a43a', '#f0603f', '#d94a6a', '#8a3a8a', '#f2e6c8'], c1: '#f7cf4f', c2: '#f2e6c8', tagliando: '#f4e6bd', cielo: '#16213a' },
-] as const;
-const bande: Stile = {
-  id: 'bande',
-  davanti: c => { const b = una(c, 'bande', () => scegli(BANDE, c.r)); return `<svg class="onde-bande" viewBox="0 0 255 100" preserveAspectRatio="none" aria-hidden="true">${b.bande.map((col, i) => `<path d="M-10 ${30 + i * 13} C 30 ${10 + i * 13} 60 ${60 + i * 12} 100 ${36 + i * 13} S 160 ${12 + i * 13} 120 110" fill="none" stroke="${col}" stroke-width="12"/>`).join('')}</svg>`; },
-  dietro: c => {
-    const b = una(c, 'bande', () => scegli(BANDE, c.r));
-    const archi = b.bande.slice(0, 5).map((col, i) => { const r = 78 - i * 12; return `<path d="M${100 - r} 112 A${r} ${r} 0 0 1 ${100 + r} 112" fill="none" stroke="${col}" stroke-width="12.5"/>`; }).join('');
-    return `<svg viewBox="0 0 200 140" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="200" height="140" fill="${b.cielo}"/>${archi}<path d="M0 112 C40 104 70 120 100 112 S160 104 200 112 V140 H0 Z" fill="${b.carta}"/><path d="M0 124 C50 118 80 130 120 124 S180 118 200 124" fill="none" stroke="${b.bande[1]}" stroke-width="3"/><path d="M158 30 l3 9 9 3 -9 3 -3 9 -3 -9 -9 -3 9 -3 Z" fill="${b.bande[1]}"/><path d="M38 44 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2 Z" fill="${b.bande[0]}"/></svg>`;
-  },
-  variabili: c => { const b = una(c, 'bande', () => scegli(BANDE, c.r)); return { '--carta': b.carta, '--c1': b.c1, '--c2': b.c2, '--tagliando': b.tagliando }; },
-};
-
 // ---------------- Lime Bloom: una fioritura di luce su una griglia nera, e dentro la luce una colonia del Game of Life
 // che nasce, cresce e muore. Sul retro il nome del termine si scioglie in celle vive, poi si riscrive
 // Al massimo due varianti di colore per stile: lime e rosa
@@ -153,7 +136,7 @@ const stampa: Stile = {
   },
 };
 
-export const STILI: Stile[] = [rapid, bande, lime, risograph, notte, koi, stampa];
+export const STILI: Stile[] = [rapid, lime, risograph, notte, koi, stampa];
 
 // ---------------- Le tele vive. Il biglietto chiama disegnaAscii circa 30 volte al secondo; ogni tela decide quanto spesso
 // ridisegnarsi (le scene di caratteri bastano 12 volte al secondo). Lo stato di ogni tela (cellule, pesci) sta qui

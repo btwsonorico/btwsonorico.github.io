@@ -3,6 +3,8 @@
 // Le proprietà hanno la forma controllata dalla build in src/content.config.ts.
 export type Voce = {
   id: string; termine: string; livello: string; sotto: string;
+  // Il numero di citazione: la posizione della voce nell'ordine del glossario (#01, #02, ...)
+  citazione: string;
   definizione: string[]; punti: string[];
   domanda: { testo: string; risposte: string[] };
   sezione: string; indiceSezione: number;
@@ -43,11 +45,12 @@ export function leggiVoci(file: Record<string, string>): Voce[] {
   // Una nota senza order va in fondo alla sua sezione
   const ordine = (x: (typeof note)[number]) => Number(x.prop.order ?? Infinity);
   note.sort((a, b) => a.n - b.n || ordine(a) - ordine(b) || a.nome.localeCompare(b.nome));
-  return note.map(x => ({
+  return note.map((x, i) => ({
     id: (x.prop.id as string) || x.nome.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
     termine: x.prop.title as string,
     livello: x.prop.level as string,
     sotto: x.prop.group as string,
+    citazione: String(i + 1).padStart(2, '0'),
     definizione: x.definizione,
     punti: x.punti,
     domanda: { testo: x.prop.question as string, risposte: x.prop.answers as string[] },

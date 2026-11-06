@@ -1,14 +1,14 @@
 import { dividi } from '../lib/glossario';
 import type { Partita, Volo } from '../lib/voli';
-import { timbro, tipo, type Livello } from './arteBiglietti';
+import { timbro, tipo, type Livello, metalloDi } from './arteBiglietti';
 import { STILI, casoDa, disegnaAscii } from './stiliBiglietto';
 
 // La carta d'imbarco di AI terms. Ogni biglietto pesca uno stile a caso (src/scripts/stiliBiglietto.ts) e una variante;
 // la struttura è sempre la stessa. Lo stile di partenza è "70s Rapid": ogni sezione ha la sua carta piena e i
-// suoi due colori di stampa. Davanti, da sinistra: l'oggetto della tecnologia, la banda in foglia con il motto (argento,
-// oro o olografica secondo il livello), la domanda al centro, e a destra il tagliando con il nome del termine e la sua
-// categoria. Risposta sbagliata: timbro rosso e si riprova. Risposta giusta: timbro verde, poi si gira.
-// Dietro, metà e metà: il poster a sinistra, la definizione su carta a righe a destra.
+// suoi due colori di stampa. Davanti, da sinistra: l'oggetto della tecnologia, la banda in foglia con il motto (argento
+// con l'antenna, oro con PC e nastro), la domanda al centro, e a destra il tagliando con il nome del termine, la sua
+// categoria, il livello e il numero di citazione. Risposta sbagliata: timbro rosso e si riprova. Risposta giusta: timbro
+// verde, poi si gira. Dietro, metà e metà: il poster a sinistra, la definizione su carta a righe a destra.
 // La foglia risponde all'inclinazione: mouse, dito o giroscopio. Senza input il biglietto ondeggia piano.
 // Il testo delle note si scrive sempre come testo, mai come HTML.
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, classe = '', testo?: string) => {
@@ -18,9 +18,9 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, classe = '', testo?: 
   return e;
 };
 const MESI = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-const FOGLIA: Record<Livello, string> = { easy: 'argento', medium: 'oro', hard: 'iride' };
 const livelloDi = (v: Volo): Livello => (['easy', 'medium', 'hard'].includes(v.voce.livello) ? v.voce.livello : 'easy') as Livello;
-const strati = () => [el('div', 'strato grana'), el('div', 'strato perla'), el('div', 'strato bagliore')];
+// Gli strati sopra la stampa: la grana della carta e il bagliore che segue l'inclinazione
+const strati = () => [el('div', 'strato grana'), el('div', 'strato bagliore')];
 
 export type OpzioniImbarco = {
   data: Date; voli: Volo[]; partita: Partita;
@@ -44,13 +44,13 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   const arte = el('div', 'arte70'), banda = el('div', 'banda'), motto = el('span', 'mono');
   banda.append(motto);
   const corpo = el('div', 'corpo');
-  const scheda70 = el('div', 'carta-dom'), domanda = el('p', 'domanda'), opzioniEl = el('div', 'opzioni'), nota = el('p', 'mono nota');
-  nota.setAttribute('aria-live', 'polite');
-  scheda70.append(domanda, opzioniEl, nota);
+  const scheda70 = el('div', 'carta-dom'), domanda = el('p', 'domanda'), opzioniEl = el('div', 'opzioni');
+  scheda70.append(domanda, opzioniEl);
   corpo.append(scheda70);
-  const tagliando = el('div', 'tagliando'), nomeF = el('h2', 'nome'), categoriaF = el('p', 'mono categoria'), serialeT = el('p', 'mono seriale'), codice = el('div', 'codice'), coda = el('div', 'coda');
+  const tagliando = el('div', 'tagliando'), nomeF = el('h2', 'nome'), categoriaF = el('p', 'mono categoria'), metadati = el('div', 'metadati'), livelloF = el('p', 'mono livello'), citazioneF = el('p', 'mono citazione'), serialeT = el('p', 'mono seriale'), codice = el('div', 'codice'), coda = el('div', 'coda');
+  metadati.append(livelloF, citazioneF);
   coda.append(serialeT, codice);
-  tagliando.append(nomeF, categoriaF, coda);
+  tagliando.append(nomeF, categoriaF, metadati, coda);
   const timbri = el('div', 'timbri');
   fronte.append(arte, banda, corpo, tagliando, timbri, ...strati());
 
@@ -188,13 +188,11 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   };
   const scriviGira = () => { gira.textContent = carta.classList.contains('girata') ? 'back to the question ↺' : 'turn over ↻'; };
   const bottoni = () => {
-    const v = o.voli[corrente]!, fatto = p.fatto[corrente]!;
+    const fatto = p.fatto[corrente]!;
     gira.hidden = !fatto;
     scriviGira();
     prossimo.hidden = !fatto;
     prossimo.textContent = o.testoProssimo?.() ?? 'next flight →';
-    if (!fatto) nota.textContent = p.sbagliate[corrente]!.length ? 'Delayed. Try again.' : `Clear ${v.codice} for take-off.`;
-    else nota.textContent = 'Cleared for take-off.';
   };
   const rispondi = (b: HTMLButtonElement) => {
     const i = corrente, v = o.voli[i]!;
@@ -248,10 +246,12 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       carta.classList.toggle('girata', p.fatto[i]!);
       requestAnimationFrame(() => requestAnimationFrame(() => carta.classList.remove('subito')));
       svg(arte, ds.davanti);
-      banda.className = `banda ${FOGLIA[l]}`;
+      banda.className = `banda ${metalloDi(v.sezione)}`;
       motto.textContent = `${tp.motto} · ${n}`;
       nomeF.textContent = v.voce.termine;
       categoriaF.textContent = v.voce.sotto;
+      livelloF.textContent = l;
+      citazioneF.textContent = `#${v.voce.citazione}`;
       domanda.textContent = v.voce.domanda.testo;
       serialeT.textContent = `No. ${v.seriale}`;
       barre(codice, `${v.voce.termine}${v.voce.id}${v.codice}`);

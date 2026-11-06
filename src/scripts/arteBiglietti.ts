@@ -1,8 +1,8 @@
 // Le illustrazioni dei biglietti di AI terms, in SVG, nello stile "70s Rapid": campiture piene, due o tre colori per
 // sezione, bande anni '70, una forma in foglia metallica. Davanti un oggetto della tecnologia, a volte animato
-// (oscilloscopio, antenna, radar, terminale, circuito, nastro perforato). Dietro un poster con il sole in foglia.
-// La foglia cambia con il livello: facile argento, medio oro, difficile olografica. I gradienti della foglia hanno la
-// classe "foglia-svg": il biglietto li gira con l'inclinazione.
+// (antenna, terminale, nastro perforato). Dietro un poster con il sole in foglia. Il metallo è fisso per disegno:
+// argento con l'antenna, oro con il PC e con il nastro perforato. I gradienti della foglia hanno la classe
+// "foglia-svg": il biglietto li gira con l'inclinazione.
 // Niente testo delle note entra qui, tranne dove passa da esc().
 
 export type Livello = 'easy' | 'medium' | 'hard';
@@ -21,62 +21,47 @@ export const TIPI = [
 ] as const;
 export const tipo = (sezione: number) => TIPI[sezione % TIPI.length]!;
 
-const FOGLIE: Record<Livello, string[]> = {
-  easy: ['#7d8792', '#f3f6f9', '#98a2ad', '#ffffff', '#828c97'],
-  medium: ['#8d6418', '#f8dc8c', '#b88a2a', '#fff2c4', '#94681a'],
-  hard: ['#ff9fd0', '#ffe79a', '#9ff3d4', '#a8c8ff', '#e3b0ff'],
+// Due metalli soltanto, fissi per disegno: l'antenna è argento, il PC e il nastro perforato sono oro.
+// Il metallo non dipende più dal livello: il livello resta per i brillantini dei termini difficili.
+export type Metallo = 'argento' | 'oro';
+const METALLI: Record<Metallo, string[]> = {
+  argento: ['#7d8792', '#f3f6f9', '#98a2ad', '#ffffff', '#828c97'],
+  oro: ['#8d6418', '#f8dc8c', '#b88a2a', '#fff2c4', '#94681a'],
 };
-const foglia = (id: string, l: Livello) => `<linearGradient id="f${id}" class="foglia-svg" x1="0" y1="0" x2="1" y2="0" spreadMethod="reflect">${FOGLIE[l].map((c, i) => `<stop offset="${i / 4}" stop-color="${c}"/>`).join('')}</linearGradient>`;
+const foglia = (id: string, m: Metallo) => `<linearGradient id="f${id}" class="foglia-svg" x1="0" y1="0" x2="1" y2="0" spreadMethod="reflect">${METALLI[m].map((c, i) => `<stop offset="${i / 4}" stop-color="${c}"/>`).join('')}</linearGradient>`;
 const F = (id: string) => `url(#f${id})`;
 // Brillantini, solo per i termini difficili
 const brilla = (l: Livello, punti: [number, number][]) => l !== 'hard' ? '' : punti.map(([x, y], i) => `<path d="M${x} ${y - 4} L${x + 1} ${y - 1} L${x + 4} ${y} L${x + 1} ${y + 1} L${x} ${y + 4} L${x - 1} ${y + 1} L${x - 4} ${y} L${x - 1} ${y - 1} Z" fill="#fff"><animate attributeName="opacity" values="0;1;0" dur="${1.6 + i * 0.5}s" repeatCount="indefinite"/></path>`).join('');
 
 // ---------------- Davanti: l'oggetto della tecnologia, nella colonna a sinistra (100 x 110)
 type Arte = (id: string, l: Livello, t: (typeof TIPI)[number]) => string;
-const DAVANTI: Arte[] = [
-  // Definizioni: un oscilloscopio. Lo schermo tondo con la griglia, l'onda in foglia che scorre, le manopole
-  (id, l, t) => `<defs><clipPath id="c${id}"><circle cx="50" cy="46" r="31"/></clipPath></defs>
-    ${[0, 1, 2].map(k => `<rect x="0" y="${86 + k * 9}" width="100" height="5" fill="${k % 2 ? t.b : t.a}"/>`).join('')}
-    <circle cx="50" cy="46" r="36" fill="${t.b}"/><circle cx="50" cy="46" r="31" fill="#10233f"/>
-    <g clip-path="url(#c${id})"><g stroke="${t.b}" stroke-width=".4" opacity=".3">${[-2, -1, 0, 1, 2].map(k => `<path d="M${50 + k * 12} 10 V82 M14 ${46 + k * 12} H86"/>`).join('')}</g>
-      <path d="M0 46 ${Array.from({ length: 8 }, (_, k) => `Q${k * 20 + 5} ${k % 2 ? 66 : 26} ${k * 20 + 10} 46 T${k * 20 + 20} 46`).join(' ')}" fill="none" stroke="${F(id)}" stroke-width="3.2" stroke-linecap="round"><animateTransform attributeName="transform" type="translate" values="0 0;-40 0" dur="2.4s" repeatCount="indefinite"/></path></g>
-    ${[26, 50, 74].map(x => `<circle cx="${x}" cy="94" r="7" fill="${INK}"/><path d="M${x} 94 l3 -5" stroke="${t.b}" stroke-width="1.6" stroke-linecap="round"/>`).join('')}${brilla(l, [[86, 12], [12, 20]])}`,
+// Restano tre disegni: l'antenna in argento, il PC in oro, il nastro perforato sempre in oro.
+// Le sezioni girano su questi tre, così ogni biglietto ha comunque il suo oggetto.
+const DAVANTI: { arte: Arte; metallo: Metallo }[] = [
   // Modelli generativi: un'antenna che trasmette. Gli anelli del segnale si allargano; dietro mezzi soli a bande
-  (id, l, t) => `${[0, 1, 2, 3].map(k => `<circle cx="50" cy="112" r="${58 - k * 13}" fill="${k % 2 ? t.carta : t.a}"/>`).join('')}
+  { metallo: 'argento', arte: (id, l, t) => `${[0, 1, 2, 3].map(k => `<circle cx="50" cy="112" r="${58 - k * 13}" fill="${k % 2 ? t.carta : t.a}"/>`).join('')}
     ${[0, 1, 2].map(k => `<circle cx="50" cy="30" r="4" fill="none" stroke="${t.b}" stroke-width="2.4"><animate attributeName="r" values="4;46" dur="3s" begin="${k}s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="3s" begin="${k}s" repeatCount="indefinite"/></circle>`).join('')}
     <g stroke="${INK}" stroke-width="2.2" stroke-linecap="round"><path d="M50 32 L36 108 M50 32 L64 108"/><path d="M45 56 H55 M41 78 H59 M38 98 H62 M45 56 L59 78 M55 56 L41 78 M41 78 L62 98 M59 78 L38 98" stroke-width="1.2"/></g>
-    <circle cx="50" cy="30" r="6" fill="${F(id)}" stroke="${INK}" stroke-width="1.2"/>${brilla(l, [[18, 18], [84, 26]])}`,
-  // Rischio: un radar. Cerchi e mirino, il fascio in foglia che gira, i punti che si accendono al passaggio
-  (id, l, t) => `<circle cx="50" cy="54" r="44" fill="${t.a}"/>
-    <g fill="none" stroke="${t.b}" stroke-width="1"><circle cx="50" cy="54" r="34"/><circle cx="50" cy="54" r="22" opacity=".7"/><circle cx="50" cy="54" r="10" opacity=".5"/><path d="M6 54 H94 M50 10 V98" opacity=".5"/></g>
-    <g><path d="M50 54 L50 12 A42 42 0 0 1 86 32 Z" fill="${F(id)}" opacity=".85"/><path d="M50 54 L50 12" stroke="${t.b}" stroke-width="1.6"/><animateTransform attributeName="transform" type="rotate" values="0 50 54;360 50 54" dur="4s" repeatCount="indefinite"/></g>
-    ${[[70, 34, 0.3], [34, 72, 2.1], [62, 80, 2.9]].map(([x, y, b]) => `<circle cx="${x}" cy="${y}" r="2.6" fill="${t.b}" opacity="0"><animate attributeName="opacity" values="1;0" dur="4s" begin="${b}s" repeatCount="indefinite"/></circle>`).join('')}
-    <circle cx="50" cy="54" r="3" fill="${t.b}"/>${[0, 1].map(k => `<rect x="0" y="${102 + k * 5}" width="100" height="3" fill="${t.a}"/>`).join('')}${brilla(l, [[12, 14], [90, 92]])}`,
+    <circle cx="50" cy="30" r="6" fill="${F(id)}" stroke="${INK}" stroke-width="1.2"/>${brilla(l, [[18, 18], [84, 26]])}` },
   // Prompting: un terminale. Lo schermo con il prompt e il cursore che lampeggia, la tastiera, il tasto invio in foglia
-  (id, l, t) => `<rect x="8" y="12" width="84" height="56" rx="7" fill="${t.b}"/><rect x="14" y="18" width="72" height="44" rx="4" fill="#132a20"/>
+  { metallo: 'oro', arte: (id, l, t) => `<rect x="8" y="12" width="84" height="56" rx="7" fill="${t.b}"/><rect x="14" y="18" width="72" height="44" rx="4" fill="#132a20"/>
     <text x="20" y="49" font-family="Anton, Impact, sans-serif" font-size="24" fill="${t.a}">&gt;</text>
     <rect x="36" y="44" width="11" height="4" fill="${t.a}"><animate attributeName="opacity" values="1;1;0;0" dur="1.1s" repeatCount="indefinite" calcMode="discrete"/></rect>
     <g fill="${t.b}">${Array.from({ length: 3 }, (_, r) => Array.from({ length: 6 - (r === 2 ? 1 : 0) }, (_, c) => `<rect x="${8 + c * 14 + r * 3}" y="${76 + r * 11}" width="11" height="8" rx="2"/>`).join('')).join('')}</g>
-    <rect x="80" y="98" width="14" height="8" rx="2" fill="${F(id)}" stroke="${INK}" stroke-width=".8"/>${brilla(l, [[90, 8], [10, 70]])}`,
-  // Operazioni: un circuito. Le piste chiare, gli impulsi che corrono, il chip al centro in foglia
-  (id, l, t) => {
-    const piste = ['M0 22 H30 L40 32 V44', 'M100 18 H70 L60 28 V44', 'M0 60 H26', 'M100 64 H74', 'M40 76 V90 L28 102 H0', 'M60 76 V96 L70 106 H100', 'M50 76 V110', 'M50 44 V0'];
-    return `<g fill="none" stroke="${t.b}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity=".9">${piste.map(d => `<path d="${d}"/>`).join('')}</g>
-    <g fill="none" stroke="${t.a}" stroke-width="3.4" stroke-linecap="round" stroke-dasharray="7 90">${piste.map((d, k) => `<path d="${d}"><animate attributeName="stroke-dashoffset" values="97;0" dur="${1.6 + (k % 3) * 0.5}s" repeatCount="indefinite"/></path>`).join('')}</g>
-    ${[[30, 22], [70, 18], [26, 60], [74, 64], [28, 102], [70, 106]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3.6" fill="${t.carta}" stroke="${t.b}" stroke-width="2"/>`).join('')}
-    <g stroke="${t.b}" stroke-width="2">${[0, 1, 2, 3].map(k => `<path d="M${33 + k * 11} 42 V36 M${33 + k * 11} 78 V84 M24 ${51 + k * 6} H18 M76 ${51 + k * 6} H82"/>`).join('')}</g>
-    <rect x="26" y="44" width="48" height="32" rx="3" fill="${F(id)}" stroke="${INK}" stroke-width="1.4"/><text x="50" y="64" text-anchor="middle" font-family="ui-monospace, monospace" font-size="7" fill="${INK}">AT-01</text>${brilla(l, [[12, 40], [88, 86]])}`;
-  },
+    <rect x="80" y="98" width="14" height="8" rx="2" fill="${F(id)}" stroke="${INK}" stroke-width=".8"/>${brilla(l, [[90, 8], [10, 70]])}` },
   // Altri termini: un nastro perforato che scorre in diagonale sopra bande a gradini; la fila guida in foglia
-  (id, l, t) => `${[0, 1, 2, 3].map(k => `<rect x="0" y="${70 + k * 10}" width="${100 - k * 18}" height="10" fill="${k % 2 ? t.b : t.a}"/>`).join('')}
+  { metallo: 'oro', arte: (id, l, t) => `${[0, 1, 2, 3].map(k => `<rect x="0" y="${70 + k * 10}" width="${100 - k * 18}" height="10" fill="${k % 2 ? t.b : t.a}"/>`).join('')}
     <g transform="rotate(-24 50 55)"><rect x="-40" y="36" width="180" height="34" fill="${CREMA}" stroke="${INK}" stroke-width="1"/>
       <g><animateTransform attributeName="transform" type="translate" values="0 0;-24 0" dur="1.5s" repeatCount="indefinite"/>
-        ${Array.from({ length: 22 }, (_, c) => `<circle cx="${-36 + c * 8}" cy="53" r="1.6" fill="${F(id)}" stroke="${INK}" stroke-width=".4"/>${[42, 47, 59, 64].map((y, r) => ((c * 5 + r * 3) % 7 < 3) ? `<circle cx="${-36 + c * 8}" cy="${y}" r="2.4" fill="${t.carta}"/>` : '').join('')}`).join('')}</g></g>${brilla(l, [[14, 14], [86, 22]])}`,
+        ${Array.from({ length: 22 }, (_, c) => `<circle cx="${-36 + c * 8}" cy="53" r="1.6" fill="${F(id)}" stroke="${INK}" stroke-width=".4"/>${[42, 47, 59, 64].map((y, r) => ((c * 5 + r * 3) % 7 < 3) ? `<circle cx="${-36 + c * 8}" cy="${y}" r="2.4" fill="${t.carta}"/>` : '').join('')}`).join('')}</g></g>${brilla(l, [[14, 14], [86, 22]])}` },
 ];
 
+// Il metallo della banda verticale segue il disegno: argento con l'antenna, oro con PC e nastro
+export const metalloDi = (sezione: number): Metallo => DAVANTI[sezione % DAVANTI.length]!.metallo;
+
 export function arteDavanti(sezione: number, livello: Livello) {
-  const id = `d${++uid}`;
-  return `<svg viewBox="0 0 100 110" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>${foglia(id, livello)}</defs>${DAVANTI[sezione % DAVANTI.length]!(id, livello, tipo(sezione))}</svg>`;
+  const id = `d${++uid}`, voce = DAVANTI[sezione % DAVANTI.length]!;
+  return `<svg viewBox="0 0 100 110" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>${foglia(id, voce.metallo)}</defs>${voce.arte(id, livello, tipo(sezione))}</svg>`;
 }
 
 // ---------------- Dietro: il poster anni '70 (220 x 170). Provvisorio: sole in foglia con le strisce, bande, una sagoma
@@ -98,7 +83,7 @@ const SAGOME: ((t: (typeof TIPI)[number]) => string)[] = [
 
 export function poster(sezione: number, livello: Livello, sera: boolean) {
   const id = `p${++uid}`, t = tipo(sezione), fondo = sera ? '#1c2340' : CREMA;
-  return `<svg viewBox="0 0 220 170" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>${foglia(id, livello)}</defs>
+  return `<svg viewBox="0 0 220 170" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>${foglia(id, metalloDi(sezione))}</defs>
     <rect width="220" height="170" fill="${fondo}"/>${sera ? [[20, 20], [60, 36], [180, 18], [200, 50], [34, 64]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.4" fill="${CREMA}"/>`).join('') : ''}
     <circle cx="110" cy="96" r="66" fill="${F(id)}"/>${Array.from({ length: 7 }, (_, k) => `<rect x="30" y="${66 + k * 10}" width="160" height="${2 + k}" fill="${fondo}"/>`).join('')}
     ${[t.carta, t.a, t.b, INK].map((c, k) => `<path d="M0 ${126 + k * 12} Q55 ${114 + k * 12} 110 ${126 + k * 12} T220 ${124 + k * 12} V170 H0 Z" fill="${c}"/>`).join('')}
