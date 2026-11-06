@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { casuale, curveLivello, linea, mat, palco, pezzo, puntiMorbidi, sasso, SITO, tono } from './natura';
 
 // AI terms: un'isoletta tonda con un piccolo aeroporto, nello stile di Learn: terreno a curve di livello e a punti,
-// alberi a filo, colori pieni solo per le cose giocattolo (aerei, barche, mongolfiera, ombrelloni).
+// alberi a filo, colori pieni solo per le cose giocattolo (aerei, ombrelloni, faro).
 // Sei aerei paffuti, uno per sezione del glossario. Un aereo aspetta al suo posto finché non indovini il suo termine;
 // poi rulla, decolla e gira intorno all'isola, atterra e rifà il giro. Ognuno tiene la distanza da quello davanti.
-// Intorno: pecore sul colle, una pala eolica, il faro, barche a vela, la balena che spruzza, una mongolfiera, il trenino dei bagagli.
+// Intorno: pecore sul colle, una pala eolica, il faro, la balena che spruzza, il trenino dei bagagli, nuvole a filo che reagiscono al puntatore.
 
 export type Fase = 'boarding' | 'at the gate' | 'taxiing' | 'taking off' | 'in the air' | 'landing';
 type Tappa = { x: number; y: number; z: number; v: number; fase: Fase };
@@ -104,7 +104,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     riva.push(a);
   }
   const rivaA = (t: number) => { const f = ((t / (Math.PI * 2)) * ANGOLI % ANGOLI + ANGOLI) % ANGOLI, i = Math.floor(f), j = (i + 1) % ANGOLI; return riva[i]! + (riva[j]! - riva[i]!) * (f - i); };
-  const ERBA = new THREE.Color(chiaro ? '#7cc35c' : '#6fa646'), SABBIA = new THREE.Color(chiaro ? '#e9c98a' : '#d9b77a');
+  const ERBA = new THREE.Color(chiaro ? '#7cc35c' : '#6fa646'), SABBIA = new THREE.Color(chiaro ? '#f2dfb0' : '#efe0b8');
   {
     const geo = new THREE.RingGeometry(0.001, 1, ANGOLI, 28).rotateX(-Math.PI / 2);
     const q = geo.attributes.position as THREE.BufferAttribute, colori: number[] = [];
@@ -112,11 +112,11 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       const x = q.getX(i), z = q.getZ(i), t = Math.atan2(z, x), u = Math.hypot(x, z) * 0.995, rr = u * rivaA(t);
       const X = Math.cos(t) * rr, Z = Math.sin(t) * rr;
       q.setXYZ(i, X, Math.max(0.005, altezza(X, Z)) - 0.004, Z);
-      const c = u > 0.9 ? SABBIA : ERBA;
+      const c = u > 0.95 ? SABBIA : ERBA;
       colori.push(c.r, c.g, c.b);
     }
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
-    const velo = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: chiaro ? 0.45 : 0.3, depthWrite: false }));
+    const velo = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: chiaro ? 0.5 : 0.36, depthWrite: false }));
     velo.renderOrder = -1;
     G.add(velo);
   }
@@ -131,7 +131,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     G.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: C.muted, size: 0.025, transparent: true, opacity: 0.6 })));
   }
   // I fianchi di terra: un velo marrone che scende nell'acqua e strati ondulati, come una torta
-  const TERRA = chiaro ? '#b98258' : '#a8774f';
+  const TERRA = chiaro ? '#a88a6a' : '#8f7a62';
   {
     const vert: number[] = [], indici: number[] = [], strati: number[] = [];
     for (let k = 0; k <= ANGOLI; k++) {
@@ -142,13 +142,13 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(vert, 3));
     geo.setIndex(indici);
-    const fianco = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: TERRA, transparent: true, opacity: chiaro ? 0.4 : 0.22, side: THREE.DoubleSide, depthWrite: false }));
+    const fianco = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: TERRA, transparent: true, opacity: chiaro ? 0.18 : 0.08, side: THREE.DoubleSide, depthWrite: false }));
     G.add(fianco);
-    for (const [y0, f] of [[0.005, 1], [-0.12, 0.977], [-0.24, 0.955], [-0.36, 0.933]] as const) for (let k = 0; k < ANGOLI; k++) {
+    for (const [y0, f] of [[-0.14, 0.973], [-0.3, 0.946]] as const) for (let k = 0; k < ANGOLI; k++) {
       const t0 = (k / ANGOLI) * Math.PI * 2, t1 = ((k + 1) / ANGOLI) * Math.PI * 2, w = (t: number) => y0 + (y0 < 0 ? Math.sin(t * 9 + y0 * 40) * 0.025 : 0);
       strati.push(Math.cos(t0) * rivaA(t0) * f, w(t0), Math.sin(t0) * rivaA(t0) * f, Math.cos(t1) * rivaA(t1) * f, w(t1), Math.sin(t1) * rivaA(t1) * f);
     }
-    fili(strati, TERRA, 0.85);
+    fili(strati, TERRA, 0.4);
   }
 
   // --- Pista e piazzale: una striscia chiara con gli angoli tondi, la linea di mezzo tratteggiata e le frecce in testa
@@ -238,7 +238,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   const fascio = new THREE.Group();
   fascio.position.set(FX, FY + 0.73, FZ);
   G.add(fascio);
-  const geoFascio = new THREE.ConeGeometry(0.28, 2.2, 16, 1, true); geoFascio.rotateZ(Math.PI / 2); geoFascio.translate(-1.1, 0, 0);
+  const geoFascio = new THREE.ConeGeometry(0.28, 2.2, 16, 1, true); geoFascio.rotateZ(-Math.PI / 2); geoFascio.translate(1.1, 0, 0);
   fascio.add(new THREE.Mesh(geoFascio, new THREE.MeshBasicMaterial({ color: '#fff3a8', transparent: true, opacity: chiaro ? 0.22 : 0.12, depthWrite: false, side: THREE.DoubleSide })));
 
   // --- La pala eolica sul colle grande, come quelle di Learn
@@ -400,44 +400,65 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     if (x) o.alClic(x.userData.indice as number);
   }
 
-  // --- L'acqua: la griglia di punti azzurri di sempre, che ondeggia e sfuma lontano dall'isola
+  // --- Il mare: un cerchio intorno all'isola, come il laghetto. Sotto, dischi azzurri tenui a strati, più intensi vicino
+  // all'isola; sopra, la griglia di punti che ondeggia con onde lunghe e placide e sfuma verso il bordo del cerchio.
+  // Ogni tanto un cerchio d'acqua nasce in un punto del mare, si allarga e svanisce
+  const MARE = 8.6, AZZURRO = new THREE.Color(C.azzurro);
+  [1, 0.8, 0.62].forEach((k, n) => {
+    const disco = new THREE.Mesh(new THREE.CircleGeometry(MARE * k, 96), new THREE.MeshBasicMaterial({ color: AZZURRO, transparent: true, opacity: (n ? 0.04 : 0.07) * (chiaro ? 1.4 : 1), depthWrite: false }));
+    disco.rotation.x = -Math.PI / 2;
+    disco.position.y = -0.47 - n * 0.002;
+    disco.renderOrder = -2;
+    G.add(disco);
+  });
+  {
+    const bordo: THREE.Vector3[] = [];
+    for (let k = 0; k <= 128; k++) { const t = (k / 128) * Math.PI * 2; bordo.push(new THREE.Vector3(Math.cos(t) * MARE, -0.46, Math.sin(t) * MARE)); }
+    G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(bordo), new THREE.LineBasicMaterial({ color: AZZURRO, transparent: true, opacity: chiaro ? 0.5 : 0.3 })));
+  }
   const PASSO = p.telefono ? 0.26 : 0.19, celle: { x: number; z: number; d: number }[] = [];
-  for (let x = -10; x <= 10; x += PASSO) for (let z = -7.5; z <= 7.5; z += PASSO) {
-    const d = forma(x, z);
-    if (d < 1.02 || d > 2.1) continue;
+  for (let x = -MARE; x <= MARE; x += PASSO) for (let z = -MARE; z <= MARE; z += PASSO) {
+    const d = Math.hypot(x, z);
+    if (forma(x, z) < 1.02 || d > MARE) continue;
     celle.push({ x, z, d });
   }
-  const acqua = puntiMorbidi(celle.length), blu = new THREE.Color(C.azzurro);
+  const acqua = puntiMorbidi(celle.length);
   G.add(acqua.punti);
   celle.forEach((c, i) => {
-    acqua.col.set([blu.r, blu.g, blu.b], i * 3);
+    acqua.col.set([AZZURRO.r, AZZURRO.g, AZZURRO.b], i * 3);
     acqua.dim[i] = 0.055;
-    acqua.alfa[i] = (1 - THREE.MathUtils.smoothstep(c.d, 1.55, 2.1)) * (chiaro ? 0.85 : 0.72);
+    acqua.alfa[i] = (1 - THREE.MathUtils.smoothstep(c.d, MARE - 1.8, MARE)) * (chiaro ? 0.85 : 0.72);
     acqua.pos.set([c.x, -0.42, c.z], i * 3);
   });
+  const anello = () => {
+    const pt: THREE.Vector3[] = [];
+    for (let k = 0; k <= 48; k++) { const t = (k / 48) * Math.PI * 2; pt.push(new THREE.Vector3(Math.cos(t), 0, Math.sin(t))); }
+    const o = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pt), new THREE.LineBasicMaterial({ color: AZZURRO, transparent: true, opacity: 0 }));
+    G.add(o);
+    return { o, t: 9, x: 0, z: 0 };
+  };
+  const cerchi = Array.from({ length: 4 }, anello);
+  let prossimoCerchio = 1;
   const inAcqua = (x: number, z: number) => forma(x, z) > 1;
 
-  // --- Barche a vela: girano larghe intorno all'isola, ondeggiando, con la vela nel colore di una sezione
-  const barche = [0, 1, 2].map(k => {
-    const g = new THREE.Group(), scafo = new THREE.CylinderGeometry(0.09, 0.09, 0.32, 10, 1, false, 0, Math.PI);
-    scafo.rotateX(Math.PI / 2); scafo.rotateZ(Math.PI); scafo.scale(1, 0.7, 1);
-    g.add(pezzo(scafo, pieno(chiaro ? '#f4f1ea' : '#e8e6e0', 0.15), 0, 0.03, 0));
-    const vela = new THREE.BufferGeometry();
-    vela.setAttribute('position', new THREE.Float32BufferAttribute([0, 0.05, -0.1, 0, 0.36, -0.02, 0, 0.05, 0.11], 3));
-    g.add(pezzo(vela, pieno(o.tinte[(k * 2 + 2) % o.tinte.length]!, 0.12, 1)));
-    (g.children[1] as THREE.Mesh).material = Object.assign(((g.children[1] as THREE.Mesh).material as THREE.MeshBasicMaterial).clone(), { side: THREE.DoubleSide });
-    G.add(g);
-    return { g, fase: k * 2.1, rx: 6.1 + k * 0.5, rz: 4.4 + k * 0.4, vel: 0.05 + k * 0.012 };
-  });
-
-  // --- La balena: nuota intorno all'isola e ogni tanto spruzza
-  const balena = new THREE.Group();
-  const corpoB = new THREE.SphereGeometry(0.3, 10, 6); corpoB.scale(0.62, 0.42, 2.1);
-  balena.add(pezzo(corpoB, M.balena));
-  const pinna = new THREE.BufferGeometry();
-  pinna.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, -0.6, 0.26, 0, -0.86, 0, 0, -0.74, -0.26, 0, -0.86], 3));
-  pinna.setIndex([0, 1, 2, 0, 2, 3, 2, 1, 0, 3, 2, 0]);
-  const coda = pezzo(pinna, M.balena);
+  // --- La balena: bianca come i cervi della home (nera nel tema chiaro), piena e senza fili. Testa tonda, corpo che si
+  // stringe verso la coda, due pinne ai lati e la coda a due lobi che batte su e giù. Nuota appena sotto la superficie,
+  // ogni tanto affiora con il dorso e spruzza
+  const BIANCO = chiaro ? '#23201b' : '#f4f1ea', pelle = new THREE.MeshBasicMaterial({ color: BIANCO, side: THREE.DoubleSide });
+  const balena = new THREE.Group(), corpoB = new THREE.LatheGeometry([[0, -0.78], [0.04, -0.7], [0.07, -0.5], [0.15, -0.2], [0.21, 0.12], [0.22, 0.38], [0.19, 0.6], [0.11, 0.76], [0, 0.82]].map(([a, b]) => new THREE.Vector2(a, b)), 14);
+  corpoB.rotateX(Math.PI / 2); corpoB.scale(1, 0.78, 1);
+  balena.add(new THREE.Mesh(corpoB, pelle));
+  const pinnaB = new THREE.CapsuleGeometry(0.05, 0.16, 3, 8); pinnaB.rotateZ(Math.PI / 2); pinnaB.scale(1, 0.25, 1);
+  for (const v of [-1, 1]) { const f = new THREE.Mesh(pinnaB, pelle); f.position.set(v * 0.25, -0.07, 0.36); f.rotation.set(0, v * 0.6, v * 0.35); balena.add(f); }
+  const coda = new THREE.Group();
+  coda.position.z = -0.74;
+  {
+    const lobo = new THREE.Shape();
+    lobo.moveTo(0, 0); lobo.quadraticCurveTo(0.12, -0.02, 0.28, -0.16); lobo.quadraticCurveTo(0.16, -0.16, 0.05, -0.1); lobo.quadraticCurveTo(0.02, -0.06, 0, -0.07);
+    lobo.quadraticCurveTo(-0.02, -0.06, -0.05, -0.1); lobo.quadraticCurveTo(-0.16, -0.16, -0.28, -0.16); lobo.quadraticCurveTo(-0.12, -0.02, 0, 0);
+    const g = new THREE.ShapeGeometry(lobo, 8).rotateX(Math.PI / 2);
+    coda.add(new THREE.Mesh(g, pelle));
+  }
   balena.add(coda);
   G.add(balena);
   const GOCCE = 26, spruzzo = puntiMorbidi(GOCCE), gocce = Array.from({ length: GOCCE }, () => ({ x: 0, y: -9, z: 0, vx: 0, vy: 0, vz: 0, vita: 0 }));
@@ -445,39 +466,21 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   for (let i = 0; i < GOCCE; i++) { spruzzo.col.set([0.85, 0.94, 1], i * 3); spruzzo.dim[i] = 0.07; spruzzo.alfa[i] = 0; }
   let prossimoSpruzzo = 3;
 
-  // --- La mongolfiera, come quelle di Learn: gira lenta e alta intorno all'isola
-  const profilo = Array.from({ length: 12 }, (_, k) => {
-    const t = k / 11, a = t * Math.PI;
-    return new THREE.Vector2(Math.max(0.06, Math.sin(a * 0.92 + 0.12) * (0.3 + 0.12 * Math.sin(a * 0.5))) * (t < 0.3 ? 0.5 + t * 1.6 : 1), -0.38 + t * 0.78);
-  });
-  const geoPallone = new THREE.LatheGeometry(profilo, 12);
-  const mongolfiera = new THREE.Group();
-  {
-    const c = new THREE.Color('#ff9fb4');
-    mongolfiera.add(new THREE.Mesh(geoPallone, new THREE.MeshBasicMaterial({ color: c })));
-    mongolfiera.add(new THREE.LineSegments(new THREE.EdgesGeometry(geoPallone, 20), new THREE.LineBasicMaterial({ color: c.clone().offsetHSL(0, 0, -0.18) })));
-    mongolfiera.add(pezzo(new THREE.BoxGeometry(0.1, 0.08, 0.1), pieno('#a07a50'), 0, -0.62, 0));
-    const funi: THREE.Vector3[] = [];
-    for (const [x, z] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) funi.push(new THREE.Vector3(x! * 0.05, -0.58, z! * 0.05), new THREE.Vector3(x! * 0.09, -0.4, z! * 0.09));
-    mongolfiera.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(funi), new THREE.LineBasicMaterial({ color: '#a07a50' })));
-    mongolfiera.scale.setScalar(0.75);
-    G.add(mongolfiera);
-  }
-
-  // --- Nuvole a filo e gabbiani
-  const nuvole = [[-4.5, 3.4, -3.4, 0.85], [3.8, 3.7, -4.6, 0.7], [6.4, 3.2, 2.8, 0.6]].map(([x, y, z, k]) => {
-    const g = new THREE.Group();
-    for (const [a, b, c, d] of [[0, 0, 0, 0.45], [0.46, -0.05, 0.08, 0.32], [-0.46, -0.07, -0.05, 0.34], [0.14, 0.17, -0.1, 0.28]] as const) g.add(pezzo(sasso(d, r, 1), M.nuvola, a, b, c));
-    g.position.set(x!, y!, z!); g.scale.setScalar(k!);
+  // --- Nuvole a filo: otto, ognuna fatta di quattro o cinque sbuffi. Nascono trasparenti e appaiono piano; quando escono
+  // dal cielo svaniscono e rinascono dall'altra parte. Vicino al puntatore gli sbuffi si scostano come gelatina e il filo si accende
+  const nuvole = Array.from({ length: 8 }, (_, k) => {
+    const g = new THREE.Group(), m = mat('#8a8f96', { opacity: 0.05, fili: 0.22 }), linea0 = m.userData.linea as THREE.LineBasicMaterial;
+    const sbuffi = Array.from({ length: 4 + (k % 2) }, (_, i) => {
+      const d = 0.24 + r() * 0.22, ob = pezzo(sasso(d, r, 1), m, (i - 2) * 0.36 + (r() - 0.5) * 0.15, (r() - 0.3) * 0.18, (r() - 0.5) * 0.3);
+      g.add(ob);
+      return { ob, x0: ob.position.x, y0: ob.position.y, z0: ob.position.z, vx: 0, vy: 0, vz: 0, luce: 0 };
+    });
+    g.position.set(-9 + (k / 8) * 18 + (r() - 0.5) * 1.5, 2.9 + r() * 1.3, -5.2 + r() * 8);
+    g.scale.setScalar(0.6 + r() * 0.45);
     G.add(g);
-    return g;
+    return { g, m, linea0, sbuffi, vista: 0, ritardo: 0.4 + k * 0.45, vel: 0.05 + r() * 0.05 };
   });
-  const GABBIANI = 7, vGabbiani = new Float32Array(GABBIANI * 4 * 3), gGabbiani = new THREE.BufferGeometry();
-  gGabbiani.setAttribute('position', new THREE.BufferAttribute(vGabbiani, 3));
-  const lGabbiani = new THREE.LineSegments(gGabbiani, new THREE.LineBasicMaterial({ color: tono(chiaro ? '#23201b' : '#d9dde3'), transparent: true, opacity: 0.8 }));
-  lGabbiani.frustumCulled = false;
-  G.add(lGabbiani);
-  const fGabbiani = Array.from({ length: GABBIANI }, () => ({ a: (r() - 0.5) * 0.7, q: (r() - 0.5) * 0.5, y: (r() - 0.5) * 0.4, f: r() * 6 }));
+  const tmpN = new THREE.Vector3(), vicino = new THREE.Vector3();
 
   // --- Ogni fotogramma
   const q = new THREE.Vector3(), d = new THREE.Vector3(), su = new THREE.Vector3(0, 1, 0), m4 = new THREE.Matrix4(), zero = new THREE.Vector3(), rot = new THREE.Quaternion(), asse = new THREE.Vector3(0, 0, 1), rol = new THREE.Quaternion(), fermo = new THREE.Quaternion();
@@ -490,7 +493,23 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     (spia.material as THREE.MeshBasicMaterial).opacity = Math.floor(s * 1.4) % 2 ? 1 : 0.15;
     for (let i = 0; i < LUCI * 2; i++) luci.alfa[i] = Math.max(0.3, 1 - ((s * 9 - (i % LUCI)) % LUCI + LUCI) % LUCI / 6);
     luci.aggiorna();
-    celle.forEach((c, i) => { acqua.pos[i * 3 + 1] = -0.42 + Math.sin(c.x * 1.25 + s * 0.9) * 0.028 + Math.sin(c.z * 1.7 - s * 0.7 + c.x * 0.4) * 0.024; });
+    celle.forEach((c, i) => { acqua.pos[i * 3 + 1] = -0.42 + Math.sin(c.x * 0.9 + s * 0.7) * 0.055 + Math.sin(c.z * 1.2 - s * 0.55 + c.x * 0.35) * 0.045 + Math.sin(c.d * 1.6 - s * 0.9) * 0.025; });
+    prossimoCerchio -= dt;
+    if (prossimoCerchio <= 0) {
+      prossimoCerchio = 0.9 + r() * 1.4;
+      const c = cerchi.find(q => q.t >= 2.8);
+      if (c) for (let k = 0; k < 20; k++) {
+        const t = r() * 6.28, d = 4 + r() * 4;
+        if (forma(Math.cos(t) * d, Math.sin(t) * d) > 1.15) { c.x = Math.cos(t) * d; c.z = Math.sin(t) * d; c.t = 0; break; }
+      }
+    }
+    cerchi.forEach(c => {
+      c.t += dt;
+      const k = Math.min(1, c.t / 2.8);
+      c.o.position.set(c.x, -0.4, c.z);
+      c.o.scale.setScalar(0.05 + k * 0.6);
+      (c.o.material as THREE.LineBasicMaterial).opacity = (1 - k) * (chiaro ? 0.8 : 0.6);
+    });
     acqua.aggiorna();
 
     // Gli aerei al posto aspettano con l'elica lenta. Quelli partiti guardano l'aereo davanti: se è troppo vicino rallentano
@@ -568,18 +587,12 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       g.rotation.y = verso > 0 ? 0 : Math.PI;
     });
 
-    // Le barche: un'ellisse larga, con un po' di beccheggio
-    barche.forEach(b => {
-      const t = s * b.vel + b.fase, x = Math.cos(t) * b.rx, z = Math.sin(t) * b.rz;
-      b.g.position.set(x, -0.43 + Math.sin(s * 1.3 + b.fase) * 0.02, z);
-      b.g.rotation.set(Math.sin(s * 1.1 + b.fase) * 0.08, Math.atan2(-Math.sin(t) * b.rx, Math.cos(t) * b.rz), Math.sin(s * 0.9 + b.fase) * 0.1);
-    });
-
     // Balena: un'ellisse larga, con la coda che batte; ogni tanto uno spruzzo
     const bb = -s * 0.07, bx = Math.cos(bb) * 7.2, bz = Math.sin(bb) * 5.2;
-    balena.position.set(bx, -0.58 + Math.sin(s * 0.5) * 0.06, bz);
-    balena.rotation.y = Math.atan2(Math.sin(bb) * 7.2, -Math.cos(bb) * 5.2);
-    coda.rotation.x = Math.sin(s * 1.6) * 0.25;
+    balena.position.set(bx, -0.56 + Math.sin(s * 0.35) * 0.1, bz);
+    balena.rotation.set(0, Math.atan2(Math.sin(bb) * 7.2, -Math.cos(bb) * 5.2), 0);
+    balena.rotateX(-Math.cos(s * 0.35) * 0.12);
+    coda.rotation.x = Math.sin(s * 1.4) * 0.35;
     prossimoSpruzzo -= dt;
     if (prossimoSpruzzo <= 0) {
       prossimoSpruzzo = 5 + r() * 4;
@@ -592,16 +605,38 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     });
     spruzzo.aggiorna();
 
-    // La mongolfiera gira lenta, sale e scende un poco
-    const mt = s * 0.03 + 1.2;
-    mongolfiera.position.set(Math.cos(mt) * 6.6, 3.4 + Math.sin(s * 0.4) * 0.15, Math.sin(mt) * 2.6 - 3.2);
-    for (const [i, n] of nuvole.entries()) { n.position.x += dt * (0.05 + i * 0.015); if (n.position.x > 10) n.position.x = -10; }
-    const c0 = s * 0.22, cx = Math.cos(c0) * 5.4, cz = Math.sin(c0) * 3.6 + 0.4;
-    fGabbiani.forEach((u, i) => {
-      const x = cx + Math.cos(c0 + u.a) * 0.8 + u.q, z = cz + Math.sin(c0 + u.a) * 0.8, y = 1.1 + u.y, batte = Math.sin(s * 7 + u.f) * 0.04, l = 0.075, k = i * 12;
-      vGabbiani.set([x - l, y + batte, z, x, y, z, x, y, z, x + l, y + batte, z], k);
+    const raggio = p.raggio;
+    nuvole.forEach(n => {
+      n.ritardo -= dt;
+      n.g.position.x += dt * n.vel;
+      // Ai bordi del cielo la nuvola svanisce; poi riparte dall'altro lato e riappare piano
+      const bordo = 1 - THREE.MathUtils.smoothstep(Math.abs(n.g.position.x), 7.5, 9.5);
+      if (n.g.position.x > 9.5) { n.g.position.x = -9.5; n.vista = 0; }
+      if (n.ritardo <= 0) n.vista = Math.min(1, n.vista + dt / 3);
+      const vis = liscio(n.vista) * bordo;
+      let accesa = 0;
+      n.sbuffi.forEach(b => {
+        // La molla riporta lo sbuffo al suo posto; il puntatore lo spinge via dal raggio
+        let fx = (b.x0 - b.ob.position.x) * 14, fy = (b.y0 - b.ob.position.y) * 14, fz = (b.z0 - b.ob.position.z) * 14;
+        if (raggio && vis > 0.3) {
+          b.ob.getWorldPosition(tmpN);
+          raggio.ray.closestPointToPoint(tmpN, vicino);
+          const dd = tmpN.distanceTo(vicino);
+          if (dd < 0.8) {
+            const k = (0.8 - dd) * 9 / Math.max(0.05, dd);
+            fx += (tmpN.x - vicino.x) * k; fy += (tmpN.y - vicino.y) * k; fz += (tmpN.z - vicino.z) * k;
+            b.luce = 1;
+          }
+        }
+        b.vx = (b.vx + fx * dt) * 0.9; b.vy = (b.vy + fy * dt) * 0.9; b.vz = (b.vz + fz * dt) * 0.9;
+        b.ob.position.x += b.vx * dt; b.ob.position.y += b.vy * dt; b.ob.position.z += b.vz * dt;
+        b.luce = Math.max(0, b.luce - dt * 1.2);
+        accesa = Math.max(accesa, b.luce);
+      });
+      n.m.opacity = 0.05 * vis;
+      n.linea0.opacity = (0.22 + accesa * 0.5) * vis;
+      n.g.visible = vis > 0.01;
     });
-    (gGabbiani.attributes.position as THREE.BufferAttribute).needsUpdate = true;
 
     // Il tabellone cambia di rado: non si riscrive a ogni fotogramma
     if (s - tempoLista > 0.25) {
