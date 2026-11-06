@@ -4,7 +4,7 @@ import { timbro, tipo, type Livello } from './arteBiglietti';
 import { STILI, casoDa, disegnaAscii } from './stiliBiglietto';
 
 // Il nome dello stile nella riga in alto del biglietto: ogni stile ha il suo, invece di "rapid" per tutti
-const NOME_STILE: Record<string, string> = { rapid: 'rapid', bande: 'rainbow', lime: 'bloom', riso: 'riso', notte: 'night', koi: 'koi pond' };
+const NOME_STILE: Record<string, string> = { rapid: 'rapid', bande: 'rainbow', lime: 'bloom', riso: 'riso', notte: 'night', koi: 'koi pond', stampa: 'ascii print' };
 
 // La carta d'imbarco di AI terms. Ogni biglietto pesca uno stile a caso (src/scripts/stiliBiglietto.ts) e una variante;
 // la struttura è sempre la stessa. Lo stile di partenza è "70s Rapid": ogni sezione ha la sua carta piena e i
@@ -163,11 +163,16 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   };
   const retroDi = (v: Volo) => {
     const t = p.tentativi[v.indice]!;
-    svg(quadro, disegnaStile(v, t > 1).dietro);
+    const stileR = disegnaStile(v, t > 1);
+    svg(quadro, stileR.dietro);
+    esito.textContent = `${String(v.indice + 1).padStart(2, '0')} · ${t <= 1 ? 'cleared at the first try' : `cleared after ${t} tries`}`;
+    // Alcuni stili scrivono il termine in caratteri su una tela; il nome resta per chi legge con lo screen reader
+    if (stileR.st.titoloAscii) {
+      const tela = el('canvas', 'titolo-ascii'); tela.dataset.ascii = 'banner'; tela.dataset.testo = v.voce.termine.replace(/\s*\([^)]*\)/g, '').trim() || v.voce.termine; tela.setAttribute('aria-hidden', 'true');
+      termineR.replaceChildren(tela); termineR.setAttribute('aria-label', v.voce.termine);
+    } else { termineR.textContent = v.voce.termine; termineR.removeAttribute('aria-label'); }
     foglie = [...scheda.querySelectorAll('.foglia-svg')];
     tele = [...scheda.querySelectorAll<HTMLCanvasElement>('canvas[data-ascii]')];
-    esito.textContent = `${String(v.indice + 1).padStart(2, '0')} · ${t <= 1 ? 'cleared at the first try' : `cleared after ${t} tries`}`;
-    termineR.textContent = v.voce.termine;
     sezioneR.textContent = `${v.nome}, ${v.voce.sotto.toLowerCase()}`;
     definizione.replaceChildren(...v.voce.definizione.map(x => el('p', '', x)));
     if (v.voce.punti.length) {

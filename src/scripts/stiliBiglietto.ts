@@ -1,7 +1,7 @@
 // Gli stili del biglietto di AI terms. Ogni biglietto ne pesca uno a caso, e dentro lo stile una variante (colori,
 // elementi), così due biglietti non sono mai uguali. La struttura è la stessa per tutti: davanti la domanda, dietro la
 // definizione. Uno stile dà solo l'arte (colonna a sinistra davanti, poster dietro) e le variabili di colore; il resto
-// lo fa il CSS con l'attributo data-stile. Gli stili vivi (Game of Life, koi, notte) disegnano su tela.
+// lo fa il CSS con l'attributo data-stile. Gli stili vivi (Game of Life, koi, notte, stampa) disegnano su tela.
 // Niente testo delle note entra qui, tranne dove passa da esc().
 import { arteDavanti, poster, tipo, type Livello } from './arteBiglietti';
 
@@ -15,6 +15,8 @@ export type Stile = {
   ascii?: boolean;
   // Se lo stile può uscire per questa sezione e questo livello; senza, esce sempre
   ammesso?: (sezione: number, livello: Livello) => boolean;
+  // Il nome del termine sul retro scritto in caratteri, su tela, invece che in lettere
+  titoloAscii?: boolean;
 };
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -131,13 +133,33 @@ const koi: Stile = {
   },
 };
 
-export const STILI: Stile[] = [rapid, bande, lime, risograph, notte, koi];
+// ---------------- ASCII Print: un paesaggio dipinto e reso in caratteri colorati, con un bagliore dello stesso colore sotto.
+// Dove la luce è forte i segni sono fitti, nell'ombra restano puntini. Due paesaggi, ognuno in due momenti:
+// la stessa montagna al tramonto e di notte con l'aurora; il campo di lavanda di giorno e di notte.
+// Il pannello della definizione è scuro, nel colore del cielo della scena; il termine è scritto in caratteri con la sua sfumatura
+const SCENE = [
+  { scena: 'tramonto', fondo: '#1e1332', testo: '#f4e6e4', bordo: '122,74,120', accento: '#ffb07a', banner: ['255,120,160', '255,196,110'] },
+  { scena: 'aurora', fondo: '#08111f', testo: '#e2eef0', bordo: '47,85,96', accento: '#6dffb0', banner: ['90,255,170', '200,120,255'] },
+  { scena: 'lavanda', fondo: '#1c1834', testo: '#efeaf7', bordo: '92,79,138', accento: '#c8a8ff', banner: ['200,160,255', '150,200,255'] },
+  { scena: 'lavanda-notte', fondo: '#110e24', testo: '#ece8f6', bordo: '84,74,130', accento: '#ffd98a', banner: ['170,140,255', '255,214,140'] },
+] as const;
+const stampa: Stile = {
+  id: 'stampa', ascii: true, titoloAscii: true,
+  davanti: c => `<canvas data-ascii="scena" data-scena="${una(c, 'scena', () => scegli(SCENE, c.r)).scena}"></canvas>`,
+  dietro: c => `<canvas data-ascii="scena" data-scena="${una(c, 'scena', () => scegli(SCENE, c.r)).scena}"></canvas>`,
+  variabili: c => {
+    const q = una(c, 'scena', () => scegli(SCENE, c.r));
+    return { '--st-fondo': q.fondo, '--st-testo': q.testo, '--st-bordo': q.bordo, '--st-accento': q.accento, '--banner-1': q.banner[0], '--banner-2': q.banner[1] };
+  },
+};
+
+export const STILI: Stile[] = [rapid, bande, lime, risograph, notte, koi, stampa];
 
 // ---------------- Le tele vive. Il biglietto chiama disegnaAscii circa 30 volte al secondo; ogni tela decide quanto spesso
 // ridisegnarsi (le scene di caratteri bastano 12 volte al secondo). Lo stato di ogni tela (cellule, pesci) sta qui
 const ultimo = new WeakMap<HTMLCanvasElement, number>();
 export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: number) {
-  const tipoT = c.dataset.ascii ?? '', lento = tipoT.startsWith('notte');
+  const tipoT = c.dataset.ascii ?? '', lento = tipoT.startsWith('notte') || tipoT === 'scena' || tipoT === 'banner';
   if (lento && ora - (ultimo.get(c) ?? -1e9) < 80) return;
   const prima = ultimo.get(c) ?? ora; ultimo.set(c, ora);
   const dt = Math.min(0.1, Math.max(0, (ora - prima) / 1000));
@@ -147,6 +169,8 @@ export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: 
   if (tipoT.startsWith('vita')) return vita(c, ora, dt, dpr, tipoT === 'vita-parola');
   if (tipoT === 'onde') return ondeTela(c, dt, dpr, tx);
   if (tipoT.startsWith('koi')) return stagnoPixel(c, dt, dpr, tx, ty);
+  if (tipoT === 'scena') return scenaTela(c, ora / 1000, tx);
+  if (tipoT === 'banner') return bannerTela(c, ora / 1000);
   return notteTela(c, ora, tx, ty);
 }
 const stati = new WeakMap<HTMLCanvasElement, unknown>();
@@ -443,4 +467,170 @@ function notteTela(c: HTMLCanvasElement, ora: number, tx: number, ty: number) {
   g.fillStyle = '#f4f1ea';
   AEREO.forEach((riga, y) => [...riga].forEach((cc, x) => { if (cc === '#') g.fillRect(Math.round(x0 + x * p), Math.round(y0 + y * p), p, p); }));
   void dpr; void maschere;
+}
+
+// --- ASCII Print. La scena dà un colore per cella; sotto un bagliore sfocato dello stesso colore, sopra il carattere
+// scelto dalla luce. I colori simili si disegnano insieme, per cambiare colore di riempimento poche volte
+const fbm = (x: number, y: number) => rumore(x, y) * 0.5 + rumore(x * 2.03 + 5, y * 2.03 + 1) * 0.27 + rumore(x * 4.1 + 2, y * 4.1 + 7) * 0.15 + rumore(x * 8.3 + 9, y * 8.3 + 3) * 0.08;
+const mix = (a: Rgb, b: Rgb, k: number): Rgb => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+const add = (a: Rgb, b: Rgb, k: number): Rgb => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
+const mul = (a: Rgb, k: number): Rgb => [a[0] * k, a[1] * k, a[2] * k];
+const clamp = (x: number, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const grad = (punti: [number, Rgb][], k: number): Rgb => {
+  k = clamp(k);
+  for (let i = 1; i < punti.length; i++) if (k <= punti[i]![0]) { const [k0, c0] = punti[i - 1]!, [k1, c1] = punti[i]!; return mix(c0, c1, (k - k0) / (k1 - k0)); }
+  return punti[punti.length - 1]![1];
+};
+const RAMPA = " .'`,:;-~+=*ox%#&@";
+type Scena = (u: number, v: number, t: number, A: number) => Rgb;
+type Sopra = (g: CanvasRenderingContext2D, t: number, W: number, H: number, ch: number) => void;
+type TelaScena = { o: HTMLCanvasElement; og: CanvasRenderingContext2D; im: ImageData; cols: number; rows: number };
+
+// A e C · La stessa montagna: creste, pini e lago uguali; il cielo e la luce cambiano
+const ORIZ = 0.64;
+const cresta = (x: number) => (1 - Math.abs(fbm(x, 1.3) * 2 - 1)) ** 2;
+type Tinte = { pini: Rgb; medio: [Rgb, Rgb]; ombra: Rgb; lume: Rgb; neve: Rgb; acqua: Rgb; sole: number };
+const TINTE: Record<'tramonto' | 'aurora', Tinte> = {
+  tramonto: { pini: [16, 38, 40], medio: [[44, 34, 80], [200, 96, 110]], ombra: [92, 70, 140], lume: [236, 150, 140], neve: [255, 236, 236], acqua: [20, 30, 70], sole: 0.66 },
+  aurora: { pini: [6, 14, 20], medio: [[18, 28, 52], [60, 150, 130]], ombra: [36, 50, 92], lume: [150, 210, 215], neve: [215, 245, 240], acqua: [4, 10, 26], sole: 0.3 },
+};
+const cieloTramonto: Scena = (u, v, t, A) => {
+  let c = grad([[0, [38, 24, 82]], [0.22, [120, 50, 120]], [0.3, [236, 96, 104]], [0.45, [255, 170, 86]], [0.6, [255, 214, 140]]], v);
+  const nuvole = fbm(u * 3 + t * 0.012, v * 9) * clamp(1 - Math.abs(v - 0.2) * 4);
+  if (nuvole > 0.48) c = mix(c, v < 0.25 ? [255, 120, 150] : [255, 180, 120], clamp((nuvole - 0.48) * 4) * 0.8);
+  const ds = Math.hypot((u - 0.66) * A, v - 0.36);
+  return ds < 0.06 ? mix([255, 236, 190], [255, 250, 230], 1 - ds / 0.06) : add(c, [255, 150, 80], 0.35 * Math.exp(-ds * 7));
+};
+const stelle = (c: Rgb, u: number, v: number, t: number) => hash(Math.floor(u * 200), Math.floor(v * 140)) > 0.993 ? add(c, [255, 255, 255], 0.5 + 0.5 * Math.sin(t * 3 + u * 90)) : c;
+const cieloAurora: Scena = (u, v, t) => {
+  let col = stelle(grad([[0, [6, 10, 34]], [0.5, [14, 30, 66]], [0.64, [24, 56, 84]]], v), u, v, t);
+  for (const [y0, fase, forza] of [[0.12, 0, 1], [0.24, 2.4, 0.7]] as const) {
+    const yc = y0 + Math.sin(u * 4 + t * 0.25 + fase) * 0.06 + (fbm(u * 2.5 + fase, t * 0.06) - 0.5) * 0.1, d = v - yc;
+    const raggi = Math.pow(fbm(u * 60 + Math.sin(v * 8 + t * 0.3) * 0.6 + fase, t * 0.35), 2) * 2.2;
+    const I = (d > 0 ? Math.exp(-d * 3.6) : Math.exp(d * 40)) * (0.25 + raggi) * forza;
+    col = add(col, mix([60, 255, 150], [220, 90, 240], clamp(-d * 14 + 0.35)), I * 0.9);
+  }
+  return col;
+};
+const montagna = (u: number, v: number, t: number, A: number, cielo: Scena, T: Tinte): Rgb => {
+  const lontano = 0.52 - cresta(u * 4) * 0.24 - Math.max(0, 0.1 - Math.abs(u - 0.25) * 0.4);
+  const medio = 0.56 - cresta(u * 6 + 3) * 0.1;
+  const dente = Math.abs(((u * 46) % 1) - 0.5) * 2, alto = hash(Math.floor(u * 46), 4);
+  const pini = 0.6 - (1 - dente) * (0.03 + alto * 0.05) + fbm(u * 9, 5) * 0.02;
+  if (v > pini) return mix(T.pini, mul(T.pini, 2.2), clamp(1 - (v - pini) * 30) * 0.4);
+  if (v > medio) return mix(T.medio[0], T.medio[1], fbm(u * 14, v * 14) * 0.6 * clamp(1 - (v - medio) * 7));
+  if (v > lontano) {
+    // Il lato verso la luce è acceso, l'altro in ombra; la neve sulle cime più alte
+    const pend = fbm((u + 0.004) * 4, 1.3) - fbm((u - 0.004) * 4, 1.3), lume = clamp(0.5 - pend * 40 * Math.sign(u - T.sole || 1));
+    const base = mix(T.ombra, T.lume, lume * 0.8);
+    const neve = v < lontano + 0.025 + fbm(u * 20, v * 20) * 0.04 && lontano < 0.38;
+    return neve ? mix(base, T.neve, 0.85) : mix(base, cielo(u, lontano - 0.01, t, A), clamp(1 - (v - lontano) * 6) * 0.25);
+  }
+  return cielo(u, v, t, A);
+};
+const lagoDi = (cielo: Scena, T: Tinte, scia: boolean): Scena => (u, v, t, A) => {
+  if (v < ORIZ) return montagna(u, v, t, A, cielo, T);
+  const p = v - ORIZ, onda = Math.sin(v * 160 - t * 1.6 + fbm(u * 4, v * 30) * 4) * 0.012 * (0.4 + p * 3);
+  let col = mix(mul(montagna(u + onda, ORIZ - p * 1.25 - 0.003, t, A, cielo, T), 0.72 - p * 0.4), T.acqua, p * 0.9);
+  if (scia && Math.abs(u - 0.66) * A < 0.03 + p * 0.35 && rumore(u * 22 + onda * 100, v * 300 - t * 2) > 0.72) col = mix(col, [255, 226, 170], 0.85);
+  return col;
+};
+
+// E · Il campo di lavanda, di giorno e di notte con la luna: file in prospettiva, onde di vento, l'albero sulla collina
+const lavandaDi = (notte: boolean): Scena => (u, v, t, A) => {
+  const O = 0.5;
+  if (v < O) {
+    let col = notte ? stelle(grad([[0, [8, 10, 34]], [0.35, [28, 30, 80]], [0.5, [70, 60, 120]]], v / O * 0.5), u, v, t) : grad([[0, [70, 130, 220]], [0.35, [140, 190, 240]], [0.5, [250, 210, 180]]], v / O * 0.5);
+    const nuvola = fbm(u * 2.5 - t * 0.015, v * 5);
+    col = mix(col, notte ? [70, 70, 120] : [255, 250, 245], clamp((nuvola - 0.5) * 4) * clamp(1 - v * 2.2) * (notte ? 0.6 : 1));
+    if (notte) { const dl = Math.hypot((u - 0.3) * A, v - 0.17); col = dl < 0.05 ? [244, 238, 214] : add(col, [200, 190, 255], 0.3 * Math.exp(-dl * 9)); }
+    const colle = O - 0.05 - fbm(u * 3, 7) * 0.06;
+    if (v > colle) col = notte ? mix([24, 34, 44], [48, 58, 76], fbm(u * 20, v * 20)) : mix([110, 150, 80], [170, 180, 110], fbm(u * 20, v * 20));
+    const albero = Math.hypot((u - 0.74) * A * 1.4, (v - (colle - 0.035)) * 1.2);
+    if (albero < 0.05 + fbm(u * 30, v * 30) * 0.02) col = notte ? mix([8, 14, 18], [24, 34, 40], fbm(u * 25, v * 25)) : mix([30, 60, 30], [90, 130, 50], fbm(u * 25, v * 25));
+    if (Math.abs(u - 0.74) < 0.004 && v > colle - 0.03 && v < colle + 0.005) col = notte ? [14, 12, 16] : [60, 40, 30];
+    return col;
+  }
+  const p = v - O + 0.012, x = (u - 0.62) / p, fila = Math.sin(x * 9) * 0.5 + 0.5;
+  const vento = Math.sin(1 / p * 0.6 - t * 1.8 + u * 2) * 0.5 + 0.5;
+  const col = fila > 0.35
+    ? (notte ? mix([44, 30, 100], [130, 100, 210], fbm(x * 0.6, 1 / p * 0.4) * 0.7 + vento * 0.3) : mix([90, 60, 170], [200, 150, 240], fbm(x * 0.6, 1 / p * 0.4) * 0.7 + vento * 0.35))
+    : (notte ? mix([14, 22, 20], [30, 40, 34], fbm(x, 1 / p)) : mix([60, 90, 40], [120, 140, 60], fbm(x, 1 / p)));
+  return mix(col, notte ? [60, 54, 110] : [200, 170, 220], clamp(1 - p * 6));
+};
+
+// Sopra la scena: gli uccelli al tramonto, le farfalle sulla lavanda, le lucciole di notte
+const uccelli: Sopra = (g, t, W, H) => {
+  g.fillStyle = 'rgb(40,20,50)';
+  for (let k = 0; k < 6; k++) g.fillText(Math.sin(t * 7 + k) > 0 ? 'v' : '~', ((t * 0.025 + k * 0.045 + Math.sin(k * 3) * 0.02) % 1.2 - 0.1) * W, (0.13 + Math.sin(k * 2.1) * 0.04 + Math.sin(t + k) * 0.008) * H);
+};
+const farfalle: Sopra = (g, t, W, H) => {
+  for (let k = 0; k < 5; k++) { g.fillStyle = k % 2 ? 'rgb(255,240,120)' : 'rgb(255,255,255)'; g.fillText(Math.sin(t * 10 + k) > 0 ? 'Ж' : '|', (0.1 + hash(k, 2) * 0.8 + Math.sin(t * 0.4 + k) * 0.06) * W, (0.62 + hash(k, 3) * 0.25 + Math.sin(t * 1.3 + k * 2) * 0.03) * H); }
+};
+const lucciole: Sopra = (g, t, W, H) => {
+  for (let k = 0; k < 14; k++) { const a = Math.sin(t * 2.1 + k * 4.7); if (a < 0) continue; g.fillStyle = `rgba(255,214,120,${a.toFixed(2)})`; g.fillText('*', (0.05 + hash(k, 1) * 0.9 + Math.sin(t * 0.3 + k) * 0.03) * W, (0.55 + hash(k, 2) * 0.38 + Math.cos(t * 0.4 + k) * 0.03) * H); }
+};
+const SCENE_TELA: Record<string, [Scena, Sopra | null]> = {
+  tramonto: [lagoDi(cieloTramonto, TINTE.tramonto, true), uccelli],
+  aurora: [lagoDi(cieloAurora, TINTE.aurora, false), null],
+  lavanda: [lavandaDi(false), farfalle],
+  'lavanda-notte': [lavandaDi(true), lucciole],
+};
+
+function scenaTela(c: HTMLCanvasElement, t: number, tx: number) {
+  const [scena, sopra] = SCENE_TELA[c.dataset.scena ?? ''] ?? SCENE_TELA.tramonto!;
+  const W = c.width, H = c.height, dpr = Math.min(2, devicePixelRatio || 1), A = W / H;
+  // Una cella di circa 5 pixel CSS: la colonna stretta davanti ha meno caratteri, il poster dietro di più
+  const cols = Math.max(28, Math.min(110, Math.round(W / dpr / 5))), cw = W / cols, ch = cw * 1.7, rows = Math.ceil(H / ch);
+  const s = prendi<TelaScena>(c, () => { const o = document.createElement('canvas'); o.width = cols; o.height = rows; const og = o.getContext('2d')!; return { o, og, im: og.createImageData(cols, rows), cols, rows }; });
+  const g = c.getContext('2d')!, d = s.im.data, celle: Rgb[] = new Array(cols * rows), sposta = tx * 0.015;
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    const col = scena((x + 0.5) / cols + sposta, (y + 0.5) / rows, t, A), i = y * cols + x;
+    celle[i] = col; d[i * 4] = col[0] * 0.62; d[i * 4 + 1] = col[1] * 0.62; d[i * 4 + 2] = col[2] * 0.62; d[i * 4 + 3] = 255;
+  }
+  s.og.putImageData(s.im, 0, 0);
+  g.imageSmoothingEnabled = true; g.filter = `blur(${(cw * 0.6).toFixed(1)}px)`; g.drawImage(s.o, 0, 0, W, H); g.filter = 'none';
+  g.font = `bold ${Math.round(ch * 0.92)}px ui-monospace, Menlo, Consolas, monospace`; g.textBaseline = 'top'; g.textAlign = 'center';
+  const secchi = new Map<string, number[]>();
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    const col = celle[y * cols + x]!, l = clamp((col[0] * 0.3 + col[1] * 0.59 + col[2] * 0.11) / 255);
+    const k = Math.min(RAMPA.length - 1, Math.floor(Math.pow(l, 0.8) * RAMPA.length + (hash(x, y) - 0.5) * 1.6));
+    if (k <= 0) continue;
+    const q = (n: number) => (Math.min(255, n * 1.25 + 18) >> 3) << 3, chiave = `rgb(${q(col[0])},${q(col[1])},${q(col[2])})`;
+    let lista = secchi.get(chiave); if (!lista) secchi.set(chiave, (lista = []));
+    lista.push(x, y, k);
+  }
+  for (const [colore, lista] of secchi) { g.fillStyle = colore; for (let i = 0; i < lista.length; i += 3) g.fillText(RAMPA[lista[i + 2]!]!, (lista[i]! + 0.5) * cw, lista[i + 1]! * ch); }
+  if (sopra) { g.font = `${Math.round(ch)}px ui-monospace, Menlo, Consolas, monospace`; sopra(g, t, W, H, ch); }
+}
+
+// Il nome del termine in caratteri, sul retro: lettere piene fatte di segni, con la sfumatura della scena.
+// Un nome lungo va su due righe, spezzato allo spazio più vicino al centro
+type Banner = { cols: number; rows: number; a: Uint8ClampedArray };
+function bannerTela(c: HTMLCanvasElement, t: number) {
+  const W = c.width, H = c.height, dpr = Math.min(2, devicePixelRatio || 1), g = c.getContext('2d')!;
+  const cw = Math.max(3, 3 * dpr), ch = cw * 1.6, cols = Math.floor(W / cw), rows = Math.floor(H / ch);
+  const m = prendi<Banner>(c, () => {
+    const testo = (c.dataset.testo ?? '').toUpperCase(), k = document.createElement('canvas'); k.width = cols; k.height = rows;
+    const kg = k.getContext('2d')!, font = (n: number) => `900 ${n}px "Arial Black", system-ui, sans-serif`;
+    kg.font = font(rows); let righe = [testo];
+    if (kg.measureText(testo).width > cols * 1.6 && testo.includes(' ')) {
+      const meta = testo.length / 2; let taglio = -1;
+      for (let i = 0; i < testo.length; i++) if (testo[i] === ' ' && (taglio < 0 || Math.abs(i - meta) < Math.abs(taglio - meta))) taglio = i;
+      righe = [testo.slice(0, taglio), testo.slice(taglio + 1)];
+    }
+    const alt = rows / righe.length; kg.font = font(alt * 1.05); kg.textBaseline = 'middle';
+    const larga = Math.max(...righe.map(x => kg.measureText(x).width), 1), sx = Math.min(1.6, (cols * 0.98) / larga);
+    kg.setTransform(sx, 0, 0, 1, 0, 0);
+    righe.forEach((x, i) => kg.fillText(x, 0, alt * (i + 0.55)));
+    return { cols, rows, a: kg.getImageData(0, 0, cols, rows).data };
+  });
+  const c1 = varCss(c, '--banner-1', '255,255,255').split(',').map(Number) as Rgb, c2 = varCss(c, '--banner-2', '255,255,255').split(',').map(Number) as Rgb;
+  g.clearRect(0, 0, W, H); g.font = `bold ${Math.round(cw * 1.5)}px ui-monospace, Menlo, Consolas, monospace`; g.textBaseline = 'top';
+  for (let y = 0; y < m.rows; y++) for (let x = 0; x < m.cols; x++) {
+    const a = m.a[(y * m.cols + x) * 4 + 3]! / 255; if (a < 0.1) continue;
+    const col = mix(c1, c2, clamp(x / m.cols + Math.sin(t * 0.8 + y * 0.3) * 0.05));
+    g.fillStyle = `rgba(${Math.round(col[0])},${Math.round(col[1])},${Math.round(col[2])},${(0.6 + a * 0.4).toFixed(2)})`;
+    g.fillText(a > 0.7 ? (hash(x + Math.floor(t * 6), y) > 0.85 ? '%' : '#') : '+', x * cw, y * ch);
+  }
 }

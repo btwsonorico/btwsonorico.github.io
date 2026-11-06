@@ -406,6 +406,27 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .carta[data-stile='koi'] .retro .titolo) { color: var(--testo-k) !important; }
   :global(.imbarco .carta[data-stile='koi'] .definizione) { font-family: var(--mono); font-size: 12.5px; background: none; }
   :global(.imbarco .carta[data-stile='koi'] .corsivo) { font-family: var(--mono); font-style: normal; font-size: 12px; }
+  /* ASCII Print: il paesaggio in caratteri colorati; tutto il biglietto prende il colore scuro del cielo della scena, il termine sul retro è in caratteri */
+  :global(.imbarco .carta[data-stile='stampa'] .faccia) { color: var(--st-testo); background: var(--st-fondo); font-family: var(--mono); }
+  :global(.imbarco .carta[data-stile='stampa'] .arte70), :global(.imbarco .carta[data-stile='stampa'] .poster) { position: relative; overflow: hidden; background: #0b0d12; }
+  :global(.imbarco .carta[data-stile='stampa'] .arte70 canvas), :global(.imbarco .carta[data-stile='stampa'] .poster canvas) { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  :global(.imbarco .carta[data-stile='stampa'] .banda) { background: transparent !important; box-shadow: inset 1px 0 rgb(var(--st-bordo) / .6), inset -1px 0 rgb(var(--st-bordo) / .6); }
+  :global(.imbarco .carta[data-stile='stampa'] .banda span), :global(.imbarco .carta[data-stile='stampa'] .sotto) { color: var(--st-accento) !important; opacity: 1; }
+  :global(.imbarco .carta[data-stile='stampa'] .carta-dom) { background: transparent; color: var(--st-testo); border: 1px dashed rgb(var(--st-bordo)); }
+  :global(.imbarco .carta[data-stile='stampa'] .titolo) { font-family: var(--mono); font-weight: 700; font-size: 28px; letter-spacing: -.01em; }
+  :global(.imbarco .carta[data-stile='stampa'] .corsivo) { font-family: var(--mono); font-style: normal; font-size: 12px; color: color-mix(in srgb, var(--st-testo) 60%, transparent); }
+  :global(.imbarco .carta[data-stile='stampa'] .opzione) { border: 0; border-top: 1px dashed rgb(var(--st-bordo)); color: var(--st-testo); }
+  :global(.imbarco .carta[data-stile='stampa'] .opzione span) { color: var(--st-accento) !important; opacity: 1; }
+  :global(.imbarco .carta[data-stile='stampa'] .opzione:hover:not(:disabled)) { background: color-mix(in srgb, var(--st-accento) 15%, transparent); }
+  :global(.imbarco .carta[data-stile='stampa'] .opzione.giusta) { background: var(--st-accento); color: var(--st-fondo); }
+  :global(.imbarco .carta[data-stile='stampa'] .tagliando) { background: transparent; color: var(--st-testo); border-left: 2px dashed rgb(var(--st-bordo)); }
+  :global(.imbarco .carta[data-stile='stampa'] .numero) { font-family: var(--mono); font-weight: 700; color: var(--st-accento) !important; }
+  :global(.imbarco .carta[data-stile='stampa'] .seriale), :global(.imbarco .carta[data-stile='stampa'] .piede-retro) { color: var(--st-accento) !important; border-color: rgb(var(--st-bordo)); }
+  :global(.imbarco .carta[data-stile='stampa'] .codice span) { background: var(--st-testo); }
+  :global(.imbarco .carta[data-stile='stampa'] .pannello) { background: var(--st-fondo); color: var(--st-testo); border-left: 2px dashed rgb(var(--st-bordo)); }
+  :global(.imbarco .carta[data-stile='stampa'] .retro .titolo) { color: var(--st-testo) !important; font-size: 0; line-height: 0; }
+  :global(.imbarco .carta[data-stile='stampa'] .titolo-ascii) { display: block; width: 100%; height: 84px; }
+  :global(.imbarco .carta[data-stile='stampa'] .definizione) { font-family: var(--mono); font-size: 12.5px; background: none; }
   :global(.imbarco .azioni) { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
   :global(.imbarco .azioni button) { padding: 6px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--muted); cursor: pointer; }
   :global(.imbarco .azioni .prossimo), :global(.imbarco .azioni .gira) { color: var(--fg); border-color: var(--muted); }
@@ -435,6 +456,7 @@ import Base from '../../layouts/Base.astro';
     :global(.imbarco .scorre) { flex: none; }
     :global(.imbarco .pannello) { padding: 12px 14px; }
     :global(.imbarco .retro .titolo) { font-size: 30px; }
+    :global(.imbarco .carta[data-stile='stampa'] .titolo-ascii) { height: 58px; }
     :global(.imbarco .definizione) { max-height: 30vh; }
     :global(.imbarco .azioni) { flex-wrap: wrap; }
     :global(.imbarco .azioni button) { flex: 1; min-height: 44px; }
