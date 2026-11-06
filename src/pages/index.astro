@@ -28,16 +28,16 @@ const PAGINE = [
 ---
 <Base title="Riccardo Mondi" description="Riccardo Mondi: AI advisor and developer at Politecnico di Milano." tono="neutro" largo>
   <script type="application/ld+json" set:html={JSON.stringify(PERSONA)} />
-  <!-- L'intro parte a ogni ingresso nella home: da un link esterno, da un indirizzo scritto a mano, a ogni ricarica.
-       Non parte quando si torna alla home da un'altra pagina del sito, né con «riduci movimento». Si decide prima del primo
-       disegno, così la home non lampeggia. Senza JavaScript non c'è. Se qualcosa va storto, dopo 14 secondi la home si libera comunque -->
+  <!-- Intro una volta per scheda: la prima volta che si apre il sito in una scheda nuova. Non con «riduci movimento».
+       Si decide prima del primo disegno, così la home non lampeggia. Senza JavaScript non c'è.
+       Se qualcosa va storto, dopo 14 secondi la home si libera comunque -->
   <script is:inline slot="testa">
     (() => {
-      const radice = document.documentElement, nav = performance.getEntriesByType('navigation')[0];
-      let interna = false;
-      try { interna = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch {}
-      const prova = new URLSearchParams(location.search).has('intro'), ricarica = !!nav && nav.type === 'reload';
-      if (prova || ((ricarica || !interna) && !matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+      const radice = document.documentElement;
+      let vista = false;
+      try { vista = sessionStorage.getItem('intro') === '1'; sessionStorage.setItem('intro', '1'); } catch {}
+      const prova = new URLSearchParams(location.search).has('intro');
+      if (prova || (!vista && !matchMedia('(prefers-reduced-motion: reduce)').matches)) {
         radice.dataset.intro = 'on';
         setTimeout(() => { delete radice.dataset.intro; document.getElementById('intro')?.remove(); }, 14000);
       }
