@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { DT as DT_AI, nuovoMondo, OGNI, PECORE as PECORE_AI, scegli } from '../lib/gregge';
+import TAPPE from '../data/gregge-tappe.json';
 import { casuale, mat, pezzo, sasso, linea, tono, terreno, puntiMorbidi, palco, curveLivello, benDistribuiti, SITO, type Palco } from './natura';
 
 // Una valle di colline vista da un drone, nello stile del sito: le colline sono curve di livello con un velo verde
@@ -528,6 +529,12 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   try { gioco.record = Number(localStorage.getItem('misc-gregge-record')) || 0; } catch { /* niente */ }
   const orologio = (x: number) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
   const conta = document.createElement('span');
+  // Tre righe: il mio record (a mano, in questo browser), il migliore dell'AI in una run intera di training, e il contatore
+  const scriviConta = (dentro: number) => {
+    conta.textContent = `My best ${gioco.record ? orologio(gioco.record) : '–'}
+AI best ${orologio(TAPPE.migliorAI)}
+Sheep: ${dentro}/${PECORE}   ${orologio(gioco.tempo)}`;
+  };
   conta.style.cssText = 'position:absolute;right:16px;bottom:8px;font:13px var(--mono);color:var(--fg);pointer-events:none;opacity:0;transition:opacity .6s;white-space:pre';
   el.appendChild(conta);
   const smonta = p.distruggi;
@@ -566,7 +573,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
       gioco.luce = morbido(gioco.luce, 1, dt * 0.8);
       gioco.dentro = pecore.filter(q => Math.hypot(q.x - gioco.x, q.z - gioco.z) < RAGGIO).length;
       gioco.tempo += dt;
-      conta.textContent = `${aiGioca ? 'AI   ' : ''}${gioco.dentro}/${PECORE}   ${orologio(gioco.tempo)}${gioco.record ? `   best ${orologio(gioco.record)}` : ''}`;
+      scriviConta(gioco.dentro);
       conta.style.opacity = '1';
       if (gioco.dentro === PECORE) {
         gioco.stato = 'fatto'; gioco.t = 4;
@@ -575,7 +582,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
           gioco.record = gioco.tempo;
           try { localStorage.setItem('misc-gregge-record', String(gioco.record)); } catch { /* niente */ }
         }
-        conta.textContent = `${aiGioca ? 'AI   ' : ''}${PECORE}/${PECORE}   ${orologio(gioco.tempo)}${gioco.record ? `   best ${orologio(gioco.record)}` : ''}`;
+        scriviConta(PECORE);
         pecore.forEach(q => { q.salto = 1 + r() * 0.6; });
       }
     } else {
