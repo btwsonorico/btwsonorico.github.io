@@ -369,19 +369,19 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .carta[data-stile='riso'] .rosa svg), :global(.imbarco .carta[data-stile='riso'] .blu svg) { display: block; width: 100%; height: 100%; }
   :global(.imbarco .carta[data-stile='riso'] .banda) { background: radial-gradient(circle, var(--ink2) 30%, transparent 33%) 0 0 / 6px 6px, var(--ink1) !important; box-shadow: none; }
   :global(.imbarco .carta[data-stile='riso'] .banda span) { color: #f6f0e4 !important; }
-  :global(.imbarco .carta[data-stile='riso'] .sotto) { color: var(--ink1); opacity: 1; }
+  :global(.imbarco .carta[data-stile='riso'] .sotto) { color: var(--ink2); opacity: 1; }
   :global(.imbarco .carta[data-stile='riso'] .carta-dom) { background: transparent; color: var(--ink2); padding: 4px 0 0; }
-  :global(.imbarco .carta[data-stile='riso'] .titolo) { font-family: inherit; font-weight: 900; font-size: 40px; letter-spacing: -.03em; color: var(--ink1) !important; mix-blend-mode: multiply; text-shadow: calc(3px + var(--tx) * 3px) calc(2px + var(--ty) * 2px) 0 var(--ink2); }
+  :global(.imbarco .carta[data-stile='riso'] .titolo) { font-family: inherit; font-weight: 900; font-size: 40px; letter-spacing: -.03em; color: var(--ink2) !important; text-shadow: calc(3px + var(--tx) * 3px) calc(2px + var(--ty) * 2px) 0 var(--ink1); }
   :global(.imbarco .carta[data-stile='riso'] .corsivo) { color: var(--ink2); }
-  :global(.imbarco .carta[data-stile='riso'] .opzione) { border: 2px solid var(--ink1); color: var(--ink2); font-weight: 600; }
-  :global(.imbarco .carta[data-stile='riso'] .opzione span) { color: var(--ink1) !important; opacity: 1; }
-  :global(.imbarco .carta[data-stile='riso'] .opzione:hover:not(:disabled)), :global(.imbarco .carta[data-stile='riso'] .opzione.giusta) { background: var(--ink1); color: #fff; }
+  :global(.imbarco .carta[data-stile='riso'] .opzione) { border: 2px solid var(--ink2); color: var(--ink2); font-weight: 600; }
+  :global(.imbarco .carta[data-stile='riso'] .opzione span) { color: var(--ink2) !important; opacity: 1; }
+  :global(.imbarco .carta[data-stile='riso'] .opzione:hover:not(:disabled)), :global(.imbarco .carta[data-stile='riso'] .opzione.giusta) { background: var(--ink2); color: #fff; }
   :global(.imbarco .carta[data-stile='riso'] .tagliando) { background: radial-gradient(circle, color-mix(in srgb, var(--ink1) 35%, transparent) 28%, transparent 31%) 0 0 / 8px 8px, #f6f0e4; border-left: 2px dashed var(--ink1); color: var(--ink2); }
   :global(.imbarco .carta[data-stile='riso'] .numero) { font-family: inherit; font-weight: 900; color: var(--ink2) !important; }
-  :global(.imbarco .carta[data-stile='riso'] .seriale) { color: var(--ink1) !important; }
+  :global(.imbarco .carta[data-stile='riso'] .seriale) { color: var(--ink2) !important; }
   :global(.imbarco .carta[data-stile='riso'] .codice span) { background: var(--ink2); }
   :global(.imbarco .carta[data-stile='riso'] .pannello) { background: #f6f0e4; color: var(--ink2); }
-  :global(.imbarco .carta[data-stile='riso'] .retro .titolo) { color: var(--ink1) !important; }
+  :global(.imbarco .carta[data-stile='riso'] .retro .titolo) { color: var(--ink2) !important; }
   :global(.imbarco .carta[data-stile='riso'] .definizione) { font-family: var(--mono); font-size: 12.5px; }
   :global(.imbarco .carta[data-stile='riso'] .piede-retro) { color: var(--ink1) !important; border-color: var(--ink1); }
   :global(.imbarco .carta[data-stile='chrome'] .faccia) { color: var(--testo); background: linear-gradient(var(--cielo1) 0%, var(--cielo2) 52%, var(--cielo3) 100%); font-family: system-ui, sans-serif; }
