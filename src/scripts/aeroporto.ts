@@ -14,8 +14,6 @@ export type Fase = 'holding' | 'landing' | 'boarding' | 'taking off' | 'in the a
 const H0 = 0.12, SUOLO = H0 + 0.01;
 // La pista è lungo x, a z = 0,55. Si atterra da ovest verso est e ci si ferma qui
 const PZ = 0.55, FERMO = new THREE.Vector3(0.5, SUOLO, PZ);
-// Il punto di attesa, sul mare dietro l'isola
-const ATTESA = new THREE.Vector3(1.2, 0, -5.9);
 
 export type OpzioniAeroporto = {
   tinte: string[]; termini: string[]; partiti: boolean[];
@@ -41,14 +39,12 @@ const altezza = (x: number, z: number) => {
 const liscio = (k: number) => k * k * (3 - 2 * k);
 
 // I percorsi degli aerei già partiti: ognuno il suo, a quote diverse. dir è il verso; u la velocità
-const PERCORSI: { punto: (f: number) => THREE.Vector3; dir: 1 | -1; u: number; giravolta?: boolean }[] = [
-  { punto: f => new THREE.Vector3(Math.cos(f) * 5.4, 1.5 + Math.sin(f * 2) * 0.15, Math.sin(f) * 5.4 * 0.78), dir: 1, u: 1.9 },
-  { punto: f => new THREE.Vector3(Math.cos(f) * 6.4, 2.3 + Math.sin(f * 2) * 0.35, Math.sin(f) * 4.5), dir: 1, u: 2.1 },
-  { punto: f => { const s = Math.sin(f), c = Math.cos(f), k = 1 + s * s; return new THREE.Vector3((5.8 * c) / k, 2.7, (6.4 * s * c) / k); }, dir: 1, u: 1.8 },
-  { punto: f => new THREE.Vector3(Math.cos(f) * 4.8, 3.1, Math.sin(f) * 3.9), dir: -1, u: 1.7 },
-  { punto: f => new THREE.Vector3(Math.cos(f) * 7, 1.25 + Math.sin(f * 3) * 0.45, Math.sin(f) * 5.1), dir: 1, u: 2.2 },
-  { punto: f => { const c = Math.cos(f), s = Math.sin(f); return new THREE.Vector3(Math.sign(c) * Math.abs(c) ** 0.6 * 6, 2, Math.sign(s) * Math.abs(s) ** 0.6 * 4.6); }, dir: -1, u: 2, giravolta: true },
-];
+// Le orbite intorno all'isola: ellissi concentriche a quote diverse, tutte nello stesso verso, così gli aerei non si
+// incrociano mai. Uno dei sei, quando fa il giro con la scritta, fa anche una giravolta
+const PERCORSI = Array.from({ length: 6 }, (_, i) => {
+  const r = 5.2 + i * 0.42, h = 1.3 + i * 0.3;
+  return { punto: (f: number) => new THREE.Vector3(Math.cos(f) * r, h + Math.sin(f * 2 + i) * 0.1, Math.sin(f) * r * 0.78), dir: 1 as const, u: 1.55 + (i % 3) * 0.12, giravolta: i === 5 };
+});
 
 export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   const r = casuale(11);
@@ -176,8 +172,8 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   geoManica.rotateZ(Math.PI / 2); geoManica.translate(0.12, 0, 0);
   manica.add(pezzo(geoManica, pieno('#f2a43a')));
 
-  // --- Il faro sulla punta a est: il fascio parte stretto dalla lanterna e si allarga verso il mare
-  const FX = 4.15, FZ = -0.95, FY = altezza(FX, FZ);
+  // --- Il faro in fondo alla pista, di lato alla traiettoria di decollo: il fascio parte stretto dalla lanterna e si allarga
+  const FX = 3.35, FZ = -0.35, FY = altezza(FX, FZ);
   tubo(0.18, 0.2, 0.08, FX, FY, FZ, pieno('#9a958c'), 10);
   for (let k = 0; k < 4; k++) tubo(0.13 - k * 0.012, 0.145 - k * 0.012, 0.15, FX, FY + 0.08 + k * 0.15, FZ, pieno(k % 2 ? '#f0603f' : '#f4f1ea'), 10);
   tubo(0.1, 0.1, 0.1, FX, FY + 0.68, FZ, pieno('#ffd23f', 0.15), 8);
@@ -187,6 +183,28 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   G.add(fascio);
   const geoFascio = new THREE.ConeGeometry(0.28, 2.2, 16, 1, true); geoFascio.rotateZ(Math.PI / 2); geoFascio.translate(1.1, 0, 0);
   fascio.add(new THREE.Mesh(geoFascio, new THREE.MeshBasicMaterial({ color: '#fff3a8', transparent: true, opacity: chiaro ? 0.22 : 0.12, depthWrite: false, side: THREE.DoubleSide })));
+
+  // --- L'hangar: piccolo, ad arco, a strisce bianche e rosse, con il portone aperto verso la pista e un tondo giallo
+  // sopra l'ingresso. L'aereo chiamato si ferma qui davanti mentre si risponde
+  const HX = FERMO.x, HZ = -0.42;
+  {
+    const g = new THREE.Group(), larga = 0.94, fondo = 0.72, fette = 5;
+    g.position.set(HX, H0, HZ);
+    G.add(g);
+    for (let k = 0; k < fette; k++) {
+      const arco = new THREE.CylinderGeometry(larga / 2, larga / 2, fondo / fette, 20, 1, true, -Math.PI / 2, Math.PI);
+      arco.rotateX(-Math.PI / 2);
+      const m = pieno(k % 2 ? '#e85d4a' : '#f4f1ea', 0.14);
+      m.side = THREE.DoubleSide;
+      g.add(pezzo(arco, m, 0, 0, -fondo / 2 + (k + 0.5) * (fondo / fette)));
+    }
+    g.add(pezzo(new THREE.CircleGeometry(larga / 2, 20, 0, Math.PI), pieno('#3a332c', 0.05), 0, 0, -fondo / 2));
+    // Il portone, aperto: due ante spinte ai lati
+    for (const v of [-1, 1]) g.add(pezzo(new THREE.BoxGeometry(0.2, 0.3, 0.02), pieno('#8fa6b8', 0.12), v * (larga / 2 + 0.1), 0.15, fondo / 2));
+    g.add(pezzo(new THREE.CircleGeometry(0.06, 16), pieno('#f7cf4f', 0.12), 0, larga / 2 - 0.08, fondo / 2 + 0.004));
+    // Il piazzale chiaro tra l'hangar e la pista
+    tondo(1.1, PZ - (HZ + fondo / 2) + 0.05, 0.08, HX, (HZ + fondo / 2 + PZ) / 2, tenue(PISTA, chiaro ? 0.5 : 0.18, 0.5));
+  }
 
   // --- Le pecore sul colle a ovest: palline bianche che brucano e ogni tanto si spostano
   const PECORE = 9, PCX = -2.8, PCZ = -2.05;
@@ -225,7 +243,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     G.add(ob);
   };
   const vietati = (x: number, z: number) =>
-    (Math.abs(x) < 3 && z > 0.12 && z < 1.0) || Math.hypot(x - TX, z - TZ) < 0.45 || Math.hypot(x - FX, z - FZ) < 0.45 ||
+    (Math.abs(x) < 3 && z > 0.12 && z < 1.0) || (Math.abs(x - HX) < 0.85 && z > -1.0 && z < 0.3) || Math.hypot(x - TX, z - TZ) < 0.45 || Math.hypot(x - FX, z - FZ) < 0.45 ||
     Math.hypot(x - PCX, z - PCZ) < 0.75 || Math.hypot(x + 3.6, z - 0.6) < 0.3;
   const posti: [number, number][] = [];
   for (let i = 0; i < 1500 && posti.length < 22; i++) {
@@ -428,7 +446,6 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     g: THREE.Group; elica: THREE.Group; ombra: THREE.Mesh; stato: Stato; rotta: Rotta | null; f: number; v: number;
     rollio: number; via: boolean; fatto: boolean; scia: THREE.Vector3[]; striscione: ReturnType<typeof nuovoStriscione>; vista: number; prima: THREE.Vector3; dir: THREE.Vector3;
   };
-  const puntoAttesa = (i: number, f: number) => new THREE.Vector3(ATTESA.x + Math.cos(f) * 1.05, 1.6 + i * 0.36, ATTESA.z + Math.sin(f) * 0.75);
   const nuovaRotta = (punti: THREE.Vector3[]): Rotta => {
     const curva = new THREE.CatmullRomCurve3(punti, false, 'centripetal');
     curva.arcLengthDivisions = 400;
@@ -441,6 +458,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     for (let k = 0; k < 120; k++) { const f = (k / 120) * Math.PI * 2, dd = pr.punto(f).distanceTo(vicinoA); if (dd < dm) { dm = dd; meglio = f; } }
     return meglio;
   };
+  const VELOCITA_ORBITA = 0.3;
   const aerei: Aereo[] = o.tinte.map((t, i) => {
     const { g, elica } = nuovoAereo(t);
     g.userData.indice = i;
@@ -448,31 +466,27 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     const ombra = new THREE.Mesh(new THREE.CircleGeometry(0.2, 14), new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: chiaro ? 0.14 : 0.3, depthWrite: false }));
     ombra.rotation.x = -Math.PI / 2; ombra.scale.set(1.3, 0.6, 1);
     G.add(ombra);
-    const fatto = !!o.partiti[i], f = fatto ? r() * Math.PI * 2 : (i / o.tinte.length) * Math.PI * 2;
-    const inizio = fatto ? PERCORSI[i % PERCORSI.length]!.punto(f) : puntoAttesa(i, f);
+    const fatto = !!o.partiti[i], f = (i / o.tinte.length) * Math.PI * 2;
+    const inizio = PERCORSI[i % PERCORSI.length]!.punto(f);
     g.position.copy(inizio);
     return {
-      g, elica, ombra, stato: fatto ? 'giro' : 'attesa', rotta: null, f, v: 0, rollio: 0, via: false, fatto,
+      g, elica, ombra, stato: 'giro', rotta: null, f, v: 0, rollio: 0, via: false, fatto,
       scia: Array.from({ length: 140 }, () => inizio.clone()), striscione: nuovoStriscione(o.termini[i] ?? '', t), vista: fatto ? 1 : 0, prima: inizio.clone(), dir: new THREE.Vector3(1, 0, 0),
     };
   });
-  // Arrivo: dal punto in cui si trova, dietro l'isola verso ovest, poi un avvicinamento dritto e in discesa costante
-  const rottaArrivo = (a: Aereo) => nuovaRotta([
-    a.g.position.clone(), new THREE.Vector3(-1.2, 2, -5.6), new THREE.Vector3(-4.4, 1.85, -4.6), new THREE.Vector3(-7.4, 1.6, -2.6),
-    new THREE.Vector3(-8.6, 1.35, -0.6), new THREE.Vector3(-7.6, 1.18, PZ), new THREE.Vector3(-5.4, 0.76, PZ),
-    new THREE.Vector3(-2.6, SUOLO + 0.02, PZ), new THREE.Vector3(-1.2, SUOLO, PZ), FERMO.clone(),
-  ]);
-  // Decollo: verso est sulla pista, salita, poi si aggancia al suo percorso (o torna in attesa)
-  const rottaDecollo = (a: Aereo, i: number, inAttesa: boolean) => {
+  // Arrivo: esce dalla sua orbita, va verso ovest, poi un avvicinamento dritto e in discesa costante fino all'hangar
+  const rottaArrivo = (a: Aereo) => {
+    const qui = a.g.position.clone(), avanti = qui.clone().add(a.dir.clone().setY(0).normalize().multiplyScalar(1.4));
+    return nuovaRotta([qui, avanti, new THREE.Vector3(-7.4, 1.4, -1.9), new THREE.Vector3(-8.2, 1.2, -0.2), new THREE.Vector3(-7.4, 1.06, PZ), new THREE.Vector3(-5.4, 0.74, PZ),
+      new THREE.Vector3(-2.6, SUOLO + 0.02, PZ), new THREE.Vector3(-1.2, SUOLO, PZ), FERMO.clone()]);
+  };
+  // Decollo: verso est sulla pista, salita, poi si aggancia alla sua orbita
+  const rottaDecollo = (a: Aereo, i: number) => {
     const uscita = [FERMO.clone(), new THREE.Vector3(1.6, SUOLO, PZ), new THREE.Vector3(2.8, SUOLO + 0.05, PZ), new THREE.Vector3(4.4, 0.6, PZ), new THREE.Vector3(6, 1.3, -0.3)];
     // Se sta ancora arrivando: in volo riattacca dal punto in cui è; sulla pista riparte da dove sta rullando
     let veloce = false;
     if (a.stato === 'arrivo' && a.g.position.y > 0.3) { uscita.splice(0, uscita.length, a.g.position.clone(), a.g.position.clone().add(a.dir.clone().multiplyScalar(1.2)).setY(a.g.position.y + 0.5)); veloce = true; }
     else if (a.stato === 'arrivo') uscita[0] = a.g.position.clone();
-    if (inAttesa) {
-      a.f = Math.atan2((-0.3 - ATTESA.z) / 0.75, (6 - ATTESA.x) / 1.05);
-      return { ...nuovaRotta([...uscita, new THREE.Vector3(6.4, 1.6, -3.4), puntoAttesa(i, a.f), puntoAttesa(i, a.f + 0.35)]), veloce };
-    }
     const pr = PERCORSI[i]!, f0 = aggancio(i, new THREE.Vector3(7, 1.6, -1.5));
     a.f = f0 + pr.dir * 0.25;
     return { ...nuovaRotta([...uscita, pr.punto(f0), pr.punto(a.f)]), veloce };
@@ -521,17 +535,16 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       a.elica.rotation.z += dt * (a.stato === 'fermo' ? 6 : 28);
       a.prima.copy(a.g.position);
       const pr = PERCORSI[i]!;
-      if (a.stato === 'attesa') {
-        a.f += dt * 1.25;
-        a.g.position.copy(puntoAttesa(i, a.f));
-      } else if (a.stato === 'giro') {
-        // Velocità costante lungo il percorso: il passo nel parametro dipende da quanto è lungo il tratto
-        const lungoTratto = pr.punto(a.f).distanceTo(pr.punto(a.f + 0.01)) / 0.01;
-        a.f += (pr.dir * pr.u * dt) / Math.max(0.3, lungoTratto);
+      if (a.stato === 'giro') {
+        // Ognuno ha il suo posto sull'orbita, a 60 gradi dagli altri, e i posti girano tutti insieme: così gli aerei non si
+        // avvicinano mai. Chi rientra dopo un atterraggio accelera o rallenta piano finché raggiunge il suo posto
+        const posto = s * VELOCITA_ORBITA + (i / aerei.length) * Math.PI * 2;
+        const scarto = Math.atan2(Math.sin(posto - a.f), Math.cos(posto - a.f));
+        a.f += (VELOCITA_ORBITA + THREE.MathUtils.clamp(scarto * 0.35, -0.12, 0.12)) * dt;
         a.g.position.copy(pr.punto(a.f));
       } else if (a.stato === 'fermo') {
         a.g.position.copy(FERMO);
-        if (a.via) { a.rotta = rottaDecollo(a, i, false); a.stato = 'decollo'; a.via = false; }
+        if (a.via) { a.rotta = rottaDecollo(a, i); a.stato = 'decollo'; a.via = false; }
       } else if (a.rotta) {
         const resto = a.rotta.lungo - a.rotta.s;
         let v: number;
@@ -543,7 +556,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
         if (a.rotta.s >= a.rotta.lungo) {
           if (a.stato === 'arrivo') { a.stato = 'fermo'; a.rotta = null; }
           else if (a.stato === 'decollo') { a.stato = 'giro'; a.rotta = null; }
-          else { a.stato = 'attesa'; a.rotta = null; a.f += 0.35; }
+          else { a.stato = 'giro'; a.rotta = null; }
         }
       }
       // L'orientamento segue il movimento; nelle curve, in volo, l'aereo si inclina
@@ -559,7 +572,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       rot.setFromRotationMatrix(m4);
       let giro = a.rollio;
       // Uno dei sei fa una giravolta a ogni giro
-      if (pr.giravolta && a.stato === 'giro') { const fm = ((a.f % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2); if (fm < 0.9) giro += liscio(fm / 0.9) * Math.PI * 2 * -pr.dir; }
+      if (pr.giravolta && a.stato === 'giro' && a.fatto) { const fm = ((a.f % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2); if (fm < 0.9) giro += liscio(fm / 0.9) * Math.PI * 2 * -pr.dir; }
       rol.setFromAxisAngle(asse, giro);
       a.g.quaternion.copy(rot).multiply(rol);
       const x = a.g.position.x, z = a.g.position.z, h = a.g.position.y;
@@ -703,7 +716,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     if (s - tempoLista > 0.25) {
       tempoLista = s;
       const fasi = aerei.map((a): Fase => {
-        if (a.stato === 'attesa' || a.stato === 'ritorno') return 'holding';
+        if (a.stato === 'ritorno' || (a.stato === 'giro' && !a.fatto)) return 'holding';
         if (a.stato === 'arrivo') return 'landing';
         if (a.stato === 'fermo') return a.fatto ? 'taking off' : 'boarding';
         if (a.stato === 'decollo') return 'taking off';
@@ -721,7 +734,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       if (!a || a.fatto || a.stato === 'arrivo' || a.stato === 'fermo') return;
       aerei.forEach((b, k) => {
         if (k === i || b.fatto || (b.stato !== 'arrivo' && b.stato !== 'fermo')) return;
-        b.rotta = rottaDecollo(b, k, true);
+        b.rotta = rottaDecollo(b, k);
         b.stato = 'ritorno';
       });
       a.rotta = rottaArrivo(a);
@@ -733,22 +746,16 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       const a = aerei[i];
       if (!a || a.fatto) return;
       a.fatto = true;
-      if (a.stato === 'fermo') { a.rotta = rottaDecollo(a, i, false); a.stato = 'decollo'; }
+      if (a.stato === 'fermo') { a.rotta = rottaDecollo(a, i); a.stato = 'decollo'; }
       else if (a.stato === 'arrivo') a.via = true;
-      else { a.rotta = rottaDecollo(a, i, false); a.stato = 'decollo'; }
+      else { a.rotta = rottaDecollo(a, i); a.stato = 'decollo'; }
     },
-    // Dopo il suo giro, l'aereo torna in attesa sul mare con un termine nuovo: lo striscione sparisce e si riscrive
+    // Dopo il giretto con la scritta, l'aereo resta sulla sua orbita con un termine nuovo: la scritta sparisce e si riscrive
     riposa(i: number, termine: string) {
       const a = aerei[i];
       if (!a) return;
       a.fatto = false;
       a.striscione.cambia(termine);
-      if (a.stato === 'giro') {
-        const qui = a.g.position.clone(), avanti = qui.clone().add(a.dir.clone().multiplyScalar(1.5));
-        a.f = Math.atan2((avanti.z - ATTESA.z) / 0.75, (avanti.x - ATTESA.x) / 1.05);
-        a.rotta = { ...nuovaRotta([qui, avanti, puntoAttesa(i, a.f), puntoAttesa(i, a.f + 0.35)]), veloce: true };
-        a.stato = 'ritorno';
-      }
     },
     // In volo da quanto tempo, per sapere quando farlo tornare
     inGiro(i: number) { return aerei[i]?.stato === 'giro'; },
