@@ -53,7 +53,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   const tagliando = el('div', 'tagliando'), numeroF = el('p', 'numero'), serialeT = el('p', 'seriale'), fine = el('p', 'mono fine'), codice = el('div', 'codice');
   tagliando.append(numeroF, serialeT, fine, codice);
   const timbri = el('div', 'timbri');
-  fronte.append(arte, banda, corpo, tagliando, ...strati());
+  fronte.append(arte, banda, corpo, tagliando, timbri, ...strati());
 
   // --- Dietro
   const retro = el('section', 'faccia retro');
@@ -69,8 +69,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   const segnaAltro = () => scorre.classList.toggle('altro', definizione.scrollTop + definizione.clientHeight < definizione.scrollHeight - 4);
   definizione.addEventListener('scroll', segnaAltro, { passive: true });
   retro.append(quadro, pannello, ...strati());
-  // I timbri stanno fuori dalla faccia ritagliata, così possono uscire dal bordo; girano con la carta e dietro spariscono
-  carta.append(fronte, retro, timbri);
+  carta.append(fronte, retro);
   biglietto.append(carta);
   const azioni = el('div', 'azioni'), gira = el('button', 'mono gira'), prossimo = el('button', 'mono prossimo'), chiudi = el('button', 'mono chiudi', 'close ×');
   prossimo.type = chiudi.type = gira.type = 'button';
@@ -175,7 +174,8 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     if (p.fatto[i] || b.disabled) return;
     const giusto = b.dataset.testo === v.voce.domanda.risposte[0];
     p.tentativi[i]!++;
-    // Il timbro cade in un punto a caso del lato con la domanda, e a volte esce un poco dal bordo
+    // Il timbro cade in un punto a caso del lato con la domanda. Può cadere a cavallo del bordo: si stampa solo la parte
+    // sulla carta, perché la faccia ritaglia tutto quello che esce
     const t = { x: -4 + Math.random() * 76, y: -16 + Math.random() * 66, a: Math.round(Math.random() * 56 - 28), ok: giusto };
     p.timbri[i]!.push(t);
     if (giusto) {

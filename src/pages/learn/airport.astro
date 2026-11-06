@@ -288,8 +288,8 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .codice) { display: flex; height: 30px; margin-top: auto; }
   :global(.imbarco .codice span) { display: block; height: 100%; background: var(--nero); }
   /* I timbri: solo inchiostro, sopra la domanda */
-  /* I timbri: sopra la faccia con la domanda ma fuori dal suo ritaglio, così possono uscire dal bordo. Inchiostro pieno */
-  :global(.imbarco .timbri) { grid-area: 1 / 1; position: relative; z-index: 7; pointer-events: none; transform: translateZ(1px); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  /* I timbri: inchiostro pieno sulla faccia con la domanda. La faccia li ritaglia: a cavallo del bordo si stampa solo la parte sulla carta */
+  :global(.imbarco .timbri) { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
   :global(.imbarco .timbro) { position: absolute; width: 176px; height: 176px; transform: rotate(var(--a)); opacity: .93; filter: drop-shadow(0 0 .5px currentColor); }
   :global(.imbarco .timbro svg) { display: block; width: 100%; height: 100%; overflow: visible; }
   :global(.imbarco .timbro.cade) { animation: cade .5s cubic-bezier(.2, 1.5, .4, 1) both; }
