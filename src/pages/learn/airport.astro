@@ -406,26 +406,6 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .carta[data-stile='koi'] .retro .titolo) { color: var(--testo-k) !important; }
   :global(.imbarco .carta[data-stile='koi'] .definizione) { font-family: var(--mono); font-size: 12.5px; background: none; }
   :global(.imbarco .carta[data-stile='koi'] .corsivo) { font-family: var(--mono); font-style: normal; font-size: 12px; }
-  /* Valley: la valle dell'intro della home. Caratteri mono, il cielo della sua variante, i cervi bianchi */
-  :global(.imbarco .carta[data-stile='valle'] .faccia) { color: #e6e8ee; background: var(--cielo-a); font-family: var(--mono); }
-  :global(.imbarco .carta[data-stile='valle'] .arte70), :global(.imbarco .carta[data-stile='valle'] .poster) { position: relative; overflow: hidden; }
-  :global(.imbarco .carta[data-stile='valle'] canvas) { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
-  :global(.imbarco .carta[data-stile='valle'] .banda) { background: transparent !important; box-shadow: inset 1px 0 rgb(230 232 238 / .2), inset -1px 0 rgb(230 232 238 / .2); }
-  :global(.imbarco .carta[data-stile='valle'] .banda span), :global(.imbarco .carta[data-stile='valle'] .sotto) { color: var(--accento-a) !important; opacity: 1; }
-  :global(.imbarco .carta[data-stile='valle'] .carta-dom) { background: color-mix(in srgb, var(--cielo-a) 70%, transparent); color: #e6e8ee; border: 1px solid rgb(230 232 238 / .25); }
-  :global(.imbarco .carta[data-stile='valle'] .titolo) { font-family: var(--mono); font-weight: 700; font-size: 28px; text-transform: lowercase; letter-spacing: -.02em; }
-  :global(.imbarco .carta[data-stile='valle'] .corsivo) { font-family: var(--mono); font-style: normal; font-size: 12px; color: rgb(230 232 238 / .6); }
-  :global(.imbarco .carta[data-stile='valle'] .opzione) { border: 0; border-top: 1px dotted rgb(230 232 238 / .35); padding: 6px 4px; color: #e6e8ee; }
-  :global(.imbarco .carta[data-stile='valle'] .opzione span) { color: var(--accento-a) !important; opacity: 1; }
-  :global(.imbarco .carta[data-stile='valle'] .opzione:hover:not(:disabled)) { background: rgb(var(--accento-rgb) / .14); }
-  :global(.imbarco .carta[data-stile='valle'] .opzione.giusta) { background: var(--accento-a); color: #15161c; }
-  :global(.imbarco .carta[data-stile='valle'] .tagliando) { background: var(--cielo-b); color: #e6e8ee; border-left: 1px dashed rgb(230 232 238 / .3); }
-  :global(.imbarco .carta[data-stile='valle'] .numero) { font-family: var(--mono); font-weight: 700; color: var(--accento-a) !important; }
-  :global(.imbarco .carta[data-stile='valle'] .seriale), :global(.imbarco .carta[data-stile='valle'] .piede-retro) { color: var(--accento-a) !important; border-color: rgb(230 232 238 / .3); }
-  :global(.imbarco .carta[data-stile='valle'] .codice span) { background: #e6e8ee; }
-  :global(.imbarco .carta[data-stile='valle'] .pannello) { background: var(--cielo-a); color: #d4d7de; border-left: 1px dashed rgb(230 232 238 / .25); }
-  :global(.imbarco .carta[data-stile='valle'] .retro .titolo) { color: #e6e8ee !important; }
-  :global(.imbarco .carta[data-stile='valle'] .definizione) { font-family: var(--mono); font-size: 12.5px; background: none; }
   :global(.imbarco .azioni) { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
   :global(.imbarco .azioni button) { padding: 6px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--muted); cursor: pointer; }
   :global(.imbarco .azioni .prossimo), :global(.imbarco .azioni .gira) { color: var(--fg); border-color: var(--muted); }

@@ -4,7 +4,7 @@ import { timbro, tipo, type Livello } from './arteBiglietti';
 import { STILI, casoDa, disegnaAscii } from './stiliBiglietto';
 
 // Il nome dello stile nella riga in alto del biglietto: ogni stile ha il suo, invece di "rapid" per tutti
-const NOME_STILE: Record<string, string> = { rapid: 'rapid', bande: 'rainbow', lime: 'bloom', riso: 'riso', notte: 'night', koi: 'koi pond', valle: 'valley' };
+const NOME_STILE: Record<string, string> = { rapid: 'rapid', bande: 'rainbow', lime: 'bloom', riso: 'riso', notte: 'night', koi: 'koi pond' };
 
 // La carta d'imbarco di AI terms. Ogni biglietto pesca uno stile a caso (src/scripts/stiliBiglietto.ts) e una variante;
 // la struttura è sempre la stessa. Lo stile di partenza è "70s Rapid": ogni sezione ha la sua carta piena e i

@@ -1,7 +1,7 @@
 // Gli stili del biglietto di AI terms. Ogni biglietto ne pesca uno a caso, e dentro lo stile una variante (colori,
 // elementi), così due biglietti non sono mai uguali. La struttura è la stessa per tutti: davanti la domanda, dietro la
 // definizione. Uno stile dà solo l'arte (colonna a sinistra davanti, poster dietro) e le variabili di colore; il resto
-// lo fa il CSS con l'attributo data-stile. Gli stili vivi (Game of Life, koi, valle, notte) disegnano su tela.
+// lo fa il CSS con l'attributo data-stile. Gli stili vivi (Game of Life, koi, notte) disegnano su tela.
 // Niente testo delle note entra qui, tranne dove passa da esc().
 import { arteDavanti, poster, tipo, type Livello } from './arteBiglietti';
 
@@ -131,29 +131,13 @@ const koi: Stile = {
   },
 };
 
-// ---------------- Valley: la valle dell'intro della home, di caratteri minuscoli. Montagne, abeti, il prato e il lago;
-// una famiglia di cervi bianchi a pixel passeggia, bruca e beve; uno stormo attraversa il cielo
-const VALLI = [
-  { cielo: ['#141a2e', '#3a3354'], monti: '150,160,210', bosco: '120,170,150', prato: '170,200,140', acqua: '140,170,220', accento: '255,190,140' },
-  { cielo: ['#0c1a14', '#20382c'], monti: '140,180,160', bosco: '110,170,120', prato: '190,215,150', acqua: '130,190,180', accento: '230,240,150' },
-] as const;
-const valle: Stile = {
-  id: 'valle', ascii: true,
-  davanti: c => `<canvas data-ascii="valle" data-seme="${semeTela(c)}"></canvas>`,
-  dietro: c => `<canvas data-ascii="valle-grande" data-seme="${semeTela(c)}"></canvas>`,
-  variabili: c => {
-    const v = una(c, 'valle', () => scegli(VALLI, c.r));
-    return { '--cielo-a': v.cielo[0], '--cielo-b': v.cielo[1], '--monti-rgb': v.monti, '--bosco-rgb': v.bosco, '--prato-rgb': v.prato, '--lago-rgb': v.acqua, '--accento-rgb': v.accento, '--accento-a': `rgb(${v.accento})` };
-  },
-};
-
-export const STILI: Stile[] = [rapid, bande, lime, risograph, notte, koi, valle];
+export const STILI: Stile[] = [rapid, bande, lime, risograph, notte, koi];
 
 // ---------------- Le tele vive. Il biglietto chiama disegnaAscii circa 30 volte al secondo; ogni tela decide quanto spesso
-// ridisegnarsi (le scene di caratteri bastano 12 volte al secondo). Lo stato di ogni tela (cellule, pesci, cervi) sta qui
+// ridisegnarsi (le scene di caratteri bastano 12 volte al secondo). Lo stato di ogni tela (cellule, pesci) sta qui
 const ultimo = new WeakMap<HTMLCanvasElement, number>();
 export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: number) {
-  const tipoT = c.dataset.ascii ?? '', lento = tipoT.startsWith('notte') || tipoT.startsWith('valle');
+  const tipoT = c.dataset.ascii ?? '', lento = tipoT.startsWith('notte');
   if (lento && ora - (ultimo.get(c) ?? -1e9) < 80) return;
   const prima = ultimo.get(c) ?? ora; ultimo.set(c, ora);
   const dt = Math.min(0.1, Math.max(0, (ora - prima) / 1000));
@@ -163,7 +147,6 @@ export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: 
   if (tipoT.startsWith('vita')) return vita(c, ora, dt, dpr, tipoT === 'vita-parola');
   if (tipoT === 'onde') return ondeTela(c, dt, dpr, tx);
   if (tipoT.startsWith('koi')) return stagnoPixel(c, dt, dpr, tx, ty);
-  if (tipoT.startsWith('valle')) return valleTela(c, ora, dt, dpr, tx, ty, tipoT === 'valle-grande');
   return notteTela(c, ora, tx, ty);
 }
 const stati = new WeakMap<HTMLCanvasElement, unknown>();
@@ -420,79 +403,6 @@ function stagnoPixel(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, 
   }
   s.cerchi = s.cerchi.filter(q => q.vita > 0);
   mostra(c, im);
-}
-
-// --- La valle: celle di caratteri come nell'intro della home, e i cervi a pixel pieni
-type Cervo = { x: number; dir: number; stato: 'cammina' | 'bruca' | 'guarda'; fino: number; passo: number; misura: number; corna: boolean };
-type Valle = { cervi: Cervo[]; stormo: number; r: () => number };
-const RAMPA = { cielo: ' ..:', monti: " .'^/\\#", bosco: " .'^^*#", prato: " .,'`|!", acqua: ' .-~=~' };
-function valleTela(c: HTMLCanvasElement, ora: number, dt: number, dpr: number, tx: number, ty: number, grande: boolean) {
-  const g = c.getContext('2d')!, W = c.width, H = c.height, t = ora / 1000;
-  const s = prendi<Valle>(c, () => {
-    const r = casoTela(c), x0 = 0.15 + r() * 0.2;
-    const famiglia: Cervo[] = [{ x: x0 + 0.14, dir: 1, stato: 'cammina', fino: 3, passo: 0, misura: 1, corna: true }, { x: x0 + 0.03, dir: 1, stato: 'cammina', fino: 2, passo: 0.4, misura: 0.92, corna: false }, { x: x0 - 0.06, dir: 1, stato: 'cammina', fino: 2.5, passo: 0.8, misura: 0.6, corna: false }];
-    return { cervi: grande ? famiglia : famiglia.slice(0, 2), stormo: 4 + r() * 6, r };
-  });
-  const cielo = [varCss(c, '--cielo-a', '#141a2e'), varCss(c, '--cielo-b', '#3a3354')], rgb = (n: string, d: string) => varCss(c, n, d);
-  const monti = rgb('--monti-rgb', '150,160,210'), bosco = rgb('--bosco-rgb', '120,170,150'), prato = rgb('--prato-rgb', '170,200,140'), lago = rgb('--lago-rgb', '140,170,220'), acc = rgb('--accento-rgb', '255,190,140');
-  const sf = g.createLinearGradient(0, 0, 0, H); sf.addColorStop(0, cielo[0]!); sf.addColorStop(1, cielo[1]!);
-  g.fillStyle = sf; g.fillRect(0, 0, W, H);
-  const cw = Math.max(4, Math.round(W / (grande ? 96 : 60))), ch = Math.round(cw * 1.5), cols = Math.ceil(W / cw), rows = Math.ceil(H / ch);
-  g.font = `${Math.round(cw * 1.4)}px ui-monospace, Menlo, Consolas, monospace`; g.textBaseline = 'top';
-  const orizzonte = grande ? 0.56 : 0.6, rivaLago = grande ? 0.74 : 0.8;
-  const monte = (u: number) => 0.3 + 0.08 * Math.sin(u * 5.3 + 1) + 0.05 * Math.sin(u * 13 + 2) + tx * 0.01;
-  const abeti = (u: number) => orizzonte - 0.05 - 0.05 * Math.abs(Math.sin(u * 37)) * (0.6 + 0.4 * Math.sin(u * 7));
-  const hashv = (x: number, y: number) => { let h = (x * 374761393 + y * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-  const lunaX = 0.72 + tx * 0.05, lunaY = 0.16 + ty * 0.03;
-  for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
-    const u = (q + 0.5) / cols, v = (r + 0.5) / rows; let rampa = RAMPA.cielo, luce = 0, col = monti;
-    if (v < monte(u)) {
-      const h = hashv(q, r), d = Math.hypot((u - lunaX) * 1.5, v - lunaY);
-      if (d < 0.06) { rampa = '.:*#'; luce = 1 - d * 6; col = acc; }
-      else if (h > 0.965) { rampa = ' .+*'; luce = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 2 + h * 40)); col = '230,232,240'; }
-      else continue;
-    } else if (v < abeti(u)) { rampa = RAMPA.monti; luce = 0.35 + 0.4 * (1 - (v - monte(u)) * 4); col = monti; }
-    else if (v < orizzonte) { rampa = RAMPA.bosco; luce = 0.45 + hashv(q, r) * 0.4; col = bosco; }
-    else if (v < rivaLago) { rampa = RAMPA.prato; luce = 0.3 + 0.35 * (0.5 + 0.5 * Math.sin(u * 30 + t * 1.5 + v * 20)) + hashv(q, r) * 0.15; col = prato; }
-    else { rampa = RAMPA.acqua; luce = 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(u * 40 - t * 1.2 + v * 60)); col = lago; if (Math.abs(u - lunaX) < 0.04) { luce += 0.4; col = acc; } }
-    const n = rampa.length - 1, k = Math.max(0, Math.min(n, Math.round(luce * n)));
-    if (k === 0 || rampa[k] === ' ') continue;
-    g.fillStyle = `rgba(${col},${(0.35 + 0.6 * Math.min(1, luce)).toFixed(2)})`;
-    g.fillText(rampa[k]!, q * cw, r * ch);
-  }
-  // I cervi camminano lungo il prato, si fermano a brucare o a guardare, poi riprendono; ai bordi tornano indietro
-  const p = Math.max(1, Math.round(cw * 0.42)), yPrato = H * (rivaLago - 0.03);
-  for (const d of s.cervi) {
-    d.fino -= dt;
-    if (d.fino <= 0) { const x = s.r(); d.stato = x < 0.45 ? 'cammina' : x < 0.8 ? 'bruca' : 'guarda'; d.fino = 2 + s.r() * 4; if (d.x > 0.85) d.dir = -1; else if (d.x < 0.1) d.dir = 1; }
-    if (d.stato === 'cammina') { d.x += d.dir * dt * 0.025; d.passo += dt * 3.2; if (d.x > 0.9) d.dir = -1; if (d.x < 0.06) d.dir = 1; }
-    disegnaCervo(g, d.x * W, yPrato - (1 - d.misura) * p * 2, Math.max(1, Math.round(p * d.misura)), d);
-  }
-  // Uno stormo a V attraversa il cielo, ogni tanto
-  s.stormo -= dt;
-  if (s.stormo < 0) {
-    const f = -s.stormo / 9, xb = (-0.1 + f * 1.3) * W, yb = H * (0.18 + Math.sin(f * 3) * 0.03);
-    g.fillStyle = 'rgba(235,238,245,.85)';
-    for (let k = 0; k < 7; k++) { const o = Math.ceil(k / 2) * (k % 2 ? 1 : -1), bx = xb - Math.abs(o) * cw * 1.4, by = yb + o * ch * 0.7, ali = Math.sin(t * 8 + k) > 0 ? -1 : 1; g.fillRect(bx, by, p, p); g.fillRect(bx - p, by + ali * p, p, p); g.fillRect(bx + p, by + ali * p, p, p); }
-    if (f > 1) s.stormo = 6 + s.r() * 8;
-  }
-}
-// Un cervo a pixel bianchi, di profilo; dir 1 guarda a destra. Le zampe si alternano camminando; brucando abbassa la testa
-function disegnaCervo(g: CanvasRenderingContext2D, x: number, yPiedi: number, p: number, d: Cervo) {
-  g.save(); g.translate(Math.round(x), Math.round(yPiedi)); g.scale(d.dir, 1); g.fillStyle = '#f4f1ea';
-  const px = (a: number, b: number, w = 1, h = 1) => g.fillRect(a * p, b * p, w * p, h * p);
-  const giu = d.stato === 'bruca', passo = d.stato === 'cammina' ? Math.round(Math.sin(d.passo * Math.PI)) : 0;
-  // Zampe: due dietro, due davanti, alternate
-  for (const [lx, fase] of [[-4, 1], [-2, -1], [3, -1], [5, 1]] as const) { px(lx + passo * fase * (lx < 0 ? 0.5 : 0.5), -4, 1, 4); }
-  // Corpo e coda
-  px(-5, -8, 11, 4); px(-4, -9, 9, 1); px(-6, -8, 1, 1);
-  if (giu) { px(5, -7, 2, 2); px(6, -5, 2, 2); px(7, -3, 3, 2); px(9, -2, 1, 1); px(6, -6, 1, 1); }
-  else {
-    px(5, -11, 2, 4); px(6, -13, 3, 2); px(9, -12, 1, 1); px(6, -14, 1, 1);
-    if (d.stato === 'guarda') px(8, -14, 1, 1);
-    if (d.corna) { px(6, -16, 1, 2); px(5, -17, 1, 1); px(7, -17, 1, 1); px(4, -18, 1, 1); px(8, -18, 1, 1); px(8, -16, 1, 1); }
-  }
-  g.restore();
 }
 
 // --- La notte: la scena di caratteri con la luna, le stelle, il lago e l'aereo bianco a pixel
