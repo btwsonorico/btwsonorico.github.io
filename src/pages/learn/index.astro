@@ -3,12 +3,12 @@ import Base from '../../layouts/Base.astro';
 
 // Learn: la valle è il menu. Ogni mongolfiera porta a una risorsa, la stessa lista sta anche nel testo. L'ordine è un crescendo di difficoltà; il tono lega ogni pagina al suo pallone
 const RISORSE = [
+  { nome: 'AI terms', href: '/learn/airport/', nota: 'a daily trivia: six planes, six AI terms', tono: 'giallo' },
   { nome: 'neural network', href: '/learn/neural-network/', nota: 'add neurons and layers and teach it to draw', tono: 'arancio' },
   { nome: 'reinforcement learning', href: '/learn/reinforcement/', nota: 'a dog learns to herd from rewards', tono: 'rosso' },
   { nome: 'diffusion model', href: '/learn/diffusion/', nota: 'watch a digit come out of pure noise, one step at a time', tono: 'azzurro' },
   { nome: 'decision model', href: '/learn/decision/', nota: 'run a smart home in plain words, in English or Italian', tono: 'verde' },
   { nome: 'reef', href: '/learn/ai-terms/', nota: 'take a deep dive into the AI lexicon', tono: 'lilla' },
-  { nome: 'AI terms', href: '/learn/airport/', nota: 'an airport for AI terms, still taking shape', tono: 'giallo' },
 ];
 ---
 <Base title="Learn · Riccardo Mondi" description="AI concepts you can touch: interactive resources by Riccardo Mondi." tono="neutro" largo>
