@@ -4,7 +4,7 @@ import { timbro, tipo, type Livello } from './arteBiglietti';
 import { STILI, casoDa, disegnaAscii } from './stiliBiglietto';
 
 // Il nome dello stile nella riga in alto del biglietto: ogni stile ha il suo, invece di "rapid" per tutti
-const NOME_STILE: Record<string, string> = { rapid: 'rapid', lime: 'bloom', swiss: 'transit', riso: 'riso', chrome: 'chrome', notte: 'night', stampa: 'print' };
+const NOME_STILE: Record<string, string> = { rapid: 'rapid', lime: 'bloom', riso: 'riso', notte: 'night', koi: 'koi pond', valle: 'valley' };
 
 // La carta d'imbarco di AI terms. Ogni biglietto pesca uno stile a caso (src/scripts/stiliBiglietto.ts) e una variante;
 // la struttura è sempre la stessa. Lo stile di partenza è "70s Rapid": ogni sezione ha la sua carta piena e i
@@ -121,8 +121,8 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     s.transform = fermo ? '' : `perspective(1600px) rotateX(${(-ora.y * 9).toFixed(2)}deg) rotateY(${(ora.x * 12).toFixed(2)}deg)`;
     const ang = 20 + ora.x * 70 + ora.y * 25, sp = ora.x * 0.5;
     foglie.forEach(g => g.setAttribute('gradientTransform', `translate(${sp.toFixed(3)} 0) rotate(${ang.toFixed(1)} .5 .5)`));
-    // Gli stili ASCII: circa 12 fotogrammi al secondo; con il movimento ridotto un fotogramma solo
-    if (tele.length && t - ultimoAscii > 80) { ultimoAscii = t; tele.forEach(c => { if (fermo && c.dataset.fatto) return; disegnaAscii(c, t, ora.x, ora.y); c.dataset.fatto = '1'; }); }
+    // Le tele vive: circa 30 fotogrammi al secondo (le scene di caratteri si limitano da sole); con il movimento ridotto un fotogramma solo
+    if (tele.length && t - ultimoAscii > 33) { ultimoAscii = t; tele.forEach(c => { if (fermo && c.dataset.fatto) return; disegnaAscii(c, t, ora.x, ora.y); c.dataset.fatto = '1'; }); }
     anima = requestAnimationFrame(passo);
   };
   const avvia = () => { if (!anima) anima = requestAnimationFrame(passo); };
@@ -134,8 +134,9 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   const stileDi = (v: Volo) => {
     let x = sorteggio.get(v.seriale);
     if (!x) {
-      let k = Math.floor(Math.random() * STILI.length);
-      if (k === ultimoStile) k = (k + 1 + Math.floor(Math.random() * (STILI.length - 1))) % STILI.length;
+      // Solo gli stili ammessi per questa sezione e questo livello (70s Rapid esce solo in alcune sezioni)
+      const ammessi = STILI.map((st, k) => k).filter(k => STILI[k]!.ammesso?.(v.sezione, livelloDi(v)) ?? true), altri = ammessi.filter(k => k !== ultimoStile);
+      const pool = altri.length ? altri : ammessi, k = pool[Math.floor(Math.random() * pool.length)]!;
       ultimoStile = k;
       x = { stile: k, seme: 1 + Math.floor(Math.random() * 2147483646) };
       sorteggio.set(v.seriale, x);
