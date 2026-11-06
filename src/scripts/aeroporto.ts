@@ -6,8 +6,7 @@ import { casuale, curveLivello, linea, mat, palco, pezzo, puntiMorbidi, sasso, S
 // Sei aerei paffuti, uno per sezione del glossario. Finché il loro termine non è indovinato girano in attesa sul mare,
 // uno sopra l'altro. Quando apri una domanda, il suo aereo arriva e atterra sulla pista con un avvicinamento dritto.
 // Se indovini, decolla e gira intorno all'isola, ognuno con il suo percorso e la sua quota, con lo striscione del termine.
-// Intorno: il pontile e la spiaggia, le pecore sul colle, la pala eolica, il faro, e le nuvole a filo che si scostano
-// dal puntatore.
+// Intorno, poco: le pecore sul colle, il faro, qualche albero, e le nuvole a filo che si scostano dal puntatore.
 
 export type Fase = 'holding' | 'landing' | 'boarding' | 'taking off' | 'in the air';
 
@@ -189,20 +188,6 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   const geoFascio = new THREE.ConeGeometry(0.28, 2.2, 16, 1, true); geoFascio.rotateZ(Math.PI / 2); geoFascio.translate(1.1, 0, 0);
   fascio.add(new THREE.Mesh(geoFascio, new THREE.MeshBasicMaterial({ color: '#fff3a8', transparent: true, opacity: chiaro ? 0.22 : 0.12, depthWrite: false, side: THREE.DoubleSide })));
 
-  // --- La pala eolica sul colle grande, come quelle di Learn
-  const PX = 2.7, PZc = -2.2, PY = altezza(PX, PZc);
-  const bianco = mat('#e8e6e0', { opacity: 0.25 });
-  G.add(pezzo(new THREE.CylinderGeometry(0.015, 0.035, 1.05, 6), bianco, PX, PY + 0.52, PZc));
-  G.add(pezzo(new THREE.BoxGeometry(0.09, 0.05, 0.05), bianco, PX, PY + 1.06, PZc));
-  const rotore = new THREE.Group();
-  rotore.position.set(PX, PY + 1.06, PZc + 0.04);
-  for (let q = 0; q < 3; q++) {
-    const pala = pezzo(new THREE.BoxGeometry(0.03, 0.46, 0.006).translate(0, 0.24, 0), bianco);
-    pala.rotation.z = (q / 3) * Math.PI * 2;
-    rotore.add(pala);
-  }
-  G.add(rotore);
-
   // --- Le pecore sul colle a ovest: palline bianche che brucano e ogni tanto si spostano
   const PECORE = 9, PCX = -2.8, PCZ = -2.05;
   const geoLana = new THREE.IcosahedronGeometry(0.06, 1); geoLana.scale(1.25, 0.9, 1);
@@ -217,49 +202,6 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     return { g, x: PCX + Math.cos(a) * d, z: PCZ + Math.sin(a) * d, mx: 0, mz: 0, attesa: r() * 4, verso: r() * 6 };
   });
   pecore.forEach(q => { q.mx = q.x; q.mz = q.z; });
-
-  // Un tetto a due falde, pieno di colore
-  const tetto = (w: number, d: number, h: number) => {
-    const sh = new THREE.Shape();
-    sh.moveTo(-w / 2 - 0.02, 0); sh.lineTo(w / 2 + 0.02, 0); sh.lineTo(0, h); sh.closePath();
-    const g = new THREE.ExtrudeGeometry(sh, { depth: d + 0.04, bevelEnabled: false });
-    g.translate(0, 0, -(d + 0.04) / 2);
-    return g;
-  };
-  // --- La spiaggia: ombrelloni e teli, una cabina a strisce, il pontile di legno che entra nel mare
-  const SPIAGGIA = [[-1.9, 2.5], [-1.1, 2.72], [-0.2, 2.75], [2.0, 2.45]] as const;
-  SPIAGGIA.forEach(([x, z], k) => {
-    const y = Math.max(0.005, altezza(x, z)), c = o.tinte[(k * 2 + 1) % o.tinte.length]!;
-    G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, y + 0.24, z)]), linea(FILO, 0.8)));
-    G.add(pezzo(new THREE.ConeGeometry(0.16, 0.07, 8), pieno(c, 0.12), x, y + 0.25, z));
-    const telo = pezzo(new THREE.PlaneGeometry(0.1, 0.2).rotateX(-Math.PI / 2), pieno(o.tinte[(k * 2 + 4) % o.tinte.length]!, 0.1), x + 0.14, y + 0.004, z + 0.04);
-    telo.rotation.y = 0.3 - k * 0.2;
-    G.add(telo);
-  });
-  {
-    const x = 2.65, z = 2.15, y = altezza(x, z);
-    for (let k = 0; k < 4; k++) scatola(0.05, 0.2, 0.18, x - 0.075 + k * 0.05, y, z, pieno(k % 2 ? '#f4f1ea' : '#3e6795', 0.1));
-    G.add(pezzo(tetto(0.2, 0.18, 0.1), pieno('#e85d4a', 0.12), x, y + 0.2, z));
-  }
-  // Il pontile: due travi, le assi di traverso e i pali che scendono nell'acqua, come quello del laghetto
-  const PONTE_X = 1.05;
-  {
-    const z0 = 2.7, z1 = 4, y0 = 0.0, y1 = -0.24, assi: number[] = [];
-    const yAt = (z: number) => y0 + ((z - z0) / (z1 - z0)) * (y1 - y0);
-    for (const x of [-0.09, 0.09]) assi.push(PONTE_X + x, y0, z0, PONTE_X + x, y1, z1);
-    for (let z = z0; z <= z1; z += 0.07) assi.push(PONTE_X - 0.11, yAt(z), z, PONTE_X + 0.11, yAt(z), z);
-    for (let z = z0 + 0.3; z <= z1; z += 0.45) for (const x of [-0.1, 0.1]) assi.push(PONTE_X + x, yAt(z), z, PONTE_X + x, -0.5, z);
-    fili(assi, '#b07a4f', chiaro ? 0.95 : 0.8);
-    const tav = new THREE.PlaneGeometry(0.22, z1 - z0).rotateX(-Math.PI / 2);
-    const piano = new THREE.Mesh(tav, new THREE.MeshBasicMaterial({ color: '#b07a4f', transparent: true, opacity: chiaro ? 0.3 : 0.18, depthWrite: false, side: THREE.DoubleSide }));
-    piano.position.set(PONTE_X, (y0 + y1) / 2, (z0 + z1) / 2);
-    piano.rotation.x = Math.atan2(y0 - y1, z1 - z0);
-    G.add(piano);
-    // Un salvagente rosso e bianco appeso in fondo
-    const ciambella = pezzo(new THREE.TorusGeometry(0.06, 0.022, 6, 14), pieno('#f0603f', 0.1), PONTE_X + 0.12, yAt(z1 - 0.1) + 0.03, z1 - 0.1);
-    ciambella.rotation.y = Math.PI / 2;
-    G.add(ciambella);
-  }
 
   // --- Alberi come quelli di Learn: il tronco è un filo, la chioma sono palle o coni a filo con un riempimento tenue
   const chiome = [mat('#6fa646'), mat('#5f9c45'), mat('#4f8a3c')];
@@ -284,11 +226,11 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   };
   const vietati = (x: number, z: number) =>
     (Math.abs(x) < 3 && z > 0.12 && z < 1.0) || Math.hypot(x - TX, z - TZ) < 0.45 || Math.hypot(x - FX, z - FZ) < 0.45 ||
-    Math.hypot(x - PX, z - PZc) < 0.35 || Math.hypot(x - PCX, z - PCZ) < 0.75 || (z > 2.05 && x > -2.3 && x < 2.9) || Math.hypot(x + 3.6, z - 0.6) < 0.3;
+    Math.hypot(x - PCX, z - PCZ) < 0.75 || Math.hypot(x + 3.6, z - 0.6) < 0.3;
   const posti: [number, number][] = [];
-  for (let i = 0; i < 1500 && posti.length < 40; i++) {
+  for (let i = 0; i < 1500 && posti.length < 22; i++) {
     const x = (r() - 0.5) * 9.6, z = (r() - 0.5) * 6.8;
-    if (forma(x, z) < 0.86 && !vietati(x, z) && posti.every(([u, v]) => Math.hypot(u - x, v - z) > 0.3)) posti.push([x, z]);
+    if (forma(x, z) < 0.86 && !vietati(x, z) && posti.every(([u, v]) => Math.hypot(u - x, v - z) > 0.45)) posti.push([x, z]);
   }
   posti.forEach(([x, z], k) => albero(x, z, 0.32 + r() * 0.22, k));
   for (let i = 0; i < 10; i++) { const t = r() * 6.28, rr = rivaA(t) * (1.02 + r() * 0.08); G.add(pezzo(sasso(0.05 + r() * 0.06, r, 0), M.base, Math.cos(t) * rr, -0.4, Math.sin(t) * rr)); }
@@ -336,6 +278,57 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   let prossimoCerchio = 1;
   const nuovoCerchio = (x: number, z: number, grande: number) => { const c = cerchi.find(q => q.t >= 2.8); if (c) { c.x = x; c.z = z; c.t = 0; c.grande = grande; } };
   const inAcqua = (x: number, z: number) => forma(x, z) > 1;
+
+  // --- La balena (in prova: si vede solo con ?balena nell'indirizzo). Una megattera bianca come i cervi della home
+  // (nera nel tema chiaro). Il corpo non è rigido: è un tubo lungo una spina che ondeggia su e giù, con l'onda che
+  // passa dalla testa alla coda e cresce verso la coda, come nuotano i cetacei. Pinne pettorali lunghe che remano piano,
+  // coda larga con la tacca, inclinata come la fine della spina. Ogni 20 secondi circa risale, soffia, mostra il dorso,
+  // poi si immerge inarcandosi e alza la coda fuori dall'acqua.
+  const provaBalena = new URLSearchParams(location.search).has('balena');
+  const BIANCO = new THREE.Color(chiaro ? '#23201b' : '#f4f1ea'), VENTRE = BIANCO.clone().lerp(new THREE.Color(chiaro ? '#5a554e' : '#9aa3ad'), 0.55);
+  const LB = 1.5, NB = 40, MB = 16;
+  const curvaB = (punti: number[][], t: number) => { let i = 0; while (i < punti.length - 2 && punti[i + 1]![0]! < t) i++; const [a, va] = punti[i]!, [b, vb] = punti[i + 1]!; const k = (t - a!) / (b! - a!); return va! + (vb! - va!) * liscio(Math.min(1, Math.max(0, k))); };
+  // t = 0 muso, t = 1 coda: larghezza e altezza della sezione
+  const LARGO = [[0, 0.02], [0.05, 0.1], [0.18, 0.165], [0.35, 0.185], [0.55, 0.15], [0.75, 0.08], [0.9, 0.04], [1, 0.025]];
+  const ALTO = [[0, 0.02], [0.05, 0.075], [0.18, 0.13], [0.35, 0.145], [0.55, 0.12], [0.75, 0.075], [0.9, 0.045], [1, 0.03]];
+  const balena = new THREE.Group(), posB = new Float32Array((NB + 1) * (MB + 1) * 3), colB: number[] = [], indB: number[] = [];
+  for (let i = 0; i <= NB; i++) for (let j = 0; j <= MB; j++) {
+    const sa = Math.sin((j / MB) * Math.PI * 2), k = THREE.MathUtils.clamp(0.5 - sa * 0.5, 0, 1), c = BIANCO.clone().lerp(VENTRE, k * k);
+    colB.push(c.r, c.g, c.b);
+    if (i < NB && j < MB) { const a = i * (MB + 1) + j, b = a + MB + 1; indB.push(a, a + 1, b, b, a + 1, b + 1); }
+  }
+  const geoB = new THREE.BufferGeometry();
+  geoB.setAttribute('position', new THREE.BufferAttribute(posB, 3));
+  geoB.setAttribute('color', new THREE.Float32BufferAttribute(colB, 3));
+  geoB.setIndex(indB);
+  const corpoB = new THREE.Mesh(geoB, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true }));
+  corpoB.frustumCulled = false;
+  balena.add(corpoB);
+  const pelleB = new THREE.MeshBasicMaterial({ color: BIANCO, side: THREE.DoubleSide, transparent: true }), ventreB = new THREE.MeshBasicMaterial({ color: VENTRE, side: THREE.DoubleSide, transparent: true });
+  const pinne = [-1, 1].map(v => {
+    const foglia = new THREE.Shape();
+    foglia.moveTo(0, 0.04); foglia.bezierCurveTo(0.16, 0.05, 0.36, -0.02, 0.5, -0.1); foglia.bezierCurveTo(0.36, -0.06, 0.16, -0.05, 0, -0.04); foglia.closePath();
+    const f = new THREE.Mesh(new THREE.ShapeGeometry(foglia, 10).rotateX(Math.PI / 2), ventreB);
+    const g = new THREE.Group();
+    g.add(f); g.scale.set(v, 1, 1);
+    balena.add(g);
+    return { g, v };
+  });
+  const codaB = new THREE.Group();
+  {
+    const lobo = new THREE.Shape();
+    lobo.moveTo(0, 0.02); lobo.bezierCurveTo(0.1, 0, 0.22, -0.03, 0.33, -0.16); lobo.bezierCurveTo(0.25, -0.17, 0.13, -0.17, 0.03, -0.12); lobo.lineTo(0, -0.09);
+    lobo.lineTo(-0.03, -0.12); lobo.bezierCurveTo(-0.13, -0.17, -0.25, -0.17, -0.33, -0.16); lobo.bezierCurveTo(-0.22, -0.03, -0.1, 0, 0, 0.02);
+    codaB.add(new THREE.Mesh(new THREE.ShapeGeometry(lobo, 12).rotateX(Math.PI / 2), pelleB));
+  }
+  balena.add(codaB);
+  balena.visible = provaBalena;
+  G.add(balena);
+  const GOCCE = 34, spruzzo = puntiMorbidi(GOCCE), gocce = Array.from({ length: GOCCE }, () => ({ x: 0, y: -9, z: 0, vx: 0, vy: 0, vz: 0, vita: 0 }));
+  G.add(spruzzo.punti);
+  for (let i = 0; i < GOCCE; i++) { spruzzo.col.set([0.88, 0.95, 1], i * 3); spruzzo.dim[i] = 0.06; spruzzo.alfa[i] = 0; }
+  let soffiato = false, schizzato = false;
+  const spina = new THREE.Vector3(), spinaDopo = new THREE.Vector3();
 
   // --- Nuvole a filo, sparse a caso in tutto il cielo, ognuna con la sua forma. Appaiono piano; il vento le porta tutte
   // nella stessa direzione e, quando escono dal cielo, svaniscono e rinascono dall'altra parte. Il puntatore le scosta
@@ -499,7 +492,6 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   const coda0 = new THREE.Vector3(), tmp = new THREE.Vector3();
   let ultimo = '', tempoLista = 0;
   function aggiorna(s: number, dt: number) {
-    rotore.rotation.z = s * 1.3;
     fascio.rotation.y = s * 0.9;
     manica.rotation.y = 0.4 + Math.sin(s * 0.7) * 0.25;
     (spia.material as THREE.MeshBasicMaterial).opacity = Math.floor(s * 1.4) % 2 ? 1 : 0.15;
@@ -619,6 +611,56 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       pc.g.position.set(pc.x, altezza(pc.x, pc.z), pc.z);
       pc.g.rotation.y = pc.verso;
     });
+
+    // La balena in prova: nuota lungo un giro largo, con un ciclo di 22 secondi
+    if (provaBalena) {
+      const ang = -s * 0.045, bx = Math.cos(ang) * 6.9, bz = Math.sin(ang) * 5.6, c = (s % 22) / 22;
+      // Quota e inclinazione nel ciclo: sotto, risale, soffia e mostra il dorso, si immerge con la coda alta
+      let quota: number, becco: number, tuffoVisto = 0;
+      if (c < 0.4) { quota = -0.82; becco = 0; }
+      else if (c < 0.55) { const k = liscio((c - 0.4) / 0.15); quota = -0.82 + k * 0.4; becco = 0.12 * Math.sin(k * Math.PI); }
+      else if (c < 0.72) { quota = -0.42 + Math.sin(s * 1.3) * 0.012; becco = 0; }
+      else { const k = (c - 0.72) / 0.28; quota = -0.42 - liscio(k) * 0.45; becco = -0.85 * Math.sin(liscio(k) * Math.PI * 0.92); tuffoVisto = Math.sin(k * Math.PI); }
+      balena.position.set(bx, quota, bz);
+      // Sott'acqua si intravede appena; in superficie è piena
+      const visto = 0.28 + 0.72 * liscio(THREE.MathUtils.clamp((quota + 0.8) / 0.36, 0, 1));
+      for (const m of [corpoB.material as THREE.MeshBasicMaterial, pelleB, ventreB]) m.opacity = Math.max(visto, tuffoVisto);
+      balena.rotation.set(0, Math.atan2(Math.sin(ang) * 6.9, -Math.cos(ang) * 5.6), 0);
+      balena.rotateX(-becco);
+      // La spina: un'onda che va dalla testa alla coda e cresce verso la coda; durante il tuffo la coda si alza
+      const tuffo = c > 0.72 ? Math.sin(((c - 0.72) / 0.28) * Math.PI) : 0;
+      const ondaB = (t: number) => Math.sin(s * 2.4 - t * 4.2) * 0.07 * t * t + tuffo * 0.35 * t * t * t;
+      for (let i = 0; i <= NB; i++) {
+        const t = i / NB, z = LB / 2 - t * LB, y0 = ondaB(t), w = curvaB(LARGO, t), h = curvaB(ALTO, t);
+        for (let j = 0; j <= MB; j++) {
+          const a = (j / MB) * Math.PI * 2, sa = Math.sin(a), k = (i * (MB + 1) + j) * 3;
+          posB[k] = Math.cos(a) * w; posB[k + 1] = y0 + (sa > 0 ? sa * h : sa * h * 0.8); posB[k + 2] = z;
+        }
+      }
+      (geoB.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+      // La coda segue la fine della spina, con la sua pendenza
+      spina.set(0, ondaB(1), -LB / 2); spinaDopo.set(0, ondaB(0.97), -LB / 2 + LB * 0.03);
+      codaB.position.copy(spina);
+      codaB.rotation.set(Math.atan2(spinaDopo.y - spina.y, spinaDopo.z - spina.z) * 1.3, 0, 0);
+      // Le pinne remano piano
+      pinne.forEach(({ g, v }) => { g.position.set(v * 0.14, ondaB(0.3) - 0.08, LB / 2 - 0.3 * LB); g.rotation.set(0, v * -0.45, v * (-0.4 + Math.sin(s * 1.2) * 0.18)); });
+      balena.scale.setScalar(0.7);
+      // Il soffio quando arriva in superficie; un cerchio quando la coda entra in acqua
+      if (c > 0.56 && c < 0.6 && !soffiato) {
+        soffiato = true;
+        tmp.set(0, 0.06, LB * 0.28).applyQuaternion(balena.quaternion).multiplyScalar(0.7).add(balena.position);
+        gocce.forEach(g => { const a = r() * 6.28, v = 0.05 + r() * 0.12; g.x = tmp.x; g.y = -0.36; g.z = tmp.z; g.vx = Math.cos(a) * v; g.vz = Math.sin(a) * v; g.vy = 1.0 + r() * 0.45; g.vita = 1.5; });
+        nuovoCerchio(bx, bz, 0.9);
+      }
+      if (c > 0.93 && !schizzato) { schizzato = true; nuovoCerchio(bx, bz, 1.2); }
+      if (c < 0.5) { soffiato = false; schizzato = false; }
+      gocce.forEach((g, i) => {
+        if (g.vita > 0) { g.vita -= dt; g.vy -= dt * 1.7; g.x += g.vx * dt; g.y += g.vy * dt; g.z += g.vz * dt; }
+        spruzzo.pos.set([g.x, g.vita > 0 ? g.y : -9, g.z], i * 3);
+        spruzzo.alfa[i] = g.vita > 0 ? Math.min(1, g.vita) * 0.85 : 0;
+      });
+      spruzzo.aggiorna();
+    }
 
     // Le nuvole: il vento le porta; vicino al puntatore gli sbuffi si scostano e poi tornano al loro posto
     const raggio = p.raggio;
