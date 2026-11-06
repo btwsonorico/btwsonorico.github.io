@@ -122,4 +122,21 @@ const glossario = defineCollection({
   }),
 });
 
-export const collections = { scritti, aree, advisory, progetti, glossario };
+// Timeline: un file Markdown per evento della storia dell'AI, in src/content/timeline. La pagina della timeline lo legge;
+// kind decide il filtro (ricerca, sistemi e modelli, aziende, società). checked: false = bozza ancora da controllare
+export const TIPI_EVENTO = ['research', 'system', 'company', 'society'] as const;
+const timeline = defineCollection({
+  loader: glob({ pattern: '*.md', base: './src/content/timeline' }),
+  schema: z.object({
+    title: z.string(),
+    year: z.number().int().min(1940).max(2100),
+    month: z.number().int().min(1).max(12).optional(),
+    kind: z.enum(TIPI_EVENTO, fuoriLista('Tipo di evento', TIPI_EVENTO)),
+    who: z.string(),
+    source: z.string().url(),
+    checked: z.boolean().default(false),
+    draft: z.boolean().default(false),
+  }),
+});
+
+export const collections = { scritti, aree, advisory, progetti, glossario, timeline };
