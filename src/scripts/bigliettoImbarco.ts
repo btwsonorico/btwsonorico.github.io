@@ -29,6 +29,8 @@ export type OpzioniImbarco = {
   // Una riga sullo stato del gioco, per il retro: serie e album
   riassunto: () => string;
   prossimo: () => void; chiudi: () => void;
+  // Il testo del bottone per andare avanti: domanda dopo, risultati, ancora
+  testoProssimo?: () => string;
 };
 
 export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
@@ -140,7 +142,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     gira.hidden = !fatto;
     scriviGira();
     prossimo.hidden = !fatto;
-    prossimo.textContent = 'next flight →';
+    prossimo.textContent = o.testoProssimo?.() ?? 'next flight →';
     if (!fatto) nota.textContent = p.sbagliate[corrente]!.length ? 'Delayed. Try again.' : `Clear ${v.codice} for take-off.`;
     else nota.textContent = 'Cleared for take-off.';
   };

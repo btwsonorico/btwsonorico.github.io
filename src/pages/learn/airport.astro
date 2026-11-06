@@ -1,17 +1,51 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// AI terms: sei aerei, uno per sezione del glossario, girano in attesa sul mare con un termine ciascuno. Scegli un volo:
-// l'aereo atterra con la domanda. Indovina e il biglietto entra nell'album; la serie conta i giusti di fila al primo colpo.
+// AI terms: sei aerei girano intorno all'isola, uno per sezione del glossario. "Take a quiz" fa atterrare sei domande:
+// due facili, due medie, due difficili. Alla fine il risultato, poi si può continuare in endless, con tre vite.
+// La serie conta i giusti di fila al primo colpo; ogni termine indovinato entra nell'album.
 // Logica in src/lib/voli.ts, scena in src/scripts/aeroporto.ts, biglietto in src/scripts/bigliettoImbarco.ts
 ---
-<Base title="AI terms · Riccardo Mondi" description="An AI terms trivia: six planes, one boarding pass per term, an album to fill and a streak to beat." tono="neutro" largo>
+<Base title="AI terms · Riccardo Mondi" description="An AI terms trivia: a six-question quiz, an endless mode with three lives, boarding passes to collect and a streak to beat." tono="neutro" largo>
   <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
   <main class="aeroporto">
     <h1>AI terms</h1>
-    <p class="sotto">Six planes, one for each section of the glossary, wait over the sea. Pick a flight: its plane lands with a question. Answer right and its boarding pass goes in your album.</p>
+    <p class="sotto">Six planes circle the island. Take a quiz: each question lands as a boarding pass. Answer right and it goes in your album.</p>
     <p class="mono punteggio"></p>
-    <ol class="mono tabellone" aria-label="departures"></ol>
+    <section class="pannello-gioco" aria-live="polite">
+      <div class="stato-gioco inizio">
+        <button type="button" class="mono grande avvia-quiz">Take a quiz ✈</button>
+        <p class="mono piccolo">6 questions: 2 easy, 2 medium, 2 hard. Then keep flying in endless mode.</p>
+      </div>
+      <div class="stato-gioco in-quiz" hidden>
+        <p class="mono titolo-stato"></p>
+        <ol class="passi" aria-label="quiz progress"></ol>
+        <button type="button" class="mono piccolo esci">quit the quiz</button>
+      </div>
+      <div class="stato-gioco fine-quiz" hidden>
+        <p class="mono titolo-stato"></p>
+        <p class="quadri" aria-hidden="true"></p>
+        <p class="mono piccolo dettaglio"></p>
+        <div class="bottoni">
+          <button type="button" class="mono grande avvia-endless">Keep flying: endless ✈</button>
+          <button type="button" class="mono copia">copy result</button>
+          <button type="button" class="mono avvia-quiz">new quiz</button>
+        </div>
+      </div>
+      <div class="stato-gioco in-endless" hidden>
+        <p class="mono titolo-stato"></p>
+        <p class="mono piccolo dettaglio"></p>
+        <button type="button" class="mono piccolo esci">stop</button>
+      </div>
+      <div class="stato-gioco fine-endless" hidden>
+        <p class="mono titolo-stato"></p>
+        <p class="mono piccolo dettaglio"></p>
+        <div class="bottoni">
+          <button type="button" class="mono grande avvia-endless">Fly again ✈</button>
+          <button type="button" class="mono avvia-quiz">new quiz</button>
+        </div>
+      </div>
+    </section>
     <button type="button" class="mono apri-album" aria-expanded="false"></button>
     <section class="album" hidden aria-label="your album">
       <p class="mono nota-album">Saved in this browser. It stays until you clear the site data; Safari clears it after 7 days without a visit.</p>
@@ -22,21 +56,25 @@ import Base from '../../layouts/Base.astro';
 
 <script>
   import '@fontsource/instrument-serif/400-italic.css';
-  import { monta, type Fase } from '../../scripts/aeroporto';
+  import { monta } from '../../scripts/aeroporto';
   import { nuovoImbarco } from '../../scripts/bigliettoImbarco';
   import { TINTE_SEZIONI } from '../../lib/glossario';
-  import { album, azzera, incolla, nuovaPartita, nuovoVolo, segnaRisposta, serie, SEZIONI, TOTALE } from '../../lib/voli';
+  import { aCaso, album, azzera, incolla, nuovaPartita, nuovoVolo, primati, quiz, segnaPrimato, segnaRisposta, serie, SEZIONI, TOTALE, voloDa, type Voce } from '../../lib/voli';
 
+  type Modo = 'inizio' | 'in-quiz' | 'fine-quiz' | 'in-endless' | 'fine-endless';
   const adesso = new Date(), recenti: string[] = [];
   const voli = SEZIONI.map((_, i) => { const v = nuovoVolo(i, recenti); recenti.push(v.voce.id); return v; });
   const p = nuovaPartita(voli.length);
-  const punteggio = document.querySelector<HTMLElement>('.punteggio')!, tabellone = document.querySelector<HTMLOListElement>('.tabellone')!;
-  const apriAlbum = document.querySelector<HTMLButtonElement>('.apri-album')!, sezAlbum = document.querySelector<HTMLElement>('.album')!, pagine = document.querySelector<HTMLUListElement>('.pagine-album')!;
-  let fasi: Fase[] = voli.map(() => 'holding');
+  const $ = <T extends HTMLElement>(s: string, d: ParentNode = document) => d.querySelector<T>(s)!;
+  const punteggio = $('.punteggio'), apriAlbum = $<HTMLButtonElement>('.apri-album'), sezAlbum = $('.album'), pagine = $<HTMLUListElement>('.pagine-album');
+  const stati = Object.fromEntries([...document.querySelectorAll<HTMLElement>('.stato-gioco')].map(e => [e.classList[1], e])) as Record<Modo, HTMLElement>;
+
+  // Lo stato del gioco
+  let modo: Modo = 'inizio', domande: Voce[] = [], k = 0, tentativi: number[] = [], vite = 3, punti = 0, corrente = -1;
+  const VITE = 3;
 
   const riassunto = () => { const s = serie(), n = Object.keys(album()).length; return `streak ${s.ora} · best ${s.migliore} · album ${n}/${TOTALE}`; };
   const scriviPunteggio = () => { punteggio.textContent = riassunto(); apriAlbum.textContent = `${sezAlbum.hidden ? 'open' : 'close'} the album (${Object.keys(album()).length}/${TOTALE})`; };
-  // L'album: una pagina per termine indovinato, nel colore della sezione; quelli al primo colpo hanno la stella
   const scriviAlbum = () => {
     const a = album(), voci = Object.entries(a).sort((x, y) => x[1].sezione - y[1].sezione || x[1].termine.localeCompare(y[1].termine));
     pagine.replaceChildren(...voci.map(([, q]) => {
@@ -47,74 +85,100 @@ import Base from '../../layouts/Base.astro';
       li.append(t, m);
       return li;
     }));
-    if (!voci.length) { const li = document.createElement('li'); li.className = 'vuoto'; li.textContent = 'No tickets yet. Answer a flight to start your album.'; pagine.append(li); }
+    if (!voci.length) { const li = document.createElement('li'); li.className = 'vuoto'; li.textContent = 'No tickets yet. Take a quiz to start your album.'; pagine.append(li); }
   };
   apriAlbum.addEventListener('click', () => { sezAlbum.hidden = !sezAlbum.hidden; apriAlbum.setAttribute('aria-expanded', String(!sezAlbum.hidden)); scriviAlbum(); scriviPunteggio(); });
 
-  // Il tabellone delle partenze: una riga per volo, si clicca per aprire il biglietto
-  const righe = voli.map((v, i) => {
-    const li = document.createElement('li'), b = document.createElement('button'), pallino = document.createElement('i'), codice = document.createElement('span'), nome = document.createElement('span'), stato = document.createElement('span');
-    b.type = 'button';
-    pallino.style.background = v.tinta;
-    codice.className = 'codice-volo'; codice.textContent = v.codice;
-    nome.className = 'nome-volo'; nome.textContent = v.nome;
-    stato.className = 'stato-volo';
-    b.append(pallino, codice, nome, stato);
-    b.addEventListener('click', () => apri(i));
-    li.append(b);
-    tabellone.append(li);
-    return { b, stato };
-  });
-  const scriviTabellone = () => righe.forEach((r, i) => {
-    const t = p.tentativi[i]!;
-    r.stato.textContent = p.fatto[i] ? `${t === 1 ? '★ ' : ''}${fasi[i]}` : t ? `delayed · ${fasi[i]}` : fasi[i]!;
-    r.b.classList.toggle('partito', p.fatto[i]!);
-    r.b.classList.toggle('aperto', imbarco.aperto === i);
-  });
+  // Il quadratino di ogni domanda: verde al primo colpo, giallo al secondo, rosso dopo
+  const quadro = (t: number) => (t <= 1 ? '🟩' : t === 2 ? '🟨' : '🟥');
+  const cuori = () => '♥'.repeat(vite) + '♡'.repeat(VITE - vite);
+  const scriviStato = () => {
+    for (const [m, e] of Object.entries(stati)) e.hidden = m !== modo;
+    const e = stati[modo], r = primati();
+    if (modo === 'in-quiz') {
+      $('.titolo-stato', e).textContent = `Quiz · question ${Math.min(k + 1, 6)} of 6 · ${domande[k]?.livello ?? ''}`;
+      $('.passi', e).replaceChildren(...domande.map((_, q) => { const li = document.createElement('li'); li.className = q < k ? (tentativi[q] === 1 ? 'primo' : 'dopo') : q === k ? 'ora' : ''; return li; }));
+    } else if (modo === 'fine-quiz') {
+      const primi = tentativi.filter(t => t === 1).length;
+      $('.titolo-stato', e).textContent = `Quiz done · ${primi}/6 at the first try`;
+      $('.quadri', e).textContent = tentativi.map(quadro).join(' ');
+      $('.dettaglio', e).textContent = `best quiz ${r.quiz}/6 · ${riassunto()}`;
+    } else if (modo === 'in-endless') {
+      $('.titolo-stato', e).textContent = `Endless · ${punti} cleared · ${cuori()}`;
+      $('.dettaglio', e).textContent = `best endless ${r.endless} · a wrong answer costs a life`;
+    } else if (modo === 'fine-endless') {
+      $('.titolo-stato', e).textContent = `Out of fuel · ${punti} cleared`;
+      $('.dettaglio', e).textContent = `best endless ${r.endless} · ${riassunto()}`;
+    }
+  };
 
-  const scena = monta(document.querySelector<HTMLElement>('.scena3d')!, {
+  const scena = monta($('.scena3d'), {
     tinte: voli.map(v => v.tinta), termini: voli.map(v => v.voce.termine), partiti: voli.map(() => false),
-    alClic: i => apri(i),
-    alCambio: f => { fasi = f; scriviTabellone(); },
+    // Senza quiz in corso, un clic su un aereo fa atterrare una domanda della sua sezione
+    alClic: i => { if (modo === 'in-quiz' || modo === 'in-endless') return; assegna(i, nuovoVolo(i, recenti).voce); },
+    alCambio: () => {},
   });
-  // Dopo un giro di circa mezzo minuto con lo striscione, l'aereo torna in attesa con un termine nuovo
-  const riposo: number[] = [];
-  const cambia = (i: number) => {
-    if (imbarco.aperto === i) { riposo[i] = window.setTimeout(() => cambia(i), 5000); return; }
-    const v = nuovoVolo(i, recenti);
-    recenti.push(v.voce.id); if (recenti.length > 18) recenti.shift();
+  // Una domanda: va all'aereo della sua sezione, che atterra; il biglietto si apre
+  function assegna(_i: number, voce: Voce) {
+    const v = voloDa(voce), i = v.indice;
+    recenti.push(voce.id); if (recenti.length > 24) recenti.shift();
     voli[i] = v;
     azzera(p, i);
-    scena.riposa(i, v.voce.termine);
-    scriviTabellone();
+    scena.riposa(i, voce.termine);
+    corrente = i;
+    imbarco.mostra(i);
+    scena.chiama(i);
+  }
+  const avviaQuiz = () => { domande = quiz(); k = 0; tentativi = []; modo = 'in-quiz'; scriviStato(); assegna(0, domande[0]!); };
+  const avviaEndless = () => { vite = VITE; punti = 0; modo = 'in-endless'; scriviStato(); assegna(0, aCaso(recenti)); };
+  const fineQuiz = () => {
+    imbarco.nascondi(); modo = 'fine-quiz';
+    if (segnaPrimato('quiz', tentativi.filter(t => t === 1).length)) scena.fuochi();
+    scriviStato();
   };
+  const fineEndless = () => {
+    imbarco.nascondi(); modo = 'fine-endless';
+    if (segnaPrimato('endless', punti) && punti >= 2) scena.fuochi();
+    scriviStato();
+  };
+  document.querySelectorAll('.avvia-quiz').forEach(b => b.addEventListener('click', avviaQuiz));
+  document.querySelectorAll('.avvia-endless').forEach(b => b.addEventListener('click', avviaEndless));
+  document.querySelectorAll('.esci').forEach(b => b.addEventListener('click', () => { if (modo === 'in-quiz') { imbarco.nascondi(); modo = 'inizio'; scriviStato(); } else fineEndless(); }));
+  $('.copia').addEventListener('click', async e => {
+    const b = e.currentTarget as HTMLButtonElement, testo = `AI terms quiz ✈ ${tentativi.filter(t => t === 1).length}/6\n${tentativi.map(quadro).join('')}\nhttps://btwsonorico.github.io/learn/airport/`;
+    try { await navigator.clipboard.writeText(testo); b.textContent = 'copied ✓'; } catch { b.textContent = 'copy failed'; }
+    setTimeout(() => { b.textContent = 'copy result'; }, 1800);
+  });
+
   const imbarco = nuovoImbarco(document.body, {
     data: adesso, voli, partita: p, riassunto,
+    testoProssimo: () => (modo === 'in-quiz' ? (k >= 5 ? 'see your result →' : 'next question →') : modo === 'in-endless' ? 'next flight →' : 'close'),
     dopo: (i, giusto) => {
-      const primo = p.tentativi[i] === 1;
-      const prima = serie().migliore;
-      if (!giusto) segnaRisposta(false, false);
-      else {
+      const primo = p.tentativi[i] === 1, prima = serie().migliore;
+      if (!giusto) {
+        segnaRisposta(false, false);
+        if (modo === 'in-endless') { vite--; if (vite <= 0) { scriviStato(); window.setTimeout(fineEndless, 1300); } }
+      } else {
         const dopo = segnaRisposta(true, primo);
-        // Un record nuovo, da 2 in su: fuochi d'artificio sopra l'hangar
+        // Un record di serie nuovo, da 2 in su: fuochi d'artificio sopra l'hangar
         if (dopo.migliore > prima && dopo.migliore >= 2) scena.fuochi();
         incolla(voli[i]!, p.tentativi[i]!);
         scena.decolla(i);
-        clearTimeout(riposo[i]);
-        riposo[i] = window.setTimeout(() => cambia(i), 32000);
+        if (modo === 'in-quiz') tentativi[k] = p.tentativi[i]!;
+        if (modo === 'in-endless') punti++;
       }
       const ss = serie(); scena.serie(ss.ora, ss.migliore);
-      scriviTabellone(); scriviPunteggio(); if (!sezAlbum.hidden) scriviAlbum();
+      scriviPunteggio(); scriviStato(); if (!sezAlbum.hidden) scriviAlbum();
     },
     prossimo: () => {
-      const k = voli.findIndex((_, i) => !p.fatto[i] && i !== imbarco.aperto);
-      if (k >= 0) apri(k); else chiudi();
+      if (modo === 'in-quiz') { k++; if (k >= domande.length) fineQuiz(); else { scriviStato(); assegna(0, domande[k]!); } }
+      else if (modo === 'in-endless') assegna(0, aCaso(recenti));
+      else imbarco.nascondi();
     },
-    chiudi: () => chiudi(),
+    chiudi: () => { imbarco.nascondi(); if (modo === 'in-quiz') { modo = 'inizio'; scriviStato(); } else if (modo === 'in-endless') fineEndless(); },
   });
-  function apri(i: number) { imbarco.mostra(i); if (!p.fatto[i]) scena.chiama(i); scriviTabellone(); }
-  function chiudi() { imbarco.nascondi(); scriviTabellone(); righe[0]?.b.focus({ preventScroll: true }); }
-  scriviPunteggio(); scriviTabellone();
+  void corrente;
+  scriviPunteggio(); scriviStato();
   { const ss = serie(); scena.serie(ss.ora, ss.migliore); }
 </script>
 
@@ -126,16 +190,23 @@ import Base from '../../layouts/Base.astro';
   h1 { font-size: 33px; font-weight: 400; line-height: 1.1; }
   .sotto { color: var(--muted); }
   .punteggio { font-size: 12px; color: var(--muted); }
-  .tabellone { padding: 0; list-style: none; font-size: 12px; }
-  .tabellone :global(button) {
-    pointer-events: auto; display: grid; grid-template-columns: 10px 4.5ch 1fr auto; gap: 10px; align-items: center; width: 100%; padding: 5px 8px;
-    border: 1px solid transparent; border-radius: 6px; background: color-mix(in srgb, var(--bg) 70%, transparent); color: var(--fg); font: inherit; text-align: left; cursor: pointer;
-  }
-  .tabellone :global(button:hover), .tabellone :global(button.aperto) { border-color: var(--line); }
-  .tabellone :global(i) { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 1px color-mix(in srgb, var(--fg) 25%, transparent); }
-  .tabellone :global(.codice-volo) { color: var(--muted); }
-  .tabellone :global(.stato-volo) { color: var(--muted); white-space: nowrap; }
-  .tabellone :global(.partito .stato-volo) { color: var(--fg); }
+  .pannello-gioco { pointer-events: auto; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--bg) 86%, transparent); }
+  .stato-gioco > * { margin: 0 0 8px; }
+  .stato-gioco > *:last-child { margin-bottom: 0; }
+  .pannello-gioco button { padding: 6px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); font-size: 12px; cursor: pointer; }
+  .pannello-gioco button:hover { border-color: var(--fg); }
+  .pannello-gioco button.grande { width: 100%; padding: 12px 14px; border: 0; background: var(--fg); color: var(--bg); font-size: 15px; letter-spacing: .04em; }
+  .pannello-gioco button.grande:hover { opacity: .88; }
+  .pannello-gioco button.piccolo { padding: 3px 10px; color: var(--muted); }
+  .piccolo { font-size: 11px; color: var(--muted); }
+  .titolo-stato { font-size: 13px; }
+  .bottoni { display: flex; flex-wrap: wrap; gap: 8px; }
+  .quadri { font-size: 20px; letter-spacing: 3px; }
+  .passi { display: flex; gap: 6px; padding: 0; list-style: none; }
+  .passi :global(li) { width: 22px; height: 8px; border-radius: 4px; background: var(--line); }
+  .passi :global(li.ora) { background: var(--fg); }
+  .passi :global(li.primo) { background: #3fae6a; }
+  .passi :global(li.dopo) { background: #e6b23c; }
   .apri-album { pointer-events: auto; padding: 5px 12px; border: 1px solid var(--line); border-radius: 4px; background: color-mix(in srgb, var(--bg) 80%, transparent); color: var(--fg); font-size: 12px; cursor: pointer; }
   .apri-album:hover { border-color: var(--muted); }
   .album { pointer-events: auto; max-height: 40vh; overflow-y: auto; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--bg) 88%, transparent); }
@@ -268,9 +339,6 @@ import Base from '../../layouts/Base.astro';
   @media (max-width: 640px) {
     .fondo3d { top: 300px; }
     .sotto { display: none; }
-    .tabellone :global(button) { grid-template-columns: 10px 1fr auto; gap: 8px; }
-    .tabellone :global(.codice-volo) { display: none; }
-    .tabellone :global(.stato-volo) { font-size: 11px; }
     /* Su telefono il biglietto va in colonna: il francobollo piccolo in alto a destra, il tagliando in basso */
     :global(.imbarco) { left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); width: auto; transform: none; }
     :global(.imbarco .faccia) { height: auto; min-height: 0; flex-direction: column; -webkit-mask: none; mask: none; }

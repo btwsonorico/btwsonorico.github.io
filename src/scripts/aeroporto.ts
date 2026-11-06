@@ -23,8 +23,11 @@ export type OpzioniAeroporto = {
 
 // La forma dell'isola: un ovale morbido con la riva un po' irregolare. forma() vale 1 sulla riva, meno dentro
 const RX = 4.4, RZ = 3.1;
+// La baia: una rientranza della riva sul lato davanti, quello verso la camera, con la spiaggia di sabbia
+const BAIA = 1.72;
+const versoBaia = (t: number) => Math.abs(Math.atan2(Math.sin(t - BAIA), Math.cos(t - BAIA)));
 const forma = (x: number, z: number) => {
-  const t = Math.atan2(z, x), k = 1 + 0.06 * Math.sin(3 * t + 1) + 0.04 * Math.sin(5 * t + 2);
+  const t = Math.atan2(z, x), b = versoBaia(t), k = (1 + 0.06 * Math.sin(3 * t + 1) + 0.04 * Math.sin(5 * t + 2)) * (1 - 0.2 * Math.exp(-(b * b) / (2 * 0.2 * 0.2)));
   return Math.pow(Math.pow(Math.abs(x) / RX, 2.4) + Math.pow(Math.abs(z) / RZ, 2.4), 1 / 2.4) / k;
 };
 // I colli: uno grande con la pala, uno con le pecore, uno dietro il paese, due piccoli davanti
@@ -38,12 +41,13 @@ const altezza = (x: number, z: number) => {
 };
 const liscio = (k: number) => k * k * (3 - 2 * k);
 
-// I percorsi degli aerei già partiti: ognuno il suo, a quote diverse. dir è il verso; u la velocità
-// Le orbite intorno all'isola: ellissi concentriche a quote diverse, tutte nello stesso verso, così gli aerei non si
-// incrociano mai. Uno dei sei, quando fa il giro con la scritta, fa anche una giravolta
+// Le orbite intorno all'isola: ognuna con il suo raggio, quindi gli aerei non si toccano mai. Per il resto sono diverse:
+// la quota sale e scende con un ritmo suo, il raggio respira un poco, la velocità e il verso cambiano da aereo ad aereo.
+// Uno dei sei, quando fa il giro con la scritta, fa anche una giravolta
+const RITMI = [[1, 0.45, 0.26, 1], [2, 0.3, 0.34, -1], [3, 0.55, 0.22, 1], [1, 0.6, 0.3, 1], [2, 0.4, 0.2, -1], [3, 0.35, 0.28, 1]] as const;
 const PERCORSI = Array.from({ length: 6 }, (_, i) => {
-  const r = 5.2 + i * 0.42, h = 1.3 + i * 0.3;
-  return { punto: (f: number) => new THREE.Vector3(Math.cos(f) * r, h + Math.sin(f * 2 + i) * 0.1, Math.sin(f) * r * 0.78), dir: 1 as const, u: 1.55 + (i % 3) * 0.12, giravolta: i === 5 };
+  const r = 5.2 + i * 0.42, h = 1.3 + ((i * 3) % 6) * 0.28, [k, ampiezza, w, dir] = RITMI[i]!;
+  return { punto: (f: number) => { const rr = r + Math.sin(f * 2 + i * 1.7) * 0.15; return new THREE.Vector3(Math.cos(f) * rr, Math.max(0.9, h + Math.sin(f * k + i) * ampiezza), Math.sin(f) * rr * 0.78); }, dir, w, giravolta: i === 5 };
 });
 
 export function monta(el: HTMLElement, o: OpzioniAeroporto) {
@@ -95,7 +99,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       const x = q.getX(i), z = q.getZ(i), t = Math.atan2(z, x), u = Math.hypot(x, z) * 0.995, rr = u * rivaA(t);
       const X = Math.cos(t) * rr, Z = Math.sin(t) * rr;
       q.setXYZ(i, X, Math.max(0.005, altezza(X, Z)) - 0.004, Z);
-      const c = u > 0.95 ? SABBIA : ERBA;
+      const c = u > 0.95 || (versoBaia(t) < 0.42 && u > 0.8) ? SABBIA : ERBA;
       colori.push(c.r, c.g, c.b);
     }
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
@@ -199,23 +203,23 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       g.add(pezzo(arco, m, 0, 0, -fondo / 2 + (k + 0.5) * (fondo / fette)));
     }
     g.add(pezzo(new THREE.CircleGeometry(larga / 2, 20, 0, Math.PI), pieno('#3a332c', 0.05), 0, 0, -fondo / 2));
+    // Il pavimento dentro: cemento chiaro, non prato
+    g.add(pezzo(new THREE.BoxGeometry(larga - 0.02, 0.012, fondo), pieno('#b9b4a8', 0.06), 0, 0.006, 0));
     // Il portone, aperto: due ante spinte ai lati
     for (const v of [-1, 1]) g.add(pezzo(new THREE.BoxGeometry(0.2, 0.3, 0.02), pieno('#8fa6b8', 0.12), v * (larga / 2 + 0.1), 0.15, fondo / 2));
     g.add(pezzo(new THREE.CircleGeometry(0.06, 16), pieno('#f7cf4f', 0.12), 0, larga / 2 - 0.08, fondo / 2 + 0.004));
-    // Il piazzale chiaro tra l'hangar e la pista
-    tondo(1.1, PZ - (HZ + fondo / 2) + 0.05, 0.08, HX, (HZ + fondo / 2 + PZ) / 2, tenue(PISTA, chiaro ? 0.5 : 0.18, 0.5));
   }
 
   // --- Il cartello della serie, accanto all'hangar: un tabellone a palette su due pali. A sinistra la serie, a destra il
   // record. Quando un numero cambia, la sua paletta gira su se stessa e mostra la cifra nuova
   const monoC = getComputedStyle(document.documentElement).getPropertyValue('--mono').trim() || 'ui-monospace, monospace';
   const cartello = new THREE.Group();
-  cartello.position.set(HX + 1.35, H0, -0.25);
-  cartello.rotation.y = -0.35;
-  cartello.scale.setScalar(1.45);
+  cartello.position.set(HX - 1.45, H0, -0.3);
+  cartello.rotation.y = 0.5;
+  cartello.scale.setScalar(1.6);
   G.add(cartello);
-  for (const x of [-0.36, 0.36]) cartello.add(pezzo(new THREE.CylinderGeometry(0.012, 0.012, 0.42, 6), M.edificio, x, 0.21, 0));
-  cartello.add(pezzo(new THREE.BoxGeometry(0.86, 0.36, 0.035), pieno('#2b2a33', 0.1), 0, 0.5, 0));
+  for (const x of [-0.38, 0.38]) cartello.add(pezzo(new THREE.CylinderGeometry(0.014, 0.014, 0.16, 6), M.edificio, x, 0.08, 0));
+  cartello.add(pezzo(new THREE.BoxGeometry(0.9, 0.36, 0.035), pieno('#2b2a33', 0.1), 0, 0.33, 0));
   // Le scritte fisse sopra le palette
   {
     const tela = document.createElement('canvas'); tela.width = 512; tela.height = 64;
@@ -223,7 +227,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     cx.fillStyle = '#f4f1ea'; cx.font = `bold 34px ${monoC}`; cx.textBaseline = 'middle';
     cx.textAlign = 'center'; cx.fillText('STREAK', 128, 34); cx.fillText('BEST', 384, 34);
     const t = new THREE.CanvasTexture(tela); t.colorSpace = THREE.SRGBColorSpace;
-    cartello.add(new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.1), new THREE.MeshBasicMaterial({ map: t, transparent: true })).translateY(0.62).translateZ(0.02));
+    cartello.add(new THREE.Mesh(new THREE.PlaneGeometry(0.84, 0.07), new THREE.MeshBasicMaterial({ map: t, transparent: true })).translateY(0.465).translateZ(0.02));
   }
   // Una paletta: una cifra su fondo scuro con la riga in mezzo, come i tabelloni delle partenze
   const paletta = (x: number) => {
@@ -237,12 +241,12 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       mappa.needsUpdate = true;
     };
     scrivi('0');
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.13, 0.17), new THREE.MeshBasicMaterial({ map: mappa }));
-    m.position.set(x, 0.47, 0.02);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.23), new THREE.MeshBasicMaterial({ map: mappa }));
+    m.position.set(x, 0.29, 0.02);
     cartello.add(m);
     return { m, scrivi, cifra: '0', nuova: '0', giro: 0 };
   };
-  const palette = [-0.29, -0.15, 0.15, 0.29].map(paletta);
+  const palette = [-0.31, -0.13, 0.13, 0.31].map(paletta);
   const mostraSerie = (ora: number, migliore: number) => {
     const testo = `${String(Math.min(99, ora)).padStart(2, '0')}${String(Math.min(99, migliore)).padStart(2, '0')}`;
     palette.forEach((q, k) => { const c = testo[k]!; if (c !== q.nuova) { q.nuova = c; q.giro = q.giro > 0 ? q.giro : 0.0001; } });
@@ -279,6 +283,18 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   });
   pecore.forEach(q => { q.mx = q.x; q.mz = q.z; });
 
+  // --- La spiaggia della baia: ombrelloni colorati e teli sulla sabbia
+  [-0.3, -0.16, 0, 0.15, 0.3].forEach((dt0, k) => {
+    const t = BAIA + dt0, rr = rivaA(t) * (0.86 + (k % 2) * 0.04), x = Math.cos(t) * rr, z = Math.sin(t) * rr, y = Math.max(0.005, altezza(x, z));
+    const c = o.tinte[(k * 2 + 1) % o.tinte.length]!;
+    G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, y + 0.22, z)]), linea(FILO, 0.8)));
+    const ombrello = new THREE.ConeGeometry(0.15, 0.07, 10);
+    G.add(pezzo(ombrello, pieno(c, 0.12), x, y + 0.23, z));
+    const telo = pezzo(new THREE.PlaneGeometry(0.09, 0.18).rotateX(-Math.PI / 2), pieno(o.tinte[(k * 2 + 4) % o.tinte.length]!, 0.1), x + 0.13, y + 0.004, z - 0.02);
+    telo.rotation.y = t + Math.PI / 2;
+    G.add(telo);
+  });
+
   // --- Alberi come quelli di Learn: il tronco è un filo, la chioma sono palle o coni a filo con un riempimento tenue
   const chiome = [mat('#6fa646'), mat('#5f9c45'), mat('#4f8a3c')];
   const fusto = linea(FILO, 0.7);
@@ -301,7 +317,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     G.add(ob);
   };
   const vietati = (x: number, z: number) =>
-    (Math.abs(x) < 3 && z > 0.12 && z < 1.0) || (Math.abs(x - HX) < 0.85 && z > -1.0 && z < 0.3) || Math.hypot(x - TX, z - TZ) < 0.45 || Math.hypot(x - FX, z - FZ) < 0.45 ||
+    (Math.abs(x) < 3 && z > 0.12 && z < 1.0) || (Math.abs(x - HX) < 0.85 && z > -1.0 && z < 0.3) || (versoBaia(Math.atan2(z, x)) < 0.5 && forma(x, z) > 0.55) || Math.hypot(x - (HX - 1.45), z + 0.3) < 0.7 || Math.hypot(x - TX, z - TZ) < 0.45 || Math.hypot(x - FX, z - FZ) < 0.45 ||
     Math.hypot(x - PCX, z - PCZ) < 0.75 || Math.hypot(x + 3.6, z - 0.6) < 0.3;
   const posti: [number, number][] = [];
   for (let i = 0; i < 1500 && posti.length < 22; i++) {
@@ -516,7 +532,6 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     for (let k = 0; k < 120; k++) { const f = (k / 120) * Math.PI * 2, dd = pr.punto(f).distanceTo(vicinoA); if (dd < dm) { dm = dd; meglio = f; } }
     return meglio;
   };
-  const VELOCITA_ORBITA = 0.3;
   const aerei: Aereo[] = o.tinte.map((t, i) => {
     const { g, elica } = nuovoAereo(t);
     g.userData.indice = i;
@@ -596,9 +611,9 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       if (a.stato === 'giro') {
         // Ognuno ha il suo posto sull'orbita, a 60 gradi dagli altri, e i posti girano tutti insieme: così gli aerei non si
         // avvicinano mai. Chi rientra dopo un atterraggio accelera o rallenta piano finché raggiunge il suo posto
-        const posto = s * VELOCITA_ORBITA + (i / aerei.length) * Math.PI * 2;
+        const posto = s * pr.w * pr.dir + (i / aerei.length) * Math.PI * 2;
         const scarto = Math.atan2(Math.sin(posto - a.f), Math.cos(posto - a.f));
-        a.f += (VELOCITA_ORBITA + THREE.MathUtils.clamp(scarto * 0.35, -0.12, 0.12)) * dt;
+        a.f += (pr.w * pr.dir + THREE.MathUtils.clamp(scarto * 0.35, -0.12, 0.12)) * dt;
         a.g.position.copy(pr.punto(a.f));
       } else if (a.stato === 'fermo') {
         a.g.position.copy(FERMO);

@@ -50,3 +50,39 @@ export function incolla(v: Volo, tentativi: number) {
   salva(KA, a);
   return a;
 }
+
+// Un volo per un termine preciso: va all'aereo della sua sezione
+export function voloDa(voce: Voce): Volo {
+  const i = SEZIONI.indexOf(voce.indiceSezione), base = nuovoVolo(i);
+  const risposte = [...voce.domanda.risposte];
+  for (let k = risposte.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [risposte[k], risposte[j]] = [risposte[j]!, risposte[k]!]; }
+  return { ...base, voce, nome: voce.sezione, risposte };
+}
+
+// Il quiz: sei termini a caso, due facili, due medi e due difficili, dal più facile al più difficile
+export function quiz(): Voce[] {
+  const scelti: Voce[] = [];
+  for (const l of ['easy', 'medium', 'hard']) {
+    const tutti = VOCI.filter(v => v.livello === l && !scelti.includes(v));
+    for (let k = 0; k < 2 && tutti.length; k++) scelti.push(tutti.splice(Math.floor(Math.random() * tutti.length), 1)[0]!);
+  }
+  return scelti;
+}
+// Un termine a caso per l'endless, evitando quelli recenti
+export function aCaso(evita: string[]): Voce {
+  const libere = VOCI.filter(v => !evita.includes(v.id));
+  const da = libere.length ? libere : VOCI;
+  return da[Math.floor(Math.random() * da.length)]!;
+}
+
+// I record del quiz (giuste al primo colpo su 6) e dell'endless (giuste prima di finire le vite)
+export type Primati = { quiz: number; endless: number };
+const KR = 'ai-terms-record';
+export const primati = (): Primati => leggi<Primati>(KR) ?? { quiz: 0, endless: 0 };
+export function segnaPrimato(campo: keyof Primati, valore: number): boolean {
+  const r = primati();
+  if (valore <= r[campo]) return false;
+  r[campo] = valore;
+  salva(KR, r);
+  return true;
+}
