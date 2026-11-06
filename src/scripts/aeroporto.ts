@@ -279,12 +279,11 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   const nuovoCerchio = (x: number, z: number, grande: number) => { const c = cerchi.find(q => q.t >= 2.8); if (c) { c.x = x; c.z = z; c.t = 0; c.grande = grande; } };
   const inAcqua = (x: number, z: number) => forma(x, z) > 1;
 
-  // --- La balena (in prova: si vede solo con ?balena nell'indirizzo). Una megattera bianca come i cervi della home
+  // --- La balena: una megattera bianca come i cervi della home
   // (nera nel tema chiaro). Il corpo non è rigido: è un tubo lungo una spina che ondeggia su e giù, con l'onda che
   // passa dalla testa alla coda e cresce verso la coda, come nuotano i cetacei. Pinne pettorali lunghe che remano piano,
   // coda larga con la tacca, inclinata come la fine della spina. Ogni 20 secondi circa risale, soffia, mostra il dorso,
   // poi si immerge inarcandosi e alza la coda fuori dall'acqua.
-  const provaBalena = new URLSearchParams(location.search).has('balena');
   const BIANCO = new THREE.Color(chiaro ? '#23201b' : '#f4f1ea'), VENTRE = BIANCO.clone().lerp(new THREE.Color(chiaro ? '#5a554e' : '#9aa3ad'), 0.55);
   const LB = 1.5, NB = 40, MB = 16;
   const curvaB = (punti: number[][], t: number) => { let i = 0; while (i < punti.length - 2 && punti[i + 1]![0]! < t) i++; const [a, va] = punti[i]!, [b, vb] = punti[i + 1]!; const k = (t - a!) / (b! - a!); return va! + (vb! - va!) * liscio(Math.min(1, Math.max(0, k))); };
@@ -299,12 +298,15 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   }
   const geoB = new THREE.BufferGeometry();
   geoB.setAttribute('position', new THREE.BufferAttribute(posB, 3));
-  geoB.setAttribute('color', new THREE.Float32BufferAttribute(colB, 3));
+  const coloriB = new Float32Array(colB), baseB = Float32Array.from(colB);
+  geoB.setAttribute('color', new THREE.BufferAttribute(coloriB, 3));
   geoB.setIndex(indB);
-  const corpoB = new THREE.Mesh(geoB, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true }));
+  const corpoB = new THREE.Mesh(geoB, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide }));
   corpoB.frustumCulled = false;
   balena.add(corpoB);
-  const pelleB = new THREE.MeshBasicMaterial({ color: BIANCO, side: THREE.DoubleSide, transparent: true }), ventreB = new THREE.MeshBasicMaterial({ color: VENTRE, side: THREE.DoubleSide, transparent: true });
+  const pelleB = new THREE.MeshBasicMaterial({ color: BIANCO, side: THREE.DoubleSide }), ventreB = new THREE.MeshBasicMaterial({ color: VENTRE, side: THREE.DoubleSide });
+  // Sott'acqua la balena si sfuma nel colore del mare: resta opaca, così non tremola
+  const MARE_B = new THREE.Color(chiaro ? '#d6e6ee' : '#0e2433');
   const pinne = [-1, 1].map(v => {
     const foglia = new THREE.Shape();
     foglia.moveTo(0, 0.04); foglia.bezierCurveTo(0.16, 0.05, 0.36, -0.02, 0.5, -0.1); foglia.bezierCurveTo(0.36, -0.06, 0.16, -0.05, 0, -0.04); foglia.closePath();
@@ -322,7 +324,6 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     codaB.add(new THREE.Mesh(new THREE.ShapeGeometry(lobo, 12).rotateX(Math.PI / 2), pelleB));
   }
   balena.add(codaB);
-  balena.visible = provaBalena;
   G.add(balena);
   const GOCCE = 34, spruzzo = puntiMorbidi(GOCCE), gocce = Array.from({ length: GOCCE }, () => ({ x: 0, y: -9, z: 0, vx: 0, vy: 0, vz: 0, vita: 0 }));
   G.add(spruzzo.punti);
@@ -612,8 +613,8 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       pc.g.rotation.y = pc.verso;
     });
 
-    // La balena in prova: nuota lungo un giro largo, con un ciclo di 22 secondi
-    if (provaBalena) {
+    // La balena: nuota lungo un giro largo, con un ciclo di 22 secondi
+    {
       const ang = -s * 0.045, bx = Math.cos(ang) * 6.9, bz = Math.sin(ang) * 5.6, c = (s % 22) / 22;
       // Quota e inclinazione nel ciclo: sotto, risale, soffia e mostra il dorso, si immerge con la coda alta
       let quota: number, becco: number, tuffoVisto = 0;
@@ -624,7 +625,10 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       balena.position.set(bx, quota, bz);
       // Sott'acqua si intravede appena; in superficie è piena
       const visto = 0.28 + 0.72 * liscio(THREE.MathUtils.clamp((quota + 0.8) / 0.36, 0, 1));
-      for (const m of [corpoB.material as THREE.MeshBasicMaterial, pelleB, ventreB]) m.opacity = Math.max(visto, tuffoVisto);
+      const k = Math.max(visto, tuffoVisto);
+      for (let q = 0; q < baseB.length; q += 3) { coloriB[q] = MARE_B.r + (baseB[q]! - MARE_B.r) * k; coloriB[q + 1] = MARE_B.g + (baseB[q + 1]! - MARE_B.g) * k; coloriB[q + 2] = MARE_B.b + (baseB[q + 2]! - MARE_B.b) * k; }
+      (geoB.attributes.color as THREE.BufferAttribute).needsUpdate = true;
+      pelleB.color.copy(MARE_B).lerp(BIANCO, k); ventreB.color.copy(MARE_B).lerp(VENTRE, k);
       balena.rotation.set(0, Math.atan2(Math.sin(ang) * 6.9, -Math.cos(ang) * 5.6), 0);
       balena.rotateX(-becco);
       // La spina: un'onda che va dalla testa alla coda e cresce verso la coda; durante il tuffo la coda si alza
