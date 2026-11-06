@@ -8,7 +8,7 @@ import Base from '../../layouts/Base.astro';
   <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
   <main class="aeroporto">
     <h1>AI terms</h1>
-    <p class="sotto">Six planes, one for each section of the glossary. Answer right and the plane takes off. New flights every day, the same for everyone.</p>
+    <p class="sotto">Six planes, one for each section of the glossary, wait over the sea. Pick a flight: its plane lands with a question. Answer right and it flies around the island with its term. New flights every day, the same for everyone.</p>
     <p class="mono giorno"></p>
     <ol class="mono tabellone" aria-label="departures"></ol>
     <section class="riepilogo" hidden aria-live="polite">
@@ -30,7 +30,7 @@ import Base from '../../layouts/Base.astro';
   const giorno = document.querySelector<HTMLElement>('.giorno')!, tabellone = document.querySelector<HTMLOListElement>('.tabellone')!;
   const riepilogo = document.querySelector<HTMLElement>('.riepilogo')!;
   const data = adesso.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-  let fasi: Fase[] = voli.map(() => 'boarding');
+  let fasi: Fase[] = voli.map((_, i) => (p.fatto[i] ? 'in the air' : 'holding'));
 
   const scriviGiorno = () => { giorno.textContent = `Daily flights #${n} · ${data} · streak ${serieOra(n).serie}`; };
   // Il tabellone delle partenze: una riga per volo, si clicca per aprire il biglietto
@@ -49,7 +49,7 @@ import Base from '../../layouts/Base.astro';
   });
   const scriviTabellone = () => righe.forEach((r, i) => {
     const t = p.tentativi[i]!;
-    r.stato.textContent = p.fatto[i] ? `${quadro(t)} ${fasi[i]}` : t ? 'delayed' : 'boarding';
+    r.stato.textContent = p.fatto[i] ? `${quadro(t)} ${fasi[i]}` : t ? `delayed · ${fasi[i]}` : fasi[i]!;
     r.b.classList.toggle('partito', p.fatto[i]!);
     r.b.classList.toggle('aperto', imbarco.aperto === i);
   });
@@ -73,7 +73,7 @@ import Base from '../../layouts/Base.astro';
   });
 
   const scena = monta(document.querySelector<HTMLElement>('.scena3d')!, {
-    tinte: voli.map(v => v.tinta), partiti: [...p.fatto],
+    tinte: voli.map(v => v.tinta), termini: voli.map(v => v.voce.termine), partiti: [...p.fatto],
     alClic: i => apri(i),
     alCambio: f => { fasi = f; scriviTabellone(); },
   });
@@ -92,7 +92,7 @@ import Base from '../../layouts/Base.astro';
     },
     chiudi: () => chiudi(),
   });
-  function apri(i: number) { imbarco.mostra(i); scriviTabellone(); }
+  function apri(i: number) { imbarco.mostra(i); if (!p.fatto[i]) scena.chiama(i); scriviTabellone(); }
   function chiudi() { imbarco.nascondi(); scriviTabellone(); scriviRiepilogo(); righe[0]?.b.focus({ preventScroll: true }); }
   scriviGiorno(); scriviTabellone(); scriviRiepilogo();
 </script>
@@ -215,6 +215,9 @@ import Base from '../../layouts/Base.astro';
   @media (max-width: 640px) {
     .fondo3d { top: 300px; }
     .sotto { display: none; }
+    .tabellone :global(button) { grid-template-columns: 10px 1fr auto; gap: 8px; }
+    .tabellone :global(.codice-volo) { display: none; }
+    .tabellone :global(.stato-volo) { font-size: 11px; }
     /* Su telefono il biglietto prende la larghezza dello schermo: francobollo piccolo, niente striscia olografica */
     :global(.imbarco) { left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); width: auto; transform: none; }
     :global(.imbarco .carta) { --stub: 62px; }

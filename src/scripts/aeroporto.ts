@@ -1,47 +1,25 @@
 import * as THREE from 'three';
-import { casuale, curveLivello, linea, mat, palco, pezzo, puntiMorbidi, sasso, SITO, tono } from './natura';
+import { casuale, curveLivello, linea, mat, palco, pezzo, puntiMorbidi, sasso, SITO } from './natura';
 
-// AI terms: un'isoletta tonda con un piccolo aeroporto, nello stile di Learn: terreno a curve di livello e a punti,
-// alberi a filo, colori pieni solo per le cose giocattolo (aerei, ombrelloni, faro).
-// Sei aerei paffuti, uno per sezione del glossario. Un aereo aspetta al suo posto finché non indovini il suo termine;
-// poi rulla, decolla e gira intorno all'isola, atterra e rifà il giro. Ognuno tiene la distanza da quello davanti.
-// Intorno: pecore sul colle, una pala eolica, il faro, la balena che spruzza, il trenino dei bagagli, nuvole a filo che reagiscono al puntatore.
+// AI terms: un'isoletta tonda nello stile di Learn: terreno a curve di livello e a punti, alberi a filo, colori pieni
+// solo per le cose giocattolo (aerei, tetti, ombrelloni, faro). Il mare è un cerchio di punti che sfuma, come il laghetto.
+// Sei aerei paffuti, uno per sezione del glossario. Finché il loro termine non è indovinato girano in attesa sul mare,
+// uno sopra l'altro. Quando apri una domanda, il suo aereo arriva e atterra sulla pista con un avvicinamento dritto.
+// Se indovini, decolla e gira intorno all'isola, ognuno con il suo percorso e la sua quota, con lo striscione del termine.
+// Intorno: un paesino con la strada e il pulmino, il pontile, la spiaggia con chi nuota e un surfista, le pecore sul colle,
+// la pala eolica, il faro, la balena che affiora e si immerge, e le nuvole a filo che si scostano dal puntatore.
 
-export type Fase = 'boarding' | 'at the gate' | 'taxiing' | 'taking off' | 'in the air' | 'landing';
-type Tappa = { x: number; y: number; z: number; v: number; fase: Fase };
+export type Fase = 'holding' | 'landing' | 'boarding' | 'taking off' | 'in the air';
 
-// Quota del pianoro dove stanno pista e piazzale
+// Quota del pianoro dove sta la pista
 const H0 = 0.12, SUOLO = H0 + 0.01;
-// Il giro: rullaggio verso ovest, decollo verso est, giro largo dietro l'isola, atterraggio da ovest, uscita a est
-const GIRO: Tappa[] = [
-  { x: 0, y: SUOLO, z: -0.05, v: 0.05, fase: 'at the gate' },
-  { x: -1.5, y: SUOLO, z: -0.05, v: 0.45, fase: 'taxiing' },
-  { x: -2.35, y: SUOLO, z: 0.12, v: 0.3, fase: 'taxiing' },
-  { x: -2.2, y: SUOLO, z: 0.55, v: 0.3, fase: 'taking off' },
-  { x: -1.2, y: SUOLO, z: 0.55, v: 1, fase: 'taking off' },
-  { x: 0.4, y: SUOLO + 0.02, z: 0.55, v: 1.7, fase: 'taking off' },
-  { x: 2, y: 0.4, z: 0.55, v: 2, fase: 'taking off' },
-  { x: 4.2, y: 1.15, z: 0.4, v: 2.1, fase: 'in the air' },
-  { x: 5.7, y: 1.7, z: -1.4, v: 2.2, fase: 'in the air' },
-  { x: 4.1, y: 2.1, z: -3.7, v: 2.2, fase: 'in the air' },
-  { x: 0, y: 2.3, z: -4.5, v: 2.2, fase: 'in the air' },
-  { x: -4.1, y: 2.1, z: -3.7, v: 2.2, fase: 'in the air' },
-  { x: -5.9, y: 1.8, z: -1.2, v: 2.1, fase: 'in the air' },
-  { x: -6, y: 1.4, z: 1.5, v: 2, fase: 'landing' },
-  { x: -5, y: 0.95, z: 2.6, v: 1.9, fase: 'landing' },
-  { x: -4, y: 0.5, z: 0.95, v: 1.6, fase: 'landing' },
-  { x: -2.4, y: SUOLO + 0.04, z: 0.55, v: 1.4, fase: 'landing' },
-  { x: -0.6, y: SUOLO, z: 0.55, v: 0.9, fase: 'landing' },
-  { x: 1.4, y: SUOLO, z: 0.55, v: 0.45, fase: 'landing' },
-  { x: 2.3, y: SUOLO, z: 0.33, v: 0.35, fase: 'taxiing' },
-  { x: 2.15, y: SUOLO, z: -0.05, v: 0.35, fase: 'taxiing' },
-  { x: 1.2, y: SUOLO, z: -0.05, v: 0.4, fase: 'taxiing' },
-];
-// I sei posti davanti al terminal, con il muso verso la pista
-const POSTI = [-2, -1.2, -0.4, 0.4, 1.2, 2].map(x => ({ x, z: -0.55 }));
+// La pista è lungo x, a z = 0,55. Si atterra da ovest verso est e ci si ferma qui
+const PZ = 0.55, FERMO = new THREE.Vector3(0.5, SUOLO, PZ);
+// Il punto di attesa, sul mare dietro l'isola
+const ATTESA = new THREE.Vector3(1.2, 0, -5.9);
 
 export type OpzioniAeroporto = {
-  tinte: string[]; partiti: boolean[];
+  tinte: string[]; termini: string[]; partiti: boolean[];
   alClic: (i: number) => void;
   alCambio: (fasi: Fase[]) => void;
 };
@@ -52,17 +30,26 @@ const forma = (x: number, z: number) => {
   const t = Math.atan2(z, x), k = 1 + 0.06 * Math.sin(3 * t + 1) + 0.04 * Math.sin(5 * t + 2);
   return Math.pow(Math.pow(Math.abs(x) / RX, 2.4) + Math.pow(Math.abs(z) / RZ, 2.4), 1 / 2.4) / k;
 };
-// I colli: dietro il terminal, uno grande con la pala e uno con le pecore; due piccoli davanti
+// I colli: uno grande con la pala, uno con le pecore, uno dietro il paese, due piccoli davanti
 const COLLI = [[2.7, -2.2, 0.85, 0.65], [-2.8, -2.1, 0.5, 0.62], [-0.5, -2.6, 0.35, 0.5], [3.2, 1.9, 0.28, 0.45], [-3.3, 1.8, 0.24, 0.42]] as const;
 const altezza = (x: number, z: number) => {
   const e = forma(x, z);
   if (e >= 1) return -0.04;
   let h = H0;
   for (const [cx, cz, alto, largo] of COLLI) h += alto * Math.exp(-((x - cx) ** 2 + (z - cz) ** 2) / (2 * largo * largo));
-  // Verso la riva il terreno scende dolce fino alla spiaggia
   return h * (1 - THREE.MathUtils.smoothstep(e, 0.8, 1));
 };
 const liscio = (k: number) => k * k * (3 - 2 * k);
+
+// I percorsi degli aerei già partiti: ognuno il suo, a quote diverse. dir è il verso; u la velocità
+const PERCORSI: { punto: (f: number) => THREE.Vector3; dir: 1 | -1; u: number; giravolta?: boolean }[] = [
+  { punto: f => new THREE.Vector3(Math.cos(f) * 5.4, 1.5 + Math.sin(f * 2) * 0.15, Math.sin(f) * 5.4 * 0.78), dir: 1, u: 1.9 },
+  { punto: f => new THREE.Vector3(Math.cos(f) * 6.4, 2.3 + Math.sin(f * 2) * 0.35, Math.sin(f) * 4.5), dir: 1, u: 2.1 },
+  { punto: f => { const s = Math.sin(f), c = Math.cos(f), k = 1 + s * s; return new THREE.Vector3((5.8 * c) / k, 2.7, (6.4 * s * c) / k); }, dir: 1, u: 1.8 },
+  { punto: f => new THREE.Vector3(Math.cos(f) * 4.8, 3.1, Math.sin(f) * 3.9), dir: -1, u: 1.7 },
+  { punto: f => new THREE.Vector3(Math.cos(f) * 7, 1.25 + Math.sin(f * 3) * 0.45, Math.sin(f) * 5.1), dir: 1, u: 2.2 },
+  { punto: f => { const c = Math.cos(f), s = Math.sin(f); return new THREE.Vector3(Math.sign(c) * Math.abs(c) ** 0.6 * 6, 2, Math.sign(s) * Math.abs(s) ** 0.6 * 4.6); }, dir: -1, u: 2, giravolta: true },
+];
 
 export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   const r = casuale(11);
@@ -75,7 +62,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   const G = p.gruppo, C = p.colori, chiaro = p.chiaro;
   const M = {
     edificio: mat('#6a6a6a', { opacity: 0.1, fili: 0.75 }), vetro: mat(C.azzurro, { opacity: chiaro ? 0.25 : 0.2, fili: 0.6 }),
-    nuvola: mat('#8a8f96', { opacity: 0.05, fili: 0.22 }), balena: mat(C.azzurro, { opacity: 0.12, fili: 0.42 }), base: mat('#6a6a6a', { opacity: 0.05, fili: 0.3 }),
+    base: mat('#6a6a6a', { opacity: 0.05, fili: 0.3 }), legno: mat('#a07a50', { grezzo: true, opacity: 0.25, fili: 0.85 }),
   };
   // Un colore pieno, con i fili appena più scuri: per le cose giocattolo
   const pieno = (colore: string, scuro = 0.08, opacita = 1) => {
@@ -93,6 +80,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     g.add(ob);
     return ob;
   };
+  const FILO = chiaro ? '#3a332c' : '#e8e6e0';
 
   // --- Il terreno, come in Learn: un velo di colore che segue i colli, le curve di livello e una griglia di punti.
   // Il velo è verde dentro e color sabbia sulla spiaggia
@@ -130,7 +118,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     geo.setAttribute('position', new THREE.Float32BufferAttribute(punti, 3));
     G.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: C.muted, size: 0.025, transparent: true, opacity: 0.6 })));
   }
-  // I fianchi di terra: un velo marrone che scende nell'acqua e strati ondulati, come una torta
+  // I fianchi di terra: un velo tenue che scende nell'acqua e due strati ondulati
   const TERRA = chiaro ? '#a88a6a' : '#8f7a62';
   {
     const vert: number[] = [], indici: number[] = [], strati: number[] = [];
@@ -142,66 +130,54 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(vert, 3));
     geo.setIndex(indici);
-    const fianco = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: TERRA, transparent: true, opacity: chiaro ? 0.18 : 0.08, side: THREE.DoubleSide, depthWrite: false }));
-    G.add(fianco);
+    G.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: TERRA, transparent: true, opacity: chiaro ? 0.18 : 0.08, side: THREE.DoubleSide, depthWrite: false })));
     for (const [y0, f] of [[-0.14, 0.973], [-0.3, 0.946]] as const) for (let k = 0; k < ANGOLI; k++) {
-      const t0 = (k / ANGOLI) * Math.PI * 2, t1 = ((k + 1) / ANGOLI) * Math.PI * 2, w = (t: number) => y0 + (y0 < 0 ? Math.sin(t * 9 + y0 * 40) * 0.025 : 0);
+      const t0 = (k / ANGOLI) * Math.PI * 2, t1 = ((k + 1) / ANGOLI) * Math.PI * 2, w = (t: number) => y0 + Math.sin(t * 9 + y0 * 40) * 0.025;
       strati.push(Math.cos(t0) * rivaA(t0) * f, w(t0), Math.sin(t0) * rivaA(t0) * f, Math.cos(t1) * rivaA(t1) * f, w(t1), Math.sin(t1) * rivaA(t1) * f);
     }
     fili(strati, TERRA, 0.4);
   }
 
-  // --- Pista e piazzale: una striscia chiara con gli angoli tondi, la linea di mezzo tratteggiata e le frecce in testa
-  const tondo = (w: number, d: number, rr: number, x: number, z: number, m: THREE.Material) => {
+  // --- La pista: una striscia chiara con gli angoli tondi, la linea di mezzo tratteggiata, le frecce e le luci colorate
+  const tondo = (w: number, d: number, rr: number, x: number, z: number, m: THREE.Material, y = H0 + 0.004) => {
     const s = new THREE.Shape(), a = w / 2 - rr, b = d / 2 - rr;
     s.moveTo(-a, -d / 2); s.lineTo(a, -d / 2); s.absarc(a, -b, rr, -Math.PI / 2, 0, false); s.lineTo(w / 2, b); s.absarc(a, b, rr, 0, Math.PI / 2, false);
     s.lineTo(-a, d / 2); s.absarc(-a, b, rr, Math.PI / 2, Math.PI, false); s.lineTo(-w / 2, -b); s.absarc(-a, -b, rr, Math.PI, Math.PI * 1.5, false);
     const g = new THREE.ShapeGeometry(s, 6).rotateX(-Math.PI / 2);
-    G.add(pezzo(g, m, x, H0 + 0.004, z));
+    G.add(pezzo(g, m, x, y, z));
   };
   const PISTA = chiaro ? '#cfc6b4' : '#e8dcc0';
-  tondo(5.2, 0.52, 0.26, 0, 0.55, tenue(PISTA, chiaro ? 0.75 : 0.3, 0.9));
-  tondo(4.9, 0.2, 0.1, 0, -0.05, tenue(PISTA, chiaro ? 0.5 : 0.16, 0.6));
-  tondo(4.8, 0.62, 0.2, 0, -0.62, tenue(PISTA, chiaro ? 0.35 : 0.1, 0.45));
-  for (const x of [-2.32, 2.27]) tondo(0.2, 0.62, 0.1, x, 0.27, tenue(PISTA, chiaro ? 0.5 : 0.16, 0.6));
+  tondo(5.4, 0.52, 0.26, 0, PZ, tenue(PISTA, chiaro ? 0.75 : 0.3, 0.9));
   const Y = H0 + 0.012, segni: number[] = [], frecce: number[] = [];
-  for (let x = -1.9; x < 2; x += 0.4) segni.push(x, Y, 0.55, x + 0.2, Y, 0.55);
-  for (const [x0, v] of [[-2.35, 1], [2.35, -1]] as const) for (let k = 0; k < 3; k++) {
-    const x = x0 + v * k * 0.12;
-    frecce.push(x, Y, 0.4, x + v * 0.09, Y, 0.55, x + v * 0.09, Y, 0.55, x, Y, 0.7);
-  }
+  for (let x = -2; x < 2.1; x += 0.4) segni.push(x, Y, PZ, x + 0.2, Y, PZ);
+  for (let k = 0; k < 3; k++) { const x = -2.45 + k * 0.12; frecce.push(x, Y, PZ - 0.15, x + 0.09, Y, PZ, x + 0.09, Y, PZ, x, Y, PZ + 0.15); }
   fili(segni, chiaro ? '#ffffff' : '#fffaf0', 0.95);
   fili(frecce, '#f0603f', 0.95);
-  const giallo: number[] = [];
-  for (let x = -2.3; x < 2.3; x += 0.22) giallo.push(x, Y, -0.05, x + 0.11, Y, -0.05);
-  for (const q of POSTI) giallo.push(q.x, Y, -0.05, q.x, Y, q.z);
-  fili(giallo, '#f2c14e', 0.95);
-  // Le luci della pista, tonde e colorate, lampeggiano in fila
   const LUCI = 26, luci = puntiMorbidi(LUCI * 2), tinteLuci = ['#f2c14e', '#8fd6b4', '#ff9fb4'].map(c => new THREE.Color(c));
   G.add(luci.punti);
   for (let i = 0; i < LUCI * 2; i++) {
-    const k = i % LUCI, x = -2.5 + (k / (LUCI - 1)) * 5, z = i < LUCI ? 0.26 : 0.84, c = tinteLuci[k % 3]!;
+    const k = i % LUCI, x = -2.6 + (k / (LUCI - 1)) * 5.2, z = i < LUCI ? PZ - 0.29 : PZ + 0.29, c = tinteLuci[k % 3]!;
     luci.pos.set([x, H0 + 0.04, z], i * 3); luci.col.set([c.r, c.g, c.b], i * 3); luci.dim[i] = 0.08;
   }
 
-  // --- Il terminal: piccolo, a filo, con il tetto a onda e le bandierine dei colori delle sezioni
-  scatola(4.2, 0.32, 0.46, 0, H0, -1.22, M.edificio);
-  scatola(4, 0.16, 0.03, 0, H0 + 0.1, -0.98, M.vetro);
-  const onda = new THREE.CylinderGeometry(0.34, 0.34, 4.4, 14, 1, true, Math.PI / 2 - 0.85, 1.7);
+  // --- La stazioncina: piccola, a filo, con il tetto a onda e le bandierine dei colori delle sezioni
+  scatola(1.5, 0.26, 0.36, 0.5, H0, -0.15, M.edificio);
+  scatola(1.4, 0.13, 0.03, 0.5, H0 + 0.08, 0.035, M.vetro);
+  const onda = new THREE.CylinderGeometry(0.27, 0.27, 1.6, 12, 1, true, Math.PI / 2 - 0.85, 1.7);
   onda.rotateZ(Math.PI / 2);
-  G.add(pezzo(onda, mat('#6a6a6a', { opacity: 0.08, fili: 0.7, side: THREE.DoubleSide }), 0, H0 + 0.08, -1.22));
+  G.add(pezzo(onda, mat('#6a6a6a', { opacity: 0.08, fili: 0.7, side: THREE.DoubleSide }), 0.5, H0 + 0.06, -0.15));
   {
     const filo: number[] = [], bandiere: number[] = [], colori: number[] = [];
-    const yA = H0 + 0.52, n = 22;
+    const yA = H0 + 0.44, n = 10, x0 = -0.25, lungo = 1.5;
     for (let k = 0; k < n; k++) {
-      const x0 = -2.1 + (k / n) * 4.2, x1 = -2.1 + ((k + 1) / n) * 4.2, y = (x: number) => yA - 0.06 * Math.sin(((x + 2.1) / 4.2) * Math.PI * 3) ** 2;
-      filo.push(x0, y(x0), -1.22, x1, y(x1), -1.22);
-      const c = new THREE.Color(o.tinte[k % o.tinte.length]!), xm = (x0 + x1) / 2;
-      bandiere.push(x0 + 0.02, y(x0), -1.22, x1 - 0.02, y(x1), -1.22, xm, y(xm) - 0.1, -1.22);
+      const a = x0 + (k / n) * lungo, b = x0 + ((k + 1) / n) * lungo, y = (x: number) => yA - 0.05 * Math.sin(((x - x0) / lungo) * Math.PI * 2) ** 2;
+      filo.push(a, y(a), -0.15, b, y(b), -0.15);
+      const c = new THREE.Color(o.tinte[k % o.tinte.length]!), xm = (a + b) / 2;
+      bandiere.push(a + 0.02, y(a), -0.15, b - 0.02, y(b), -0.15, xm, y(xm) - 0.09, -0.15);
       for (let q = 0; q < 3; q++) colori.push(c.r, c.g, c.b);
     }
     fili(filo, C.muted, 0.7);
-    for (const x of [-2.1, 2.1]) tubo(0.008, 0.008, 0.42, x, H0, -1.22, M.edificio, 4);
+    for (const x of [x0, x0 + lungo]) tubo(0.008, 0.008, 0.34, x, H0, -0.15, M.edificio, 4);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(bandiere, 3));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
@@ -209,7 +185,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   }
 
   // --- La torre: fusto a filo, una bolla di vetro in cima, l'antenna a strisce bianche e rosse, la spia che lampeggia
-  const TX = -3.05, TZ = -1.05, TY = altezza(TX, TZ);
+  const TX = -3.05, TZ = -0.75, TY = altezza(TX, TZ);
   tubo(0.1, 0.17, 1.1, TX, TY, TZ, M.edificio, 10);
   tubo(0.2, 0.2, 0.05, TX, TY + 1.1, TZ, M.edificio, 12);
   const bolla = new THREE.IcosahedronGeometry(0.28, 1); bolla.scale(1, 0.72, 1);
@@ -229,7 +205,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   geoManica.rotateZ(Math.PI / 2); geoManica.translate(0.12, 0, 0);
   manica.add(pezzo(geoManica, pieno('#f2a43a')));
 
-  // --- Il faro sulla punta a est, con il fascio di luce che gira
+  // --- Il faro sulla punta a est: il fascio parte stretto dalla lanterna e si allarga verso il mare
   const FX = 4.15, FZ = -0.95, FY = altezza(FX, FZ);
   tubo(0.18, 0.2, 0.08, FX, FY, FZ, pieno('#9a958c'), 10);
   for (let k = 0; k < 4; k++) tubo(0.13 - k * 0.012, 0.145 - k * 0.012, 0.15, FX, FY + 0.08 + k * 0.15, FZ, pieno(k % 2 ? '#f0603f' : '#f4f1ea'), 10);
@@ -242,18 +218,67 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   fascio.add(new THREE.Mesh(geoFascio, new THREE.MeshBasicMaterial({ color: '#fff3a8', transparent: true, opacity: chiaro ? 0.22 : 0.12, depthWrite: false, side: THREE.DoubleSide })));
 
   // --- La pala eolica sul colle grande, come quelle di Learn
-  const PX = 2.7, PZ = -2.2, PY = altezza(PX, PZ);
+  const PX = 2.7, PZc = -2.2, PY = altezza(PX, PZc);
   const bianco = mat('#e8e6e0', { opacity: 0.25 });
-  G.add(pezzo(new THREE.CylinderGeometry(0.015, 0.035, 1.05, 6), bianco, PX, PY + 0.52, PZ));
-  G.add(pezzo(new THREE.BoxGeometry(0.09, 0.05, 0.05), bianco, PX, PY + 1.06, PZ));
+  G.add(pezzo(new THREE.CylinderGeometry(0.015, 0.035, 1.05, 6), bianco, PX, PY + 0.52, PZc));
+  G.add(pezzo(new THREE.BoxGeometry(0.09, 0.05, 0.05), bianco, PX, PY + 1.06, PZc));
   const rotore = new THREE.Group();
-  rotore.position.set(PX, PY + 1.06, PZ + 0.04);
+  rotore.position.set(PX, PY + 1.06, PZc + 0.04);
   for (let q = 0; q < 3; q++) {
     const pala = pezzo(new THREE.BoxGeometry(0.03, 0.46, 0.006).translate(0, 0.24, 0), bianco);
     pala.rotation.z = (q / 3) * Math.PI * 2;
     rotore.add(pala);
   }
   G.add(rotore);
+
+  // --- Il paesino: una strada a nord della pista, case a filo con i tetti pieni di colore, un campanile, il pulmino
+  const STRADA_Z = -0.95;
+  tondo(6, 0.16, 0.08, 0.2, STRADA_Z, tenue(PISTA, chiaro ? 0.55 : 0.2, 0.6), H0 + 0.003);
+  {
+    const strisce: number[] = [];
+    for (let x = -2.6; x < 3.1; x += 0.3) strisce.push(x, Y, STRADA_Z, x + 0.13, Y, STRADA_Z);
+    fili(strisce, chiaro ? '#ffffff' : '#fffaf0', 0.6);
+  }
+  const TETTI = ['#e85d4a', '#f2a43a', '#3e6795', '#8fd6b4', '#ff9fb4', '#f2c14e'];
+  const tetto = (w: number, d: number, h: number) => {
+    const s = new THREE.Shape();
+    s.moveTo(-w / 2 - 0.02, 0); s.lineTo(w / 2 + 0.02, 0); s.lineTo(0, h); s.closePath();
+    const g = new THREE.ExtrudeGeometry(s, { depth: d + 0.04, bevelEnabled: false });
+    g.translate(0, 0, -(d + 0.04) / 2);
+    return g;
+  };
+  const CASE: [number, number, number][] = [[-2.25, -1.28, 0], [-1.7, -1.3, 1], [-1.1, -1.27, 2], [-0.5, -1.32, 3], [0.15, -1.28, 4], [0.85, -1.3, 0], [1.5, -1.27, 5], [2.15, -1.3, 1],
+    [-2.0, -0.62, 3], [-1.35, -0.6, 4], [1.75, -0.6, 2], [2.4, -0.64, 0], [3.0, -1.25, 5]];
+  CASE.forEach(([x, z, k], i) => {
+    const w = 0.24 + ((i * 7) % 4) * 0.03, d = 0.2 + ((i * 5) % 3) * 0.03, h = 0.16 + ((i * 3) % 3) * 0.05, y = altezza(x, z);
+    const casa = new THREE.Group();
+    casa.position.set(x, y, z);
+    casa.rotation.y = ((i % 3) - 1) * 0.08;
+    G.add(casa);
+    scatola(w, h, d, 0, 0, 0, M.edificio, casa);
+    casa.add(pezzo(tetto(w, d, 0.12), pieno(TETTI[k]!, 0.12), 0, h, 0));
+    // Porta e finestrella sul lato della strada
+    const verso = z < STRADA_Z ? 1 : -1, fronte = verso * (d / 2 + 0.002);
+    fili([-0.03, 0, fronte, -0.03, 0.08, fronte, -0.03, 0.08, fronte, 0.03, 0.08, fronte, 0.03, 0.08, fronte, 0.03, 0, fronte], FILO, 0.6, casa);
+    casa.add(pezzo(new THREE.PlaneGeometry(0.04, 0.035), pieno('#ffd23f', 0.1), w / 4, h * 0.6, fronte + verso * 0.001));
+  });
+  // Il campanile, in fondo al paese
+  {
+    const x = -2.75, z = -1.3, y = altezza(x, z);
+    scatola(0.16, 0.5, 0.16, x, y, z, M.edificio);
+    G.add(pezzo(new THREE.ConeGeometry(0.13, 0.2, 4).rotateY(Math.PI / 4), pieno('#e85d4a', 0.12), x, y + 0.6, z));
+    G.add(pezzo(new THREE.CircleGeometry(0.035, 12), pieno('#f4f1ea', 0.1), x, y + 0.4, z + 0.082));
+  }
+  // Il pulmino giallo va avanti e indietro sulla strada
+  const pulmino = new THREE.Group();
+  {
+    const corpo = new THREE.CapsuleGeometry(0.045, 0.12, 3, 8); corpo.rotateZ(Math.PI / 2);
+    pulmino.add(pezzo(corpo, pieno('#f2c14e', 0.12), 0, 0.07, 0));
+    pulmino.add(pezzo(new THREE.BoxGeometry(0.15, 0.03, 0.095), vetroP(), 0, 0.09, 0));
+    for (const x of [-0.06, 0.06]) for (const z of [-0.04, 0.04]) pulmino.add(new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 6), new THREE.MeshBasicMaterial({ color: '#3a332c' })).translateX(x).translateY(0.02).translateZ(z));
+    G.add(pulmino);
+  }
+  function vetroP() { return pieno(chiaro ? '#cfeefa' : '#bfe6f5', 0.12); }
 
   // --- Le pecore sul colle a ovest: palline bianche che brucano e ogni tanto si spostano
   const PECORE = 9, PCX = -2.8, PCZ = -2.05;
@@ -270,32 +295,44 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   });
   pecore.forEach(q => { q.mx = q.x; q.mz = q.z; });
 
-  // --- Ombrelloni e teli sulla spiaggia davanti
-  const SPIAGGIA = [[-1.6, 2.55], [-0.7, 2.75], [0.5, 2.7], [1.5, 2.5]] as const;
+  // --- La spiaggia: ombrelloni e teli, una cabina a strisce, il pontile di legno che entra nel mare
+  const SPIAGGIA = [[-1.9, 2.5], [-1.1, 2.72], [-0.2, 2.75], [2.0, 2.45]] as const;
   SPIAGGIA.forEach(([x, z], k) => {
     const y = Math.max(0.005, altezza(x, z)), c = o.tinte[(k * 2 + 1) % o.tinte.length]!;
-    G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, y + 0.24, z)]), linea(chiaro ? '#3a332c' : '#e8e6e0', 0.8)));
+    G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, y + 0.24, z)]), linea(FILO, 0.8)));
     G.add(pezzo(new THREE.ConeGeometry(0.16, 0.07, 8), pieno(c, 0.12), x, y + 0.25, z));
     const telo = pezzo(new THREE.PlaneGeometry(0.1, 0.2).rotateX(-Math.PI / 2), pieno(o.tinte[(k * 2 + 4) % o.tinte.length]!, 0.1), x + 0.14, y + 0.004, z + 0.04);
     telo.rotation.y = 0.3 - k * 0.2;
     G.add(telo);
   });
-
-  // --- Il trenino dei bagagli: un trattore e tre carrelli con le valigie colorate, avanti e indietro davanti al terminal
-  const trenino = Array.from({ length: 4 }, (_, k) => {
-    const g = new THREE.Group();
-    if (!k) { g.add(pezzo(new THREE.BoxGeometry(0.12, 0.07, 0.08), pieno('#f2a43a'), 0, 0.05, 0)); g.add(pezzo(new THREE.BoxGeometry(0.05, 0.05, 0.07), M.vetro, -0.02, 0.11, 0)); }
-    else {
-      g.add(pezzo(new THREE.BoxGeometry(0.12, 0.02, 0.08), pieno('#9a958c'), 0, 0.025, 0));
-      for (let q = 0; q < 2; q++) g.add(pezzo(new THREE.BoxGeometry(0.045, 0.04, 0.06), pieno(o.tinte[(k * 2 + q) % o.tinte.length]!, 0.12), -0.028 + q * 0.056, 0.055, 0));
-    }
-    G.add(g);
-    return g;
-  });
+  {
+    const x = 2.65, z = 2.15, y = altezza(x, z);
+    for (let k = 0; k < 4; k++) scatola(0.05, 0.2, 0.18, x - 0.075 + k * 0.05, y, z, pieno(k % 2 ? '#f4f1ea' : '#3e6795', 0.1));
+    G.add(pezzo(tetto(0.2, 0.18, 0.1), pieno('#e85d4a', 0.12), x, y + 0.2, z));
+  }
+  // Il pontile: due travi, le assi di traverso e i pali che scendono nell'acqua, come quello del laghetto
+  const PONTE_X = 1.05;
+  {
+    const z0 = 2.7, z1 = 4, y0 = 0.0, y1 = -0.24, assi: number[] = [];
+    const yAt = (z: number) => y0 + ((z - z0) / (z1 - z0)) * (y1 - y0);
+    for (const x of [-0.09, 0.09]) assi.push(PONTE_X + x, y0, z0, PONTE_X + x, y1, z1);
+    for (let z = z0; z <= z1; z += 0.07) assi.push(PONTE_X - 0.11, yAt(z), z, PONTE_X + 0.11, yAt(z), z);
+    for (let z = z0 + 0.3; z <= z1; z += 0.45) for (const x of [-0.1, 0.1]) assi.push(PONTE_X + x, yAt(z), z, PONTE_X + x, -0.5, z);
+    fili(assi, '#b07a4f', chiaro ? 0.95 : 0.8);
+    const tav = new THREE.PlaneGeometry(0.22, z1 - z0).rotateX(-Math.PI / 2);
+    const piano = new THREE.Mesh(tav, new THREE.MeshBasicMaterial({ color: '#b07a4f', transparent: true, opacity: chiaro ? 0.3 : 0.18, depthWrite: false, side: THREE.DoubleSide }));
+    piano.position.set(PONTE_X, (y0 + y1) / 2, (z0 + z1) / 2);
+    piano.rotation.x = Math.atan2(y0 - y1, z1 - z0);
+    G.add(piano);
+    // Un salvagente rosso e bianco appeso in fondo
+    const ciambella = pezzo(new THREE.TorusGeometry(0.06, 0.022, 6, 14), pieno('#f0603f', 0.1), PONTE_X + 0.12, yAt(z1 - 0.1) + 0.03, z1 - 0.1);
+    ciambella.rotation.y = Math.PI / 2;
+    G.add(ciambella);
+  }
 
   // --- Alberi come quelli di Learn: il tronco è un filo, la chioma sono palle o coni a filo con un riempimento tenue
   const chiome = [mat('#6fa646'), mat('#5f9c45'), mat('#4f8a3c')];
-  const fusto = linea(chiaro ? '#3a332c' : '#e8e6e0', 0.7);
+  const fusto = linea(FILO, 0.7);
   const albero = (x: number, z: number, h: number, k: number) => {
     const ob = new THREE.Group(), m = chiome[k % 3]!, f = Math.floor(r() * 3);
     ob.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h * (f === 2 ? 0.3 : 0.55), 0)]), fusto));
@@ -315,15 +352,125 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     G.add(ob);
   };
   const vietati = (x: number, z: number) =>
-    (Math.abs(x) < 2.75 && z > -1.6 && z < 1.05) || Math.hypot(x - TX, z - TZ) < 0.45 || Math.hypot(x - FX, z - FZ) < 0.45 || Math.hypot(x - PX, z - PZ) < 0.35 ||
-    Math.hypot(x - PCX, z - PCZ) < 0.75 || (z > 2.15 && Math.abs(x) < 2.1) || Math.hypot(x + 3.6, z - 0.6) < 0.3;
+    (Math.abs(x) < 3 && z > 0.12 && z < 1.0) || (x > -3 && x < 3.35 && z > -1.55 && z < 0.12) || Math.hypot(x - TX, z - TZ) < 0.45 || Math.hypot(x - FX, z - FZ) < 0.45 ||
+    Math.hypot(x - PX, z - PZc) < 0.35 || Math.hypot(x - PCX, z - PCZ) < 0.75 || (z > 2.05 && x > -2.3 && x < 2.9) || Math.hypot(x + 3.6, z - 0.6) < 0.3;
   const posti: [number, number][] = [];
-  for (let i = 0; i < 1500 && posti.length < 46; i++) {
+  for (let i = 0; i < 1500 && posti.length < 40; i++) {
     const x = (r() - 0.5) * 9.6, z = (r() - 0.5) * 6.8;
     if (forma(x, z) < 0.86 && !vietati(x, z) && posti.every(([u, v]) => Math.hypot(u - x, v - z) > 0.3)) posti.push([x, z]);
   }
   posti.forEach(([x, z], k) => albero(x, z, 0.32 + r() * 0.22, k));
   for (let i = 0; i < 10; i++) { const t = r() * 6.28, rr = rivaA(t) * (1.02 + r() * 0.08); G.add(pezzo(sasso(0.05 + r() * 0.06, r, 0), M.base, Math.cos(t) * rr, -0.4, Math.sin(t) * rr)); }
+
+  // --- Il mare: un cerchio intorno all'isola, come il laghetto. Sotto, un velo azzurro che sfuma piano verso il bordo,
+  // senza linea di contorno; sopra, la griglia di punti che ondeggia con onde lunghe. Ogni tanto un cerchio d'acqua si allarga
+  const MARE = 8.8, AZZURRO = new THREE.Color(C.azzurro);
+  {
+    const geo = new THREE.RingGeometry(0.01, MARE, 96, 24).rotateX(-Math.PI / 2);
+    const q = geo.attributes.position as THREE.BufferAttribute, colori: number[] = [], op = chiaro ? 0.16 : 0.1;
+    for (let i = 0; i < q.count; i++) {
+      const d = Math.hypot(q.getX(i), q.getZ(i));
+      colori.push(AZZURRO.r, AZZURRO.g, AZZURRO.b, op * (1 - THREE.MathUtils.smoothstep(d, MARE * 0.35, MARE)));
+    }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 4));
+    const velo = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false }));
+    velo.position.y = -0.47;
+    velo.renderOrder = -2;
+    G.add(velo);
+  }
+  const PASSO = p.telefono ? 0.26 : 0.19, celle: { x: number; z: number; d: number }[] = [];
+  for (let x = -MARE; x <= MARE; x += PASSO) for (let z = -MARE; z <= MARE; z += PASSO) {
+    const d = Math.hypot(x, z);
+    if (forma(x, z) < 1.02 || d > MARE) continue;
+    celle.push({ x, z, d });
+  }
+  const acqua = puntiMorbidi(celle.length);
+  G.add(acqua.punti);
+  celle.forEach((c, i) => {
+    acqua.col.set([AZZURRO.r, AZZURRO.g, AZZURRO.b], i * 3);
+    acqua.dim[i] = 0.055;
+    acqua.alfa[i] = (1 - THREE.MathUtils.smoothstep(c.d, MARE - 3.4, MARE)) * (chiaro ? 0.85 : 0.72);
+    acqua.pos.set([c.x, -0.42, c.z], i * 3);
+  });
+  // L'altezza dell'onda in un punto: la usano anche i nuotatori e il surfista
+  const ondaIn = (x: number, z: number, s: number) => -0.42 + Math.sin(x * 0.9 + s * 0.7) * 0.085 + Math.sin(z * 1.2 - s * 0.55 + x * 0.35) * 0.065 + Math.sin(Math.hypot(x, z) * 1.6 - s * 0.9) * 0.04;
+  const anello = () => {
+    const pt: THREE.Vector3[] = [];
+    for (let k = 0; k <= 48; k++) { const t = (k / 48) * Math.PI * 2; pt.push(new THREE.Vector3(Math.cos(t), 0, Math.sin(t))); }
+    const ob = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pt), new THREE.LineBasicMaterial({ color: AZZURRO, transparent: true, opacity: 0 }));
+    G.add(ob);
+    return { o: ob, t: 9, x: 0, z: 0, grande: 0.6 };
+  };
+  const cerchi = Array.from({ length: 5 }, anello);
+  let prossimoCerchio = 1;
+  const nuovoCerchio = (x: number, z: number, grande: number) => { const c = cerchi.find(q => q.t >= 2.8); if (c) { c.x = x; c.z = z; c.t = 0; c.grande = grande; } };
+  const inAcqua = (x: number, z: number) => forma(x, z) > 1;
+
+  // --- Chi nuota e il surfista, davanti alla spiaggia
+  const PELLE = '#e9b48a';
+  const nuotatori = [[-1.5, 3.25], [-0.6, 3.45], [0.3, 3.3]].map(([x, z], k) => {
+    const g = new THREE.Group();
+    g.add(pezzo(new THREE.SphereGeometry(0.035, 8, 6), pieno(PELLE, 0.12), 0, 0.03, 0));
+    g.add(pezzo(new THREE.SphereGeometry(0.037, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), pieno(o.tinte[(k + 2) % o.tinte.length]!, 0.1), 0, 0.035, 0));
+    G.add(g);
+    return { g, x: x!, z: z!, f: k * 2.1 };
+  });
+  const surf = new THREE.Group();
+  {
+    const tavola = new THREE.CapsuleGeometry(0.035, 0.22, 3, 8); tavola.rotateX(Math.PI / 2); tavola.scale(1, 0.25, 1);
+    surf.add(pezzo(tavola, pieno('#ff9fb4', 0.12), 0, 0.01, 0));
+    surf.add(pezzo(new THREE.CylinderGeometry(0.018, 0.022, 0.1, 6), pieno('#3e6795', 0.1), 0, 0.07, 0));
+    surf.add(pezzo(new THREE.SphereGeometry(0.025, 8, 6), pieno(PELLE, 0.12), 0, 0.14, 0));
+    G.add(surf);
+  }
+
+  // --- La balena: bianca come i cervi della home (nera nel tema chiaro), piena e senza fili. Corpo lungo con la testa
+  // larga e piatta, le pinne lunghe ai lati, la pinna dorsale piccola e la coda a due lobi. Nuota sotto la superficie;
+  // ogni tanto affiora, spruzza, inarca il dorso e si immerge mostrando la coda
+  const BIANCO = chiaro ? '#23201b' : '#f4f1ea', pelle = new THREE.MeshBasicMaterial({ color: BIANCO, side: THREE.DoubleSide });
+  const balena = new THREE.Group(), corpoB = new THREE.LatheGeometry([[0, -0.95], [0.03, -0.86], [0.05, -0.7], [0.1, -0.42], [0.17, -0.1], [0.2, 0.2], [0.19, 0.45], [0.15, 0.66], [0.08, 0.8], [0, 0.85]].map(([a, b]) => new THREE.Vector2(a, b)), 16);
+  corpoB.rotateX(Math.PI / 2); corpoB.scale(1, 0.72, 1);
+  balena.add(new THREE.Mesh(corpoB, pelle));
+  const pinnaB = new THREE.CapsuleGeometry(0.035, 0.32, 3, 8); pinnaB.rotateZ(Math.PI / 2); pinnaB.translate(0.19, 0, 0); pinnaB.scale(1, 0.3, 1);
+  for (const v of [-1, 1]) { const f = new THREE.Mesh(pinnaB, pelle); f.position.set(v * 0.15, -0.08, 0.38); f.rotation.set(0, v > 0 ? -0.55 : Math.PI + 0.55, -0.35 * v); balena.add(f); }
+  const dorsale = new THREE.ConeGeometry(0.035, 0.08, 6); dorsale.rotateX(-0.6);
+  balena.add(new THREE.Mesh(dorsale, pelle).translateY(0.15).translateZ(-0.38));
+  const coda = new THREE.Group();
+  coda.position.z = -0.9;
+  {
+    const lobo = new THREE.Shape();
+    lobo.moveTo(0, 0.02); lobo.bezierCurveTo(0.12, 0, 0.26, -0.06, 0.36, -0.2); lobo.bezierCurveTo(0.24, -0.17, 0.12, -0.16, 0.03, -0.12); lobo.lineTo(0, -0.1);
+    lobo.lineTo(-0.03, -0.12); lobo.bezierCurveTo(-0.12, -0.16, -0.24, -0.17, -0.36, -0.2); lobo.bezierCurveTo(-0.26, -0.06, -0.12, 0, 0, 0.02);
+    coda.add(new THREE.Mesh(new THREE.ShapeGeometry(lobo, 10).rotateX(Math.PI / 2), pelle));
+  }
+  balena.add(coda);
+  balena.scale.setScalar(0.8);
+  G.add(balena);
+  const GOCCE = 30, spruzzo = puntiMorbidi(GOCCE), gocce = Array.from({ length: GOCCE }, () => ({ x: 0, y: -9, z: 0, vx: 0, vy: 0, vz: 0, vita: 0 }));
+  G.add(spruzzo.punti);
+  for (let i = 0; i < GOCCE; i++) { spruzzo.col.set([0.85, 0.94, 1], i * 3); spruzzo.dim[i] = 0.07; spruzzo.alfa[i] = 0; }
+  let spruzzato = false;
+
+  // --- Nuvole a filo, sparse a caso in tutto il cielo, ognuna con la sua forma. Appaiono piano; il vento le porta tutte
+  // nella stessa direzione e, quando escono dal cielo, svaniscono e rinascono dall'altra parte. Il puntatore le scosta
+  const VENTO = new THREE.Vector3(1, 0, 0.35).normalize(), CIELO = 10;
+  const nuvole = Array.from({ length: 10 }, () => {
+    const g = new THREE.Group(), m = mat('#8a8f96', { opacity: 0.05, fili: 0.22 }), linea0 = m.userData.linea as THREE.LineBasicMaterial;
+    const n = 3 + Math.floor(r() * 5), largo = 0.5 + r() * 0.7;
+    const sbuffi = Array.from({ length: n }, (_, i) => {
+      const t = n > 1 ? i / (n - 1) - 0.5 : 0, d = (0.2 + r() * 0.28) * (1 - Math.abs(t) * 0.6);
+      const ob = pezzo(sasso(d, r, 1), m, t * largo * 2 + (r() - 0.5) * 0.2, (r() - 0.2) * 0.16 + (0.5 - Math.abs(t)) * 0.12, (r() - 0.5) * 0.45);
+      g.add(ob);
+      return { ob, x0: ob.position.x, y0: ob.position.y, z0: ob.position.z, vx: 0, vy: 0, vz: 0 };
+    });
+    const a = r() * Math.PI * 2, dd = Math.sqrt(r()) * CIELO * 0.95;
+    g.position.set(Math.cos(a) * dd, 3.5 + r() * 1.6, Math.sin(a) * dd);
+    g.rotation.y = r() * Math.PI;
+    g.scale.setScalar(0.45 + r() * 0.45);
+    G.add(g);
+    return { g, m, linea0, sbuffi, vista: 0, ritardo: 0.3 + r() * 5, vel: 0.06 + r() * 0.06, esce: 1 };
+  });
+  const tmpN = new THREE.Vector3(), vicino = new THREE.Vector3();
 
   // --- L'aereo paffuto: muso verso +z. Fusoliera tonda, ali a capsula, coda, finestrino, ruote ed elica che gira
   const geoCorpo = new THREE.LatheGeometry([[0, -0.3], [0.035, -0.29], [0.062, -0.2], [0.086, -0.06], [0.092, 0.05], [0.082, 0.14], [0.052, 0.2], [0, 0.225]].map(([a, b]) => new THREE.Vector2(a, b)), 12);
@@ -334,8 +481,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   const geoVetro = new THREE.SphereGeometry(0.045, 10, 6); geoVetro.scale(0.9, 0.6, 1.2);
   const geoRuota = new THREE.SphereGeometry(0.026, 8, 6);
   const geoPala = new THREE.BoxGeometry(0.27, 0.032, 0.008), geoMozzo = new THREE.SphereGeometry(0.026, 8, 6);
-  const grigio = pieno('#8a8078', 0.06), vetro = pieno(chiaro ? '#cfeefa' : '#bfe6f5', 0.12);
-  // Solo la sagoma ha i fili: dentro, il colore resta pieno
+  const grigio = pieno('#8a8078', 0.06), vetro = vetroP();
   const nuovoAereo = (colore: string) => {
     const g = new THREE.Group(), dentro = new THREE.Group(), corpo = pieno(colore, 0.1), ali = pieno(new THREE.Color(colore).offsetHSL(0, 0, -0.05).getStyle(), 0.1);
     dentro.position.y = 0.12;
@@ -354,28 +500,62 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     return { g, elica };
   };
 
-  // --- Il giro: arco di curva per ogni tappa, per sapere a che velocità si va in ogni punto
-  const curva = new THREE.CatmullRomCurve3(GIRO.map(t => new THREE.Vector3(t.x, t.y, t.z)), true, 'centripetal');
-  const PASSI = GIRO.length * 40;
-  curva.arcLengthDivisions = PASSI;
-  const lunghezze = curva.getLengths(PASSI), LUNGO = lunghezze[PASSI]!, sTappa = GIRO.map((_, i) => lunghezze[i * 40]!);
-  const dove = (s: number) => { let i = GIRO.length - 1; while (i > 0 && sTappa[i]! > s) i--; const j = (i + 1) % GIRO.length, fine = j ? sTappa[j]! : LUNGO; return { i, j, f: (s - sTappa[i]!) / Math.max(1e-4, fine - sTappa[i]!) }; };
-  const SOSTA = sTappa[0]!;
-  // Il punto della linea gialla davanti a ogni posto: da lì l'aereo entra nel giro
-  const ingresso = POSTI.map(q => {
-    let meglio = 0, dm = 9;
-    for (let k = 0; k <= PASSI; k++) {
-      const pt = curva.getPointAt(k / PASSI);
-      if (pt.y > SUOLO + 0.01 || Math.abs(pt.z + 0.05) > 0.04) continue;
-      const dd = Math.abs(pt.x - q.x);
-      if (dd < dm) { dm = dd; meglio = k; }
+  // --- Lo striscione: un nastro che segue la scia dell'aereo, con il termine scritto sopra, nel colore della sezione
+  const inchiostro = (hex: string) => {
+    const [a, b, c] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255) as [number, number, number];
+    return 0.2126 * a + 0.7152 * b + 0.0722 * c > 0.45 ? '#121417' : '#f4f1ea';
+  };
+  const SEGMENTI = 18;
+  const nuovoStriscione = (testo: string, tinta: string) => {
+    const tela = document.createElement('canvas'), parola = testo.toUpperCase();
+    tela.width = 1024; tela.height = 96;
+    const cx = tela.getContext('2d')!;
+    cx.fillStyle = tinta; cx.fillRect(0, 0, 1024, 96);
+    cx.strokeStyle = inchiostro(tinta); cx.lineWidth = 6; cx.strokeRect(6, 6, 1012, 84);
+    cx.fillStyle = inchiostro(tinta); cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    let corpo = 58;
+    do { cx.font = `bold ${corpo}px ui-monospace, Menlo, Consolas, monospace`; corpo -= 2; } while (cx.measureText(parola).width > 960 && corpo > 20);
+    cx.fillText(parola, 512, 50);
+    const mappa = new THREE.CanvasTexture(tela);
+    mappa.colorSpace = THREE.SRGBColorSpace;
+    mappa.anisotropy = 4;
+    const geo = new THREE.BufferGeometry(), pos = new Float32Array((SEGMENTI + 1) * 2 * 3), uv: number[] = [], indici: number[] = [];
+    for (let k = 0; k <= SEGMENTI; k++) {
+      // Il testo si legge dalla coda dell'aereo verso il fondo dello striscione
+      uv.push(k / SEGMENTI, 1, k / SEGMENTI, 0);
+      if (k < SEGMENTI) indici.push(k * 2, k * 2 + 1, k * 2 + 2, k * 2 + 1, k * 2 + 3, k * 2 + 2);
     }
-    return (meglio / PASSI) * LUNGO;
-  });
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(indici);
+    const nastro = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: mappa, side: THREE.DoubleSide, transparent: true, opacity: 0 }));
+    nastro.frustumCulled = false;
+    const fune = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: FILO, transparent: true, opacity: 0 }));
+    fune.frustumCulled = false;
+    G.add(nastro, fune);
+    return { nastro, fune, pos, lungo: THREE.MathUtils.clamp(parola.length * 0.095, 0.85, 1.8), dritto: true };
+  };
 
-  type Aereo = { g: THREE.Group; elica: THREE.Group; ombra: THREE.Mesh; s: number; v: number; attesa: number; rollio: number; volo: boolean; esce: number; fase: Fase };
-  const quanti = o.partiti.filter(Boolean).length;
-  let giaInVolo = 0;
+  // --- Gli aerei e i loro stati: attesa sul mare, arrivo e atterraggio, fermo sulla pista, decollo, giro con lo striscione
+  type Stato = 'attesa' | 'arrivo' | 'fermo' | 'decollo' | 'ritorno' | 'giro';
+  type Rotta = { curva: THREE.CatmullRomCurve3; lungo: number; s: number; veloce?: boolean };
+  type Aereo = {
+    g: THREE.Group; elica: THREE.Group; ombra: THREE.Mesh; stato: Stato; rotta: Rotta | null; f: number; v: number;
+    rollio: number; via: boolean; fatto: boolean; scia: THREE.Vector3[]; striscione: ReturnType<typeof nuovoStriscione>; vista: number; prima: THREE.Vector3; dir: THREE.Vector3;
+  };
+  const puntoAttesa = (i: number, f: number) => new THREE.Vector3(ATTESA.x + Math.cos(f) * 1.05, 1.6 + i * 0.36, ATTESA.z + Math.sin(f) * 0.75);
+  const nuovaRotta = (punti: THREE.Vector3[]): Rotta => {
+    const curva = new THREE.CatmullRomCurve3(punti, false, 'centripetal');
+    curva.arcLengthDivisions = 400;
+    return { curva, lungo: curva.getLength(), s: 0 };
+  };
+  // Il punto del percorso più vicino a un punto dato, e il parametro di poco più avanti
+  const aggancio = (i: number, vicinoA: THREE.Vector3) => {
+    const pr = PERCORSI[i]!;
+    let meglio = 0, dm = 1e9;
+    for (let k = 0; k < 120; k++) { const f = (k / 120) * Math.PI * 2, dd = pr.punto(f).distanceTo(vicinoA); if (dd < dm) { dm = dd; meglio = f; } }
+    return meglio;
+  };
   const aerei: Aereo[] = o.tinte.map((t, i) => {
     const { g, elica } = nuovoAereo(t);
     g.userData.indice = i;
@@ -383,13 +563,36 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     const ombra = new THREE.Mesh(new THREE.CircleGeometry(0.2, 14), new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: chiaro ? 0.14 : 0.3, depthWrite: false }));
     ombra.rotation.x = -Math.PI / 2; ombra.scale.set(1.3, 0.6, 1);
     G.add(ombra);
-    const q = POSTI[i % POSTI.length]!;
-    g.position.set(q.x, SUOLO, q.z);
-    // Chi è già partito oggi vola subito, distanziato dagli altri
-    const volo = !!o.partiti[i];
-    const s = volo ? (LUNGO * ((giaInVolo++ + 0.3) / Math.max(1, quanti))) % LUNGO : 0;
-    return { g, elica, ombra, s, v: volo ? 1.5 : 0, attesa: 0, rollio: 0, volo, esce: volo ? 1 : 0, fase: (volo ? 'in the air' : 'boarding') as Fase };
+    const fatto = !!o.partiti[i], f = fatto ? r() * Math.PI * 2 : (i / o.tinte.length) * Math.PI * 2;
+    const inizio = fatto ? PERCORSI[i % PERCORSI.length]!.punto(f) : puntoAttesa(i, f);
+    g.position.copy(inizio);
+    return {
+      g, elica, ombra, stato: fatto ? 'giro' : 'attesa', rotta: null, f, v: 0, rollio: 0, via: false, fatto,
+      scia: Array.from({ length: 140 }, () => inizio.clone()), striscione: nuovoStriscione(o.termini[i] ?? '', t), vista: fatto ? 1 : 0, prima: inizio.clone(), dir: new THREE.Vector3(1, 0, 0),
+    };
   });
+  // Arrivo: dal punto in cui si trova, dietro l'isola verso ovest, poi un avvicinamento dritto e in discesa costante
+  const rottaArrivo = (a: Aereo) => nuovaRotta([
+    a.g.position.clone(), new THREE.Vector3(-1.2, 2, -5.6), new THREE.Vector3(-4.4, 1.85, -4.6), new THREE.Vector3(-7.4, 1.6, -2.6),
+    new THREE.Vector3(-8.6, 1.35, -0.6), new THREE.Vector3(-7.6, 1.18, PZ), new THREE.Vector3(-5.4, 0.76, PZ),
+    new THREE.Vector3(-2.6, SUOLO + 0.02, PZ), new THREE.Vector3(-1.2, SUOLO, PZ), FERMO.clone(),
+  ]);
+  // Decollo: verso est sulla pista, salita, poi si aggancia al suo percorso (o torna in attesa)
+  const rottaDecollo = (a: Aereo, i: number, inAttesa: boolean) => {
+    const uscita = [FERMO.clone(), new THREE.Vector3(1.6, SUOLO, PZ), new THREE.Vector3(2.8, SUOLO + 0.05, PZ), new THREE.Vector3(4.4, 0.6, PZ), new THREE.Vector3(6, 1.3, -0.3)];
+    // Se sta ancora arrivando: in volo riattacca dal punto in cui è; sulla pista riparte da dove sta rullando
+    let veloce = false;
+    if (a.stato === 'arrivo' && a.g.position.y > 0.3) { uscita.splice(0, uscita.length, a.g.position.clone(), a.g.position.clone().add(a.dir.clone().multiplyScalar(1.2)).setY(a.g.position.y + 0.5)); veloce = true; }
+    else if (a.stato === 'arrivo') uscita[0] = a.g.position.clone();
+    if (inAttesa) {
+      a.f = Math.atan2((-0.3 - ATTESA.z) / 0.75, (6 - ATTESA.x) / 1.05);
+      return { ...nuovaRotta([...uscita, new THREE.Vector3(6.4, 1.6, -3.4), puntoAttesa(i, a.f), puntoAttesa(i, a.f + 0.35)]), veloce };
+    }
+    const pr = PERCORSI[i]!, f0 = aggancio(i, new THREE.Vector3(7, 1.6, -1.5));
+    a.f = f0 + pr.dir * 0.25;
+    return { ...nuovaRotta([...uscita, pr.punto(f0), pr.punto(a.f)]), veloce };
+  };
+  const passo = (a: Aereo) => a.rotta!.curva.getPointAt(Math.min(1, a.rotta!.s / a.rotta!.lungo));
 
   // Clic su un aereo: apre il suo biglietto
   function clic(raggio: THREE.Raycaster) {
@@ -400,91 +603,10 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     if (x) o.alClic(x.userData.indice as number);
   }
 
-  // --- Il mare: un cerchio intorno all'isola, come il laghetto. Sotto, dischi azzurri tenui a strati, più intensi vicino
-  // all'isola; sopra, la griglia di punti che ondeggia con onde lunghe e placide e sfuma verso il bordo del cerchio.
-  // Ogni tanto un cerchio d'acqua nasce in un punto del mare, si allarga e svanisce
-  const MARE = 8.6, AZZURRO = new THREE.Color(C.azzurro);
-  [1, 0.8, 0.62].forEach((k, n) => {
-    const disco = new THREE.Mesh(new THREE.CircleGeometry(MARE * k, 96), new THREE.MeshBasicMaterial({ color: AZZURRO, transparent: true, opacity: (n ? 0.04 : 0.07) * (chiaro ? 1.4 : 1), depthWrite: false }));
-    disco.rotation.x = -Math.PI / 2;
-    disco.position.y = -0.47 - n * 0.002;
-    disco.renderOrder = -2;
-    G.add(disco);
-  });
-  {
-    const bordo: THREE.Vector3[] = [];
-    for (let k = 0; k <= 128; k++) { const t = (k / 128) * Math.PI * 2; bordo.push(new THREE.Vector3(Math.cos(t) * MARE, -0.46, Math.sin(t) * MARE)); }
-    G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(bordo), new THREE.LineBasicMaterial({ color: AZZURRO, transparent: true, opacity: chiaro ? 0.5 : 0.3 })));
-  }
-  const PASSO = p.telefono ? 0.26 : 0.19, celle: { x: number; z: number; d: number }[] = [];
-  for (let x = -MARE; x <= MARE; x += PASSO) for (let z = -MARE; z <= MARE; z += PASSO) {
-    const d = Math.hypot(x, z);
-    if (forma(x, z) < 1.02 || d > MARE) continue;
-    celle.push({ x, z, d });
-  }
-  const acqua = puntiMorbidi(celle.length);
-  G.add(acqua.punti);
-  celle.forEach((c, i) => {
-    acqua.col.set([AZZURRO.r, AZZURRO.g, AZZURRO.b], i * 3);
-    acqua.dim[i] = 0.055;
-    acqua.alfa[i] = (1 - THREE.MathUtils.smoothstep(c.d, MARE - 1.8, MARE)) * (chiaro ? 0.85 : 0.72);
-    acqua.pos.set([c.x, -0.42, c.z], i * 3);
-  });
-  const anello = () => {
-    const pt: THREE.Vector3[] = [];
-    for (let k = 0; k <= 48; k++) { const t = (k / 48) * Math.PI * 2; pt.push(new THREE.Vector3(Math.cos(t), 0, Math.sin(t))); }
-    const o = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pt), new THREE.LineBasicMaterial({ color: AZZURRO, transparent: true, opacity: 0 }));
-    G.add(o);
-    return { o, t: 9, x: 0, z: 0 };
-  };
-  const cerchi = Array.from({ length: 4 }, anello);
-  let prossimoCerchio = 1;
-  const inAcqua = (x: number, z: number) => forma(x, z) > 1;
-
-  // --- La balena: bianca come i cervi della home (nera nel tema chiaro), piena e senza fili. Testa tonda, corpo che si
-  // stringe verso la coda, due pinne ai lati e la coda a due lobi che batte su e giù. Nuota appena sotto la superficie,
-  // ogni tanto affiora con il dorso e spruzza
-  const BIANCO = chiaro ? '#23201b' : '#f4f1ea', pelle = new THREE.MeshBasicMaterial({ color: BIANCO, side: THREE.DoubleSide });
-  const balena = new THREE.Group(), corpoB = new THREE.LatheGeometry([[0, -0.78], [0.04, -0.7], [0.07, -0.5], [0.15, -0.2], [0.21, 0.12], [0.22, 0.38], [0.19, 0.6], [0.11, 0.76], [0, 0.82]].map(([a, b]) => new THREE.Vector2(a, b)), 14);
-  corpoB.rotateX(Math.PI / 2); corpoB.scale(1, 0.78, 1);
-  balena.add(new THREE.Mesh(corpoB, pelle));
-  const pinnaB = new THREE.CapsuleGeometry(0.05, 0.16, 3, 8); pinnaB.rotateZ(Math.PI / 2); pinnaB.scale(1, 0.25, 1);
-  for (const v of [-1, 1]) { const f = new THREE.Mesh(pinnaB, pelle); f.position.set(v * 0.25, -0.07, 0.36); f.rotation.set(0, v * 0.6, v * 0.35); balena.add(f); }
-  const coda = new THREE.Group();
-  coda.position.z = -0.74;
-  {
-    const lobo = new THREE.Shape();
-    lobo.moveTo(0, 0); lobo.quadraticCurveTo(0.12, -0.02, 0.28, -0.16); lobo.quadraticCurveTo(0.16, -0.16, 0.05, -0.1); lobo.quadraticCurveTo(0.02, -0.06, 0, -0.07);
-    lobo.quadraticCurveTo(-0.02, -0.06, -0.05, -0.1); lobo.quadraticCurveTo(-0.16, -0.16, -0.28, -0.16); lobo.quadraticCurveTo(-0.12, -0.02, 0, 0);
-    const g = new THREE.ShapeGeometry(lobo, 8).rotateX(Math.PI / 2);
-    coda.add(new THREE.Mesh(g, pelle));
-  }
-  balena.add(coda);
-  G.add(balena);
-  const GOCCE = 26, spruzzo = puntiMorbidi(GOCCE), gocce = Array.from({ length: GOCCE }, () => ({ x: 0, y: -9, z: 0, vx: 0, vy: 0, vz: 0, vita: 0 }));
-  G.add(spruzzo.punti);
-  for (let i = 0; i < GOCCE; i++) { spruzzo.col.set([0.85, 0.94, 1], i * 3); spruzzo.dim[i] = 0.07; spruzzo.alfa[i] = 0; }
-  let prossimoSpruzzo = 3;
-
-  // --- Nuvole a filo: otto, ognuna fatta di quattro o cinque sbuffi. Nascono trasparenti e appaiono piano; quando escono
-  // dal cielo svaniscono e rinascono dall'altra parte. Vicino al puntatore gli sbuffi si scostano come gelatina e il filo si accende
-  const nuvole = Array.from({ length: 8 }, (_, k) => {
-    const g = new THREE.Group(), m = mat('#8a8f96', { opacity: 0.05, fili: 0.22 }), linea0 = m.userData.linea as THREE.LineBasicMaterial;
-    const sbuffi = Array.from({ length: 4 + (k % 2) }, (_, i) => {
-      const d = 0.24 + r() * 0.22, ob = pezzo(sasso(d, r, 1), m, (i - 2) * 0.36 + (r() - 0.5) * 0.15, (r() - 0.3) * 0.18, (r() - 0.5) * 0.3);
-      g.add(ob);
-      return { ob, x0: ob.position.x, y0: ob.position.y, z0: ob.position.z, vx: 0, vy: 0, vz: 0, luce: 0 };
-    });
-    g.position.set(-9 + (k / 8) * 18 + (r() - 0.5) * 1.5, 2.9 + r() * 1.3, -5.2 + r() * 8);
-    g.scale.setScalar(0.6 + r() * 0.45);
-    G.add(g);
-    return { g, m, linea0, sbuffi, vista: 0, ritardo: 0.4 + k * 0.45, vel: 0.05 + r() * 0.05 };
-  });
-  const tmpN = new THREE.Vector3(), vicino = new THREE.Vector3();
-
   // --- Ogni fotogramma
-  const q = new THREE.Vector3(), d = new THREE.Vector3(), su = new THREE.Vector3(0, 1, 0), m4 = new THREE.Matrix4(), zero = new THREE.Vector3(), rot = new THREE.Quaternion(), asse = new THREE.Vector3(0, 0, 1), rol = new THREE.Quaternion(), fermo = new THREE.Quaternion();
-  let ultimo = '', tempoLista = 0, treninoX = 0;
+  const d = new THREE.Vector3(), su = new THREE.Vector3(0, 1, 0), m4 = new THREE.Matrix4(), zero = new THREE.Vector3(), rot = new THREE.Quaternion(), asse = new THREE.Vector3(0, 0, 1), rol = new THREE.Quaternion();
+  const coda0 = new THREE.Vector3(), tmp = new THREE.Vector3();
+  let ultimo = '', tempoLista = 0;
   function aggiorna(s: number, dt: number) {
     radar.rotation.y = s * 1.6;
     rotore.rotation.z = s * 1.3;
@@ -493,76 +615,114 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     (spia.material as THREE.MeshBasicMaterial).opacity = Math.floor(s * 1.4) % 2 ? 1 : 0.15;
     for (let i = 0; i < LUCI * 2; i++) luci.alfa[i] = Math.max(0.3, 1 - ((s * 9 - (i % LUCI)) % LUCI + LUCI) % LUCI / 6);
     luci.aggiorna();
-    celle.forEach((c, i) => { acqua.pos[i * 3 + 1] = -0.42 + Math.sin(c.x * 0.9 + s * 0.7) * 0.055 + Math.sin(c.z * 1.2 - s * 0.55 + c.x * 0.35) * 0.045 + Math.sin(c.d * 1.6 - s * 0.9) * 0.025; });
+    celle.forEach((c, i) => { acqua.pos[i * 3 + 1] = ondaIn(c.x, c.z, s); });
+    acqua.aggiorna();
     prossimoCerchio -= dt;
     if (prossimoCerchio <= 0) {
       prossimoCerchio = 0.9 + r() * 1.4;
-      const c = cerchi.find(q => q.t >= 2.8);
-      if (c) for (let k = 0; k < 20; k++) {
-        const t = r() * 6.28, d = 4 + r() * 4;
-        if (forma(Math.cos(t) * d, Math.sin(t) * d) > 1.15) { c.x = Math.cos(t) * d; c.z = Math.sin(t) * d; c.t = 0; break; }
+      for (let k = 0; k < 20; k++) {
+        const t = r() * 6.28, dd = 4 + r() * 4;
+        if (forma(Math.cos(t) * dd, Math.sin(t) * dd) > 1.15) { nuovoCerchio(Math.cos(t) * dd, Math.sin(t) * dd, 0.6); break; }
       }
     }
     cerchi.forEach(c => {
       c.t += dt;
       const k = Math.min(1, c.t / 2.8);
-      c.o.position.set(c.x, -0.4, c.z);
-      c.o.scale.setScalar(0.05 + k * 0.6);
+      c.o.position.set(c.x, -0.38, c.z);
+      c.o.scale.setScalar(0.05 + k * c.grande);
       (c.o.material as THREE.LineBasicMaterial).opacity = (1 - k) * (chiaro ? 0.8 : 0.6);
     });
-    acqua.aggiorna();
 
-    // Gli aerei al posto aspettano con l'elica lenta. Quelli partiti guardano l'aereo davanti: se è troppo vicino rallentano
-    const inVolo = aerei.filter(a => a.volo);
+    // Gli aerei
     aerei.forEach((a, i) => {
-      a.elica.rotation.z += dt * (a.volo ? 26 : 5);
-      if (!a.volo) {
-        const pp = POSTI[i]!;
-        a.g.position.set(pp.x, SUOLO, pp.z);
-        a.g.rotation.set(0, 0, 0);
-        a.ombra.position.set(pp.x + 0.02, H0 + 0.008, pp.z + 0.01);
-        a.ombra.rotation.z = Math.PI / 2;
-        a.fase = 'boarding';
-        return;
+      a.elica.rotation.z += dt * (a.stato === 'fermo' ? 6 : 28);
+      a.prima.copy(a.g.position);
+      const pr = PERCORSI[i]!;
+      if (a.stato === 'attesa') {
+        a.f += dt * 1.25;
+        a.g.position.copy(puntoAttesa(i, a.f));
+      } else if (a.stato === 'giro') {
+        // Velocità costante lungo il percorso: il passo nel parametro dipende da quanto è lungo il tratto
+        const lungoTratto = pr.punto(a.f).distanceTo(pr.punto(a.f + 0.01)) / 0.01;
+        a.f += (pr.dir * pr.u * dt) / Math.max(0.3, lungoTratto);
+        a.g.position.copy(pr.punto(a.f));
+      } else if (a.stato === 'fermo') {
+        a.g.position.copy(FERMO);
+        if (a.via) { a.rotta = rottaDecollo(a, i, false); a.stato = 'decollo'; a.via = false; }
+      } else if (a.rotta) {
+        const resto = a.rotta.lungo - a.rotta.s;
+        let v: number;
+        if (a.stato === 'arrivo') v = Math.min(2 - Math.max(0, 1 - (resto - 3) / 4) * 0.6, Math.sqrt(0.75 * Math.max(0, resto)) + 0.04);
+        else v = Math.min(2, Math.sqrt(1.3 * a.rotta.s) + (a.rotta.veloce ? 1.6 : 0.12));
+        a.v = v;
+        a.rotta.s += v * dt;
+        a.g.position.copy(passo(a));
+        if (a.rotta.s >= a.rotta.lungo) {
+          if (a.stato === 'arrivo') { a.stato = 'fermo'; a.rotta = null; }
+          else if (a.stato === 'decollo') { a.stato = 'giro'; a.rotta = null; }
+          else { a.stato = 'attesa'; a.rotta = null; a.f += 0.35; }
+        }
       }
-      const { i: t0, j: t1, f } = dove(a.s), A = GIRO[t0]!, B = GIRO[t1]!;
-      let voluta = A.v + (B.v - A.v) * f;
-      let gap = LUNGO;
-      inVolo.forEach(b => { if (b !== a) gap = Math.min(gap, (b.s - a.s + LUNGO) % LUNGO); });
-      voluta = Math.min(voluta, Math.max(0, (gap - 0.7) * 1.4));
-      const prima = (SOSTA - a.s + LUNGO) % LUNGO;
-      if (a.attesa > 0) { a.attesa -= dt; voluta = 0; }
-      else {
-        if (prima < 0.7) voluta = Math.min(voluta, 0.08 + prima * 0.55);
-        if (prima < 0.02) a.attesa = 3;
+      // L'orientamento segue il movimento; nelle curve, in volo, l'aereo si inclina
+      d.subVectors(a.g.position, a.prima);
+      const mosso = d.length();
+      if (mosso > 1e-5) {
+        d.divideScalar(mosso);
+        const volta = (a.dir.x * d.z - a.dir.z * d.x) / Math.max(1e-4, mosso) * 0.25, inAria = a.g.position.y > 0.4;
+        a.rollio += ((inAria ? THREE.MathUtils.clamp(volta * 3.2, -0.65, 0.65) : 0) - a.rollio) * Math.min(1, dt * 3);
+        a.dir.copy(d);
       }
-      if (a.esce < 1) { a.esce = Math.min(1, a.esce + dt / 1.6); voluta = Math.min(voluta, 0.15); }
-      a.v += (voluta - a.v) * Math.min(1, dt * 2.5);
-      a.s = (a.s + a.v * dt + LUNGO) % LUNGO;
-      curva.getPointAt(a.s / LUNGO, q); curva.getTangentAt(a.s / LUNGO, d);
-      q.y = Math.max(SUOLO, q.y);
-      m4.lookAt(d, zero, su);
+      m4.lookAt(a.dir, zero, su);
       rot.setFromRotationMatrix(m4);
-      // Si inclina nelle curve, solo in volo
-      const dx = d.x, dz = d.z;
-      curva.getTangentAt(((a.s + 0.25) % LUNGO) / LUNGO, d);
-      const volta = dx * d.z - dz * d.x, inAria = q.y > 0.45;
-      a.rollio += ((inAria ? THREE.MathUtils.clamp(volta * 3.2, -0.6, 0.6) : 0) - a.rollio) * Math.min(1, dt * 3);
-      rol.setFromAxisAngle(asse, a.rollio);
-      rot.multiply(rol);
-      // L'uscita dal posto: dalla posa al posto si passa piano alla posa sulla linea gialla
-      if (a.esce < 1) {
-        const k = liscio(a.esce), pp = POSTI[i]!;
-        q.set(pp.x + (q.x - pp.x) * k, q.y, pp.z + (q.z - pp.z) * k);
-        a.g.quaternion.copy(fermo.identity().slerp(rot, k));
-      } else a.g.quaternion.copy(rot);
-      a.g.position.copy(q);
-      const x = q.x, z = q.z, h = q.y;
+      let giro = a.rollio;
+      // Uno dei sei fa una giravolta a ogni giro
+      if (pr.giravolta && a.stato === 'giro') { const fm = ((a.f % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2); if (fm < 0.9) giro += liscio(fm / 0.9) * Math.PI * 2 * -pr.dir; }
+      rol.setFromAxisAngle(asse, giro);
+      a.g.quaternion.copy(rot).multiply(rol);
+      const x = a.g.position.x, z = a.g.position.z, h = a.g.position.y;
       const sotto = inAcqua(x, z) ? -0.4 : Math.max(0.005, altezza(x, z)) + 0.008;
       a.ombra.position.set(x + (h - sotto) * 0.12, sotto, z + (h - sotto) * 0.08);
-      a.ombra.rotation.z = Math.atan2(dx, dz) + Math.PI / 2;
-      (a.ombra.material as THREE.MeshBasicMaterial).opacity = (chiaro ? 0.14 : 0.3) * Math.max(0.3, 1 - (h - sotto) * 0.25);
-      a.fase = a.attesa > 0 || prima < 0.4 ? 'at the gate' : A.fase;
+      a.ombra.rotation.z = Math.atan2(a.dir.x, a.dir.z) + Math.PI / 2;
+      (a.ombra.material as THREE.MeshBasicMaterial).opacity = (chiaro ? 0.14 : 0.3) * Math.max(0.2, 1 - (h - sotto) * 0.25);
+
+      // La scia: le ultime posizioni, per far seguire lo striscione
+      if (mosso > 0.004) { const vecchio = a.scia.pop()!; vecchio.copy(a.g.position); a.scia.unshift(vecchio); }
+      const st = a.striscione, mostra = a.fatto && (a.stato === 'giro' || (a.stato === 'decollo' && h > 0.5));
+      a.vista = Math.max(0, Math.min(1, a.vista + (mostra ? dt : -dt * 2)));
+      (st.nastro.material as THREE.MeshBasicMaterial).opacity = a.vista;
+      (st.fune.material as THREE.LineBasicMaterial).opacity = a.vista * 0.8;
+      st.nastro.visible = st.fune.visible = a.vista > 0.01;
+      if (st.nastro.visible) {
+        // Punti della scia a distanze fisse dietro l'aereo: la fune, poi lo striscione che ondeggia
+        const inizioN = 0.42, campioni: THREE.Vector3[] = [];
+        let k = 0, fatta = 0, cerca = inizioN;
+        coda0.copy(a.g.position).addScaledVector(a.dir, -0.3);
+        const lungoTot = inizioN + st.lungo, segno = st.lungo / SEGMENTI;
+        while (campioni.length <= SEGMENTI && k < a.scia.length - 1) {
+          const p0 = a.scia[k]!, p1 = a.scia[k + 1]!, l = p0.distanceTo(p1);
+          if (fatta + l >= cerca) { campioni.push(tmp.lerpVectors(p0, p1, l > 0 ? (cerca - fatta) / l : 0).clone()); cerca += segno; if (cerca > lungoTot + 1e-4) break; continue; }
+          fatta += l; k++;
+        }
+        while (campioni.length <= SEGMENTI) campioni.push((campioni[campioni.length - 1] ?? coda0).clone().addScaledVector(a.dir, -segno));
+        const alto = 0.19;
+        campioni.forEach((c, j) => {
+          const sv = Math.sin(s * 9 - j * 0.6) * 0.018 * (j / SEGMENTI);
+          st.pos.set([c.x, c.y + 0.05 + sv, c.z, c.x, c.y + 0.05 - alto + sv, c.z], j * 6);
+        });
+        (st.nastro.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+        // Il testo si legge sempre da sinistra a destra, da qualunque lato lo guardi la camera
+        const dritto = G.localToWorld(tmp.copy(campioni[0]!)).project(p.camera).x < G.localToWorld(coda0.copy(campioni[SEGMENTI]!)).project(p.camera).x;
+        if (dritto !== st.dritto) {
+          st.dritto = dritto;
+          const uv = st.nastro.geometry.attributes.uv as THREE.BufferAttribute;
+          for (let j = 0; j <= SEGMENTI; j++) { const u = dritto ? j / SEGMENTI : 1 - j / SEGMENTI; uv.setX(j * 2, u); uv.setX(j * 2 + 1, u); }
+          uv.needsUpdate = true;
+        }
+        coda0.copy(a.g.position).addScaledVector(a.dir, -0.3);
+        const fp = st.fune.geometry.attributes.position as THREE.BufferAttribute;
+        fp.setXYZ(0, coda0.x, coda0.y + 0.1, coda0.z); fp.setXYZ(1, campioni[0]!.x, campioni[0]!.y + 0.05 - alto / 2, campioni[0]!.z);
+        fp.needsUpdate = true;
+      }
     });
 
     // Le pecore brucano; ogni tanto una fa qualche passo verso un punto vicino
@@ -578,26 +738,41 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       pc.g.rotation.y = pc.verso;
     });
 
-    // Il trenino va avanti e indietro, e si gira alle estremità
-    const tx = Math.sin(s * 0.12) * 2.1, verso = Math.cos(s * 0.12) >= 0 ? 1 : -1;
-    treninoX = tx;
-    trenino.forEach((g, k) => {
-      const x = treninoX - verso * k * 0.15;
-      g.position.set(x, H0, -0.9);
-      g.rotation.y = verso > 0 ? 0 : Math.PI;
-    });
+    // Il pulmino va avanti e indietro sulla strada e si gira alle estremità
+    const px = 0.2 + Math.sin(s * 0.11) * 2.7, verso = Math.cos(s * 0.11) >= 0 ? 1 : -1;
+    pulmino.position.set(px, altezza(px, STRADA_Z) + 0.003, STRADA_Z + verso * 0.035);
+    pulmino.rotation.y = verso > 0 ? 0 : Math.PI;
 
-    // Balena: un'ellisse larga, con la coda che batte; ogni tanto uno spruzzo
-    const bb = -s * 0.07, bx = Math.cos(bb) * 7.2, bz = Math.sin(bb) * 5.2;
-    balena.position.set(bx, -0.56 + Math.sin(s * 0.35) * 0.1, bz);
-    balena.rotation.set(0, Math.atan2(Math.sin(bb) * 7.2, -Math.cos(bb) * 5.2), 0);
-    balena.rotateX(-Math.cos(s * 0.35) * 0.12);
-    coda.rotation.x = Math.sin(s * 1.4) * 0.35;
-    prossimoSpruzzo -= dt;
-    if (prossimoSpruzzo <= 0) {
-      prossimoSpruzzo = 5 + r() * 4;
-      gocce.forEach(g => { const a = r() * 6.28, v = 0.15 + r() * 0.2; g.x = bx; g.y = -0.4; g.z = bz; g.vx = Math.cos(a) * v; g.vz = Math.sin(a) * v; g.vy = 1.1 + r() * 0.5; g.vita = 1.4; });
+    // Chi nuota va su e giù con le onde, ogni tanto lascia un cerchio; il surfista scivola lungo la spiaggia
+    nuotatori.forEach(n => {
+      const x = n.x + Math.sin(s * 0.3 + n.f) * 0.2, z = n.z + Math.cos(s * 0.25 + n.f) * 0.1;
+      n.g.position.set(x, ondaIn(x, z, s), z);
+      if (Math.sin(s * 0.8 + n.f) > 0.995) nuovoCerchio(x, z, 0.25);
+    });
+    {
+      const t = s * 0.16, x = -2.6 + ((t % 2) < 1 ? (t % 2) : 2 - (t % 2)) * 5.2, z = 3.75 + Math.sin(s * 0.9) * 0.08, va = (t % 2) < 1 ? 1 : -1;
+      surf.position.set(x, ondaIn(x, z, s) + 0.02, z);
+      surf.rotation.set(Math.sin(s * 1.3) * 0.08, va > 0 ? Math.PI / 2 : -Math.PI / 2, Math.sin(s * 0.9) * 0.12);
     }
+
+    // La balena: un giro largo; il ciclo di 16 secondi alterna nuoto sotto, risalita con spruzzo, dorso e tuffo con la coda
+    const bb = -s * 0.06, bx = Math.cos(bb) * 7.1, bz = Math.sin(bb) * 5.4, c = (s % 16) / 16;
+    let y: number, beccheggio: number, colpo = Math.sin(s * 1.4) * 0.3;
+    if (c < 0.45) { y = -0.95; beccheggio = 0; }
+    else if (c < 0.62) { const k = liscio((c - 0.45) / 0.17); y = -0.95 + k * 0.5; beccheggio = 0.18 * Math.sin(k * Math.PI); }
+    else if (c < 0.74) { y = -0.45 + Math.sin(s * 2) * 0.01; beccheggio = 0; }
+    else { const k = liscio((c - 0.74) / 0.26); y = -0.45 - k * 0.5; beccheggio = -0.75 * Math.sin(k * Math.PI * 0.9); colpo = -0.6 * Math.sin(k * Math.PI); }
+    balena.position.set(bx, y, bz);
+    balena.rotation.set(0, Math.atan2(Math.sin(bb) * 7.1, -Math.cos(bb) * 5.4), 0);
+    balena.rotateX(-beccheggio);
+    coda.rotation.x = colpo;
+    if (c > 0.63 && c < 0.66 && !spruzzato) {
+      spruzzato = true;
+      tmp.set(0, 0, 0.45).applyQuaternion(balena.quaternion).add(balena.position);
+      gocce.forEach(g => { const a = r() * 6.28, v = 0.12 + r() * 0.18; g.x = tmp.x; g.y = -0.36; g.z = tmp.z; g.vx = Math.cos(a) * v; g.vz = Math.sin(a) * v; g.vy = 1.2 + r() * 0.5; g.vita = 1.4; });
+      nuovoCerchio(bx, bz, 1.1);
+    }
+    if (c < 0.6) spruzzato = false;
     gocce.forEach((g, i) => {
       if (g.vita > 0) { g.vita -= dt; g.vy -= dt * 1.8; g.x += g.vx * dt; g.y += g.vy * dt; g.z += g.vz * dt; }
       spruzzo.pos.set([g.x, g.vita > 0 ? g.y : -9, g.z], i * 3);
@@ -605,53 +780,76 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     });
     spruzzo.aggiorna();
 
+    // Le nuvole: il vento le porta; vicino al puntatore gli sbuffi si scostano e poi tornano al loro posto
     const raggio = p.raggio;
     nuvole.forEach(n => {
       n.ritardo -= dt;
-      n.g.position.x += dt * n.vel;
-      // Ai bordi del cielo la nuvola svanisce; poi riparte dall'altro lato e riappare piano
-      const bordo = 1 - THREE.MathUtils.smoothstep(Math.abs(n.g.position.x), 7.5, 9.5);
-      if (n.g.position.x > 9.5) { n.g.position.x = -9.5; n.vista = 0; }
-      if (n.ritardo <= 0) n.vista = Math.min(1, n.vista + dt / 3);
-      const vis = liscio(n.vista) * bordo;
-      let accesa = 0;
+      n.g.position.addScaledVector(VENTO, dt * n.vel);
+      const lontano = Math.hypot(n.g.position.x, n.g.position.z);
+      // Al bordo del cielo svanisce; poi rinasce dalla parte opposta e riappare piano
+      if (lontano > CIELO && n.g.position.x * VENTO.x + n.g.position.z * VENTO.z > 0) {
+        const a = Math.atan2(n.g.position.z, n.g.position.x) + Math.PI + (r() - 0.5) * 1.2;
+        n.g.position.set(Math.cos(a) * CIELO * 0.98, 3.5 + r() * 1.6, Math.sin(a) * CIELO * 0.98);
+        n.vista = 0; n.ritardo = r() * 2;
+      }
+      if (n.ritardo <= 0) n.vista = Math.min(1, n.vista + dt / 4);
+      const vis = liscio(n.vista) * (1 - THREE.MathUtils.smoothstep(lontano, CIELO * 0.8, CIELO));
       n.sbuffi.forEach(b => {
-        // La molla riporta lo sbuffo al suo posto; il puntatore lo spinge via dal raggio
         let fx = (b.x0 - b.ob.position.x) * 14, fy = (b.y0 - b.ob.position.y) * 14, fz = (b.z0 - b.ob.position.z) * 14;
         if (raggio && vis > 0.3) {
           b.ob.getWorldPosition(tmpN);
           raggio.ray.closestPointToPoint(tmpN, vicino);
           const dd = tmpN.distanceTo(vicino);
           if (dd < 0.8) {
-            const k = (0.8 - dd) * 9 / Math.max(0.05, dd);
+            const k = ((0.8 - dd) * 9) / Math.max(0.05, dd) / n.g.scale.x;
             fx += (tmpN.x - vicino.x) * k; fy += (tmpN.y - vicino.y) * k; fz += (tmpN.z - vicino.z) * k;
-            b.luce = 1;
           }
         }
         b.vx = (b.vx + fx * dt) * 0.9; b.vy = (b.vy + fy * dt) * 0.9; b.vz = (b.vz + fz * dt) * 0.9;
         b.ob.position.x += b.vx * dt; b.ob.position.y += b.vy * dt; b.ob.position.z += b.vz * dt;
-        b.luce = Math.max(0, b.luce - dt * 1.2);
-        accesa = Math.max(accesa, b.luce);
       });
       n.m.opacity = 0.05 * vis;
-      n.linea0.opacity = (0.22 + accesa * 0.5) * vis;
+      n.linea0.opacity = 0.22 * vis;
       n.g.visible = vis > 0.01;
     });
 
     // Il tabellone cambia di rado: non si riscrive a ogni fotogramma
     if (s - tempoLista > 0.25) {
       tempoLista = s;
-      const firma = aerei.map(a => a.fase).join();
-      if (firma !== ultimo) { ultimo = firma; o.alCambio(aerei.map(a => a.fase)); }
+      const fasi = aerei.map((a): Fase => {
+        if (a.stato === 'attesa' || a.stato === 'ritorno') return 'holding';
+        if (a.stato === 'arrivo') return 'landing';
+        if (a.stato === 'fermo') return a.fatto ? 'taking off' : 'boarding';
+        if (a.stato === 'decollo') return 'taking off';
+        return 'in the air';
+      });
+      const firma = fasi.join();
+      if (firma !== ultimo) { ultimo = firma; o.alCambio(fasi); }
     }
   }
   return {
     palco: p,
-    // Il volo è stato indovinato: l'aereo esce dal suo posto e parte
+    // Si apre la domanda di un volo: il suo aereo arriva. Un altro aereo ancora senza risposta sulla pista torna in attesa
+    chiama(i: number) {
+      const a = aerei[i];
+      if (!a || a.fatto || a.stato === 'arrivo' || a.stato === 'fermo') return;
+      aerei.forEach((b, k) => {
+        if (k === i || b.fatto || (b.stato !== 'arrivo' && b.stato !== 'fermo')) return;
+        b.rotta = rottaDecollo(b, k, true);
+        b.stato = 'ritorno';
+      });
+      a.rotta = rottaArrivo(a);
+      a.stato = 'arrivo';
+    },
+    // Il termine è indovinato: l'aereo riparte e prende il suo percorso con lo striscione. Se sta ancora atterrando,
+    // tocca la pista e riparte subito
     decolla(i: number) {
       const a = aerei[i];
-      if (!a || a.volo) return;
-      a.volo = true; a.esce = 0; a.v = 0; a.attesa = 0; a.s = ingresso[i]!;
+      if (!a || a.fatto) return;
+      a.fatto = true;
+      if (a.stato === 'fermo') { a.rotta = rottaDecollo(a, i, false); a.stato = 'decollo'; }
+      else if (a.stato === 'arrivo') a.via = true;
+      else { a.rotta = rottaDecollo(a, i, false); a.stato = 'decollo'; }
     },
   };
 }
