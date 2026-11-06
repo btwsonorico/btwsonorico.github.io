@@ -3,14 +3,11 @@ import type { Partita, Volo } from '../lib/voli';
 import { timbro, tipo, type Livello } from './arteBiglietti';
 import { STILI, casoDa, disegnaAscii } from './stiliBiglietto';
 
-// Il nome dello stile nella riga in alto del biglietto: ogni stile ha il suo, invece di "rapid" per tutti
-const NOME_STILE: Record<string, string> = { rapid: 'rapid', bande: 'rainbow', lime: 'bloom', riso: 'riso', notte: 'night', koi: 'koi pond', stampa: 'ascii print' };
-
 // La carta d'imbarco di AI terms. Ogni biglietto pesca uno stile a caso (src/scripts/stiliBiglietto.ts) e una variante;
 // la struttura è sempre la stessa. Lo stile di partenza è "70s Rapid": ogni sezione ha la sua carta piena e i
 // suoi due colori di stampa. Davanti, da sinistra: l'oggetto della tecnologia, la banda in foglia con il motto (argento,
-// oro o olografica secondo il livello), la carta con la domanda, il tagliando su carta di sicurezza
-// con il numero rosso. Risposta sbagliata: timbro rosso e si riprova. Risposta giusta: timbro verde, poi si gira.
+// oro o olografica secondo il livello), la domanda al centro, e a destra il tagliando con il nome del termine e la sua
+// categoria. Risposta sbagliata: timbro rosso e si riprova. Risposta giusta: timbro verde, poi si gira.
 // Dietro, metà e metà: il poster a sinistra, la definizione su carta a righe a destra.
 // La foglia risponde all'inclinazione: mouse, dito o giroscopio. Senza input il biglietto ondeggia piano.
 // Il testo delle note si scrive sempre come testo, mai come HTML.
@@ -22,7 +19,6 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, classe = '', testo?: 
 };
 const MESI = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 const FOGLIA: Record<Livello, string> = { easy: 'argento', medium: 'oro', hard: 'iride' };
-const hash = (s: string) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
 const livelloDi = (v: Volo): Livello => (['easy', 'medium', 'hard'].includes(v.voce.livello) ? v.voce.livello : 'easy') as Livello;
 const strati = () => [el('div', 'strato grana'), el('div', 'strato perla'), el('div', 'strato bagliore')];
 
@@ -48,13 +44,13 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   const arte = el('div', 'arte70'), banda = el('div', 'banda'), motto = el('span', 'mono');
   banda.append(motto);
   const corpo = el('div', 'corpo');
-  const riga = el('p', 'mono sotto');
-  const scheda70 = el('div', 'carta-dom'), termine = el('h2', 'titolo'), sezione = el('p', 'corsivo'), domanda = el('p', 'domanda'), opzioniEl = el('div', 'opzioni'), nota = el('p', 'mono nota');
+  const scheda70 = el('div', 'carta-dom'), domanda = el('p', 'domanda'), opzioniEl = el('div', 'opzioni'), nota = el('p', 'mono nota');
   nota.setAttribute('aria-live', 'polite');
-  scheda70.append(termine, sezione, domanda, opzioniEl, nota);
-  corpo.append(riga, scheda70);
-  const tagliando = el('div', 'tagliando'), numeroF = el('p', 'numero'), serialeT = el('p', 'seriale'), fine = el('p', 'mono fine'), codice = el('div', 'codice');
-  tagliando.append(numeroF, serialeT, fine, codice);
+  scheda70.append(domanda, opzioniEl, nota);
+  corpo.append(scheda70);
+  const tagliando = el('div', 'tagliando'), nomeF = el('h2', 'nome'), categoriaF = el('p', 'mono categoria'), serialeT = el('p', 'mono seriale'), codice = el('div', 'codice'), coda = el('div', 'coda');
+  coda.append(serialeT, codice);
+  tagliando.append(nomeF, categoriaF, coda);
   const timbri = el('div', 'timbri');
   fronte.append(arte, banda, corpo, tagliando, timbri, ...strati());
 
@@ -254,15 +250,10 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       svg(arte, ds.davanti);
       banda.className = `banda ${FOGLIA[l]}`;
       motto.textContent = `${tp.motto} · ${n}`;
-      riga.textContent = `${NOME_STILE[ds.st.id] ?? ds.st.id} · ${v.nome.toLowerCase()} · ${l} class`;
-      termine.textContent = v.voce.termine;
-      sezione.textContent = v.voce.sotto.toLowerCase();
+      nomeF.textContent = v.voce.termine;
+      categoriaF.textContent = v.voce.sotto;
       domanda.textContent = v.voce.domanda.testo;
-      numeroF.textContent = n;
-      serialeT.textContent = v.seriale;
-      // Il posto 42 è sempre degli altri termini
-      const posto = v.sezione === 5 ? '42' : `${i + 1}${'ABCDEF'[hash(v.voce.id) % 6]}`;
-      fine.replaceChildren(...[`valid ${quando.slice(0, 6)}`, `flight ${v.codice} · gate G${i + 1}`, `seat ${posto} · one way`].map(x => el('span', '', x)));
+      serialeT.textContent = `No. ${v.seriale}`;
       barre(codice, `${v.voce.termine}${v.voce.id}${v.codice}`);
       const sbagliate = p.sbagliate[i]!;
       opzioni = v.risposte.map((testoR, k) => {
