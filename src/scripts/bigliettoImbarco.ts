@@ -4,7 +4,7 @@ import { arteDavanti, poster, timbro, tipo, type Livello } from './arteBiglietti
 
 // La carta d'imbarco di AI terms, stile "70s Rapid": ogni sezione è un tipo di biglietto con la sua carta piena e i
 // suoi due colori di stampa. Davanti, da sinistra: l'oggetto della tecnologia, la banda in foglia con il motto (argento,
-// oro o olografica secondo il livello), la tratta grande e la carta con la domanda, il tagliando su carta di sicurezza
+// oro o olografica secondo il livello), la carta con la domanda, il tagliando su carta di sicurezza
 // con il numero rosso. Risposta sbagliata: timbro rosso e si riprova. Risposta giusta: timbro verde, poi si gira.
 // Dietro, metà e metà: il poster a sinistra, la definizione su carta a righe a destra.
 // La foglia risponde all'inclinazione: mouse, dito o giroscopio. Senza input il biglietto ondeggia piano.
@@ -16,8 +16,6 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, classe = '', testo?: 
   return e;
 };
 const MESI = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-// Il codice da aeroporto di ogni sezione: si parte sempre da ASK, la domanda
-const CODICI = ['GEN', 'GNR', 'RSK', 'PRM', 'OPS', 'OTH'];
 const FOGLIA: Record<Livello, string> = { easy: 'argento', medium: 'oro', hard: 'iride' };
 const hash = (s: string) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
 const livelloDi = (v: Volo): Livello => (['easy', 'medium', 'hard'].includes(v.voce.livello) ? v.voce.livello : 'easy') as Livello;
@@ -45,11 +43,11 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   const arte = el('div', 'arte70'), banda = el('div', 'banda'), motto = el('span', 'mono');
   banda.append(motto);
   const corpo = el('div', 'corpo');
-  const riga = el('p', 'mono sotto'), tratta = el('div', 'tratta');
+  const riga = el('p', 'mono sotto');
   const scheda70 = el('div', 'carta-dom'), termine = el('h2', 'titolo'), sezione = el('p', 'corsivo'), domanda = el('p', 'domanda'), opzioniEl = el('div', 'opzioni'), nota = el('p', 'mono nota');
   nota.setAttribute('aria-live', 'polite');
   scheda70.append(termine, sezione, domanda, opzioniEl, nota);
-  corpo.append(riga, tratta, scheda70);
+  corpo.append(riga, scheda70);
   const tagliando = el('div', 'tagliando'), numeroF = el('p', 'numero'), serialeT = el('p', 'seriale'), fine = el('p', 'mono fine'), codice = el('div', 'codice');
   tagliando.append(numeroF, serialeT, fine, codice);
   const timbri = el('div', 'timbri');
@@ -59,8 +57,8 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   const retro = el('section', 'faccia retro');
   const quadro = el('div', 'poster');
   const pannello = el('div', 'pannello'), esito = el('p', 'mono sotto');
-  const termineR = el('h2', 'titolo'), sezioneR = el('p', 'corsivo'), definizione = el('div', 'definizione'), piedeR = el('div', 'piede-retro'), serialeR = el('p', 'mono seriale'), trattaR = el('p', 'mono'), statoR = el('p', 'mono stato');
-  piedeR.append(serialeR, trattaR);
+  const termineR = el('h2', 'titolo'), sezioneR = el('p', 'corsivo'), definizione = el('div', 'definizione'), piedeR = el('div', 'piede-retro'), serialeR = el('p', 'mono seriale'), statoR = el('p', 'mono stato');
+  piedeR.append(serialeR);
   // La definizione scorre da sola: il dito che la scorre non inclina il biglietto. Se il testo continua, lo dice
   const scorre = el('div', 'scorre');
   scorre.append(definizione);
@@ -156,7 +154,6 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     definizione.scrollTop = 0;
     requestAnimationFrame(segnaAltro);
     serialeR.textContent = `No. ${v.seriale}`;
-    trattaR.textContent = `ASK ▶ ${CODICI[v.sezione % CODICI.length]}`;
     statoR.textContent = o.riassunto();
   };
   const scriviGira = () => { gira.textContent = carta.classList.contains('girata') ? 'back to the question ↺' : 'turn over ↻'; };
@@ -208,7 +205,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     mostra(i: number) {
       clearTimeout(attesa);
       corrente = i;
-      const v = o.voli[i]!, n = String(i + 1).padStart(2, '0'), arrivo = CODICI[v.sezione % CODICI.length]!, l = livelloDi(v), tp = tipo(v.sezione);
+      const v = o.voli[i]!, n = String(i + 1).padStart(2, '0'), l = livelloDi(v), tp = tipo(v.sezione);
       carta.dataset.livello = l;
       carta.dataset.sezione = String(v.sezione);
       for (const [k, x] of [['--carta', tp.carta], ['--c1', tp.a], ['--c2', tp.b], ['--tagliando', tp.tagliando]] as const) carta.style.setProperty(k, x);
@@ -220,7 +217,6 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       banda.className = `banda ${FOGLIA[l]}`;
       motto.textContent = `${tp.motto} · ${n}`;
       riga.textContent = `rapid · ${v.nome.toLowerCase()} · ${l} class`;
-      tratta.replaceChildren(el('span', '', 'ASK'), el('i', '', '▶'), el('span', '', arrivo));
       termine.textContent = v.voce.termine;
       sezione.textContent = v.voce.sotto.toLowerCase();
       domanda.textContent = v.voce.domanda.testo;

@@ -261,9 +261,6 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .iride) { background: repeating-linear-gradient(90deg, rgb(255 255 255 / .16) 0 1px, transparent 1px 3px), linear-gradient(calc(120deg + var(--tx) * 80deg), #ff9fd0, #ffe79a, #9ff3d4, #a8c8ff, #e3b0ff, #ff9fd0); background-size: auto, 300% 300%; background-position: 0 0, calc(50% + var(--tx) * 50%) calc(50% + var(--ty) * 50%); }
   :global(.imbarco .corpo) { min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 18px 20px 18px; }
   :global(.imbarco .sotto) { margin: 0; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; opacity: .85; }
-  :global(.imbarco .tratta) { display: flex; align-items: center; gap: 12px; font-family: var(--display); font-size: 46px; line-height: .9; letter-spacing: .01em; }
-  :global(.imbarco .tratta i) { font-style: normal; font-size: 20px; color: var(--c2) !important; }
-  :global(.imbarco .carta[data-sezione='2'] .tratta i), :global(.imbarco .carta[data-sezione='5'] .tratta i) { color: var(--crema) !important; }
   /* La carta crema con la domanda */
   :global(.imbarco .carta-dom) { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 4px; padding: 12px 14px 10px; background: var(--crema); color: var(--nero); }
   :global(.imbarco .titolo) { margin: 0; font-family: var(--display); font-weight: 400; font-size: 30px; line-height: .95; letter-spacing: .01em; text-transform: uppercase; overflow-wrap: anywhere; }
@@ -328,13 +325,11 @@ import Base from '../../layouts/Base.astro';
     /* Su telefono il biglietto va in colonna: l'arte in una striscia in alto, la banda di traverso, il tagliando in basso */
     :global(.imbarco) { left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); width: auto; transform: none; }
     :global(.imbarco .faccia) { height: auto; -webkit-mask: none !important; mask: none !important; }
-    :global(.imbarco .fronte) { grid-template-columns: 44% 1fr; grid-template-rows: 76px 16px auto auto; }
+    :global(.imbarco .fronte) { grid-template-columns: 1fr; grid-template-rows: 76px 16px auto auto; }
     :global(.imbarco .fronte > :not(.arte70):not(.strato):not(.timbri)) { grid-column: 1 / -1; }
     :global(.imbarco .banda span) { writing-mode: horizontal-tb; rotate: 0deg; font-size: 8px; }
     :global(.imbarco .corpo) { padding: 10px 12px 12px; gap: 4px; }
     :global(.imbarco .sotto) { display: block; font-size: 8.5px; }
-    :global(.imbarco .tratta) { position: absolute; top: 22px; right: 14px; font-size: 32px; gap: 6px; }
-    :global(.imbarco .tratta i) { font-size: 13px; }
     :global(.imbarco .carta-dom) { padding: 10px 12px 8px; }
     :global(.imbarco .titolo) { font-size: 24px; }
     :global(.imbarco .opzione) { min-height: 42px; font-size: 14px; }
