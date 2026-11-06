@@ -23,15 +23,15 @@ export type OpzioniAeroporto = {
 
 // La forma dell'isola: un ovale morbido con la riva un po' irregolare. forma() vale 1 sulla riva, meno dentro
 const RX = 4.4, RZ = 3.1;
-// La baia: una rientranza della riva sul lato davanti, quello verso la camera, con la spiaggia di sabbia
-const BAIA = 1.72;
+// La baia: una rientranza della riva davanti a destra, lontano dalla pista, con la spiaggia di sabbia
+const BAIA = 0.9;
 const versoBaia = (t: number) => Math.abs(Math.atan2(Math.sin(t - BAIA), Math.cos(t - BAIA)));
 const forma = (x: number, z: number) => {
   const t = Math.atan2(z, x), b = versoBaia(t), k = (1 + 0.06 * Math.sin(3 * t + 1) + 0.04 * Math.sin(5 * t + 2)) * (1 - 0.2 * Math.exp(-(b * b) / (2 * 0.2 * 0.2)));
   return Math.pow(Math.pow(Math.abs(x) / RX, 2.4) + Math.pow(Math.abs(z) / RZ, 2.4), 1 / 2.4) / k;
 };
 // I colli: uno grande con la pala, uno con le pecore, uno dietro il paese, due piccoli davanti
-const COLLI = [[2.7, -2.2, 0.85, 0.65], [-2.8, -2.1, 0.5, 0.62], [-0.5, -2.6, 0.35, 0.5], [3.2, 1.9, 0.28, 0.45], [-3.3, 1.8, 0.24, 0.42]] as const;
+const COLLI = [[2.7, -2.2, 0.85, 0.65], [-2.8, -2.1, 0.5, 0.62], [-0.5, -2.6, 0.35, 0.5], [-3.3, 1.8, 0.24, 0.42]] as const;
 const altezza = (x: number, z: number) => {
   const e = forma(x, z);
   if (e >= 1) return -0.04;
@@ -283,9 +283,26 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   });
   pecore.forEach(q => { q.mx = q.x; q.mz = q.z; });
 
-  // --- La spiaggia della baia: ombrelloni colorati e teli sulla sabbia
+  // --- La spiaggia della baia: una mezzaluna piena color sabbia lungo la riva, poi ombrelloni colorati e teli
+  {
+    const N = 40, vert: number[] = [], indici: number[] = [];
+    for (let k = 0; k <= N; k++) {
+      const t = BAIA - 0.5 + (k / N) * 1.0, larga = Math.exp(-((t - BAIA) ** 2) / (2 * 0.22 * 0.22)), rr = rivaA(t);
+      for (const u of [1.005, 1 - 0.2 * larga - 0.02]) { const x = Math.cos(t) * rr * u, z = Math.sin(t) * rr * u; vert.push(x, Math.max(0.006, altezza(x, z)) + 0.004, z); }
+      if (k < N) indici.push(k * 2, k * 2 + 1, k * 2 + 2, k * 2 + 1, k * 2 + 3, k * 2 + 2);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(vert, 3));
+    geo.setIndex(indici);
+    G.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: chiaro ? '#f0dcae' : '#e6cf9c', side: THREE.DoubleSide })));
+    // Qualche puntino più scuro sulla sabbia, come granelli e conchiglie
+    const punti: number[] = [];
+    for (let k = 0; k < 60; k++) { const t = BAIA + (r() - 0.5) * 0.7, u = 1 - r() * 0.16 * Math.exp(-((t - BAIA) ** 2) / (2 * 0.22 * 0.22)), rr = rivaA(t) * u; const x = Math.cos(t) * rr, z = Math.sin(t) * rr; punti.push(x, Math.max(0.006, altezza(x, z)) + 0.008, z); }
+    const g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(punti, 3));
+    G.add(new THREE.Points(g2, new THREE.PointsMaterial({ color: '#b8996a', size: 0.03 })));
+  }
   [-0.3, -0.16, 0, 0.15, 0.3].forEach((dt0, k) => {
-    const t = BAIA + dt0, rr = rivaA(t) * (0.86 + (k % 2) * 0.04), x = Math.cos(t) * rr, z = Math.sin(t) * rr, y = Math.max(0.005, altezza(x, z));
+    const t = BAIA + dt0 * 0.8, rr = rivaA(t) * (0.9 + (k % 2) * 0.03), x = Math.cos(t) * rr, z = Math.sin(t) * rr, y = Math.max(0.005, altezza(x, z));
     const c = o.tinte[(k * 2 + 1) % o.tinte.length]!;
     G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, y + 0.22, z)]), linea(FILO, 0.8)));
     const ombrello = new THREE.ConeGeometry(0.15, 0.07, 10);
@@ -370,6 +387,52 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   let prossimoCerchio = 1;
   const nuovoCerchio = (x: number, z: number, grande: number) => { const c = cerchi.find(q => q.t >= 2.8); if (c) { c.x = x; c.z = z; c.t = 0; c.grande = grande; } };
   const inAcqua = (x: number, z: number) => forma(x, z) > 1;
+
+  // --- Il porticciolo sulla costa est, sotto il faro: un pontile di legno che entra in acqua, una diga di scogli che
+  // fa da riparo, e una barca a vela ormeggiata che dondola con le onde
+  const PORTO = 0.28, rPorto = rivaA(PORTO), ux = Math.cos(PORTO), uz = Math.sin(PORTO), vx = -uz, vz = ux;
+  const qui = (avanti: number, lato: number) => new THREE.Vector3(ux * (rPorto + avanti) + vx * lato, 0, uz * (rPorto + avanti) + vz * lato);
+  {
+    const assi: number[] = [], lungo = 1.1;
+    for (const l of [-0.08, 0.08]) { const a = qui(-0.1, l), b = qui(lungo, l); assi.push(a.x, -0.25, a.z, b.x, -0.3, b.z); }
+    for (let d = -0.1; d <= lungo; d += 0.06) { const a = qui(d, -0.1), b = qui(d, 0.1), y = -0.25 - (d / lungo) * 0.05; assi.push(a.x, y, a.z, b.x, y, b.z); }
+    for (let d = 0.2; d <= lungo; d += 0.3) for (const l of [-0.09, 0.09]) { const a = qui(d, l); assi.push(a.x, -0.27, a.z, a.x, -0.55, a.z); }
+    fili(assi, '#b07a4f', chiaro ? 0.95 : 0.85);
+    const tav = new THREE.PlaneGeometry(0.2, lungo + 0.1).rotateX(-Math.PI / 2);
+    const piano = new THREE.Mesh(tav, new THREE.MeshBasicMaterial({ color: '#b07a4f', transparent: true, opacity: chiaro ? 0.35 : 0.22, depthWrite: false, side: THREE.DoubleSide }));
+    const c = qui(lungo / 2 - 0.05, 0);
+    piano.position.set(c.x, -0.275, c.z);
+    piano.rotation.y = Math.atan2(ux, uz);
+    G.add(piano);
+    // La diga: una fila di scogli ad arco, dall'altra parte della barca
+    for (let k = 0; k < 9; k++) { const a = qui(0.25 + k * 0.13, 0.75 + Math.sin(k * 0.5) * 0.08); G.add(pezzo(sasso(0.07 + r() * 0.05, r, 0), pieno('#8a857c', 0.2), a.x, -0.4, a.z)); }
+    // Una bitta e una boa rossa
+    const bitta = qui(0.85, 0.12); G.add(pezzo(new THREE.CylinderGeometry(0.02, 0.025, 0.06, 8), pieno('#3a332c', 0.05), bitta.x, -0.24, bitta.z));
+    const boa = qui(1.5, 0.35); G.add(pezzo(new THREE.SphereGeometry(0.05, 10, 8), pieno('#e8402a', 0.12), boa.x, -0.4, boa.z));
+  }
+  // La barca a vela: scafo bianco con la fascia blu, albero, vela bianca e fiocco nel colore di una sezione
+  const barca = new THREE.Group(), POSTO_BARCA = qui(0.75, 0.38);
+  {
+    const scafo = new THREE.Shape();
+    scafo.moveTo(-0.32, 0); scafo.lineTo(0.3, 0); scafo.quadraticCurveTo(0.38, 0.0, 0.42, 0.06); scafo.lineTo(-0.34, 0.06); scafo.closePath();
+    const g = new THREE.ExtrudeGeometry(scafo, { depth: 0.14, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 2 });
+    g.translate(0, -0.03, -0.07);
+    barca.add(pezzo(g, pieno('#f4f1ea', 0.12)));
+    barca.add(pezzo(new THREE.BoxGeometry(0.7, 0.018, 0.17), pieno('#3e6795', 0.1), 0.02, 0.02, 0));
+    barca.add(pezzo(new THREE.BoxGeometry(0.18, 0.06, 0.1), pieno('#f4f1ea', 0.12), -0.08, 0.08, 0));
+    barca.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0.02, 0.06, 0), new THREE.Vector3(0.02, 0.62, 0)]), linea(FILO, 0.9)));
+    const vela = new THREE.BufferGeometry();
+    vela.setAttribute('position', new THREE.Float32BufferAttribute([0.01, 0.1, 0, 0.01, 0.6, 0, -0.26, 0.1, 0], 3));
+    barca.add(new THREE.Mesh(vela, new THREE.MeshBasicMaterial({ color: '#fffaf0', side: THREE.DoubleSide })));
+    const fiocco = new THREE.BufferGeometry();
+    fiocco.setAttribute('position', new THREE.Float32BufferAttribute([0.04, 0.12, 0, 0.04, 0.5, 0, 0.36, 0.08, 0], 3));
+    barca.add(new THREE.Mesh(fiocco, new THREE.MeshBasicMaterial({ color: o.tinte[1] ?? '#f7cf4f', side: THREE.DoubleSide })));
+    barca.rotation.y = Math.atan2(ux, uz) - Math.PI / 2;
+    G.add(barca);
+  }
+  const cima = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), linea(FILO, 0.7));
+  cima.frustumCulled = false;
+  G.add(cima);
 
   // --- La balena: una megattera bianca come i cervi della home
   // (nera nel tema chiaro). Il corpo non è rigido: è un tubo lungo una spina che ondeggia su e giù, con l'onda che
@@ -715,6 +778,14 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     });
     if (vive || razzi.length) fuoco.aggiorna();
 
+    // La barca ormeggiata dondola con le onde; la cima la tiene alla bitta
+    {
+      const y = ondaIn(POSTO_BARCA.x, POSTO_BARCA.z, s);
+      barca.position.set(POSTO_BARCA.x, y + 0.02, POSTO_BARCA.z);
+      barca.rotation.x = Math.sin(s * 1.1) * 0.06; barca.rotation.z = Math.sin(s * 0.8 + 1) * 0.05;
+      const b = qui(0.85, 0.12), cp = cima.geometry.attributes.position as THREE.BufferAttribute;
+      cp.setXYZ(0, b.x, -0.22, b.z); cp.setXYZ(1, POSTO_BARCA.x, y + 0.06, POSTO_BARCA.z); cp.needsUpdate = true;
+    }
     // Le pecore brucano; ogni tanto una fa qualche passo verso un punto vicino
     pecore.forEach(pc => {
       pc.attesa -= dt;
