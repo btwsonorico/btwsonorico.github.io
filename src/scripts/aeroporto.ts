@@ -206,6 +206,64 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     tondo(1.1, PZ - (HZ + fondo / 2) + 0.05, 0.08, HX, (HZ + fondo / 2 + PZ) / 2, tenue(PISTA, chiaro ? 0.5 : 0.18, 0.5));
   }
 
+  // --- Il cartello della serie, accanto all'hangar: un tabellone a palette su due pali. A sinistra la serie, a destra il
+  // record. Quando un numero cambia, la sua paletta gira su se stessa e mostra la cifra nuova
+  const monoC = getComputedStyle(document.documentElement).getPropertyValue('--mono').trim() || 'ui-monospace, monospace';
+  const cartello = new THREE.Group();
+  cartello.position.set(HX + 1.35, H0, -0.25);
+  cartello.rotation.y = -0.35;
+  cartello.scale.setScalar(1.45);
+  G.add(cartello);
+  for (const x of [-0.36, 0.36]) cartello.add(pezzo(new THREE.CylinderGeometry(0.012, 0.012, 0.42, 6), M.edificio, x, 0.21, 0));
+  cartello.add(pezzo(new THREE.BoxGeometry(0.86, 0.36, 0.035), pieno('#2b2a33', 0.1), 0, 0.5, 0));
+  // Le scritte fisse sopra le palette
+  {
+    const tela = document.createElement('canvas'); tela.width = 512; tela.height = 64;
+    const cx = tela.getContext('2d')!;
+    cx.fillStyle = '#f4f1ea'; cx.font = `bold 34px ${monoC}`; cx.textBaseline = 'middle';
+    cx.textAlign = 'center'; cx.fillText('STREAK', 128, 34); cx.fillText('BEST', 384, 34);
+    const t = new THREE.CanvasTexture(tela); t.colorSpace = THREE.SRGBColorSpace;
+    cartello.add(new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.1), new THREE.MeshBasicMaterial({ map: t, transparent: true })).translateY(0.62).translateZ(0.02));
+  }
+  // Una paletta: una cifra su fondo scuro con la riga in mezzo, come i tabelloni delle partenze
+  const paletta = (x: number) => {
+    const tela = document.createElement('canvas'); tela.width = 96; tela.height = 128;
+    const cx = tela.getContext('2d')!, mappa = new THREE.CanvasTexture(tela);
+    mappa.colorSpace = THREE.SRGBColorSpace;
+    const scrivi = (c: string) => {
+      cx.fillStyle = '#17161c'; cx.fillRect(0, 0, 96, 128);
+      cx.fillStyle = '#f7cf4f'; cx.font = `bold 96px ${monoC}`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(c, 48, 70);
+      cx.fillStyle = '#000'; cx.fillRect(0, 62, 96, 4);
+      mappa.needsUpdate = true;
+    };
+    scrivi('0');
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.13, 0.17), new THREE.MeshBasicMaterial({ map: mappa }));
+    m.position.set(x, 0.47, 0.02);
+    cartello.add(m);
+    return { m, scrivi, cifra: '0', nuova: '0', giro: 0 };
+  };
+  const palette = [-0.29, -0.15, 0.15, 0.29].map(paletta);
+  const mostraSerie = (ora: number, migliore: number) => {
+    const testo = `${String(Math.min(99, ora)).padStart(2, '0')}${String(Math.min(99, migliore)).padStart(2, '0')}`;
+    palette.forEach((q, k) => { const c = testo[k]!; if (c !== q.nuova) { q.nuova = c; q.giro = q.giro > 0 ? q.giro : 0.0001; } });
+  };
+
+  // --- I fuochi d'artificio: per un record nuovo. Razzi che salgono sopra l'hangar e scoppiano nei colori delle sezioni
+  const SCINTILLE = 520, fuoco = puntiMorbidi(SCINTILLE), scintille = Array.from({ length: SCINTILLE }, () => ({ x: 0, y: -9, z: 0, vx: 0, vy: 0, vz: 0, vita: 0, durata: 1 }));
+  G.add(fuoco.punti);
+  for (let i = 0; i < SCINTILLE; i++) { fuoco.alfa[i] = 0; fuoco.dim[i] = 0.15; }
+  const razzi: { x: number; y: number; z: number; vy: number; quota: number; colore: THREE.Color; attesa: number }[] = [];
+  let prossimaScintilla = 0;
+  const scoppia = (x: number, y: number, z: number, colore: THREE.Color) => {
+    for (let k = 0; k < 90; k++) {
+      const q = scintille[prossimaScintilla]!; prossimaScintilla = (prossimaScintilla + 1) % SCINTILLE;
+      const u = r() * 2 - 1, a = r() * Math.PI * 2, v = 1.2 + r() * 0.7, sq = Math.sqrt(1 - u * u);
+      Object.assign(q, { x, y, z, vx: Math.cos(a) * sq * v, vy: u * v + 0.2, vz: Math.sin(a) * sq * v, vita: 1.4 + r() * 0.5, durata: 1.9 });
+      const i = scintille.indexOf(q), c = colore.clone().offsetHSL(0, 0.15, 0).lerp(new THREE.Color('#ffffff'), r() * 0.15);
+      fuoco.col.set([c.r, c.g, c.b], i * 3);
+    }
+  };
+
   // --- Le pecore sul colle a ovest: palline bianche che brucano e ogni tanto si spostano
   const PECORE = 9, PCX = -2.8, PCZ = -2.05;
   const geoLana = new THREE.IcosahedronGeometry(0.06, 1); geoLana.scale(1.25, 0.9, 1);
@@ -613,6 +671,35 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       }
     });
 
+    // Le palette del cartello: girano su se stesse e a metà giro cambiano cifra
+    palette.forEach(q => {
+      if (q.giro <= 0) return;
+      q.giro = Math.min(1, q.giro + dt * 3.2);
+      if (q.giro >= 0.5 && q.cifra !== q.nuova) { q.cifra = q.nuova; q.scrivi(q.cifra); }
+      q.m.rotation.x = Math.sin(q.giro * Math.PI) * Math.PI * 0.5 * (q.giro < 0.5 ? 1 : -1);
+      if (q.giro >= 1) { q.giro = 0; q.m.rotation.x = 0; }
+    });
+    // I fuochi: i razzi salgono con una scia, poi scoppiano; le scintille cadono piano e si spengono
+    for (let k = razzi.length - 1; k >= 0; k--) {
+      const z = razzi[k]!;
+      if (z.attesa > 0) { z.attesa -= dt; continue; }
+      z.y += z.vy * dt; z.vy *= 0.985;
+      const q = scintille[prossimaScintilla]!; prossimaScintilla = (prossimaScintilla + 1) % SCINTILLE;
+      Object.assign(q, { x: z.x + (r() - 0.5) * 0.02, y: z.y, z: z.z, vx: 0, vy: -0.1, vz: 0, vita: 0.35, durata: 0.35 });
+      const iq = scintille.indexOf(q); fuoco.col.set([1, 0.92, 0.75], iq * 3);
+      if (z.y >= z.quota) { scoppia(z.x, z.y, z.z, z.colore); razzi.splice(k, 1); }
+    }
+    let vive = false;
+    scintille.forEach((q, i) => {
+      if (q.vita > 0) {
+        vive = true; q.vita -= dt; q.vy -= dt * 0.9; q.vx *= 0.985; q.vz *= 0.985;
+        q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt;
+        fuoco.pos.set([q.x, q.y, q.z], i * 3);
+        fuoco.alfa[i] = Math.max(0, q.vita / q.durata) * (0.6 + Math.sin(s * 40 + i) * 0.4);
+      } else if (fuoco.alfa[i]! > 0) { fuoco.alfa[i] = 0; vive = true; }
+    });
+    if (vive || razzi.length) fuoco.aggiorna();
+
     // Le pecore brucano; ogni tanto una fa qualche passo verso un punto vicino
     pecore.forEach(pc => {
       pc.attesa -= dt;
@@ -759,5 +846,11 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     },
     // In volo da quanto tempo, per sapere quando farlo tornare
     inGiro(i: number) { return aerei[i]?.stato === 'giro'; },
+    // Il cartello mostra la serie e il record
+    serie(ora: number, migliore: number) { mostraSerie(ora, migliore); },
+    // Un record nuovo: sette razzi, uno dopo l'altro, nei colori delle sezioni
+    fuochi() {
+      for (let k = 0; k < 7; k++) razzi.push({ x: HX + (r() - 0.5) * 2.6, y: H0 + 0.3, z: HZ + (r() - 0.5) * 1.2, vy: 3.2 + r() * 0.6, quota: 2.7 + r() * 1.1, colore: new THREE.Color(o.tinte[k % o.tinte.length]!), attesa: k * 0.35 });
+    },
   };
 }

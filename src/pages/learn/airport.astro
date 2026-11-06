@@ -92,14 +92,18 @@ import Base from '../../layouts/Base.astro';
     data: adesso, voli, partita: p, riassunto,
     dopo: (i, giusto) => {
       const primo = p.tentativi[i] === 1;
+      const prima = serie().migliore;
       if (!giusto) segnaRisposta(false, false);
       else {
-        segnaRisposta(true, primo);
+        const dopo = segnaRisposta(true, primo);
+        // Un record nuovo, da 2 in su: fuochi d'artificio sopra l'hangar
+        if (dopo.migliore > prima && dopo.migliore >= 2) scena.fuochi();
         incolla(voli[i]!, p.tentativi[i]!);
         scena.decolla(i);
         clearTimeout(riposo[i]);
         riposo[i] = window.setTimeout(() => cambia(i), 32000);
       }
+      const ss = serie(); scena.serie(ss.ora, ss.migliore);
       scriviTabellone(); scriviPunteggio(); if (!sezAlbum.hidden) scriviAlbum();
     },
     prossimo: () => {
@@ -111,6 +115,7 @@ import Base from '../../layouts/Base.astro';
   function apri(i: number) { imbarco.mostra(i); if (!p.fatto[i]) scena.chiama(i); scriviTabellone(); }
   function chiudi() { imbarco.nascondi(); scriviTabellone(); righe[0]?.b.focus({ preventScroll: true }); }
   scriviPunteggio(); scriviTabellone();
+  { const ss = serie(); scena.serie(ss.ora, ss.migliore); }
 </script>
 
 <style>
