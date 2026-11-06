@@ -2,10 +2,13 @@ import { dividi } from '../lib/glossario';
 import { salvaPartita, type Partita, type Volo } from '../lib/voloDelGiorno';
 import { scena, timbro } from './scenetteVolo';
 
-// La carta d'imbarco di AI terms. Davanti, da sinistra: il francobollo con la scena della sezione, la domanda con tre
-// risposte, una striscia olografica e il tagliando con volo, data, posto e codice a barre.
-// Risposta sbagliata: un timbro rosso cade sul biglietto e si riprova. Risposta giusta: timbro verde, poi il biglietto si gira.
-// Dietro: la scena con il meteo dell'esito (sole al primo colpo, pioggia dopo un errore) e la definizione.
+// La carta d'imbarco olografica di AI terms.
+// Davanti, da sinistra: il francobollo dentellato con la scena della sezione; il corpo con la rotta, il termine, la domanda
+// e tre risposte; la banda olografica con il nome in verticale; il tagliando con volo, data, posto, un piccolo codice
+// quadrato e il codice a barre. Sotto tutto, una trama di sicurezza a onde e un microtesto sui bordi, con frasi nascoste.
+// Una foglia iridescente segue il puntatore (su telefono luccica da sola).
+// Risposta sbagliata: cade un timbro rosso e si riprova. Risposta giusta: timbro verde, poi il biglietto si gira.
+// Dietro c'è il premio: l'illustrazione grande della sezione, con il meteo dell'esito; la definizione si apre a richiesta.
 // Il testo delle note si scrive sempre come testo, mai come HTML.
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, classe = '', testo?: string) => {
   const e = document.createElement(tag);
@@ -18,6 +21,11 @@ const inchiostro = (hex: string) => {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? '#121417' : '#f4f1ea';
 };
 const MESI = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+// Il codice da aeroporto di ogni sezione: si parte sempre da ASK, la domanda
+const CODICI = ['GEN', 'GNR', 'RSK', 'PRM', 'OPS', 'OTH'];
+// Il microtesto sui bordi: a prima vista è una riga, da vicino si leggono le frasi
+const MICRO = 'AI TERMS ✦ BOARDING PASS ✦ VALID FOR ONE DAY ✦ ATTENTION IS ALL YOU NEED ✦ PLEASE DO NOT HALLUCINATE ✦ SEAT BELTS ON DURING GRADIENT DESCENT ✦ NO TOKENS LEFT BEHIND ✦ DON\'T PANIC ✦ ';
+const hash = (s: string) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
 
 export type OpzioniImbarco = {
   giorno: number; data: Date; voli: Volo[]; partita: Partita;
@@ -32,20 +40,34 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   scheda.setAttribute('aria-label', 'boarding pass');
   const biglietto = el('div', 'biglietto'), carta = el('div', 'carta');
   // Davanti
-  const fronte = el('section', 'faccia fronte'), francobollo = el('div', 'francobollo'), corpo = el('div', 'corpo-biglietto');
-  const testa = el('p', 'mono testa'), gruppo = el('p', 'mono gruppo'), termine = el('h2', 'termine'), domanda = el('p', 'domanda'), opzioniEl = el('div', 'opzioni'), nota = el('p', 'mono nota'), timbri = el('div', 'timbri');
+  const fronte = el('section', 'faccia fronte');
+  const microSu = el('p', 'mono micro su', MICRO.repeat(3)), microGiu = el('p', 'mono micro giu', MICRO.repeat(3));
+  const francobollo = el('div', 'francobollo'), scenaF = el('div', 'scena-f');
+  francobollo.append(scenaF, el('div', 'foglia'));
+  const corpo = el('div', 'corpo-biglietto');
+  const testa = el('p', 'mono testa'), rotta = el('div', 'mono rotta'), termine = el('h2', 'termine'), domanda = el('p', 'domanda'), opzioniEl = el('div', 'opzioni'), nota = el('p', 'mono nota'), timbri = el('div', 'timbri');
+  const da = el('span', 'aeroporto'), a = el('span', 'aeroporto');
+  rotta.append(el('small', '', 'from'), da, el('i', 'aereoplanino', '✈'), el('small', '', 'to'), a, el('span', 'gruppo'));
   nota.setAttribute('aria-live', 'polite');
-  corpo.append(testa, gruppo, termine, domanda, opzioniEl, nota, timbri);
-  const olo = el('div', 'olo'), oloTesto = el('p', 'mono', 'AI TERMS · BOARDING PASS'), oloNumero = el('p', 'mono numero');
-  olo.append(oloTesto, oloNumero);
-  const tagliando = el('div', 'tagliando'), griglia = el('dl', 'mono griglia'), codice = el('div', 'codice');
-  tagliando.append(griglia, codice);
-  fronte.append(francobollo, corpo, olo, tagliando);
-  // Dietro
-  const retro = el('section', 'faccia retro'), grafica = el('div', 'grafica'), testoR = el('div', 'testo-retro');
-  const esito = el('p', 'mono esito'), termineR = el('h2', 'termine'), definizione = el('div', 'definizione'), seriale = el('p', 'mono seriale');
-  testoR.append(esito, termineR, definizione, seriale);
-  retro.append(grafica, testoR);
+  corpo.append(testa, rotta, termine, domanda, opzioniEl, nota, timbri);
+  const olo = el('div', 'olo'), oloTitolo = el('p', 'mono olo-titolo', 'AI TERMS'), oloNumero = el('p', 'mono numero'), oloMicro = el('p', 'mono olo-micro', 'GENUINE ✦ HOLOGRAM ✦ GENUINE');
+  olo.append(el('div', 'foglia forte'), oloNumero, oloTitolo, oloMicro);
+  const tagliando = el('div', 'tagliando'), tagCodice = el('p', 'mono tag-codice'), griglia = el('dl', 'mono griglia'), qr = el('div', 'qr'), codice = el('div', 'codice'), tagPiede = el('p', 'mono tag-piede', 'keep this stub');
+  tagliando.append(tagCodice, griglia, qr, codice, tagPiede);
+  fronte.append(microSu, francobollo, corpo, olo, tagliando, microGiu, el('div', 'foglia velo'), el('div', 'riflesso'));
+  // Dietro: il premio
+  const retro = el('section', 'faccia retro'), grafica = el('div', 'grafica');
+  const retroTesta = el('div', 'retro-testa'), esito = el('p', 'mono esito'), retroNumero = el('p', 'mono retro-numero');
+  retroTesta.append(esito, retroNumero);
+  const retroPiede = el('div', 'retro-piede'), termineR = el('h2', 'termine'), leggi = el('button', 'mono leggi', 'read the definition ↑');
+  leggi.type = 'button';
+  retroPiede.append(termineR, leggi);
+  const pannello = el('div', 'pannello'), chiudiP = el('button', 'mono chiudi-pannello', 'back to the picture ↓'), definizione = el('div', 'definizione'), seriale = el('p', 'mono seriale');
+  chiudiP.type = 'button';
+  pannello.append(definizione, seriale, chiudiP);
+  retro.append(grafica, el('div', 'foglia premio'), retroTesta, retroPiede, pannello, el('div', 'riflesso'));
+  leggi.addEventListener('click', () => { retro.classList.add('legge'); chiudiP.focus({ preventScroll: true }); });
+  chiudiP.addEventListener('click', () => { retro.classList.remove('legge'); leggi.focus({ preventScroll: true }); });
   carta.append(fronte, retro);
   biglietto.append(carta);
   const azioni = el('div', 'azioni'), prossimo = el('button', 'mono prossimo'), chiudi = el('button', 'mono chiudi', 'close ×');
@@ -56,32 +78,38 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   scheda.append(biglietto, azioni);
   contenitore.appendChild(scheda);
 
-  // L'inclinazione segue il puntatore; il riflesso e l'ologramma si spostano con lui
+  // L'inclinazione segue il puntatore; il riflesso e la foglia olografica si spostano con lui
   const fermo = matchMedia('(prefers-reduced-motion: reduce)').matches;
   biglietto.addEventListener('pointermove', e => {
     if (fermo || e.pointerType !== 'mouse') return;
     const r = biglietto.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
+    carta.classList.add('puntato');
     carta.style.setProperty('--rx', `${(-y * 7).toFixed(2)}deg`);
     carta.style.setProperty('--ry', `${(x * 8).toFixed(2)}deg`);
     carta.style.setProperty('--lx', `${((x + 0.5) * 100).toFixed(1)}%`);
+    carta.style.setProperty('--ly', `${((y + 0.5) * 100).toFixed(1)}%`);
   });
-  biglietto.addEventListener('pointerleave', () => { carta.style.setProperty('--rx', '0deg'); carta.style.setProperty('--ry', '0deg'); });
+  biglietto.addEventListener('pointerleave', () => { carta.classList.remove('puntato'); carta.style.setProperty('--rx', '0deg'); carta.style.setProperty('--ry', '0deg'); });
 
-  const p = o.partita;
+  const p = o.partita, d = o.data, quando = `${String(d.getDate()).padStart(2, '0')} ${MESI[d.getMonth()]} ${d.getFullYear()}`;
+  // Di sera e di notte, ora locale, il premio ha il cielo stellato
+  const notte = () => { const h = new Date().getHours(); return h >= 20 || h < 6; };
   let corrente = -1, attesa = 0, opzioni: HTMLButtonElement[] = [];
   const restano = () => p.fatto.some(f => !f);
   const metti = (t: { x: number; y: number; a: number; ok: boolean }, nuovo: boolean) => {
-    const s = el('div', `timbro${t.ok ? ' ok' : ''}${nuovo && !fermo ? ' cade' : ''}`);
-    s.innerHTML = timbro(t.ok);
+    const v = o.voli[corrente]!, s = el('div', `timbro${t.ok ? ' ok' : ''}${nuovo && !fermo ? ' cade' : ''}`);
+    s.innerHTML = timbro(t.ok, quando, v.codice, Math.round(t.x * 37 + t.y * 11) % 97);
     s.style.left = `${t.x}%`; s.style.top = `${t.y}%`; s.style.setProperty('--a', `${t.a}deg`);
     timbri.append(s);
   };
   const retroDi = (v: Volo) => {
     const t = p.tentativi[v.indice]!;
-    grafica.innerHTML = scena(v.sezione, t <= 1 ? 'sole' : 'pioggia', v.tinta);
-    esito.textContent = t <= 1 ? `${v.codice} cleared · first try` : `${v.codice} cleared · after ${t} tries`;
+    retro.classList.remove('legge');
+    grafica.innerHTML = scena(v.sezione, t <= 1 ? 'sole' : 'pioggia', v.tinta, v.voce.termine, notte());
+    esito.textContent = t <= 1 ? `${v.codice} ✦ cleared ✦ first try` : `${v.codice} ✦ cleared after ${t} tries ✦ the storm has passed`;
+    retroNumero.textContent = `N° ${String(v.indice + 1).padStart(2, '0')}/06`;
     termineR.textContent = v.voce.termine;
-    definizione.replaceChildren(...v.voce.definizione.map(x => el('p', '', x)));
+    definizione.replaceChildren(el('h3', 'mono', v.voce.termine), ...v.voce.definizione.map(x => el('p', '', x)));
     if (v.voce.punti.length) {
       const lista = el('ul');
       v.voce.punti.map(dividi).forEach(q => {
@@ -93,7 +121,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       definizione.append(lista);
     }
     definizione.scrollTop = 0;
-    seriale.textContent = `${v.voce.id.slice(0, 22)} · ${v.voce.livello} · #${o.giorno}`;
+    seriale.textContent = `${v.voce.id.slice(0, 22)} · ${v.voce.livello} · day #${o.giorno} · ${quando}`;
   };
   const bottoni = () => {
     const v = o.voli[corrente]!, fatto = p.fatto[corrente]!;
@@ -108,7 +136,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     const giusto = b.dataset.testo === v.voce.domanda.risposte[0];
     p.tentativi[i]!++;
     // Il timbro cade in un punto a caso del lato con la domanda
-    const t = { x: 8 + Math.random() * 58, y: 6 + Math.random() * 50, a: Math.round(Math.random() * 56 - 28), ok: giusto };
+    const t = { x: 6 + Math.random() * 60, y: 4 + Math.random() * 52, a: Math.round(Math.random() * 56 - 28), ok: giusto };
     p.timbri[i]!.push(t);
     if (giusto) {
       p.fatto[i] = true;
@@ -126,7 +154,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     o.dopo(i, giusto);
     if (giusto) {
       retroDi(v);
-      attesa = window.setTimeout(() => carta.classList.add('girata'), fermo ? 0 : 1100);
+      attesa = window.setTimeout(() => carta.classList.add('girata'), fermo ? 0 : 1200);
     }
   };
   const tasti = (e: KeyboardEvent) => {
@@ -142,23 +170,30 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     mostra(i: number) {
       clearTimeout(attesa);
       corrente = i;
-      const v = o.voli[i]!, n = i + 1, d = o.data;
+      const v = o.voli[i]!, n = i + 1;
       carta.style.setProperty('--tinta', v.tinta);
       carta.style.setProperty('--inchiostro', inchiostro(v.tinta));
       // Un volo già partito si apre girato, senza animazione
       carta.classList.add('subito');
       carta.classList.toggle('girata', p.fatto[i]!);
       requestAnimationFrame(() => requestAnimationFrame(() => carta.classList.remove('subito')));
-      francobollo.innerHTML = scena(v.sezione, 'neutro', v.tinta);
-      testa.textContent = `Flight ${v.codice} · ${v.nome}`;
-      gruppo.textContent = `${v.voce.sotto} · ${v.voce.livello}`;
+      scenaF.innerHTML = scena(v.sezione, 'neutro', v.tinta, '', false, true);
+      testa.textContent = `Boarding pass ✦ flight ${v.codice}`;
+      da.textContent = 'ASK';
+      a.textContent = CODICI[v.sezione % CODICI.length]!;
+      (rotta.querySelector('.gruppo') as HTMLElement).textContent = `${v.nome} · ${v.voce.sotto} · ${v.voce.livello}`;
       termine.textContent = v.voce.termine;
       domanda.textContent = v.voce.domanda.testo;
-      oloNumero.textContent = `N° ${String(n).padStart(2, '0')}`;
-      const righe: [string, string][] = [['flight', v.codice], ['date', `${String(d.getDate()).padStart(2, '0')} ${MESI[d.getMonth()]}`], ['gate', String(n)], ['seat', `${n}${'ABC'[v.voce.livello.length % 3]}`], ['day', `#${o.giorno}`]];
+      oloNumero.textContent = `N°${String(n).padStart(2, '0')}`;
+      tagCodice.textContent = v.codice;
+      // Il posto 42 è sempre degli altri termini
+      const posto = v.sezione === 5 ? '42' : `${n}${'ABCDEF'[hash(v.voce.id) % 6]}`;
+      const righe: [string, string][] = [['date', `${String(d.getDate()).padStart(2, '0')} ${MESI[d.getMonth()]}`], ['gate', `G${n}`], ['seat', posto], ['class', v.voce.livello], ['day', `#${o.giorno}`]];
       griglia.replaceChildren(...righe.flatMap(([k, x]) => [el('dt', '', k), el('dd', '', x)]));
-      // Il codice a barre viene dalle lettere del termine: ogni biglietto ha il suo
-      codice.replaceChildren(...[...`${v.voce.termine}${v.voce.id}${v.codice}`.replace(/[\s-]+/g, '')].slice(0, 24).map((c, k) => { const s = el('span'); s.style.width = `${1 + (c.charCodeAt(0) % 3)}px`; s.style.marginRight = `${1 + ((c.charCodeAt(0) + k) % 2)}px`; return s; }));
+      // Il codice quadrato e il codice a barre vengono dal termine: ogni biglietto ha i suoi
+      const h = hash(v.voce.termine);
+      qr.replaceChildren(...Array.from({ length: 49 }, (_, k) => { const r = Math.floor(k / 7), c = k % 7, angolo = (r < 2 && c < 2) || (r < 2 && c > 4) || (r > 4 && c < 2); const s = el('i'); if (angolo || (hash(`${h}${k}`) & 1)) s.className = 'pieno'; return s; }));
+      codice.replaceChildren(...[...`${v.voce.termine}${v.voce.id}${v.codice}`.replace(/[\s-]+/g, '')].slice(0, 28).map((c, k) => { const s = el('span'); s.style.width = `${1 + (c.charCodeAt(0) % 3)}px`; s.style.marginRight = `${1 + ((c.charCodeAt(0) + k) % 2)}px`; return s; }));
       const sbagliate = p.sbagliate[i]!;
       opzioni = v.risposte.map((testoR, k) => {
         const b = el('button', 'mono opzione');
