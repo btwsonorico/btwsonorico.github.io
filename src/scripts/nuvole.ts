@@ -529,10 +529,9 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   try { gioco.record = Number(localStorage.getItem('misc-gregge-record')) || 0; } catch { /* niente */ }
   const orologio = (x: number) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
   const conta = document.createElement('span');
-  // Tre righe: il mio record (a mano, in questo browser), il migliore dell'AI in una run intera di training, e il contatore
+  // Due righe: i record (a mano in questo browser; l'AI: la policy finale, migliore di 300 partite simulate dal centro) e il contatore
   const scriviConta = (dentro: number) => {
-    conta.textContent = `My best ${gioco.record ? orologio(gioco.record) : '–'}
-AI best ${orologio(TAPPE.migliorAI)}
+    conta.textContent = `Best: ${gioco.record ? orologio(gioco.record) : '–'} (Human), ${orologio(TAPPE.migliorAI)} (AI)
 Sheep: ${dentro}/${PECORE}   ${orologio(gioco.tempo)}`;
   };
   conta.style.cssText = 'position:absolute;right:16px;bottom:8px;font:13px var(--mono);color:var(--fg);pointer-events:none;opacity:0;transition:opacity .6s;white-space:pre';
