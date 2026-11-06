@@ -84,8 +84,8 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     if (fermo || e.pointerType !== 'mouse') return;
     const r = biglietto.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
     carta.classList.add('puntato');
-    carta.style.setProperty('--rx', `${(-y * 7).toFixed(2)}deg`);
-    carta.style.setProperty('--ry', `${(x * 8).toFixed(2)}deg`);
+    carta.style.setProperty('--rx', `${(-y * 18).toFixed(2)}deg`);
+    carta.style.setProperty('--ry', `${(x * 22).toFixed(2)}deg`);
     carta.style.setProperty('--lx', `${((x + 0.5) * 100).toFixed(1)}%`);
     carta.style.setProperty('--ly', `${((y + 0.5) * 100).toFixed(1)}%`);
   });

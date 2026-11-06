@@ -154,20 +154,23 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .micro.giu) { bottom: 3px; }
   /* La foglia olografica: arcobaleno che scorre con il puntatore, righe sottili e brillantini. Senza puntatore luccica da sola */
   :global(.imbarco .foglia) {
-    position: absolute; inset: 0; z-index: 2; pointer-events: none; mix-blend-mode: color-dodge; opacity: .4;
-    background-image: repeating-linear-gradient(115deg, #ff7eb3 0%, #ffd56a 6%, #7ef0c8 12%, #7fb7ff 18%, #c39bff 24%, #ff7eb3 30%), repeating-linear-gradient(28deg, transparent 0 3px, rgb(255 255 255 / .3) 3px 4px);
+    position: absolute; inset: 0; z-index: 2; pointer-events: none; mix-blend-mode: color-dodge; opacity: .62;
+    background-image: repeating-linear-gradient(115deg, #ff7eb3 0%, #ffd56a 6%, #7ef0c8 12%, #7fb7ff 18%, #c39bff 24%, #ff7eb3 30%), repeating-linear-gradient(28deg, transparent 0 3px, rgb(255 255 255 / .42) 3px 4px);
     background-size: 320% 320%, 100% 100%; background-position: var(--lx) var(--ly), 0 0;
   }
   :global(.imbarco .foglia)::after {
-    content: ''; position: absolute; inset: 0; opacity: .7; mix-blend-mode: overlay;
+    content: ''; position: absolute; inset: 0; opacity: 1; mix-blend-mode: overlay;
     background-image: radial-gradient(circle, #fff 0 .8px, transparent 1.4px), radial-gradient(circle, #fff 0 .6px, transparent 1.2px);
     background-size: 23px 19px, 37px 29px; background-position: 0 0, 11px 7px;
   }
-  :global(.imbarco .carta:not(.puntato) .foglia) { animation: luccica 7s ease-in-out infinite alternate; }
-  @keyframes luccica { from { background-position: 0% 20%, 0 0; } to { background-position: 100% 80%, 0 0; } }
-  :global(.imbarco .foglia.velo) { opacity: .16; }
+  :global(.imbarco .carta:not(.puntato) .foglia) { animation: luccica 5s ease-in-out infinite alternate; }
+  /* Senza puntatore il biglietto ondeggia piano da solo, così l'ologramma si vede anche su telefono */
+  :global(.imbarco .biglietto:not(:has(.puntato))) { transform-style: preserve-3d; animation: ondeggia 6s ease-in-out infinite alternate; }
+  @keyframes ondeggia { from { transform: perspective(1600px) rotateX(5deg) rotateY(-9deg); } to { transform: perspective(1600px) rotateX(-5deg) rotateY(9deg); } }
+  @keyframes luccica { from { background-position: 0% 0%, 0 0; } to { background-position: 100% 100%, 0 0; } }
+  :global(.imbarco .foglia.velo) { opacity: .34; }
   /* Il riflesso: una luce morbida dove punta il mouse */
-  :global(.imbarco .riflesso) { position: absolute; inset: 0; z-index: 3; pointer-events: none; mix-blend-mode: soft-light; background: radial-gradient(circle at var(--lx) var(--ly), rgb(255 255 255 / .55), transparent 42%); opacity: 0; transition: opacity .3s; }
+  :global(.imbarco .riflesso) { position: absolute; inset: 0; z-index: 3; pointer-events: none; mix-blend-mode: soft-light; background: radial-gradient(circle at var(--lx) var(--ly), rgb(255 255 255 / .8), transparent 48%); opacity: 0; transition: opacity .3s; }
   :global(.imbarco .carta.puntato .riflesso) { opacity: 1; }
   /* Il francobollo dentellato, con il timbro postale a onde sull'angolo */
   :global(.imbarco .francobollo) {
@@ -178,7 +181,7 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .francobollo)::before { content: ''; position: absolute; right: -26px; top: 10px; z-index: 3; width: 90px; height: 40px; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='40'><g fill='none' stroke='rgba(20,15,12,.55)' stroke-width='1.6'><path d='M0 8 q11 -6 22 0 t22 0 t22 0 t22 0'/><path d='M0 18 q11 -6 22 0 t22 0 t22 0 t22 0'/><path d='M0 28 q11 -6 22 0 t22 0 t22 0 t22 0'/></g></svg>"); rotate: -12deg; pointer-events: none; }
   :global(.imbarco .scena-f) { position: absolute; inset: 7px; overflow: hidden; }
   :global(.imbarco .scena-f svg) { display: block; width: 100%; height: 100%; }
-  :global(.imbarco .francobollo .foglia) { inset: 7px; opacity: .45; }
+  :global(.imbarco .francobollo .foglia) { inset: 7px; opacity: .7; }
   :global(.imbarco .corpo-biglietto) { position: relative; z-index: 1; flex: 1; min-width: 0; padding: 22px 20px 16px; }
   :global(.imbarco .testa) { margin: 0; font-size: 10px; letter-spacing: .22em; text-transform: uppercase; opacity: .75; }
   :global(.imbarco .rotta) { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 6px 0 2px; text-transform: uppercase; }
@@ -235,7 +238,7 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .retro) { transform: rotateY(180deg); -webkit-mask: none; mask: none; background: #12151b; }
   :global(.imbarco .grafica) { position: absolute; inset: 0; }
   :global(.imbarco .grafica svg) { display: block; width: 100%; height: 100%; }
-  :global(.imbarco .foglia.premio) { opacity: .22; }
+  :global(.imbarco .foglia.premio) { opacity: .4; }
   :global(.imbarco .retro-testa) { position: absolute; left: 14px; right: 14px; top: 12px; z-index: 4; display: flex; justify-content: space-between; gap: 10px; pointer-events: none; }
   :global(.imbarco .retro-testa p) { margin: 0; padding: 4px 10px; border-radius: 999px; background: rgb(255 250 240 / .9); color: #121417; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
   :global(.imbarco .retro-piede) { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 40px 18px 14px; background: linear-gradient(transparent, rgb(10 12 16 / .55)); }
@@ -259,7 +262,7 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .azioni .prossimo) { color: var(--fg); border-color: var(--muted); }
   :global(.imbarco .azioni button:hover) { color: var(--fg); border-color: var(--fg); }
   :global(.imbarco .azioni button[hidden]) { display: none; }
-  @media (prefers-reduced-motion: reduce) { :global(.imbarco .carta), :global(.imbarco .pannello) { transition: none; } :global(.imbarco .foglia) { animation: none !important; } }
+  @media (prefers-reduced-motion: reduce) { :global(.imbarco .carta), :global(.imbarco .pannello) { transition: none; } :global(.imbarco .foglia), :global(.imbarco .biglietto) { animation: none !important; } }
   @media (max-width: 640px) {
     .fondo3d { top: 300px; }
     .sotto { display: none; }
