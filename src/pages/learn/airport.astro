@@ -56,6 +56,7 @@ import Base from '../../layouts/Base.astro';
 
 <script>
   import '@fontsource/instrument-serif/400-italic.css';
+  import '@fontsource/anton/latin-400.css';
   import { monta } from '../../scripts/aeroporto';
   import { nuovoImbarco } from '../../scripts/bigliettoImbarco';
   import { TINTE_SEZIONI } from '../../lib/glossario';
@@ -217,150 +218,129 @@ import Base from '../../layouts/Base.astro';
   .pagine-album :global(li.vuoto) { grid-column: 1 / -1; border-left-color: var(--line); color: var(--muted); }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
 
-  /* La carta d'imbarco: in basso al centro, sopra la scena */
-  :global(.imbarco) { position: fixed; left: 50%; bottom: 22px; z-index: 3; width: min(960px, calc(100vw - 40px)); transform: translateX(-50%); }
+  /* La carta d'imbarco, stile 70s Rapid: in basso al centro, sopra la scena */
+  :global(.imbarco) { position: fixed; left: 50%; bottom: 22px; z-index: 3; width: min(980px, calc(100vw - 40px)); transform: translateX(-50%); }
   :global(.imbarco[hidden]) { display: none; }
   :global(body:has(.imbarco:not([hidden])) .piede) { visibility: hidden; }
-  :global(.imbarco .biglietto) { perspective: 1600px; }
+  /* Il biglietto si inclina (lo muove lo script); la carta dentro si gira */
+  :global(.imbarco .biglietto) { --tx: 0; --ty: 0; --t: 0; transform-style: preserve-3d; touch-action: none; }
   :global(.imbarco .carta) {
-    --rx: 0deg; --ry: 0deg; --lx: 50%; --ly: 50%; --accento: #f7cf4f; --nero: #1f1d1b; --crema: #f3ead6; --rosso: #c8221d; --serif: 'Instrument Serif', Georgia, serif;
+    --carta: #e5532b; --c1: #1d2b4a; --c2: #f7cf4f; --tagliando: #f6dfe5; --nero: #17161b; --crema: #fff7ea; --rosso: #c9241e;
+    --display: 'Anton', Impact, 'Arial Narrow', sans-serif; --serif: 'Instrument Serif', Georgia, serif;
     position: relative; display: grid; transform-style: preserve-3d; transition: transform .8s cubic-bezier(.3, 1.3, .5, 1);
-    transform: rotateX(var(--rx)) rotateY(var(--ry));
   }
   :global(.imbarco .carta.subito) { transition: none; }
-  :global(.imbarco .carta.girata) { transform: rotateX(var(--rx)) rotateY(calc(var(--ry) + 180deg)); }
+  :global(.imbarco .carta.girata) { transform: rotateY(180deg); }
   :global(.imbarco .carta.scossa) { animation: scossa .35s ease-out; }
   @keyframes scossa { 20% { translate: -7px 0; } 45% { translate: 6px 0; } 70% { translate: -3px 0; } }
-  /* Senza puntatore il biglietto ondeggia piano da solo, così la foglia brilla anche su telefono */
-  :global(.imbarco .biglietto:not(:has(.puntato))) { transform-style: preserve-3d; animation: ondeggia 6s ease-in-out infinite alternate; }
-  @keyframes ondeggia { from { transform: perspective(1600px) rotateX(5deg) rotateY(-9deg); } to { transform: perspective(1600px) rotateX(-5deg) rotateY(9deg); } }
   :global(.imbarco .faccia) {
-    --stub: 176px;
-    grid-area: 1 / 1; position: relative; display: flex; height: 330px; backface-visibility: hidden; -webkit-backface-visibility: hidden;
-    color: var(--nero); background: var(--crema) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .16 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); border-radius: 4px; overflow: hidden; box-shadow: 0 18px 50px rgb(0 0 0 / .42);
-    -webkit-mask: radial-gradient(circle 9px at calc(100% - var(--stub)) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 9px at calc(100% - var(--stub)) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
-    mask: radial-gradient(circle 9px at calc(100% - var(--stub)) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 9px at calc(100% - var(--stub)) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
+    --stub: 168px;
+    grid-area: 1 / 1; position: relative; display: grid; height: 340px; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    color: var(--crema); background: var(--carta); border-radius: 6px; overflow: hidden; box-shadow: calc(var(--tx) * -14px) calc(18px + var(--ty) * -8px) 44px rgb(0 0 0 / .45);
+    -webkit-mask: radial-gradient(circle 10px at calc(100% - var(--stub)) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 10px at calc(100% - var(--stub)) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
+    mask: radial-gradient(circle 10px at calc(100% - var(--stub)) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 10px at calc(100% - var(--stub)) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
   }
   :global(.imbarco .faccia *) { color: inherit; }
   :global(.imbarco .mono) { font-family: var(--mono); }
-  :global(.imbarco .faccia > *:not(.bande):not(.riflesso):not(.annullo)) { position: relative; z-index: 1; }
-  /* Le bande di colore della sezione: un grande sole che sorge dal basso, una fascia diagonale, due righe al piede */
-  :global(.imbarco .bande) {
-    position: absolute; inset: 0; z-index: 0; pointer-events: none;
-    background:
-      radial-gradient(circle at 70% 128%, var(--accento) 0 118px, transparent 119px),
-      radial-gradient(circle at 70% 128%, transparent 0 128px, color-mix(in srgb, var(--accento) 55%, transparent) 129px 134px, transparent 135px),
-      linear-gradient(112deg, transparent 0 70%, color-mix(in srgb, var(--accento) 80%, #fff) 70% 73%, transparent 73% 74.5%, var(--accento) 74.5% 77%, transparent 77%),
-      linear-gradient(transparent calc(100% - 16px), var(--accento) calc(100% - 16px) calc(100% - 10px), transparent calc(100% - 10px) calc(100% - 7px), var(--nero) calc(100% - 7px));
-  }
-  :global(.imbarco .carta[data-sezione='1'] .bande) { background: repeating-radial-gradient(ellipse at 100% 120%, color-mix(in srgb, var(--accento) 75%, transparent) 0 12px, transparent 12px 20px, color-mix(in srgb, #f0603f 45%, transparent) 20px 26px, transparent 26px 40px); -webkit-mask: linear-gradient(110deg, transparent 52%, #000 70%); mask: linear-gradient(110deg, transparent 52%, #000 70%); }
-  :global(.imbarco .carta[data-sezione='2'] .bande) { background: repeating-linear-gradient(-60deg, transparent 0 18px, var(--accento) 18px 26px, transparent 26px 30px, #f7a541 30px 34px); -webkit-mask: linear-gradient(100deg, transparent 58%, #000 80%); mask: linear-gradient(100deg, transparent 58%, #000 80%); }
-  :global(.imbarco .carta[data-sezione='4'] .bande) { background: linear-gradient(transparent 0 62%, #e85d4a 62% 66%, #f2a43a 66% 70%, #f7cf4f 70% 74%, var(--accento) 74% 78%, #3e6795 78% 82%, transparent 82%); -webkit-mask: linear-gradient(90deg, transparent 40%, #000 62%); mask: linear-gradient(90deg, transparent 40%, #000 62%); }
-  /* Il riflesso: una lucidatura che segue il mouse */
-  :global(.imbarco .riflesso) { position: absolute; inset: 0; z-index: 5; pointer-events: none; mix-blend-mode: soft-light; background: linear-gradient(105deg, transparent calc(var(--lx) - 16%), rgb(255 255 255 / .85) var(--lx), transparent calc(var(--lx) + 16%)); opacity: 0; transition: opacity .3s; }
-  :global(.imbarco .carta.puntato .riflesso) { opacity: 1; }
-  /* Il francobollo a lotteria: dentellato, fascia di sicurezza rosa con il numero rosso, l'illustrazione, il valore */
-  :global(.imbarco .francobollo) {
-    flex: none; align-self: center; display: flex; flex-direction: column; width: 152px; height: 226px; margin-left: 22px; padding: 8px; background: #fffdf6; rotate: -2deg;
-    box-shadow: 0 1px 0 rgb(0 0 0 / .08);
-    -webkit-mask: radial-gradient(circle 4px, #0000 96%, #000) -5px -5px / 10px 10px round, linear-gradient(#000 0 0) 5px 5px / calc(100% - 10px) calc(100% - 10px) no-repeat;
-    mask: radial-gradient(circle 4px, #0000 96%, #000) -5px -5px / 10px 10px round, linear-gradient(#000 0 0) 5px 5px / calc(100% - 10px) calc(100% - 10px) no-repeat;
-  }
-  :global(.imbarco .fascia) { display: grid; place-items: center; height: 26px; background: #f7e3e7 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='9'><g fill='none' stroke='rgba(214,90,120,.45)' stroke-width='.6'><path d='M0 2.5 Q5.5 0 11 2.5 T22 2.5 T33 2.5 T44 2.5'/><path d='M0 6.5 Q5.5 9 11 6.5 T22 6.5 T33 6.5 T44 6.5'/></g></svg>"); background-size: 44px 9px; }
-  :global(.imbarco .seriale) { margin: 0; font-family: var(--mono); font-size: 15px; letter-spacing: .14em; color: var(--rosso); }
-  :global(.imbarco .arte) { flex: 1; min-height: 0; overflow: hidden; }
-  :global(.imbarco .arte svg) { display: block; width: 100%; height: 100%; }
-  :global(.imbarco .valore) { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 2px 0; }
-  :global(.imbarco .valore span) { font-size: 7.5px; letter-spacing: .2em; }
-  :global(.imbarco .valore b) { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: 22px; line-height: .8; }
-  :global(.imbarco .annullo) { position: absolute; z-index: 3; left: 112px; top: 26px; width: 150px; height: 70px; rotate: -9deg; pointer-events: none; mix-blend-mode: multiply; }
-  :global(.imbarco .annullo svg) { display: block; width: 100%; height: 100%; }
-  /* Il corpo: titolo grande nel mono, corsivo della sezione, domanda, risposte su righe sottili */
-  :global(.imbarco .corpo) { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 24px 24px 22px 30px; }
-  :global(.imbarco .riga) { margin: 0; font-size: 9px; letter-spacing: .26em; text-transform: uppercase; opacity: .75; }
-  :global(.imbarco .titolo) { margin: 10px 0 0; font-size: 38px; font-weight: 700; line-height: .95; letter-spacing: -.03em; text-transform: uppercase; overflow-wrap: anywhere; }
-  :global(.imbarco .corsivo) { margin: 4px 0 8px; font-family: var(--serif); font-style: italic; font-size: 19px; line-height: 1.1; }
-  :global(.imbarco .domanda) { margin: 0 0 8px; font-size: 14px; line-height: 1.35; font-weight: 600; }
-  :global(.imbarco .opzioni) { display: grid; margin-top: auto; border-bottom: 1px solid rgb(31 29 27 / .4); background: rgb(243 234 214 / .55); }
+  /* Gli strati sopra la stampa: la grana della carta, la perla olografica (solo difficile), il bagliore che segue l'inclinazione */
+  :global(.imbarco .strato) { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
+  :global(.imbarco .grana) { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .2 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); mix-blend-mode: multiply; }
+  :global(.imbarco .perla) { display: none; background: linear-gradient(calc(105deg + var(--tx) * 50deg), transparent 15%, rgb(255 180 225 / .75) 30%, rgb(170 225 255 / .75) 42%, rgb(255 244 180 / .7) 54%, rgb(205 180 255 / .7) 66%, transparent 82%); background-size: 260% 260%; background-position: calc(50% + var(--tx) * 48%) calc(50% + var(--ty) * 48%); mix-blend-mode: soft-light; opacity: calc(.3 + var(--t) * .6); }
+  :global(.imbarco .carta[data-livello='hard'] .perla) { display: block; }
+  :global(.imbarco .bagliore) { background: radial-gradient(circle at calc(50% + var(--tx) * 45%) calc(50% + var(--ty) * 45%), rgb(255 255 255 / .5), transparent 45%); mix-blend-mode: overlay; opacity: calc(.15 + var(--t) * .85); }
+
+  /* Davanti: arte | banda in foglia | corpo | tagliando */
+  :global(.imbarco .fronte) { grid-template-columns: 29% 34px minmax(0, 1fr) var(--stub); }
+  :global(.imbarco .arte70) { position: relative; overflow: hidden; }
+  :global(.imbarco .arte70 svg) { position: absolute; inset: 0; width: 100%; height: 100%; }
+  :global(.imbarco .banda) { position: relative; display: grid; place-items: center; box-shadow: inset 1px 0 rgb(0 0 0 / .25), inset -1px 0 rgb(0 0 0 / .25); }
+  :global(.imbarco .banda span) { writing-mode: vertical-rl; rotate: 180deg; font-size: 10px; letter-spacing: .4em; white-space: nowrap; color: #2a2c31 !important; }
+  /* Le tre foglie: una riga di luce che gira con l'inclinazione, sopra una spazzolatura fine */
+  :global(.imbarco .argento) { background: repeating-linear-gradient(90deg, rgb(255 255 255 / .12) 0 1px, transparent 1px 3px), linear-gradient(calc(90deg + var(--tx) * 70deg + var(--ty) * 20deg), #7d8792 0%, #eef2f6 calc(30% + var(--tx) * 12%), #98a2ad 50%, #ffffff calc(68% + var(--tx) * 12%), #828c97 100%); }
+  :global(.imbarco .oro) { background: repeating-linear-gradient(90deg, rgb(255 255 255 / .14) 0 1px, transparent 1px 3px), linear-gradient(calc(90deg + var(--tx) * 70deg + var(--ty) * 20deg), #8d6418 0%, #f8dc8c calc(30% + var(--tx) * 12%), #b88a2a 50%, #fff2c4 calc(68% + var(--tx) * 12%), #94681a 100%); }
+  :global(.imbarco .iride) { background: repeating-linear-gradient(90deg, rgb(255 255 255 / .16) 0 1px, transparent 1px 3px), linear-gradient(calc(120deg + var(--tx) * 80deg), #ff9fd0, #ffe79a, #9ff3d4, #a8c8ff, #e3b0ff, #ff9fd0); background-size: auto, 300% 300%; background-position: 0 0, calc(50% + var(--tx) * 50%) calc(50% + var(--ty) * 50%); }
+  :global(.imbarco .corpo) { min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 18px 20px 18px; }
+  :global(.imbarco .sotto) { margin: 0; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; opacity: .85; }
+  :global(.imbarco .tratta) { display: flex; align-items: center; gap: 12px; font-family: var(--display); font-size: 46px; line-height: .9; letter-spacing: .01em; }
+  :global(.imbarco .tratta i) { font-style: normal; font-size: 20px; color: var(--c2) !important; }
+  :global(.imbarco .carta[data-sezione='2'] .tratta i), :global(.imbarco .carta[data-sezione='5'] .tratta i) { color: var(--crema) !important; }
+  /* La carta crema con la domanda */
+  :global(.imbarco .carta-dom) { flex: 1; min-height: 0; display: flex; flex-direction: column; margin-top: 4px; padding: 12px 14px 10px; background: var(--crema); color: var(--nero); }
+  :global(.imbarco .titolo) { margin: 0; font-family: var(--display); font-weight: 400; font-size: 30px; line-height: .95; letter-spacing: .01em; text-transform: uppercase; overflow-wrap: anywhere; }
+  :global(.imbarco .corsivo) { margin: 2px 0 4px; font-family: var(--serif); font-style: italic; font-size: 17px; line-height: 1.1; }
+  :global(.imbarco .domanda) { margin: 0 0 8px; font-size: 13.5px; line-height: 1.3; font-weight: 700; }
+  :global(.imbarco .opzioni) { display: grid; gap: 4px; margin-top: auto; }
   :global(.imbarco .opzione) {
-    display: flex; gap: 14px; align-items: baseline; width: 100%; min-height: 34px; padding: 8px 8px 8px 4px; border: 0; border-top: 1px solid rgb(31 29 27 / .4);
-    background: transparent; color: var(--nero); font: inherit; font-size: 13.5px; line-height: 1.3; text-align: left; cursor: pointer; transition: background .15s, padding .15s;
+    display: flex; gap: 12px; align-items: baseline; width: 100%; min-height: 30px; padding: 6px 8px; border: 1.5px solid var(--nero); border-radius: 0;
+    background: transparent; color: var(--nero); font: inherit; font-size: 13px; line-height: 1.25; text-align: left; cursor: pointer; transition: background .15s, color .15s;
   }
-  :global(.imbarco .opzione span) { flex: none; font-size: 10px; opacity: .55; }
-  :global(.imbarco .opzione:hover:not(:disabled)) { padding-left: 10px; background: color-mix(in srgb, var(--accento) 55%, transparent); }
-  :global(.imbarco .opzione:disabled) { cursor: default; opacity: .45; }
-  :global(.imbarco .opzione.giusta) { opacity: 1; background: var(--nero); color: var(--crema); padding-left: 10px; }
+  :global(.imbarco .opzione span) { flex: none; font-size: 10px; opacity: .6; }
+  :global(.imbarco .opzione:hover:not(:disabled)) { background: var(--carta); color: var(--crema); }
+  :global(.imbarco .opzione:disabled) { cursor: default; opacity: .4; }
+  :global(.imbarco .opzione.giusta) { opacity: 1; background: var(--nero); color: var(--crema); }
   :global(.imbarco .opzione.sbagliata) { text-decoration: line-through; }
-  :global(.imbarco .nota) { margin: 7px 0 0; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; opacity: .75; }
+  :global(.imbarco .nota) { margin: 6px 0 0; font-size: 9px; letter-spacing: .2em; text-transform: uppercase; opacity: .7; }
+  /* Il tagliando: carta di sicurezza nel colore del tipo, il numero rosso grande, il seriale, le righe fini, il codice */
+  :global(.imbarco .tagliando) { display: flex; flex-direction: column; gap: 8px; padding: 20px 16px 18px; color: var(--nero); background: var(--tagliando) var(--trama); background-size: auto, 44px 9px; border-left: 2px dashed rgb(23 22 27 / .4); }
+  :global(.imbarco .numero) { margin: 0; font-family: var(--display); font-size: 64px; line-height: .8; color: var(--rosso) !important; }
+  :global(.imbarco .seriale) { margin: 0; font-family: var(--mono); font-size: 15px; letter-spacing: .12em; color: var(--rosso) !important; }
+  :global(.imbarco .fine) { display: grid; margin: 0; font-size: 9px; line-height: 1.6; letter-spacing: .06em; text-transform: uppercase; }
+  :global(.imbarco .codice) { display: flex; height: 30px; margin-top: auto; }
+  :global(.imbarco .codice span) { display: block; height: 100%; background: var(--nero); }
   /* I timbri: solo inchiostro, sopra la domanda */
-  :global(.imbarco .timbri) { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+  :global(.imbarco .timbri) { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
   :global(.imbarco .timbro) { position: absolute; width: 124px; height: 124px; transform: rotate(var(--a)); mix-blend-mode: multiply; }
   :global(.imbarco .timbro svg) { display: block; width: 100%; height: 100%; overflow: visible; }
   :global(.imbarco .timbro.cade) { animation: cade .5s cubic-bezier(.2, 1.5, .4, 1) both; }
   @keyframes cade { 0% { transform: rotate(calc(var(--a) - 14deg)) scale(1.9); opacity: 0; } 45% { transform: rotate(var(--a)) scale(.94); opacity: 1; } 70% { transform: rotate(var(--a)) scale(1.03); } 100% { transform: rotate(var(--a)) scale(1); } }
-  /* Il tagliando: carta di sicurezza azzurra, la tratta grande, i dati, il numero rosso, il codice a barre */
-  :global(.imbarco .tagliando) {
-    flex: none; display: flex; flex-direction: column; gap: 8px; width: var(--stub); padding: 22px 16px 22px; border-left: 1.5px dashed rgb(31 29 27 / .5);
-    background: #e3ecf4 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='9'><g fill='none' stroke='rgba(70,110,170,.4)' stroke-width='.6'><path d='M0 2.5 Q5.5 0 11 2.5 T22 2.5 T33 2.5 T44 2.5'/><path d='M0 6.5 Q5.5 9 11 6.5 T22 6.5 T33 6.5 T44 6.5'/></g></svg>"); background-size: 44px 9px;
-  }
-  :global(.imbarco .tratta) { display: flex; align-items: center; gap: 6px; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
-  :global(.imbarco .tratta i) { font-style: normal; font-size: 13px; color: var(--rosso); }
-  :global(.imbarco .numero) { margin: 0; font-family: var(--serif); font-style: italic; font-size: 46px; line-height: .8; color: var(--rosso); }
-  :global(.imbarco .griglia) { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; margin: 0; font-size: 8.5px; text-transform: uppercase; }
-  :global(.imbarco .griglia dt) { opacity: .6; letter-spacing: .14em; }
-  :global(.imbarco .griglia dd) { margin: 0; font-size: 10.5px; text-align: right; }
-  :global(.imbarco .tagliando .seriale) { margin-top: auto; font-size: 13px; }
-  :global(.imbarco .codice) { display: flex; height: 30px; }
-  :global(.imbarco .codice span) { display: block; height: 100%; background: var(--nero); }
-  /* Dietro: il poster grande con il bordo di carta; a destra la definizione su carta di sicurezza rosa */
-  :global(.imbarco .retro) { --stub: 36%; transform: rotateY(180deg); }
-  :global(.imbarco .poster) { flex: none; width: 64%; padding: 12px; }
-  :global(.imbarco .poster svg) { display: block; width: 100%; height: 100%; box-shadow: 0 0 0 1px rgb(31 29 27 / .25); }
-  :global(.imbarco .pannello) { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 18px 20px 14px; border-left: 1.5px dashed rgb(31 29 27 / .5); background: #f7e3e7 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='9'><g fill='none' stroke='rgba(214,90,120,.45)' stroke-width='.6'><path d='M0 2.5 Q5.5 0 11 2.5 T22 2.5 T33 2.5 T44 2.5'/><path d='M0 6.5 Q5.5 9 11 6.5 T22 6.5 T33 6.5 T44 6.5'/></g></svg>"); background-size: 44px 9px; }
-  :global(.imbarco .testa-retro) { display: flex; align-items: baseline; gap: 10px; }
-  :global(.imbarco .esito) { margin: 0; font-size: 9px; letter-spacing: .22em; text-transform: uppercase; }
-  :global(.imbarco .retro .titolo) { margin-top: 8px; font-size: 26px; }
-  :global(.imbarco .retro .corsivo) { font-size: 16px; margin-bottom: 0; }
-  :global(.imbarco .etichetta) { margin: 8px 0 5px; padding-top: 6px; border-top: 1px solid rgb(31 29 27 / .4); font-size: 8.5px; letter-spacing: .3em; text-transform: uppercase; opacity: .75; }
-  :global(.imbarco .definizione) { flex: 1; min-height: 0; overflow-y: auto; font-size: 12px; line-height: 1.5; touch-action: pan-y; scrollbar-width: thin; }
-  :global(.imbarco .definizione p) { margin: 0 0 7px; }
-  :global(.imbarco .definizione ul) { margin: 0 0 7px; padding-left: 16px; }
-  :global(.imbarco .definizione li) { margin-bottom: 4px; }
+
+  /* Dietro, metà e metà: il poster e la definizione su carta crema a righe. Le tacche cadono dove sono davanti */
+  :global(.imbarco .retro) { transform: rotateY(180deg); grid-template-columns: 50% 50%; -webkit-mask: radial-gradient(circle 10px at var(--stub) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 10px at var(--stub) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat; mask: radial-gradient(circle 10px at var(--stub) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 10px at var(--stub) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat; }
+  :global(.imbarco .poster) { position: relative; overflow: hidden; }
+  :global(.imbarco .poster svg) { position: absolute; inset: 0; width: 100%; height: 100%; }
+  :global(.imbarco .pannello) { min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 18px 22px 14px; background: var(--crema); color: var(--nero); }
+  :global(.imbarco .retro .titolo) { margin-top: 4px; font-size: 44px; color: var(--carta) !important; }
+  :global(.imbarco .retro .corsivo) { margin-bottom: 4px; }
+  :global(.imbarco .definizione) { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; font-size: 13px; line-height: 22px; touch-action: pan-y; scrollbar-width: thin; background: repeating-linear-gradient(transparent 0 21px, rgb(23 22 27 / .13) 21px 22px); background-attachment: local; }
+  :global(.imbarco .definizione p) { margin: 0 0 22px; }
+  :global(.imbarco .definizione p:last-child) { margin-bottom: 0; }
+  :global(.imbarco .definizione ul) { margin: 0; padding-left: 16px; }
   :global(.imbarco .definizione strong) { font-weight: 700; }
-  :global(.imbarco .piede-retro) { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-top: 8px; padding-top: 6px; border-top: 1px dashed rgb(31 29 27 / .45); }
-  :global(.imbarco .piede-retro .seriale) { font-size: 12px; }
-  :global(.imbarco .stato) { margin: 0; font-size: 8.5px; letter-spacing: .1em; text-transform: uppercase; opacity: .75; }
+  :global(.imbarco .stato) { margin: 4px 0 0; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; opacity: .7; }
+  :global(.imbarco .piede-retro) { display: flex; justify-content: space-between; gap: 8px; padding-top: 6px; border-top: 2px solid var(--carta); font-size: 11px; letter-spacing: .15em; color: var(--rosso) !important; }
+  :global(.imbarco .piede-retro p) { margin: 0; }
+  :global(.imbarco .piede-retro .seriale) { font-size: 11px; }
   :global(.imbarco .azioni) { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
   :global(.imbarco .azioni button) { padding: 6px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--muted); cursor: pointer; }
   :global(.imbarco .azioni .prossimo), :global(.imbarco .azioni .gira) { color: var(--fg); border-color: var(--muted); }
   :global(.imbarco .azioni button:hover) { color: var(--fg); border-color: var(--fg); }
   :global(.imbarco .azioni button[hidden]) { display: none; }
-  @media (prefers-reduced-motion: reduce) { :global(.imbarco .carta) { transition: none; } :global(.imbarco .biglietto) { animation: none !important; } }
+  @media (prefers-reduced-motion: reduce) { :global(.imbarco .carta) { transition: none; } }
   @media (max-width: 640px) {
     .fondo3d { top: 300px; }
     .sotto { display: none; }
-    /* Su telefono il biglietto va in colonna: il francobollo piccolo in alto a destra, il tagliando in basso */
+    /* Su telefono il biglietto va in colonna: l'arte in una striscia in alto, la banda di traverso, il tagliando in basso */
     :global(.imbarco) { left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); width: auto; transform: none; }
-    :global(.imbarco .faccia) { height: auto; min-height: 0; flex-direction: column; -webkit-mask: none; mask: none; }
-    :global(.imbarco .francobollo) { position: absolute; right: 10px; top: 10px; width: 84px; height: 124px; margin: 0; padding: 5px; z-index: 3; }
-    :global(.imbarco .fascia) { height: 16px; }
-    :global(.imbarco .francobollo .seriale) { font-size: 9px; }
-    :global(.imbarco .valore b) { font-size: 14px; }
-    :global(.imbarco .annullo) { left: auto; right: 50px; top: 84px; width: 110px; height: 52px; }
-    :global(.imbarco .corpo) { padding: 14px 14px 12px; }
-    :global(.imbarco .fronte .riga), :global(.imbarco .fronte .titolo), :global(.imbarco .fronte .corsivo), :global(.imbarco .fronte .domanda) { padding-right: 92px; }
+    :global(.imbarco .faccia) { height: auto; -webkit-mask: none !important; mask: none !important; }
+    :global(.imbarco .fronte) { grid-template-columns: 44% 1fr; grid-template-rows: 76px 16px auto auto; }
+    :global(.imbarco .fronte > :not(.arte70):not(.strato):not(.timbri)) { grid-column: 1 / -1; }
+    :global(.imbarco .banda span) { writing-mode: horizontal-tb; rotate: 0deg; font-size: 8px; }
+    :global(.imbarco .corpo) { padding: 10px 12px 12px; gap: 4px; }
+    :global(.imbarco .sotto) { display: block; font-size: 8.5px; }
+    :global(.imbarco .tratta) { position: absolute; top: 22px; right: 14px; font-size: 32px; gap: 6px; }
+    :global(.imbarco .tratta i) { font-size: 13px; }
+    :global(.imbarco .carta-dom) { padding: 10px 12px 8px; }
     :global(.imbarco .titolo) { font-size: 24px; }
-    :global(.imbarco .opzione) { min-height: 44px; font-size: 14px; }
-    :global(.imbarco .tagliando) { width: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 14px 12px; border-left: 0; border-top: 1.5px dashed rgb(31 29 27 / .5); }
-    :global(.imbarco .tagliando .griglia) { display: none; }
-    :global(.imbarco .numero) { font-size: 30px; }
-    :global(.imbarco .tagliando .seriale) { margin: 0; }
-    :global(.imbarco .codice) { height: 22px; margin-left: auto; }
+    :global(.imbarco .opzione) { min-height: 42px; font-size: 14px; }
+    :global(.imbarco .tagliando) { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 12px 10px; border-left: 0; border-top: 2px dashed rgb(23 22 27 / .4); }
+    :global(.imbarco .numero) { font-size: 34px; }
+    :global(.imbarco .fine) { display: none; }
+    :global(.imbarco .codice) { height: 22px; margin: 0 0 0 auto; }
     :global(.imbarco .timbro) { width: 92px; height: 92px; }
-    :global(.imbarco .poster) { width: auto; height: 190px; padding: 10px 10px 0; }
-    :global(.imbarco .pannello) { border-left: 0; border-top: 1.5px dashed rgb(31 29 27 / .5); padding: 12px 14px; }
-    :global(.imbarco .retro .titolo) { font-size: 22px; }
-    :global(.imbarco .definizione) { max-height: 28vh; }
+    :global(.imbarco .retro) { grid-template-columns: 1fr; grid-template-rows: 130px auto; }
+    :global(.imbarco .pannello) { padding: 12px 14px; }
+    :global(.imbarco .retro .titolo) { font-size: 30px; }
+    :global(.imbarco .definizione) { max-height: 30vh; }
     :global(.imbarco .azioni) { flex-wrap: wrap; }
     :global(.imbarco .azioni button) { flex: 1; min-height: 44px; }
   }

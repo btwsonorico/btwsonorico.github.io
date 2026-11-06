@@ -1,13 +1,13 @@
 import { dividi } from '../lib/glossario';
 import type { Partita, Volo } from '../lib/voli';
-import { annullo, francobollo, poster, timbro, type Livello } from './arteBiglietti';
+import { arteDavanti, poster, timbro, tipo, type Livello } from './arteBiglietti';
 
-// La carta d'imbarco di AI terms, ispirata ai biglietti commemorativi e ai francobolli a lotteria di metà Novecento.
-// Davanti: carta crema con bande nel colore della sezione. A sinistra il francobollo dentellato, con la fascia di
-// sicurezza e il numero di serie rosso, l'illustrazione con la foglia e il valore; l'annullo postale ci passa sopra.
-// Al centro il termine, la domanda e tre risposte. A destra il tagliando su carta di sicurezza, con la tratta grande.
-// Risposta sbagliata: timbro rosso e si riprova. Risposta giusta: timbro verde, poi il biglietto si gira.
-// Dietro: il poster grande a sinistra; a destra la definizione, su un pannello con la trama di sicurezza.
+// La carta d'imbarco di AI terms, stile "70s Rapid": ogni sezione è un tipo di biglietto con la sua carta piena e i
+// suoi due colori di stampa. Davanti, da sinistra: l'oggetto della tecnologia, la banda in foglia con il motto (argento,
+// oro o olografica secondo il livello), la tratta grande e la carta con la domanda, il tagliando su carta di sicurezza
+// con il numero rosso. Risposta sbagliata: timbro rosso e si riprova. Risposta giusta: timbro verde, poi si gira.
+// Dietro, metà e metà: il poster a sinistra, la definizione su carta a righe a destra.
+// La foglia risponde all'inclinazione: mouse, dito o giroscopio. Senza input il biglietto ondeggia piano.
 // Il testo delle note si scrive sempre come testo, mai come HTML.
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, classe = '', testo?: string) => {
   const e = document.createElement(tag);
@@ -18,9 +18,10 @@ const el = <K extends keyof HTMLElementTagNameMap>(tag: K, classe = '', testo?: 
 const MESI = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 // Il codice da aeroporto di ogni sezione: si parte sempre da ASK, la domanda
 const CODICI = ['GEN', 'GNR', 'RSK', 'PRM', 'OPS', 'OTH'];
-const VALORI: Record<string, string> = { easy: '1', medium: '2', hard: '3' };
+const FOGLIA: Record<Livello, string> = { easy: 'argento', medium: 'oro', hard: 'iride' };
 const hash = (s: string) => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
 const livelloDi = (v: Volo): Livello => (['easy', 'medium', 'hard'].includes(v.voce.livello) ? v.voce.livello : 'easy') as Livello;
+const strati = () => [el('div', 'strato grana'), el('div', 'strato perla'), el('div', 'strato bagliore')];
 
 export type OpzioniImbarco = {
   data: Date; voli: Volo[]; partita: Partita;
@@ -41,28 +42,27 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
 
   // --- Davanti
   const fronte = el('section', 'faccia fronte');
-  const bollo = el('div', 'francobollo'), fascia = el('div', 'fascia'), serialeF = el('p', 'seriale'), arte = el('div', 'arte'), valore = el('div', 'valore'), valNum = el('b', '', ''), valNome = el('span', 'mono', 'AI TERMS');
-  fascia.append(serialeF);
-  valore.append(valNome, valNum);
-  bollo.append(fascia, arte, valore);
-  const annulloEl = el('div', 'annullo');
+  const arte = el('div', 'arte70'), banda = el('div', 'banda'), motto = el('span', 'mono');
+  banda.append(motto);
   const corpo = el('div', 'corpo');
-  const riga = el('p', 'mono riga'), termine = el('h2', 'mono titolo'), sezione = el('p', 'corsivo'), domanda = el('p', 'domanda'), opzioniEl = el('div', 'opzioni'), nota = el('p', 'mono nota'), timbri = el('div', 'timbri');
+  const riga = el('p', 'mono sotto'), tratta = el('div', 'tratta');
+  const scheda70 = el('div', 'carta-dom'), termine = el('h2', 'titolo'), sezione = el('p', 'corsivo'), domanda = el('p', 'domanda'), opzioniEl = el('div', 'opzioni'), nota = el('p', 'mono nota');
   nota.setAttribute('aria-live', 'polite');
-  corpo.append(riga, termine, sezione, domanda, opzioniEl, nota, timbri);
-  const tagliando = el('div', 'tagliando'), tratta = el('div', 'tratta'), numeroF = el('p', 'numero'), griglia = el('dl', 'mono griglia'), serialeT = el('p', 'seriale'), codice = el('div', 'codice');
-  tagliando.append(tratta, numeroF, griglia, serialeT, codice);
-  fronte.append(el('div', 'bande'), bollo, annulloEl, corpo, tagliando, el('div', 'riflesso'));
+  scheda70.append(termine, sezione, domanda, opzioniEl, nota);
+  corpo.append(riga, tratta, scheda70);
+  const tagliando = el('div', 'tagliando'), numeroF = el('p', 'numero'), serialeT = el('p', 'seriale'), fine = el('p', 'mono fine'), codice = el('div', 'codice');
+  tagliando.append(numeroF, serialeT, fine, codice);
+  const timbri = el('div', 'timbri');
+  fronte.append(arte, banda, corpo, tagliando, timbri, ...strati());
 
   // --- Dietro
   const retro = el('section', 'faccia retro');
   const quadro = el('div', 'poster');
-  const pannello = el('div', 'pannello'), testaR = el('div', 'testa-retro'), numeroR = el('p', 'numero'), esito = el('p', 'mono esito');
-  testaR.append(numeroR, esito);
-  const termineR = el('h2', 'mono titolo'), sezioneR = el('p', 'corsivo'), definizione = el('div', 'definizione'), piedeR = el('div', 'piede-retro'), serialeR = el('p', 'seriale'), statoR = el('p', 'mono stato');
-  piedeR.append(serialeR, statoR);
-  pannello.append(testaR, termineR, sezioneR, el('p', 'mono etichetta', 'definition'), definizione, piedeR);
-  retro.append(quadro, pannello, el('div', 'riflesso'));
+  const pannello = el('div', 'pannello'), esito = el('p', 'mono sotto');
+  const termineR = el('h2', 'titolo'), sezioneR = el('p', 'corsivo'), definizione = el('div', 'definizione'), piedeR = el('div', 'piede-retro'), serialeR = el('p', 'mono seriale'), trattaR = el('p', 'mono'), statoR = el('p', 'mono stato');
+  piedeR.append(serialeR, trattaR);
+  pannello.append(esito, termineR, sezioneR, definizione, statoR, piedeR);
+  retro.append(quadro, pannello, ...strati());
   carta.append(fronte, retro);
   biglietto.append(carta);
   const azioni = el('div', 'azioni'), gira = el('button', 'mono gira'), prossimo = el('button', 'mono prossimo'), chiudi = el('button', 'mono chiudi', 'close ×');
@@ -74,40 +74,55 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   scheda.append(biglietto, azioni);
   contenitore.appendChild(scheda);
 
-  // L'inclinazione: segue il mouse; con il dito si trascina; su telefono segue anche il giroscopio
+  // --- L'inclinazione. Da -1 a 1 su x e y. Il mouse sopra o il dito che trascina vincono; poi il giroscopio; senza
+  // niente, un'oscillazione lenta. Ogni fotogramma scrive --tx, --ty, --t e gira i gradienti della foglia
   const fermo = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const inclina = (x: number, y: number) => {
-    x = Math.max(-0.5, Math.min(0.5, x)); y = Math.max(-0.5, Math.min(0.5, y));
-    carta.classList.add('puntato');
-    carta.style.setProperty('--rx', `${(-y * 18).toFixed(2)}deg`);
-    carta.style.setProperty('--ry', `${(x * 22).toFixed(2)}deg`);
-    carta.style.setProperty('--lx', `${((x + 0.5) * 100).toFixed(1)}%`);
-    carta.style.setProperty('--ly', `${((y + 0.5) * 100).toFixed(1)}%`);
-  };
-  const raddrizza = () => { carta.classList.remove('puntato'); carta.style.setProperty('--rx', '0deg'); carta.style.setProperty('--ry', '0deg'); };
-  biglietto.addEventListener('pointermove', e => {
-    if (fermo || (e.pointerType !== 'mouse' && !e.buttons)) return;
+  const mano = { x: 0, y: 0, attiva: false }, ora = { x: 0, y: 0 };
+  let giro: { x: number; y: number } | null = null, anima = 0, foglie: Element[] = [];
+  const limita = (v: number) => Math.max(-1, Math.min(1, v));
+  const segui = (e: PointerEvent) => {
     const r = biglietto.getBoundingClientRect();
-    inclina((e.clientX - r.left) / r.width - 0.5, (e.clientY - r.top) / r.height - 0.5);
-  });
-  biglietto.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') raddrizza(); });
-  let rilascio = 0, giroscopio = false, chiesto = false;
-  biglietto.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') { clearTimeout(rilascio); rilascio = window.setTimeout(() => { if (!giroscopio) raddrizza(); }, 900); } });
-  window.addEventListener('deviceorientation', e => {
-    if (fermo || scheda.hidden || e.gamma === null || e.beta === null) return;
-    giroscopio = true;
-    inclina(e.gamma / 50, (e.beta - 45) / 50);
-  });
+    mano.x = limita(((e.clientX - r.left) / r.width - 0.5) * 2); mano.y = limita(((e.clientY - r.top) / r.height - 0.5) * 2);
+    mano.attiva = true;
+  };
+  biglietto.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' || e.buttons) segui(e); });
   biglietto.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'mouse') segui(e);
+    // iOS chiede il permesso per il giroscopio al primo tocco
     const D = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
-    if (chiesto || e.pointerType === 'mouse' || typeof D.requestPermission !== 'function') return;
-    chiesto = true;
-    D.requestPermission().catch(() => { /* niente: resta il dito */ });
+    if (e.pointerType !== 'mouse' && typeof D.requestPermission === 'function' && !giro) D.requestPermission().catch(() => { /* resta il dito */ });
   });
+  biglietto.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') mano.attiva = false; });
+  biglietto.addEventListener('pointerleave', () => { mano.attiva = false; });
+  window.addEventListener('deviceorientation', e => {
+    if (e.gamma === null || e.beta === null) return;
+    giro = { x: limita(e.gamma / 35), y: limita((e.beta - 45) / 35) };
+  });
+  const passo = (t: number) => {
+    anima = 0;
+    if (scheda.hidden) return;
+    let x = 0, y = 0;
+    if (mano.attiva) { x = mano.x; y = mano.y; }
+    else if (giro) { x = giro.x; y = giro.y; }
+    else if (!fermo) { x = Math.sin(t / 1600) * 0.5; y = Math.sin(t / 2300 + 1) * 0.35; }
+    ora.x += (x - ora.x) * 0.12; ora.y += (y - ora.y) * 0.12;
+    const s = biglietto.style;
+    s.setProperty('--tx', ora.x.toFixed(3)); s.setProperty('--ty', ora.y.toFixed(3));
+    s.setProperty('--t', Math.min(1, Math.hypot(ora.x, ora.y)).toFixed(3));
+    s.transform = fermo ? '' : `perspective(1600px) rotateX(${(-ora.y * 9).toFixed(2)}deg) rotateY(${(ora.x * 12).toFixed(2)}deg)`;
+    const ang = 20 + ora.x * 70 + ora.y * 25, sp = ora.x * 0.5;
+    foglie.forEach(g => g.setAttribute('gradientTransform', `translate(${sp.toFixed(3)} 0) rotate(${ang.toFixed(1)} .5 .5)`));
+    anima = requestAnimationFrame(passo);
+  };
+  const avvia = () => { if (!anima) anima = requestAnimationFrame(passo); };
 
   const p = o.partita, d = o.data, quando = `${String(d.getDate()).padStart(2, '0')} ${MESI[d.getMonth()]} ${d.getFullYear()}`;
   let corrente = -1, attesa = 0, opzioni: HTMLButtonElement[] = [];
   const barre = (dove: HTMLElement, chiave: string) => dove.replaceChildren(...[...chiave.replace(/[\s-]+/g, '')].slice(0, 30).map((c, k) => { const s = el('span'); s.style.width = `${1 + (c.charCodeAt(0) % 3)}px`; s.style.marginRight = `${1 + ((c.charCodeAt(0) + k) % 2)}px`; return s; }));
+  const svg = (dove: HTMLElement, html: string) => {
+    dove.innerHTML = html;
+    if (fermo) dove.querySelectorAll('svg').forEach(s => s.pauseAnimations());
+  };
   const metti = (t: { x: number; y: number; a: number; ok: boolean }, nuovo: boolean) => {
     const v = o.voli[corrente]!, s = el('div', `timbro${t.ok ? ' ok' : ''}${nuovo && !fermo ? ' cade' : ''}`);
     s.innerHTML = timbro(t.ok, quando, v.codice, Math.round(t.x * 37 + t.y * 11) % 97);
@@ -116,9 +131,9 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   };
   const retroDi = (v: Volo) => {
     const t = p.tentativi[v.indice]!;
-    quadro.innerHTML = poster(v.sezione, livelloDi(v), t > 1);
-    esito.textContent = t <= 1 ? 'cleared · first try' : `cleared · after ${t} tries`;
-    numeroR.textContent = String(v.indice + 1).padStart(2, '0');
+    svg(quadro, poster(v.sezione, livelloDi(v), t > 1));
+    foglie = [...scheda.querySelectorAll('.foglia-svg')];
+    esito.textContent = `${String(v.indice + 1).padStart(2, '0')} · ${t <= 1 ? 'cleared at the first try' : `cleared after ${t} tries`}`;
     termineR.textContent = v.voce.termine;
     sezioneR.textContent = `${v.nome}, ${v.voce.sotto.toLowerCase()}`;
     definizione.replaceChildren(...v.voce.definizione.map(x => el('p', '', x)));
@@ -134,6 +149,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     }
     definizione.scrollTop = 0;
     serialeR.textContent = `No. ${v.seriale}`;
+    trattaR.textContent = `ASK ▶ ${CODICI[v.sezione % CODICI.length]}`;
     statoR.textContent = o.riassunto();
   };
   const scriviGira = () => { gira.textContent = carta.classList.contains('girata') ? 'back to the question ↺' : 'turn over ↻'; };
@@ -184,28 +200,27 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     mostra(i: number) {
       clearTimeout(attesa);
       corrente = i;
-      const v = o.voli[i]!, n = String(i + 1).padStart(2, '0'), arrivo = CODICI[v.sezione % CODICI.length]!, l = livelloDi(v);
-      carta.style.setProperty('--accento', v.tinta);
+      const v = o.voli[i]!, n = String(i + 1).padStart(2, '0'), arrivo = CODICI[v.sezione % CODICI.length]!, l = livelloDi(v), tp = tipo(v.sezione);
       carta.dataset.livello = l;
       carta.dataset.sezione = String(v.sezione);
+      for (const [k, x] of [['--carta', tp.carta], ['--c1', tp.a], ['--c2', tp.b], ['--tagliando', tp.tagliando]] as const) carta.style.setProperty(k, x);
+      carta.style.setProperty('--trama', `url("data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='44' height='9'><g fill='none' stroke='${tp.trama}' stroke-width='.6'><path d='M0 2.5 Q5.5 0 11 2.5 T22 2.5 T33 2.5 T44 2.5'/><path d='M0 6.5 Q5.5 9 11 6.5 T22 6.5 T33 6.5 T44 6.5'/></g></svg>`)}")`);
       carta.classList.add('subito');
       carta.classList.toggle('girata', p.fatto[i]!);
       requestAnimationFrame(() => requestAnimationFrame(() => carta.classList.remove('subito')));
-      arte.innerHTML = francobollo(v.sezione, l);
-      serialeF.textContent = v.seriale;
-      valNum.textContent = VALORI[l] ?? '1';
-      annulloEl.innerHTML = annullo(quando.slice(0, 6), v.codice);
-      riga.textContent = `boarding pass ✦ ai terms ✦ No. ${v.seriale}`;
+      svg(arte, arteDavanti(v.sezione, l));
+      banda.className = `banda ${FOGLIA[l]}`;
+      motto.textContent = `${tp.motto} · ${n}`;
+      riga.textContent = `rapid · ${v.nome.toLowerCase()} · ${l} class`;
+      tratta.replaceChildren(el('span', '', 'ASK'), el('i', '', '▶'), el('span', '', arrivo));
       termine.textContent = v.voce.termine;
-      sezione.textContent = `${v.nome}, ${v.voce.sotto.toLowerCase()}`;
+      sezione.textContent = v.voce.sotto.toLowerCase();
       domanda.textContent = v.voce.domanda.testo;
-      tratta.replaceChildren(el('span', 'mono', 'ASK'), el('i', '', '▶'), el('span', 'mono', arrivo));
       numeroF.textContent = n;
+      serialeT.textContent = v.seriale;
       // Il posto 42 è sempre degli altri termini
       const posto = v.sezione === 5 ? '42' : `${i + 1}${'ABCDEF'[hash(v.voce.id) % 6]}`;
-      const righe: [string, string][] = [['flight', v.codice], ['gate', `G${i + 1}`], ['seat', posto], ['class', l], ['date', quando.slice(0, 6)]];
-      griglia.replaceChildren(...righe.flatMap(([k, x]) => [el('dt', '', k), el('dd', '', x)]));
-      serialeT.textContent = v.seriale;
+      fine.replaceChildren(...[`valid ${quando.slice(0, 6)}`, `flight ${v.codice} · gate G${i + 1}`, `seat ${posto} · one way`].map(x => el('span', '', x)));
       barre(codice, `${v.voce.termine}${v.voce.id}${v.codice}`);
       const sbagliate = p.sbagliate[i]!;
       opzioni = v.risposte.map((testoR, k) => {
@@ -221,9 +236,11 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       opzioniEl.replaceChildren(...opzioni);
       timbri.replaceChildren();
       p.timbri[i]!.forEach(t => metti(t, false));
-      if (p.fatto[i]) retroDi(v);
+      if (p.fatto[i]) retroDi(v); else { quadro.replaceChildren(); }
+      foglie = [...scheda.querySelectorAll('.foglia-svg')];
       bottoni();
       scheda.hidden = false;
+      avvia();
       (p.fatto[i] ? (prossimo.hidden ? chiudi : prossimo) : opzioni.find(b => !b.disabled))?.focus({ preventScroll: true });
     },
     nascondi() { clearTimeout(attesa); scheda.hidden = true; },
