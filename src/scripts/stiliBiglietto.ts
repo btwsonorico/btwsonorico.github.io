@@ -3,7 +3,7 @@
 // definizione. Uno stile dà solo l'arte (colonna a sinistra davanti, poster dietro) e le variabili di colore; il resto
 // lo fa il CSS con l'attributo data-stile. Gli stili vivi (Game of Life, koi, notte, stampa) disegnano su tela.
 // Niente testo delle note entra qui, tranne dove passa da esc().
-import { arteDavanti, poster, tipo, type Livello } from './arteBiglietti';
+import { type Livello } from './arteBiglietti';
 
 export type Contesto = { sezione: number; livello: Livello; numero: string; termine: string; sera: boolean; r: () => number };
 export type Stile = {
@@ -32,17 +32,6 @@ const una = <T>(c: Contesto, chiave: string, f: () => T): T => {
 };
 // Il seme delle tele: lo stesso davanti e dietro, così un biglietto riaperto ritrova i suoi pesci e i suoi cervi
 const semeTela = (c: Contesto) => una(c, 'seme', () => 1 + Math.floor(c.r() * 2147483000));
-
-// ---------------- 70s Rapid: la carta della sezione e l'oggetto della tecnologia.
-// Esce solo nelle sezioni 1, 2 e 6 (indici 0, 1, 5), e mai nei livelli difficili
-const RAPID_SEZIONI = new Set([0, 1, 5]);
-const rapid: Stile = {
-  id: 'rapid',
-  ammesso: (sezione, livello) => RAPID_SEZIONI.has(sezione) && livello !== 'hard',
-  davanti: c => arteDavanti(c.sezione, c.livello),
-  dietro: c => poster(c.sezione, c.livello, c.sera),
-  variabili: c => { const t = tipo(c.sezione); return { '--carta': t.carta, '--c1': t.a, '--c2': t.b, '--tagliando': t.tagliando }; },
-};
 
 // ---------------- Lime Bloom: una fioritura di luce su una griglia nera, e dentro la luce una colonia del Game of Life
 // che nasce, cresce e muore. Sul retro il nome del termine si scioglie in celle vive, poi si riscrive
@@ -136,7 +125,130 @@ const stampa: Stile = {
   },
 };
 
-export const STILI: Stile[] = [rapid, lime, risograph, notte, koi, stampa];
+// ---------------- Replay: carta editoriale, molto bianco, serif alto e metadati mono. Tre carte ispirate ai concept
+// scartati di Replay: crema, menta, senape. Davanti una copertina stretta con il marchio AI e una tabella di stato;
+// dietro il termine grande come una scritta di copertina, e la definizione su carta senza righe
+const CARTE_REPLAY = [
+  { carta: '#f4f0e7', blocco: '#e9e2d5', tinta: '#efe9dd', ink: '#171512', linea: 'rgb(23 21 18 / .2)', pannello: '#f8f4ec' },
+  { carta: '#f4f0e7', blocco: '#8ef0d7', tinta: '#dcf8ef', ink: '#101a16', linea: 'rgb(16 26 22 / .22)', pannello: '#f4f0e7' },
+  { carta: '#f4f0e7', blocco: '#d8cf9b', tinta: '#ece5c8', ink: '#17150f', linea: 'rgb(23 21 15 / .22)', pannello: '#f4f0e7' },
+] as const;
+const tabella = (c: Contesto) => `<dl class="rp-tab"><div><dt>ENTRY</dt><dd>${c.numero}</dd></div><div><dt>LEVEL</dt><dd>${esc(c.livello)}</dd></div><div><dt>STATUS</dt><dd>QUALIFIED</dd></div></dl>`;
+const replay: Stile = {
+  id: 'replay',
+  davanti: c => `<div class="rp-seal"><span>AI</span></div><div class="rp-marchio"><span class="rp-ai">AI</span><span class="rp-terms">TERMS</span></div>${tabella(c)}`,
+  dietro: c => `<div class="rp-copertina"><div class="rp-seal"><span>AI</span></div><div class="rp-parola" style="--rp-size:${Math.max(30, Math.min(112, 520 / Math.max(4, c.termine.length)))}px">${esc(c.termine.toUpperCase())}</div>${tabella(c)}</div>`,
+  variabili: c => {
+    const p = una(c, 'replay', () => scegli(CARTE_REPLAY, c.r));
+    return { '--rp-carta': p.carta, '--rp-blocco': p.blocco, '--rp-tinta': p.tinta, '--rp-ink': p.ink, '--rp-linea': p.linea, '--rp-pannello': p.pannello };
+  },
+};
+
+// ---------------- Veduta: una città di aeroporto in piano, con il cielo elettrico e i colori piatti del riferimento.
+// Ogni strato si muove a una velocità diversa con l'inclinazione del biglietto: cielo fermo, grattacieli lontani,
+// terminal e torre di controllo, palme e pista in primo piano. Due momenti: giorno e notte.
+type Citta = { id: string; cielo: [string, string]; sole: string; nuvola: string; lontano: string; edificio: string; ombra: string; vetro: string; accento: string; insegna: string; verde: string; suolo: string; luce: string; banda: string; tinta: string; scuro: string };
+const CITTA: Citta[] = [
+  { id: 'giorno', cielo: ['#1733f2', '#2f5cff'], sole: '#fff3c4', nuvola: '#f6f3ee', lontano: '#9fb0f0', edificio: '#f2eee5', ombra: '#c6c9ee', vetro: '#7fa6e9', accento: '#f4a6c2', insegna: '#f4e27a', verde: '#2f8f45', suolo: '#cfd4ee', luce: '#ffe9a8', banda: '#1733f2', tinta: '#e2e6fb', scuro: '#1c2a8a' },
+  { id: 'notte', cielo: ['#090d28', '#1a2050'], sole: '#f4f0ff', nuvola: '#c8cbe8', lontano: '#3a4380', edificio: '#d8d3cb', ombra: '#5a639c', vetro: '#ffd76a', accento: '#ff7aa8', insegna: '#ffd76a', verde: '#1f6b4a', suolo: '#232a58', luce: '#9cf6ff', banda: '#272c63', tinta: '#e8e4dc', scuro: '#171a3f' },
+];
+const vdCielo = (p: Citta, id: string) => `<svg viewBox="0 0 220 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="vc${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${p.cielo[0]}"/><stop offset="1" stop-color="${p.cielo[1]}"/></linearGradient></defs><rect width="220" height="150" fill="url(#vc${id})"/><circle cx="52" cy="32" r="13" fill="${p.sole}"/><g fill="${p.nuvola}"><path d="M18 38 q4 -9 13 -6 q5 -9 15 -3 q9 -5 13 4 q8 0 8 5 z" opacity=".92"/><path d="M126 20 q4 -7 11 -5 q5 -7 12 -2 q8 -3 10 4 q6 0 6 4 z" opacity=".55"/><path d="M172 48 q3 -5 9 -4 q4 -6 10 -2 q7 -2 8 4 q6 0 6 3 z" opacity=".35"/></g><g stroke="${p.nuvola}" stroke-width=".8" fill="none" opacity=".7"><path d="M84 22 l4 -3 l4 3 M96 30 l3.5 -2.5 l3.5 2.5 M34 20 l3 -2 l3 2"/></g></svg>`;
+const vdLontano = (p: Citta) => {
+  const palazzi = [[4, 92, 14, 24], [20, 84, 10, 32], [32, 96, 18, 20], [52, 80, 9, 36], [63, 90, 16, 26], [81, 86, 11, 30], [94, 96, 20, 20], [116, 82, 12, 34], [130, 92, 9, 24], [141, 86, 14, 30], [157, 94, 18, 22], [177, 84, 10, 32], [189, 94, 16, 22], [207, 88, 10, 28]];
+  return `<svg viewBox="0 0 220 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="${p.lontano}" opacity=".65">${palazzi.map(([x, y, w, h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}"/>`).join('')}</g><g fill="${p.vetro}" opacity=".28">${palazzi.map(([x, y, w, h]) => Array.from({ length: Math.max(1, Math.floor(h / 9)) }, (_, k) => `<rect x="${x + 2}" y="${y + 3 + k * 8}" width="${Math.max(2, w - 4)}" height="2"/>`).join('')).join('')}</g></svg>`;
+};
+const vdMedio = (p: Citta) => {
+  const finestre = (x: number, y: number, n: number) => Array.from({ length: n }, (_, k) => `<rect x="${x + k * 10}" y="${y}" width="6" height="9" fill="${p.vetro}"/>`).join('');
+  return `<svg viewBox="0 0 220 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g><rect x="18" y="96" width="116" height="36" fill="${p.edificio}"/><rect x="18" y="96" width="116" height="4" fill="${p.ombra}"/>${finestre(26, 106, 10)}<rect x="24" y="100" width="30" height="5" fill="${p.accento}"/><rect x="74" y="100" width="34" height="5" fill="${p.insegna}"/><rect x="60" y="118" width="12" height="14" fill="${p.ombra}"/><rect x="20" y="126" width="112" height="6" fill="${p.ombra}" opacity=".45"/></g><g><rect x="132" y="108" width="40" height="24" fill="${p.edificio}"/><rect x="147" y="60" width="8" height="50" fill="${p.edificio}"/><path d="M141 60 h20 l2 7 h-24 z" fill="${p.edificio}"/><rect x="136" y="46" width="30" height="15" rx="2" fill="${p.edificio}"/><g fill="${p.vetro}"><rect x="139" y="49" width="7" height="9"/><rect x="148" y="49" width="7" height="9"/><rect x="157" y="49" width="6" height="9"/></g><rect x="136" y="46" width="30" height="2.5" fill="${p.ombra}"/><path d="M151 46 V32" stroke="${p.edificio}" stroke-width="2"/><circle cx="151" cy="30" r="2.6" fill="${p.accento}"><animate attributeName="opacity" values="1;.15;1" dur="1.7s" repeatCount="indefinite"/></circle></g><g><animateTransform attributeName="transform" type="translate" values="104 92;148 64" dur="16s" repeatCount="indefinite"/><path d="M0 6 L18 4 L25 -1 L28 4 L15 8 L11 14 L7 12 L9 8 L0 9 Z" fill="${p.edificio}"/><path d="M16 3 L20 -5 L23 -4 L21 4 Z" fill="${p.accento}"/><circle cx="21" cy="5" r="1.2" fill="${p.vetro}"/></g><g><path d="M0 132 H220 V150 H0 Z" fill="${p.suolo}"/><path d="M136 148 L220 126" stroke="${p.nuvola}" stroke-width="2.4" opacity=".75"/><path d="M150 145 L220 128" stroke="${p.luce}" stroke-width=".9" stroke-dasharray="4 5" opacity=".9"/></g><g fill="${p.luce}">${[24, 44, 64, 84, 104, 124, 144, 164, 184, 204].map((x, i) => `<circle cx="${x}" cy="141" r="1.1"><animate attributeName="opacity" values=".2;1;.2" dur="${1.4 + (i % 4) * 0.3}s" begin="${(i * 0.12).toFixed(2)}s" repeatCount="indefinite"/></circle>`).join('')}</g></svg>`;
+};
+const vdVicino = (p: Citta) => {
+  const palma = (x: number, y: number, s: number) => `<g transform="translate(${x} ${y}) scale(${s})"><path d="M0 0 C-2 -18 0 -34 4 -48" stroke="#c49a62" stroke-width="4" fill="none"/><g fill="${p.verde}"><animateTransform attributeName="transform" type="rotate" values="-1.2 4 -48;1.6 4 -48;-1.2 4 -48" dur="6s" repeatCount="indefinite"/><path d="M4 -48 C-8 -62 -20 -64 -32 -60 C-18 -58 -8 -52 4 -48 Z"/><path d="M4 -48 C2 -66 10 -76 22 -78 C12 -68 7 -58 4 -48 Z"/><path d="M4 -48 C18 -58 30 -56 40 -50 C26 -50 14 -48 4 -48 Z"/><path d="M4 -48 C-2 -62 2 -74 10 -82 C6 -70 5 -58 4 -48 Z" opacity=".8"/><path d="M4 -48 C16 -66 30 -70 42 -68 C28 -62 16 -56 4 -48 Z" opacity=".7"/></g></g>`;
+  return `<svg viewBox="0 0 220 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g><rect x="0" y="120" width="34" height="18" fill="${p.edificio}"/><rect x="3" y="114" width="28" height="7" fill="${p.verde}"/><g fill="${p.accento}"><circle cx="7" cy="116" r="2.4"/><circle cx="14" cy="113" r="2"/><circle cx="21" cy="116" r="2.3"/><circle cx="27" cy="114" r="1.8"/></g></g>${palma(74, 138, 1)}${palma(205, 140, .92)}<g stroke="${p.edificio}" stroke-width="1.2" opacity=".9"><path d="M0 136 H220 M0 144 H220"/></g></svg>`;
+};
+const veduta: Stile = {
+  id: 'veduta',
+  davanti: c => {
+    const p = una(c, 'citta', () => scegli(CITTA, c.r)), id = `v${++uid}`;
+    return `<div class="vd"><div class="vd-l vd-cielo">${vdCielo(p, id)}</div><div class="vd-l vd-lontano">${vdLontano(p)}</div><div class="vd-l vd-medio">${vdMedio(p)}</div><div class="vd-l vd-vicino">${vdVicino(p)}</div></div>`;
+  },
+  dietro: c => {
+    const p = una(c, 'citta', () => scegli(CITTA, c.r)), id = `v${++uid}`;
+    return `<div class="vd"><div class="vd-l vd-cielo">${vdCielo(p, id)}</div><div class="vd-l vd-lontano">${vdLontano(p)}</div><div class="vd-l vd-medio">${vdMedio(p)}</div><div class="vd-l vd-vicino">${vdVicino(p)}</div></div>`;
+  },
+  variabili: c => {
+    const p = una(c, 'citta', () => scegli(CITTA, c.r));
+    return { '--vd-banda': p.banda, '--vd-tinta': p.tinta, '--vd-scuro': p.scuro };
+  },
+};
+
+// ---------------- Sfera: un grappolo di sfere translucide, come un render di Houdini. Carta burro, sfere viola e blu
+// che si sovrappongono, il nucleo ciano e lime. Davanti il grappolo nella colonna; dietro due grappoli, come uno studio.
+const SFERA_CARTA = { fondo: '#f6efc8', tinta: '#eee3b6', pannello: '#fbf6dd', ink: '#171331', linea: 'rgb(23 19 49 / .18)' };
+const SFERA_TONI: Record<string, [string, string, string]> = {
+  viola: ['#a294ff', '#5c4cd4', '#2f2887'],
+  blu: ['#79b0ff', '#3273d6', '#1b3f8f'],
+  ciano: ['#9af6f0', '#37c6d2', '#146f88'],
+  lime: ['#e0f9b0', '#82d66c', '#3f8f45'],
+};
+const sfGradients = (id: string) => `<radialGradient id="sf${id}viola" cx="34%" cy="28%" r="74%"><stop offset="0" stop-color="${SFERA_TONI.viola![0]}"/><stop offset=".58" stop-color="${SFERA_TONI.viola![1]}"/><stop offset="1" stop-color="${SFERA_TONI.viola![2]}"/></radialGradient><radialGradient id="sf${id}blu" cx="34%" cy="28%" r="74%"><stop offset="0" stop-color="${SFERA_TONI.blu![0]}"/><stop offset=".58" stop-color="${SFERA_TONI.blu![1]}"/><stop offset="1" stop-color="${SFERA_TONI.blu![2]}"/></radialGradient><radialGradient id="sf${id}ciano" cx="34%" cy="28%" r="74%"><stop offset="0" stop-color="${SFERA_TONI.ciano![0]}"/><stop offset=".58" stop-color="${SFERA_TONI.ciano![1]}"/><stop offset="1" stop-color="${SFERA_TONI.ciano![2]}"/></radialGradient><radialGradient id="sf${id}lime" cx="34%" cy="28%" r="74%"><stop offset="0" stop-color="${SFERA_TONI.lime![0]}"/><stop offset=".58" stop-color="${SFERA_TONI.lime![1]}"/><stop offset="1" stop-color="${SFERA_TONI.lime![2]}"/></radialGradient><radialGradient id="sf${id}alone"><stop offset="0" stop-color="#8c78ff" stop-opacity=".55"/><stop offset=".6" stop-color="#6c5be0" stop-opacity=".18"/><stop offset="1" stop-color="#6c5be0" stop-opacity="0"/></radialGradient><filter id="sf${id}soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.4"/></filter>`;
+const grappolo = (id: string, cx: number, cy: number, raggio: number, n: number, rand: () => number) => {
+  const sfere: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const a = rand() * Math.PI * 2, d = Math.sqrt(rand()) * raggio, r = raggio * (0.18 + rand() * 0.1);
+    const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d, dentro = d / raggio < 0.48;
+    const tono = dentro && rand() < 0.72 ? (rand() < 0.55 ? 'ciano' : 'lime') : (rand() < 0.62 ? 'viola' : 'blu');
+    sfere.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="url(#sf${id}${tono})" opacity=".88"/><circle cx="${(x - r * 0.3).toFixed(1)}" cy="${(y - r * 0.34).toFixed(1)}" r="${(r * 0.22).toFixed(1)}" fill="#fff" opacity=".35"/>`);
+  }
+  return `<circle cx="${cx}" cy="${cy}" r="${(raggio * 1.5).toFixed(1)}" fill="url(#sf${id}alone)" filter="url(#sf${id}soft)"/>${sfere.join('')}`;
+};
+const sfFronte = (id: string, rand: () => number) => `<svg viewBox="0 0 100 110" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>${sfGradients(id)}</defs>${grappolo(id, 50, 57, 31, 28, rand)}</svg>`;
+const sfRetro = (id: string, rand: () => number) => `<svg viewBox="0 0 220 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>${sfGradients(id)}</defs>${grappolo(id, 61, 79, 33, 28, rand)}${grappolo(id, 158, 74, 38, 32, rand)}</svg>`;
+const sfera: Stile = {
+  id: 'sfera',
+  davanti: c => {
+    const id = `s${++uid}`, rand = casoDa(Math.floor(c.r() * 2147483000));
+    return `<div class="sf"><div class="sf-livello">${sfFronte(id, rand)}</div><div class="sf-testa"><span>STUDY ${c.numero}</span><span>TRANSPARENT BLOOM</span></div><div class="sf-piede"><span>SPHERES / A–B</span><span>AI TERMS</span></div></div>`;
+  },
+  dietro: c => {
+    const id = `s${++uid}`, rand = casoDa(Math.floor(c.r() * 2147483000));
+    return `<div class="sf"><div class="sf-livello">${sfRetro(id, rand)}</div><div class="sf-testa"><span>TRANSPARENT BLOOM</span><span>STUDY ${c.numero}</span></div><div class="sf-piede"><span>63,000 SPHERES</span><span>SOFT BODY / RENDER 04</span></div></div>`;
+  },
+  variabili: () => ({ '--sf-fondo': SFERA_CARTA.fondo, '--sf-tinta': SFERA_CARTA.tinta, '--sf-pannello': SFERA_CARTA.pannello, '--sf-ink': SFERA_CARTA.ink, '--sf-linea': SFERA_CARTA.linea }),
+};
+
+// ---------------- Flare: bagliori disegnati a mano, come gli effetti anime. Fondo quasi nero, rosa acceso,
+// anelli, stelle a quattro punte e puntini di luce. Davanti un bagliore, dietro uno più grande con due orbite.
+const FLARE_CARTE = [
+  { rosa: '#ff2d8d', chiara: '#ff9ecb', fondo: '#180d15', pannello: '#22101b', tinta: '#2a1220', ink: '#ffe9f3' },
+  { rosa: '#ff5a3c', chiara: '#ffb08f', fondo: '#181008', pannello: '#23150c', tinta: '#2b180e', ink: '#fff0e7' },
+] as const;
+type FlareCarta = (typeof FLARE_CARTE)[number];
+const flareSvg = (id: string, p: FlareCarta, cx: number, cy: number, raggio: number, rand: () => number, retro: boolean) => {
+  const stella = raggio * 1.9, punta = raggio * 0.2;
+  const punti = Array.from({ length: retro ? 16 : 11 }, () => {
+    const a = rand() * Math.PI * 2, d = raggio * (1.2 + rand() * 1.5), r = raggio * (0.02 + rand() * 0.035);
+    return `<circle cx="${(cx + Math.cos(a) * d).toFixed(1)}" cy="${(cy + Math.sin(a) * d).toFixed(1)}" r="${r.toFixed(1)}" fill="${p.chiara}"><animate attributeName="opacity" values=".25;1;.25" dur="${(2.2 + rand() * 3).toFixed(1)}s" begin="${(rand() * 2).toFixed(1)}s" repeatCount="indefinite"/></circle>`;
+  }).join('');
+  const raggi = [0, 1, 2, 3].map(k => `<path d="M${cx + Math.cos(k * Math.PI / 4) * raggio * 0.5} ${cy + Math.sin(k * Math.PI / 4) * raggio * 0.5} L${cx + Math.cos(k * Math.PI / 4) * raggio * 1.7} ${cy + Math.sin(k * Math.PI / 4) * raggio * 1.7}" stroke="${p.chiara}" stroke-width=".3" opacity=".35"/>`).join('');
+  return `<svg viewBox="${retro ? '0 0 220 150' : '0 0 100 110'}" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><radialGradient id="fl${id}glow"><stop offset="0" stop-color="#ffffff"/><stop offset=".1" stop-color="${p.chiara}"/><stop offset=".38" stop-color="${p.rosa}" stop-opacity=".8"/><stop offset="1" stop-color="${p.rosa}" stop-opacity="0"/></radialGradient><radialGradient id="fl${id}ring"><stop offset=".62" stop-color="${p.rosa}" stop-opacity="0"/><stop offset=".86" stop-color="${p.rosa}" stop-opacity=".9"/><stop offset="1" stop-color="${p.chiara}" stop-opacity="0"/></radialGradient></defs><circle cx="${cx}" cy="${cy}" r="${raggio * 2.1}" fill="url(#fl${id}glow)"><animate attributeName="opacity" values=".7;1;.7" dur="6s" repeatCount="indefinite"/></circle><circle cx="${cx}" cy="${cy}" r="${raggio * 1.25}" fill="url(#fl${id}ring)"><animateTransform attributeName="transform" type="rotate" values="0 ${cx} ${cy};360 ${cx} ${cy}" dur="48s" repeatCount="indefinite"/></circle><circle cx="${cx}" cy="${cy}" r="${raggio * 1.05}" fill="none" stroke="${p.chiara}" stroke-width=".55" opacity=".85"/><path d="M${cx} ${cy - stella} L${cx + punta} ${cy - punta} L${cx + stella} ${cy} L${cx + punta} ${cy + punta} L${cx} ${cy + stella} L${cx - punta} ${cy + punta} L${cx - stella} ${cy} L${cx - punta} ${cy - punta} Z" fill="${p.rosa}"><animate attributeName="opacity" values=".75;1;.75" dur="3.6s" repeatCount="indefinite"/></path><path d="M${cx} ${cy - stella * 0.7} L${cx + punta * 0.7} ${cy - punta * 0.7} L${cx + stella * 0.7} ${cy} L${cx + punta * 0.7} ${cy + punta * 0.7} L${cx} ${cy + stella * 0.7} L${cx - punta * 0.7} ${cy + punta * 0.7} L${cx - stella * 0.7} ${cy} L${cx - punta * 0.7} ${cy - punta * 0.7} Z" fill="#fff" opacity=".9"/>${retro ? `<circle cx="${cx - raggio * 1.7}" cy="${cy - raggio * 0.8}" r="${raggio * 0.9}" fill="url(#fl${id}glow)" opacity=".8"/>` : ''}${raggi}${punti}</svg>`;
+};
+const flare: Stile = {
+  id: 'flare',
+  davanti: c => {
+    const p = una(c, 'flare', () => scegli(FLARE_CARTE, c.r)), id = `f${++uid}`;
+    return flareSvg(id, p, 50, 57, 20, casoDa(Math.floor(c.r() * 2147483000)), false);
+  },
+  dietro: c => {
+    const p = una(c, 'flare', () => scegli(FLARE_CARTE, c.r)), id = `f${++uid}`;
+    return flareSvg(id, p, 110, 75, 34, casoDa(Math.floor(c.r() * 2147483000)), true);
+  },
+  variabili: c => {
+    const p = una(c, 'flare', () => scegli(FLARE_CARTE, c.r));
+    return { '--fl-rosa': p.rosa, '--fl-chiara': p.chiara, '--fl-fondo': p.fondo, '--fl-pannello': p.pannello, '--fl-tinta': p.tinta, '--fl-ink': p.ink };
+  },
+};
+
+export const STILI: Stile[] = [replay, veduta, sfera, flare, lime, risograph, notte, koi, stampa];
 
 // ---------------- Le tele vive. Il biglietto chiama disegnaAscii circa 30 volte al secondo; ogni tela decide quanto spesso
 // ridisegnarsi (le scene di caratteri bastano 12 volte al secondo). Lo stato di ogni tela (cellule, pesci) sta qui

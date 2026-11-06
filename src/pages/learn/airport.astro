@@ -3,19 +3,18 @@ import Base from '../../layouts/Base.astro';
 
 // AI terms: sei aerei girano intorno all'isola, uno per sezione del glossario. "Take a quiz" fa atterrare sei domande:
 // due facili, due medie, due difficili. Alla fine il risultato, poi si può continuare in endless, con tre vite.
-// La serie conta i giusti di fila al primo colpo; ogni termine indovinato entra nell'album.
-// Logica in src/lib/voli.ts, scena in src/scripts/aeroporto.ts, biglietto in src/scripts/bigliettoImbarco.ts
+// La serie conta i giusti di fila al primo colpo. Logica in src/lib/voli.ts, scena in src/scripts/aeroporto.ts,
+// biglietto in src/scripts/bigliettoImbarco.ts
 ---
-<Base title="AI terms · Riccardo Mondi" description="An AI terms trivia: a six-question quiz, an endless mode with three lives, boarding passes to collect and a streak to beat." tono="neutro" largo>
+<Base title="AI terms · Riccardo Mondi" description="A trivia game for the AI lexicon. Answer questions, keep your streak alive, and try to beat your high score." tono="neutro" largo>
   <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
   <main class="aeroporto">
     <h1>AI terms</h1>
-    <p class="sotto">Six planes circle the island. Take a quiz: each question lands as a boarding pass. Answer right and it goes in your album.</p>
+    <p class="sotto">A trivia game to learn the AI lexicon. Answer right and try to beat your high score.</p>
     <p class="mono punteggio"></p>
     <section class="pannello-gioco" aria-live="polite">
       <div class="stato-gioco inizio">
         <button type="button" class="mono grande avvia-quiz">Take a quiz ✈</button>
-        <p class="mono piccolo">6 questions: 2 easy, 2 medium, 2 hard. Then keep flying in endless mode.</p>
       </div>
       <div class="stato-gioco in-quiz" hidden>
         <p class="mono titolo-stato"></p>
@@ -46,11 +45,6 @@ import Base from '../../layouts/Base.astro';
         </div>
       </div>
     </section>
-    <button type="button" class="mono apri-album" aria-expanded="false"></button>
-    <section class="album" hidden aria-label="your album">
-      <p class="mono nota-album">Saved in this browser. It stays until you clear the site data; Safari clears it after 7 days without a visit.</p>
-      <ul class="pagine-album"></ul>
-    </section>
   </main>
 </Base>
 
@@ -59,36 +53,22 @@ import Base from '../../layouts/Base.astro';
   import '@fontsource/anton/latin-400.css';
   import { monta } from '../../scripts/aeroporto';
   import { nuovoImbarco } from '../../scripts/bigliettoImbarco';
-  import { TINTE_SEZIONI } from '../../lib/glossario';
-  import { aCaso, album, azzera, incolla, nuovaPartita, nuovoVolo, primati, quiz, segnaPrimato, segnaRisposta, serie, SEZIONI, TOTALE, voloDa, type Voce } from '../../lib/voli';
+  import { aCaso, azzera, nuovaPartita, nuovoVolo, primati, quiz, segnaPrimato, segnaRisposta, serie, SEZIONI, voloDa, type Voce } from '../../lib/voli';
 
   type Modo = 'inizio' | 'in-quiz' | 'fine-quiz' | 'in-endless' | 'fine-endless';
   const adesso = new Date(), recenti: string[] = [];
   const voli = SEZIONI.map((_, i) => { const v = nuovoVolo(i, recenti); recenti.push(v.voce.id); return v; });
   const p = nuovaPartita(voli.length);
   const $ = <T extends HTMLElement>(s: string, d: ParentNode = document) => d.querySelector<T>(s)!;
-  const punteggio = $('.punteggio'), apriAlbum = $<HTMLButtonElement>('.apri-album'), sezAlbum = $('.album'), pagine = $<HTMLUListElement>('.pagine-album');
+  const punteggio = $('.punteggio');
   const stati = Object.fromEntries([...document.querySelectorAll<HTMLElement>('.stato-gioco')].map(e => [e.classList[1], e])) as Record<Modo, HTMLElement>;
 
   // Lo stato del gioco
   let modo: Modo = 'inizio', domande: Voce[] = [], k = 0, tentativi: number[] = [], vite = 3, punti = 0, corrente = -1;
   const VITE = 3;
 
-  const riassunto = () => { const s = serie(), n = Object.keys(album()).length; return `streak ${s.ora} · best ${s.migliore} · album ${n}/${TOTALE}`; };
-  const scriviPunteggio = () => { punteggio.textContent = riassunto(); apriAlbum.textContent = `${sezAlbum.hidden ? 'open' : 'close'} the album (${Object.keys(album()).length}/${TOTALE})`; };
-  const scriviAlbum = () => {
-    const a = album(), voci = Object.entries(a).sort((x, y) => x[1].sezione - y[1].sezione || x[1].termine.localeCompare(y[1].termine));
-    pagine.replaceChildren(...voci.map(([, q]) => {
-      const li = document.createElement('li'), t = document.createElement('span'), m = document.createElement('small');
-      li.style.setProperty('--c', TINTE_SEZIONI[q.sezione % TINTE_SEZIONI.length]!);
-      t.textContent = `${q.primo === 1 ? '★ ' : ''}${q.termine}`;
-      m.textContent = `${q.livello} · ×${q.volte}`;
-      li.append(t, m);
-      return li;
-    }));
-    if (!voci.length) { const li = document.createElement('li'); li.className = 'vuoto'; li.textContent = 'No tickets yet. Take a quiz to start your album.'; pagine.append(li); }
-  };
-  apriAlbum.addEventListener('click', () => { sezAlbum.hidden = !sezAlbum.hidden; apriAlbum.setAttribute('aria-expanded', String(!sezAlbum.hidden)); scriviAlbum(); scriviPunteggio(); });
+  const riassunto = () => { const s = serie(); return `streak ${s.ora} · best ${s.migliore}`; };
+  const scriviPunteggio = () => { punteggio.textContent = riassunto(); };
 
   // Il quadratino di ogni domanda: verde al primo colpo, giallo al secondo, rosso dopo
   const quadro = (t: number) => (t <= 1 ? '🟩' : t === 2 ? '🟨' : '🟥');
@@ -163,13 +143,12 @@ import Base from '../../layouts/Base.astro';
         const dopo = segnaRisposta(true, primo);
         // Un record di serie nuovo, da 2 in su: fuochi d'artificio sopra l'hangar
         if (dopo.migliore > prima && dopo.migliore >= 2) scena.fuochi();
-        incolla(voli[i]!, p.tentativi[i]!);
         scena.decolla(i);
         if (modo === 'in-quiz') tentativi[k] = p.tentativi[i]!;
         if (modo === 'in-endless') punti++;
       }
       const ss = serie(); scena.serie(ss.ora, ss.migliore);
-      scriviPunteggio(); scriviStato(); if (!sezAlbum.hidden) scriviAlbum();
+      scriviPunteggio(); scriviStato();
     },
     prossimo: () => {
       if (modo === 'in-quiz') { k++; if (k >= domande.length) fineQuiz(); else { scriviStato(); assegna(0, domande[k]!); } }
@@ -208,14 +187,6 @@ import Base from '../../layouts/Base.astro';
   .passi :global(li.ora) { background: var(--fg); }
   .passi :global(li.primo) { background: #3fae6a; }
   .passi :global(li.dopo) { background: #e6b23c; }
-  .apri-album { pointer-events: auto; padding: 5px 12px; border: 1px solid var(--line); border-radius: 4px; background: color-mix(in srgb, var(--bg) 80%, transparent); color: var(--fg); font-size: 12px; cursor: pointer; }
-  .apri-album:hover { border-color: var(--muted); }
-  .album { pointer-events: auto; max-height: 40vh; overflow-y: auto; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--bg) 88%, transparent); }
-  .nota-album { margin: 0 0 8px; font-size: 10px; color: var(--muted); }
-  .pagine-album { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
-  .pagine-album :global(li) { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border-left: 4px solid var(--c); border-radius: 3px; background: color-mix(in srgb, var(--c) 14%, var(--bg)); font-size: 12px; }
-  .pagine-album :global(li small) { color: var(--muted); font-family: var(--mono); font-size: 10px; }
-  .pagine-album :global(li.vuoto) { grid-column: 1 / -1; border-left-color: var(--line); color: var(--muted); }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
 
   /* La carta d'imbarco, stile 70s Rapid: in basso al centro, sopra la scena */
@@ -423,6 +394,131 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .carta[data-stile='stampa'] .retro .titolo) { color: var(--st-testo) !important; font-size: 0; line-height: 0; }
   :global(.imbarco .carta[data-stile='stampa'] .titolo-ascii) { display: block; width: 100%; height: 84px; }
   :global(.imbarco .carta[data-stile='stampa'] .definizione) { font-family: var(--mono); font-size: 12.5px; background: none; }
+  /* Replay: carta editoriale, serif alto e metadati mono. Tre carte: crema, menta, senape */
+  :global(.imbarco .carta[data-stile='replay'] .faccia) { color: var(--rp-ink); background: var(--rp-carta); border-radius: 0; font-family: system-ui, sans-serif; }
+  :global(.imbarco .carta[data-stile='replay'] .arte70) { display: flex; flex-direction: column; justify-content: space-between; padding: 14px 12px; background: var(--rp-blocco); border-right: 1px solid var(--rp-linea); }
+  :global(.imbarco .carta[data-stile='replay'] .rp-seal) { position: relative; width: 33px; height: 33px; display: grid; place-items: center; border: 1px solid var(--rp-ink); border-radius: 50%; }
+  :global(.imbarco .carta[data-stile='replay'] .rp-seal::before) { content: ''; position: absolute; inset: 3px; border: 1px solid var(--rp-ink); border-radius: 50%; opacity: .45; }
+  :global(.imbarco .carta[data-stile='replay'] .rp-seal span) { font-family: var(--serif); font-size: 13px; line-height: 1; }
+  :global(.imbarco .carta[data-stile='replay'] .rp-ai) { display: block; font-family: var(--serif); font-weight: 400; font-size: 66px; line-height: .76; letter-spacing: -.035em; }
+  :global(.imbarco .carta[data-stile='replay'] .rp-terms) { display: block; margin-top: 8px; font-family: var(--mono); font-size: 7.5px; letter-spacing: .34em; text-transform: uppercase; }
+  :global(.imbarco .carta[data-stile='replay'] .rp-tab) { display: grid; gap: 3px; margin: 0; font-family: var(--mono); font-size: 7px; line-height: 1.3; letter-spacing: .1em; text-transform: uppercase; }
+  :global(.imbarco .carta[data-stile='replay'] .rp-tab div) { display: flex; justify-content: space-between; gap: 6px; padding-bottom: 2px; border-bottom: 1px solid var(--rp-linea); }
+  :global(.imbarco .carta[data-stile='replay'] .rp-tab dt) { margin: 0; opacity: .55; }
+  :global(.imbarco .carta[data-stile='replay'] .rp-tab dd) { margin: 0; font-weight: 700; }
+  :global(.imbarco .carta[data-stile='replay'] .banda) { background: transparent !important; box-shadow: inset 1px 0 var(--rp-linea), inset -1px 0 var(--rp-linea); }
+  :global(.imbarco .carta[data-stile='replay'] .banda span) { color: var(--rp-ink) !important; font-size: 8px; letter-spacing: .34em; }
+  :global(.imbarco .carta[data-stile='replay'] .corpo) { padding: 22px 24px; }
+  :global(.imbarco .carta[data-stile='replay'] .carta-dom) { padding: 0; background: none; border: 0; color: var(--rp-ink); }
+  :global(.imbarco .carta[data-stile='replay'] .domanda) { margin: 0 0 14px; font-family: var(--serif); font-weight: 400; font-size: 30px; line-height: .97; letter-spacing: -.015em; }
+  :global(.imbarco .carta[data-stile='replay'] .opzioni) { display: grid; gap: 0; margin-top: 2px; border-top: 1px solid var(--rp-linea); }
+  :global(.imbarco .carta[data-stile='replay'] .opzione) { min-height: 38px; padding: 9px 2px; border: 0; border-bottom: 1px solid var(--rp-linea); border-radius: 0; background: transparent; color: var(--rp-ink); font-size: 14px; line-height: 1.3; }
+  :global(.imbarco .carta[data-stile='replay'] .opzione span) { font-family: var(--mono); font-size: 8.5px; opacity: .5; }
+  :global(.imbarco .carta[data-stile='replay'] .opzione:hover:not(:disabled)), :global(.imbarco .carta[data-stile='replay'] .opzione.giusta) { background: var(--rp-ink); color: var(--rp-carta); }
+  :global(.imbarco .carta[data-stile='replay'] .opzione:hover:not(:disabled) span), :global(.imbarco .carta[data-stile='replay'] .opzione.giusta span) { color: var(--rp-carta) !important; opacity: .7; }
+  :global(.imbarco .carta[data-stile='replay'] .tagliando) { gap: 7px; padding: 20px 14px 16px; background: var(--rp-tinta); border-left: 1px solid var(--rp-linea); color: var(--rp-ink); }
+  :global(.imbarco .carta[data-stile='replay'] .tagliando .nome) { font-family: var(--serif); font-weight: 400; font-size: 28px; line-height: .9; letter-spacing: -.015em; text-transform: uppercase; }
+  :global(.imbarco .carta[data-stile='replay'] .tagliando .categoria) { margin-top: 2px; font-size: 7.5px; letter-spacing: .17em; opacity: .7; }
+  :global(.imbarco .carta[data-stile='replay'] .tagliando .metadati) { display: grid; gap: 0; margin-top: 6px; border-top: 1px solid var(--rp-linea); }
+  :global(.imbarco .carta[data-stile='replay'] .tagliando .livello), :global(.imbarco .carta[data-stile='replay'] .tagliando .citazione) { display: flex; justify-content: space-between; gap: 8px; margin: 0; padding: 4px 0; border-bottom: 1px solid var(--rp-linea); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; opacity: 1; }
+  :global(.imbarco .carta[data-stile='replay'] .tagliando .livello::before) { content: 'LEVEL'; opacity: .55; }
+  :global(.imbarco .carta[data-stile='replay'] .tagliando .citazione) { font-weight: 700; }
+  :global(.imbarco .carta[data-stile='replay'] .tagliando .citazione::before) { content: 'CITATION'; opacity: .55; font-weight: 400; }
+  :global(.imbarco .carta[data-stile='replay'] .seriale) { color: var(--rp-ink) !important; font-size: 8px; letter-spacing: .12em; }
+  :global(.imbarco .carta[data-stile='replay'] .codice span) { background: var(--rp-ink); }
+  :global(.imbarco .carta[data-stile='replay'] .grana) { opacity: .3; }
+  :global(.imbarco .carta[data-stile='replay'] .poster) { background: var(--rp-blocco); }
+  :global(.imbarco .carta[data-stile='replay'] .rp-copertina) { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 20px 22px; }
+  :global(.imbarco .carta[data-stile='replay'] .rp-parola) { max-width: 100%; font-family: var(--serif); font-weight: 400; font-size: var(--rp-size); line-height: .82; letter-spacing: -.02em; text-transform: uppercase; overflow-wrap: anywhere; }
+  :global(.imbarco .carta[data-stile='replay'] .rp-copertina .rp-tab) { max-width: 230px; }
+  :global(.imbarco .carta[data-stile='replay'] .pannello) { padding: 20px 24px 14px; background: var(--rp-pannello); color: var(--rp-ink); }
+  /* Il termine è già grande sulla copertina: il titolo del pannello resta solo per gli screen reader */
+  :global(.imbarco .carta[data-stile='replay'] .retro .titolo) { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+  :global(.imbarco .carta[data-stile='replay'] .pannello .sotto) { font-family: var(--mono); font-size: 8px; letter-spacing: .16em; text-transform: uppercase; opacity: .6; }
+  :global(.imbarco .carta[data-stile='replay'] .corsivo) { margin: 2px 0 8px; font-family: var(--serif); font-style: italic; font-size: 19px; line-height: 1.05; }
+  :global(.imbarco .carta[data-stile='replay'] .definizione) { padding-right: 0; background: none; font-family: var(--serif); font-size: 16.5px; line-height: 1.3; }
+  :global(.imbarco .carta[data-stile='replay'] .definizione p) { margin-bottom: 12px; }
+  :global(.imbarco .carta[data-stile='replay'] .definizione ul) { padding-left: 14px; }
+  :global(.imbarco .carta[data-stile='replay'] .piede-retro) { padding-top: 5px; border-top: 1px solid var(--rp-linea); color: var(--rp-ink) !important; font-size: 8px; }
+  :global(.imbarco .carta[data-stile='replay'] .piede-retro .seriale) { font-size: 8px; }
+  /* Veduta: una città di aeroporto disegnata in piano. Ogni strato si sposta a una velocità diversa con
+     l'inclinazione: il cielo fermo, i grattacieli lontani, il terminal, la pista e le palme in primo piano */
+  :global(.imbarco .carta[data-stile='veduta'] .faccia) { color: var(--vd-scuro); background: var(--vd-tinta); }
+  :global(.imbarco .carta[data-stile='veduta'] .arte70), :global(.imbarco .carta[data-stile='veduta'] .poster) { position: relative; overflow: hidden; background: var(--vd-tinta); }
+  :global(.imbarco .carta[data-stile='veduta'] .vd) { position: absolute; inset: 0; overflow: hidden; }
+  :global(.imbarco .carta[data-stile='veduta'] .vd-l) { position: absolute; inset: -12%; }
+  :global(.imbarco .carta[data-stile='veduta'] .vd-l svg) { display: block; width: 100%; height: 100%; }
+  :global(.imbarco .carta[data-stile='veduta'] .vd-cielo) { transform: translate(calc(var(--tx) * -2px), calc(var(--ty) * -1px)); }
+  :global(.imbarco .carta[data-stile='veduta'] .vd-lontano) { transform: translate(calc(var(--tx) * -6px), calc(var(--ty) * -3px)) scale(1.02); }
+  :global(.imbarco .carta[data-stile='veduta'] .vd-medio) { transform: translate(calc(var(--tx) * -11px), calc(var(--ty) * -6px)) scale(1.04); }
+  :global(.imbarco .carta[data-stile='veduta'] .vd-vicino) { transform: translate(calc(var(--tx) * -17px), calc(var(--ty) * -9px)) scale(1.06); }
+  :global(.imbarco .carta[data-stile='veduta'] .banda) { background: var(--vd-banda) !important; box-shadow: inset 1px 0 rgb(0 0 0 / .2), inset -1px 0 rgb(0 0 0 / .2); }
+  :global(.imbarco .carta[data-stile='veduta'] .banda span), :global(.imbarco .carta[data-stile='veduta'] .sotto) { color: #fff !important; opacity: 1; }
+  :global(.imbarco .carta[data-stile='veduta'] .carta-dom) { padding: 0; background: none; color: var(--vd-scuro); border: 0; }
+  :global(.imbarco .carta[data-stile='veduta'] .domanda) { font-weight: 800; letter-spacing: -.02em; }
+  :global(.imbarco .carta[data-stile='veduta'] .opzione) { border: 1.5px solid color-mix(in srgb, var(--vd-scuro) 62%, transparent); border-radius: 0; color: var(--vd-scuro); background: color-mix(in srgb, var(--vd-tinta) 70%, transparent); }
+  :global(.imbarco .carta[data-stile='veduta'] .opzione span) { color: var(--vd-banda) !important; opacity: 1; font-weight: 700; }
+  :global(.imbarco .carta[data-stile='veduta'] .opzione:hover:not(:disabled)) { background: var(--vd-banda); border-color: var(--vd-banda); color: #fff; }
+  :global(.imbarco .carta[data-stile='veduta'] .opzione:hover:not(:disabled) span) { color: #fff !important; }
+  :global(.imbarco .carta[data-stile='veduta'] .opzione.giusta) { background: var(--vd-scuro); border-color: var(--vd-scuro); color: var(--vd-tinta); }
+  :global(.imbarco .carta[data-stile='veduta'] .tagliando) { background: var(--vd-tinta) var(--trama); background-size: auto, 44px 9px; border-left: 2px dashed color-mix(in srgb, var(--vd-scuro) 45%, transparent); color: var(--vd-scuro); }
+  :global(.imbarco .carta[data-stile='veduta'] .tagliando .nome) { font-size: 22px; }
+  :global(.imbarco .carta[data-stile='veduta'] .seriale) { color: var(--vd-banda) !important; }
+  :global(.imbarco .carta[data-stile='veduta'] .codice span) { background: var(--vd-scuro); }
+  :global(.imbarco .carta[data-stile='veduta'] .pannello) { background: var(--vd-tinta); color: var(--vd-scuro); }
+  :global(.imbarco .carta[data-stile='veduta'] .retro .titolo) { color: var(--vd-banda) !important; }
+  :global(.imbarco .carta[data-stile='veduta'] .definizione) { background: repeating-linear-gradient(transparent 0 21px, color-mix(in srgb, var(--vd-scuro) 12%, transparent) 21px 22px); background-attachment: local; }
+  :global(.imbarco .carta[data-stile='veduta'] .piede-retro) { color: var(--vd-banda) !important; border-color: color-mix(in srgb, var(--vd-scuro) 45%, transparent); }
+  :global(.imbarco .carta[data-stile='veduta'] .bagliore) { opacity: calc(.1 + var(--t) * .5); }
+  /* Sfera: carta burro e un grappolo di sfere translucide, come un render. Davanti il grappolo, dietro due */
+  @keyframes sfbreathe { to { transform: translate(1.6%, -1.8%) scale(1.05); } }
+  :global(.imbarco .carta[data-stile='sfera'] .faccia) { color: var(--sf-ink); background: var(--sf-fondo); }
+  :global(.imbarco .carta[data-stile='sfera'] .arte70), :global(.imbarco .carta[data-stile='sfera'] .poster) { position: relative; overflow: hidden; background: var(--sf-fondo); }
+  :global(.imbarco .carta[data-stile='sfera'] .sf) { position: absolute; inset: 0; }
+  :global(.imbarco .carta[data-stile='sfera'] .sf-livello) { position: absolute; inset: 0; animation: sfbreathe 11s ease-in-out infinite alternate; }
+  :global(.imbarco .carta[data-stile='sfera'] .sf-livello svg) { display: block; width: 100%; height: 100%; }
+  :global(.imbarco .carta[data-stile='sfera'] .sf-testa), :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { position: absolute; left: 9px; right: 9px; display: flex; justify-content: space-between; gap: 8px; font-family: var(--mono); font-size: 6.5px; line-height: 1.2; letter-spacing: .16em; text-transform: uppercase; opacity: .82; }
+  :global(.imbarco .carta[data-stile='sfera'] .sf-testa) { top: 9px; }
+  :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { bottom: 9px; }
+  :global(.imbarco .carta[data-stile='sfera'] .banda) { background: var(--sf-tinta) !important; box-shadow: inset 1px 0 var(--sf-linea), inset -1px 0 var(--sf-linea); }
+  :global(.imbarco .carta[data-stile='sfera'] .banda span), :global(.imbarco .carta[data-stile='sfera'] .sotto) { color: var(--sf-ink) !important; opacity: .8; }
+  :global(.imbarco .carta[data-stile='sfera'] .carta-dom) { padding: 0; background: none; color: var(--sf-ink); border: 0; }
+  :global(.imbarco .carta[data-stile='sfera'] .opzione) { border: 1.5px solid var(--sf-linea); border-radius: 0; color: var(--sf-ink); background: color-mix(in srgb, var(--sf-pannello) 75%, transparent); }
+  :global(.imbarco .carta[data-stile='sfera'] .opzione span) { color: #5c4cd4 !important; opacity: 1; font-weight: 700; }
+  :global(.imbarco .carta[data-stile='sfera'] .opzione:hover:not(:disabled)) { background: var(--sf-ink); color: var(--sf-fondo); }
+  :global(.imbarco .carta[data-stile='sfera'] .opzione:hover:not(:disabled) span) { color: #b9adff !important; }
+  :global(.imbarco .carta[data-stile='sfera'] .opzione.giusta) { background: var(--sf-ink); color: var(--sf-fondo); }
+  :global(.imbarco .carta[data-stile='sfera'] .tagliando) { background: var(--sf-pannello); border-left: 2px dashed var(--sf-linea); color: var(--sf-ink); }
+  :global(.imbarco .carta[data-stile='sfera'] .tagliando .nome) { font-family: var(--mono); font-weight: 700; font-size: 15px; line-height: 1.15; letter-spacing: -.02em; text-transform: uppercase; }
+  :global(.imbarco .carta[data-stile='sfera'] .seriale) { color: #5c4cd4 !important; }
+  :global(.imbarco .carta[data-stile='sfera'] .codice span) { background: var(--sf-ink); }
+  :global(.imbarco .carta[data-stile='sfera'] .pannello) { background: var(--sf-pannello); color: var(--sf-ink); }
+  :global(.imbarco .carta[data-stile='sfera'] .retro .titolo) { color: #4b3fc0 !important; }
+  :global(.imbarco .carta[data-stile='sfera'] .definizione) { background: none; font-size: 13px; line-height: 21px; }
+  :global(.imbarco .carta[data-stile='sfera'] .piede-retro) { color: #4b3fc0 !important; border-color: var(--sf-linea); }
+  :global(.imbarco .carta[data-stile='sfera'] .grana) { opacity: .45; }
+  /* Flare: bagliori anime disegnati a mano. Quasi nero, rosa acceso, anelli e stelle a quattro punte */
+  :global(.imbarco .carta[data-stile='flare'] .faccia) { color: var(--fl-ink); background: var(--fl-fondo); }
+  :global(.imbarco .carta[data-stile='flare'] .arte70), :global(.imbarco .carta[data-stile='flare'] .poster) { position: relative; overflow: hidden; background: radial-gradient(circle at 50% 52%, color-mix(in srgb, var(--fl-rosa) 22%, transparent), transparent 62%), var(--fl-fondo); }
+  :global(.imbarco .carta[data-stile='flare'] .banda) { background: var(--fl-rosa) !important; box-shadow: inset 1px 0 rgb(0 0 0 / .25), inset -1px 0 rgb(0 0 0 / .25); }
+  :global(.imbarco .carta[data-stile='flare'] .banda span) { color: var(--fl-fondo) !important; font-weight: 700; }
+  :global(.imbarco .carta[data-stile='flare'] .sotto) { color: var(--fl-chiara) !important; opacity: 1; }
+  :global(.imbarco .carta[data-stile='flare'] .carta-dom) { padding: 0; background: none; color: var(--fl-ink); border: 0; }
+  :global(.imbarco .carta[data-stile='flare'] .opzione) { border: 1.5px solid color-mix(in srgb, var(--fl-rosa) 55%, transparent); border-radius: 0; color: var(--fl-ink); background: color-mix(in srgb, var(--fl-tinta) 70%, transparent); }
+  :global(.imbarco .carta[data-stile='flare'] .opzione span) { color: var(--fl-rosa) !important; opacity: 1; font-weight: 700; }
+  :global(.imbarco .carta[data-stile='flare'] .opzione:hover:not(:disabled)) { background: var(--fl-rosa); border-color: var(--fl-rosa); color: var(--fl-fondo); }
+  :global(.imbarco .carta[data-stile='flare'] .opzione:hover:not(:disabled) span) { color: var(--fl-fondo) !important; }
+  :global(.imbarco .carta[data-stile='flare'] .opzione.giusta) { background: var(--fl-rosa); border-color: var(--fl-rosa); color: var(--fl-fondo); }
+  :global(.imbarco .carta[data-stile='flare'] .tagliando) { background: var(--fl-pannello); border-left: 2px dashed color-mix(in srgb, var(--fl-rosa) 48%, transparent); color: var(--fl-ink); }
+  :global(.imbarco .carta[data-stile='flare'] .tagliando .nome) { color: var(--fl-ink); }
+  :global(.imbarco .carta[data-stile='flare'] .seriale) { color: var(--fl-chiara) !important; }
+  :global(.imbarco .carta[data-stile='flare'] .codice span) { background: var(--fl-rosa); }
+  :global(.imbarco .carta[data-stile='flare'] .pannello) { background: var(--fl-pannello); color: var(--fl-ink); }
+  :global(.imbarco .carta[data-stile='flare'] .retro .titolo) { color: var(--fl-rosa) !important; }
+  :global(.imbarco .carta[data-stile='flare'] .definizione) { background: none; }
+  :global(.imbarco .carta[data-stile='flare'] .piede-retro) { color: var(--fl-chiara) !important; border-color: color-mix(in srgb, var(--fl-rosa) 45%, transparent); }
+  :global(.imbarco .carta[data-stile='flare'] .grana) { opacity: .3; }
+  :global(.imbarco .carta[data-stile='flare'] .bagliore) { mix-blend-mode: screen; opacity: calc(.08 + var(--t) * .3); background: radial-gradient(circle at calc(50% + var(--tx) * 45%) calc(50% + var(--ty) * 45%), color-mix(in srgb, var(--fl-rosa) 50%, transparent), transparent 55%); }
   :global(.imbarco .azioni) { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
   :global(.imbarco .azioni button) { padding: 6px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--muted); cursor: pointer; }
   :global(.imbarco .azioni .prossimo), :global(.imbarco .azioni .gira) { color: var(--fg); border-color: var(--muted); }
@@ -432,8 +528,11 @@ import Base from '../../layouts/Base.astro';
   @media (max-width: 640px) {
     .fondo3d { top: 300px; }
     .sotto { display: none; }
+    /* L'interfaccia sta al centro, e il biglietto pure: aperto, si apre a metà schermo invece che in fondo */
+    .aeroporto > * { margin-left: auto; margin-right: auto; }
+    h1, .punteggio { text-align: center; }
     /* Su telefono il biglietto va in colonna: l'arte in una striscia in alto, la banda di traverso, il tagliando in basso */
-    :global(.imbarco) { left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); width: auto; transform: none; }
+    :global(.imbarco) { left: 10px; right: 10px; top: 50%; bottom: auto; width: auto; transform: translateY(-50%); }
     :global(.imbarco .faccia) { height: auto; -webkit-mask: none !important; mask: none !important; }
     :global(.imbarco .fronte) { grid-template-columns: 1fr; grid-template-rows: 76px 16px auto auto; }
     :global(.imbarco .fronte > :not(.arte70):not(.strato):not(.timbri)) { grid-column: 1 / -1; }
@@ -453,6 +552,20 @@ import Base from '../../layouts/Base.astro';
     :global(.imbarco .scorre) { flex: none; }
     :global(.imbarco .pannello) { padding: 12px 14px; }
     :global(.imbarco .retro .titolo) { font-size: 30px; }
+    /* Replay su telefono: la copertina diventa una riga, il termine sul retro resta leggibile */
+    :global(.imbarco .carta[data-stile='replay'] .arte70) { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border-right: 0; }
+    :global(.imbarco .carta[data-stile='replay'] .rp-seal) { width: 26px; height: 26px; flex: none; }
+    :global(.imbarco .carta[data-stile='replay'] .rp-marchio) { display: flex; align-items: baseline; gap: 6px; }
+    :global(.imbarco .carta[data-stile='replay'] .rp-ai) { font-size: 34px; }
+    :global(.imbarco .carta[data-stile='replay'] .rp-terms) { margin-top: 0; font-size: 6px; }
+    :global(.imbarco .carta[data-stile='replay'] .rp-tab) { width: 118px; flex: none; font-size: 5.5px; }
+    :global(.imbarco .carta[data-stile='replay'] .rp-copertina) { padding: 12px 14px; }
+    :global(.imbarco .carta[data-stile='replay'] .rp-parola) { font-size: clamp(22px, var(--rp-size), 32px); }
+    :global(.imbarco .carta[data-stile='replay'] .rp-copertina .rp-tab) { max-width: none; }
+    /* Sfera: nei 76px di striscia i metadati restano piccoli */
+    :global(.imbarco .carta[data-stile='sfera'] .sf-testa), :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { left: 8px; right: 8px; font-size: 5.5px; letter-spacing: .12em; }
+    :global(.imbarco .carta[data-stile='sfera'] .sf-testa) { top: 6px; }
+    :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { bottom: 6px; }
     :global(.imbarco .carta[data-stile='stampa'] .titolo-ascii) { height: 58px; }
     :global(.imbarco .definizione) { max-height: 30vh; }
     :global(.imbarco .azioni) { flex-wrap: wrap; }

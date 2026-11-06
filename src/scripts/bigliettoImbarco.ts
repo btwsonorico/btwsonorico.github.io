@@ -1,6 +1,6 @@
 import { dividi } from '../lib/glossario';
 import type { Partita, Volo } from '../lib/voli';
-import { timbro, tipo, type Livello, metalloDi } from './arteBiglietti';
+import { timbro, tipo, type Livello } from './arteBiglietti';
 import { STILI, casoDa, disegnaAscii } from './stiliBiglietto';
 
 // La carta d'imbarco di AI terms. Ogni biglietto pesca uno stile a caso (src/scripts/stiliBiglietto.ts) e una variante;
@@ -26,7 +26,7 @@ export type OpzioniImbarco = {
   data: Date; voli: Volo[]; partita: Partita;
   // Dopo ogni risposta. Il biglietto ha già aggiornato la partita
   dopo: (i: number, giusto: boolean) => void;
-  // Una riga sullo stato del gioco, per il retro: serie e album
+  // Una riga sullo stato del gioco, per il retro: serie e record
   riassunto: () => string;
   prossimo: () => void; chiudi: () => void;
   // Il testo del bottone per andare avanti: domanda dopo, risultati, ancora
@@ -246,7 +246,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       carta.classList.toggle('girata', p.fatto[i]!);
       requestAnimationFrame(() => requestAnimationFrame(() => carta.classList.remove('subito')));
       svg(arte, ds.davanti);
-      banda.className = `banda ${metalloDi(v.sezione)}`;
+      banda.className = 'banda';
       motto.textContent = `${tp.motto} · ${n}`;
       nomeF.textContent = v.voce.termine;
       categoriaF.textContent = v.voce.sotto;
