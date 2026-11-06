@@ -99,7 +99,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       const x = q.getX(i), z = q.getZ(i), t = Math.atan2(z, x), u = Math.hypot(x, z) * 0.995, rr = u * rivaA(t);
       const X = Math.cos(t) * rr, Z = Math.sin(t) * rr;
       q.setXYZ(i, X, Math.max(0.005, altezza(X, Z)) - 0.004, Z);
-      const c = u > 0.95 || (versoBaia(t) < 0.42 && u > 0.8) ? SABBIA : ERBA;
+      const c = u > 0.95 ? SABBIA : ERBA;
       colori.push(c.r, c.g, c.b);
     }
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
@@ -216,7 +216,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   const cartello = new THREE.Group();
   cartello.position.set(HX - 1.45, H0, -0.3);
   cartello.rotation.y = 0.5;
-  cartello.scale.setScalar(1.6);
+  cartello.scale.setScalar(1.9);
   G.add(cartello);
   for (const x of [-0.38, 0.38]) cartello.add(pezzo(new THREE.CylinderGeometry(0.014, 0.014, 0.16, 6), M.edificio, x, 0.08, 0));
   cartello.add(pezzo(new THREE.BoxGeometry(0.9, 0.36, 0.035), pieno('#2b2a33', 0.1), 0, 0.33, 0));
@@ -224,7 +224,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   {
     const tela = document.createElement('canvas'); tela.width = 512; tela.height = 64;
     const cx = tela.getContext('2d')!;
-    cx.fillStyle = '#f4f1ea'; cx.font = `bold 34px ${monoC}`; cx.textBaseline = 'middle';
+    cx.fillStyle = '#f4f1ea'; cx.font = `bold 44px ${monoC}`; cx.textBaseline = 'middle';
     cx.textAlign = 'center'; cx.fillText('STREAK', 128, 34); cx.fillText('BEST', 384, 34);
     const t = new THREE.CanvasTexture(tela); t.colorSpace = THREE.SRGBColorSpace;
     cartello.add(new THREE.Mesh(new THREE.PlaneGeometry(0.84, 0.07), new THREE.MeshBasicMaterial({ map: t, transparent: true })).translateY(0.465).translateZ(0.02));
@@ -236,19 +236,22 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     mappa.colorSpace = THREE.SRGBColorSpace;
     const scrivi = (c: string) => {
       cx.fillStyle = '#17161c'; cx.fillRect(0, 0, 96, 128);
-      cx.fillStyle = '#f7cf4f'; cx.font = `bold 96px ${monoC}`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(c, 48, 70);
+      cx.fillStyle = '#f7cf4f'; cx.font = `bold 118px ${monoC}`; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(c, 48, 70);
       cx.fillStyle = '#000'; cx.fillRect(0, 62, 96, 4);
       mappa.needsUpdate = true;
     };
     scrivi('0');
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.17, 0.23), new THREE.MeshBasicMaterial({ map: mappa }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.25), new THREE.MeshBasicMaterial({ map: mappa }));
     m.position.set(x, 0.29, 0.02);
     cartello.add(m);
     return { m, scrivi, cifra: '0', nuova: '0', giro: 0 };
   };
   const palette = [-0.31, -0.13, 0.13, 0.31].map(paletta);
+  let primaVolta = true;
   const mostraSerie = (ora: number, migliore: number) => {
     const testo = `${String(Math.min(99, ora)).padStart(2, '0')}${String(Math.min(99, migliore)).padStart(2, '0')}`;
+    // La prima volta le cifre compaiono già giuste, senza giro
+    if (primaVolta) { primaVolta = false; palette.forEach((q, k) => { q.cifra = q.nuova = testo[k]!; q.scrivi(q.cifra); }); return; }
     palette.forEach((q, k) => { const c = testo[k]!; if (c !== q.nuova) { q.nuova = c; q.giro = q.giro > 0 ? q.giro : 0.0001; } });
   };
 
@@ -283,41 +286,95 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   });
   pecore.forEach(q => { q.mx = q.x; q.mz = q.z; });
 
-  // --- La spiaggia della baia: una mezzaluna piena color sabbia lungo la riva, poi ombrelloni colorati e teli
+  // --- La spiaggia della baia. La sabbia è piena e opaca; il bordo verso il prato è ondulato, con una sfumatura corta,
+  // e lungo il bordo crescono ciuffi d'erba da duna. Sulla riva una fascia di sabbia bagnata più scura
+  const larghezza = (t: number) => Math.exp(-((t - BAIA) ** 2) / (2 * 0.24 * 0.24));
+  const fondoSabbia = (t: number) => 1.005 - (0.3 * larghezza(t) + 0.04) * (1 + 0.1 * Math.sin(t * 23) + 0.06 * Math.sin(t * 41 + 1));
+  const sullaSabbia = (t: number, f: number) => { const rr = rivaA(t), u = 1.005 - (1.005 - fondoSabbia(t)) * f; return [Math.cos(t) * rr * u, Math.sin(t) * rr * u] as const; };
   {
-    const N = 40, vert: number[] = [], indici: number[] = [], alfaS: number[] = [];
+    const N = 64, vert: number[] = [], indici: number[] = [], col: number[] = [];
+    const bagnata = new THREE.Color(chiaro ? '#d7b77e' : '#bfa071'), asciutta = new THREE.Color(chiaro ? '#f1d9a4' : '#e8cf98');
+    // Gli anelli, dalla riva verso il prato: [quanto dentro, colore, opacità]
+    const ANELLI: [number, THREE.Color, number][] = [[0, bagnata, 1], [0.1, bagnata, 1], [0.16, asciutta, 1], [0.86, asciutta, 1], [1, asciutta, 0]];
     for (let k = 0; k <= N; k++) {
-      const t = BAIA - 0.5 + (k / N) * 1.0, larga = Math.exp(-((t - BAIA) ** 2) / (2 * 0.22 * 0.22)), rr = rivaA(t);
-      // Quattro anelli dalla riva verso l'interno: la sabbia è piena sulla riva e sfuma verso il prato
-      for (const [q, a] of [[0, 1], [0.55, 1], [0.85, 0.45], [1.15, 0]] as const) { const u = 1.005 - (0.3 * larga + 0.05) * q, x = Math.cos(t) * rr * u, z = Math.sin(t) * rr * u; vert.push(x, Math.max(0.006, altezza(x, z)) + 0.004, z); alfaS.push(a * (0.25 + 0.75 * Math.min(1, larga * 1.6))); }
-      if (k < N) for (let q = 0; q < 3; q++) { const a = k * 4 + q, b = a + 4; indici.push(a, a + 1, b, a + 1, b + 1, b); }
+      const t = BAIA - 0.55 + (k / N) * 1.1, punta = Math.min(1, larghezza(t) * 2.2);
+      for (const [f, c, a] of ANELLI) { const [x, z] = sullaSabbia(t, f); vert.push(x, Math.max(0.006, altezza(x, z)) + 0.005, z); col.push(c.r, c.g, c.b, a * punta); }
+      const A = ANELLI.length;
+      if (k < N) for (let q = 0; q < A - 1; q++) { const a = k * A + q, b = a + A; indici.push(a, a + 1, b, a + 1, b + 1, b); }
     }
-    const geo = new THREE.BufferGeometry(), sab = new THREE.Color(chiaro ? '#f0dcae' : '#e6cf9c'), col: number[] = [];
-    alfaS.forEach(a => col.push(sab.r, sab.g, sab.b, a));
+    const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(vert, 3));
     geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 4));
     geo.setIndex(indici);
     G.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide })));
-    // Qualche puntino più scuro sulla sabbia, come granelli e conchiglie
-    const punti: number[] = [];
-    for (let k = 0; k < 60; k++) { const t = BAIA + (r() - 0.5) * 0.7, u = 1 - r() * 0.16 * Math.exp(-((t - BAIA) ** 2) / (2 * 0.22 * 0.22)), rr = rivaA(t) * u; const x = Math.cos(t) * rr, z = Math.sin(t) * rr; punti.push(x, Math.max(0.006, altezza(x, z)) + 0.008, z); }
-    const g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(punti, 3));
-    G.add(new THREE.Points(g2, new THREE.PointsMaterial({ color: '#b8996a', size: 0.03 })));
+    // La schiuma sulla riva: una linea chiara sottile
+    const schiuma: THREE.Vector3[] = [];
+    for (let k = 0; k <= N; k++) { const t = BAIA - 0.5 + (k / N), rr = rivaA(t) * 1.008; schiuma.push(new THREE.Vector3(Math.cos(t) * rr, 0.012, Math.sin(t) * rr)); }
+    G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(schiuma), linea('#ffffff', 0.7)));
+    // I ciuffi d'erba lungo il bordo della sabbia
+    const ciuffo = new THREE.ConeGeometry(0.025, 0.09, 4);
+    for (let k = 0; k < 26; k++) {
+      const t = BAIA - 0.42 + (k / 25) * 0.84 + (r() - 0.5) * 0.02, [x, z] = sullaSabbia(t, 0.9 + r() * 0.12), y = Math.max(0.006, altezza(x, z));
+      for (let q = 0; q < 3; q++) { const c = pezzo(ciuffo, pieno(q % 2 ? '#7aa84a' : '#93b85a', 0.15), x + (q - 1) * 0.025, y + 0.04, z + (r() - 0.5) * 0.03); c.rotation.z = (q - 1) * 0.35; G.add(c); }
+    }
   }
+  // Le palme, sul fondo della spiaggia, a filo: tronco curvo, foglie lunghe che ricadono, tre noci di cocco.
+  // Le chiome ondeggiano piano nel vento
+  const palme: THREE.Group[] = [], fusto = linea(FILO, 0.7);
+  {
+    const geoFoglia = (() => {
+      const L = 0.34, w = 0.055, f = new THREE.Shape();
+      f.moveTo(0, 0); f.quadraticCurveTo(L * 0.45, w, L, 0); f.quadraticCurveTo(L * 0.45, -w, 0, 0);
+      const g = new THREE.ShapeGeometry(f, 8).rotateX(-Math.PI / 2), q = g.attributes.position as THREE.BufferAttribute;
+      for (let k = 0; k < q.count; k++) { const x = q.getX(k) / L; q.setY(k, 0.05 * x - 0.2 * x * x); }
+      g.computeVertexNormals();
+      return g;
+    })();
+    // A filo come gli alberi di Learn: il tronco è un filo, le foglie e le noci hanno il riempimento tenue e i bordi a filo
+    const foglie = [mat('#6fa646'), mat('#5f9c45')], cocco = mat('#b08a5a');
+    [[-0.44, 0.78, 0.62], [-0.3, 0.86, 0.5], [0.24, 0.84, 0.56], [0.4, 0.78, 0.66]].forEach(([dt0, f, alto], i) => {
+      const t = BAIA + dt0!, [x, z] = sullaSabbia(t, f!), y = Math.max(0.006, altezza(x, z)), g = new THREE.Group();
+      g.position.set(x, y, z);
+      // La palma si piega verso il mare
+      g.rotation.y = Math.atan2(-Math.sin(t), Math.cos(t)) + (i % 2 ? 0.3 : -0.3);
+      G.add(g);
+      const punti = Array.from({ length: 6 }, (_, k) => new THREE.Vector3(0.16 * (k / 5) ** 2, alto! * (k / 5), 0));
+      const curva = new THREE.CatmullRomCurve3(punti);
+      g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(curva.getPoints(16)), fusto));
+      const chioma = new THREE.Group();
+      chioma.position.copy(punti[5]!);
+      g.add(chioma);
+      for (let k = 0; k < 8; k++) { const fo = pezzo(geoFoglia, foglie[k % 2]!); fo.rotation.set(0, (k / 8) * Math.PI * 2 + i, (k % 2) * 0.12); chioma.add(fo); }
+      for (let k = 0; k < 3; k++) chioma.add(pezzo(new THREE.SphereGeometry(0.022, 8, 6), cocco, Math.cos(k * 2.1) * 0.03, -0.03, Math.sin(k * 2.1) * 0.03));
+      palme.push(chioma);
+    });
+  }
+  // Gli ombrelloni, e accanto a ognuno un asciugamano a righe steso verso il mare
+  const teloRighe = (a: string, b: string) => {
+    const tela = document.createElement('canvas'); tela.width = 32; tela.height = 64;
+    const cx = tela.getContext('2d')!;
+    cx.fillStyle = '#fbf6ea'; cx.fillRect(0, 0, 32, 64);
+    for (let k = 0; k < 6; k++) { cx.fillStyle = k % 2 ? b : a; cx.fillRect(3, 4 + k * 9.3, 26, 9.3); }
+    const t = new THREE.CanvasTexture(tela); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter;
+    return t;
+  };
+  const geoTelo = new THREE.BoxGeometry(0.075, 0.006, 0.16);
   [-0.3, -0.16, 0, 0.15, 0.3].forEach((dt0, k) => {
-    const t = BAIA + dt0 * 0.8, rr = rivaA(t) * (0.9 + (k % 2) * 0.03), x = Math.cos(t) * rr, z = Math.sin(t) * rr, y = Math.max(0.005, altezza(x, z));
+    const t = BAIA + dt0 * 0.8, [x, z] = sullaSabbia(t, 0.42 + (k % 2) * 0.12), y = Math.max(0.005, altezza(x, z));
     const c = o.tinte[(k * 2 + 1) % o.tinte.length]!;
     G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y, z), new THREE.Vector3(x, y + 0.22, z)]), linea(FILO, 0.8)));
-    const ombrello = new THREE.ConeGeometry(0.15, 0.07, 10);
-    G.add(pezzo(ombrello, pieno(c, 0.12), x, y + 0.23, z));
-    const telo = pezzo(new THREE.PlaneGeometry(0.09, 0.18).rotateX(-Math.PI / 2), pieno(o.tinte[(k * 2 + 4) % o.tinte.length]!, 0.1), x + 0.13, y + 0.004, z - 0.02);
-    telo.rotation.y = t + Math.PI / 2;
+    G.add(pezzo(new THREE.ConeGeometry(0.15, 0.07, 10), pieno(c, 0.12), x, y + 0.23, z));
+    // L'asciugamano: di lato all'ombrellone, il lato lungo verso l'acqua
+    const tx = -Math.sin(t), tz = Math.cos(t), lato = k % 2 ? 1 : -1;
+    const m = new THREE.MeshBasicMaterial({ map: teloRighe(o.tinte[(k * 2 + 4) % o.tinte.length]!, '#fbf6ea') });
+    m.userData.linea = new THREE.LineBasicMaterial({ color: '#8a7a60', transparent: true, opacity: 0.6 });
+    const telo = pezzo(geoTelo, m, x + tx * 0.12 * lato, y + 0.006, z + tz * 0.12 * lato);
+    telo.rotation.y = Math.atan2(Math.cos(t), Math.sin(t));
     G.add(telo);
   });
 
   // --- Alberi come quelli di Learn: il tronco è un filo, la chioma sono palle o coni a filo con un riempimento tenue
   const chiome = [mat('#6fa646'), mat('#5f9c45'), mat('#4f8a3c')];
-  const fusto = linea(FILO, 0.7);
   const albero = (x: number, z: number, h: number, k: number) => {
     const ob = new THREE.Group(), m = chiome[k % 3]!, f = Math.floor(r() * 3);
     ob.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h * (f === 2 ? 0.3 : 0.55), 0)]), fusto));
@@ -337,7 +394,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     G.add(ob);
   };
   const vietati = (x: number, z: number) =>
-    (Math.abs(x) < 3 && z > 0.12 && z < 1.0) || (Math.abs(x - HX) < 0.85 && z > -1.0 && z < 0.3) || (versoBaia(Math.atan2(z, x)) < 0.5 && forma(x, z) > 0.55) || Math.hypot(x - (HX - 1.45), z + 0.3) < 0.7 || Math.hypot(x - TX, z - TZ) < 0.45 || Math.hypot(x - FX, z - FZ) < 0.45 ||
+    (Math.abs(x) < 3 && z > 0.12 && z < 1.0) || (Math.abs(x - HX) < 0.85 && z > -1.0 && z < 0.3) || (versoBaia(Math.atan2(z, x)) < 0.5 && forma(x, z) > 0.55) || Math.hypot(x - (HX - 1.45), z + 0.3) < 0.95 || Math.hypot(x - TX, z - TZ) < 0.45 || Math.hypot(x - FX, z - FZ) < 0.45 ||
     Math.hypot(x - PCX, z - PCZ) < 0.75 || Math.hypot(x + 3.6, z - 0.6) < 0.3;
   const posti: [number, number][] = [];
   for (let i = 0; i < 1500 && posti.length < 22; i++) {
@@ -769,13 +826,14 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       }
     });
 
-    // Le palette del cartello: girano su se stesse e a metà giro cambiano cifra
+    // Le palette del cartello: si chiudono e a metà cambiano cifra
     palette.forEach(q => {
       if (q.giro <= 0) return;
       q.giro = Math.min(1, q.giro + dt * 3.2);
       if (q.giro >= 0.5 && q.cifra !== q.nuova) { q.cifra = q.nuova; q.scrivi(q.cifra); }
-      q.m.rotation.x = Math.sin(q.giro * Math.PI) * Math.PI * 0.5 * (q.giro < 0.5 ? 1 : -1);
-      if (q.giro >= 1) { q.giro = 0; q.m.rotation.x = 0; }
+      // La paletta si chiude in verticale fino a sparire, cambia cifra, si riapre: niente prospettive strane
+      q.m.scale.y = Math.max(0.02, Math.abs(Math.cos(q.giro * Math.PI)));
+      if (q.giro >= 1) { q.giro = 0; q.m.scale.y = 1; }
     });
     // I fuochi: i razzi salgono con una scia, poi scoppiano; le scintille cadono piano e si spengono
     for (let k = razzi.length - 1; k >= 0; k--) {
@@ -802,6 +860,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     {
       const y = ondaIn(POSTO_BARCA.x, POSTO_BARCA.z, s);
       barca.position.set(POSTO_BARCA.x, y - 0.03, POSTO_BARCA.z);
+      palme.forEach((c, i) => { c.rotation.z = Math.sin(s * 1.1 + i * 1.7) * 0.05; c.rotation.x = Math.sin(s * 0.8 + i) * 0.03; });
       barca.rotation.x = Math.sin(s * 1.1) * 0.06; barca.rotation.z = Math.sin(s * 0.8 + 1) * 0.05;
       const b = qui(0.7, 0.07), cp = cima.geometry.attributes.position as THREE.BufferAttribute;
       cp.setXYZ(0, b.x, -0.2, b.z); cp.setXYZ(1, POSTO_BARCA.x, y + 0.1, POSTO_BARCA.z); cp.needsUpdate = true;
@@ -826,8 +885,9 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       let quota: number, becco: number, tuffoVisto = 0;
       if (c < 0.4) { quota = -0.82; becco = 0; }
       else if (c < 0.55) { const k = liscio((c - 0.4) / 0.15); quota = -0.82 + k * 0.4; becco = 0.12 * Math.sin(k * Math.PI); }
-      else if (c < 0.72) { quota = -0.42 + Math.sin(s * 1.3) * 0.012; becco = 0; }
-      else { const k = (c - 0.72) / 0.28; quota = -0.42 - liscio(k) * 0.45; becco = -0.85 * Math.sin(liscio(k) * Math.PI * 0.92); tuffoVisto = Math.sin(k * Math.PI); }
+      else if (c < 0.72) { quota = -0.42 + Math.sin(((c - 0.55) / 0.17) * Math.PI * 2) * 0.012; becco = 0; }
+      // Il tuffo arriva alla stessa quota e allo stesso assetto da cui riparte il ciclo: niente scatto
+      else { const k = (c - 0.72) / 0.28; quota = -0.42 - liscio(k) * 0.4; becco = -0.85 * Math.sin(liscio(k) * Math.PI); tuffoVisto = Math.sin(k * Math.PI); }
       balena.position.set(bx, quota, bz);
       // Sott'acqua si intravede appena; in superficie è piena
       const visto = 0.28 + 0.72 * liscio(THREE.MathUtils.clamp((quota + 0.8) / 0.36, 0, 1));
