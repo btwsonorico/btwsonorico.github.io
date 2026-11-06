@@ -28,13 +28,19 @@ const PAGINE = [
 ---
 <Base title="Riccardo Mondi" description="Riccardo Mondi: AI advisor and developer at Politecnico di Milano." tono="neutro" largo>
   <script type="application/ld+json" set:html={JSON.stringify(PERSONA)} />
-  <!-- Intro una volta per sessione. Si decide prima del primo disegno, così la home non lampeggia. Senza JavaScript non c'è -->
+  <!-- L'intro parte a ogni ingresso nella home: da un link esterno, da un indirizzo scritto a mano, a ogni ricarica.
+       Non parte quando si torna alla home da un'altra pagina del sito, né con «riduci movimento». Si decide prima del primo
+       disegno, così la home non lampeggia. Senza JavaScript non c'è. Se qualcosa va storto, dopo 14 secondi la home si libera comunque -->
   <script is:inline slot="testa">
     (() => {
-      let vista = false;
-      try { vista = sessionStorage.getItem('intro') === '1'; sessionStorage.setItem('intro', '1'); } catch {}
-      const prova = new URLSearchParams(location.search).has('intro');
-      if (prova || (!vista && !matchMedia('(prefers-reduced-motion: reduce)').matches)) document.documentElement.dataset.intro = 'on';
+      const radice = document.documentElement, nav = performance.getEntriesByType('navigation')[0];
+      let interna = false;
+      try { interna = !!document.referrer && new URL(document.referrer).origin === location.origin; } catch {}
+      const prova = new URLSearchParams(location.search).has('intro'), ricarica = !!nav && nav.type === 'reload';
+      if (prova || ((ricarica || !interna) && !matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+        radice.dataset.intro = 'on';
+        setTimeout(() => { delete radice.dataset.intro; document.getElementById('intro')?.remove(); }, 14000);
+      }
     })();
   </script>
   <div id="intro" aria-hidden="true">
@@ -64,12 +70,17 @@ const PAGINE = [
 </Base>
 
 <script>
-  // L'intro parte subito; se il suo file non arriva, dopo 3 secondi la home resta comunque libera
+  // L'intro parte subito. Se il suo file non arriva entro 4 secondi, non si carica o va in errore, la home si libera subito
   const intro = document.getElementById('intro'), radice = document.documentElement;
   if (intro && radice.dataset.intro) {
-    const riserva = setTimeout(() => { delete radice.dataset.intro; intro.remove(); }, 3000);
-    import('../scripts/intro').then(m => { clearTimeout(riserva); m.monta(intro); });
+    const libera = () => { delete radice.dataset.intro; intro.remove(); };
+    const riserva = setTimeout(libera, 4000);
+    import('../scripts/intro')
+      .then(m => { clearTimeout(riserva); if (!intro.isConnected) return; try { m.monta(intro); } catch { libera(); } })
+      .catch(() => { clearTimeout(riserva); libera(); });
   } else intro?.remove();
+  // Un errore dentro l'intro non deve lasciare il velo sopra la home
+  window.addEventListener('error', e => { if (radice.dataset.intro && String(e.filename).includes('intro')) { delete radice.dataset.intro; intro?.remove(); } });
   // Il mondo 3D: bosco (Software), stagno (Advisory), stormo (Knowledge), cervi (Learn). Si scarica dopo il primo disegno: il testo appare subito
   setTimeout(() => import('../scripts/mondo').then(m => m.monta(document.querySelector<HTMLElement>('.scena3d')!)), 30);
   // Passare sopra una sezione nella lista accende la sua parte del mondo, come nelle liste delle altre pagine

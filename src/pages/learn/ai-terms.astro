@@ -1,144 +1,113 @@
 ---
-import { getCollection } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 
-// AI timeline: la storia dell'AI vista da una barca da pesca, di notte, su un mare mosso. Ogni evento è una boa; scorrendo
-// la barca passa da una all'altra. Gli eventi sono note in src/content/timeline. Il gioco (pescare e ordinare) arriva dopo.
-const eventi = (await getCollection('timeline', e => !e.data.draft))
-  .map(e => ({ title: e.data.title, year: e.data.year, month: e.data.month, kind: e.data.kind, who: e.data.who, source: e.data.source, text: (e.body ?? '').trim() }))
-  .sort((a, b) => a.year - b.year || (a.month ?? 0) - (b.month ?? 0) || a.title.localeCompare(b.title));
-const TIPI = [['all', 'All'], ['research', 'Research'], ['system', 'Systems'], ['company', 'Companies'], ['society', 'Society']] as const;
+// Glossario: il reef da pesca a tutto schermo. I termini stanno in src/content/glossario
 ---
-<Base title="AI timeline · Riccardo Mondi" description="Sail through the history of AI, from the first artificial neuron in 1943 to today's models." tono="neutro" largo>
-  <canvas class="mare" aria-hidden="true"></canvas>
-  <main class="timeline">
-    <div class="testa">
-      <h1>AI timeline</h1>
-      <p class="sotto">Sail through the history of AI, from 1943 to today. Scroll to move the boat.</p>
-      <div class="filtri mono" role="group" aria-label="filter events">
-        {TIPI.map(([k, nome]) => <button type="button" data-tipo={k} aria-pressed={k === 'all' ? 'true' : 'false'}><i class={`tipo-${k}`}></i>{nome}</button>)}
-      </div>
-    </div>
-    <div class="binario"></div>
-    <article class="scheda" aria-live="polite">
-      <p class="mono quando"></p>
-      <h2 class="titolo"></h2>
-      <p class="mono chi"></p>
-      <p class="testo"></p>
-      <div class="sotto-scheda mono">
-        <a class="fonte" target="_blank" rel="noopener">source ↗</a>
-        <span class="conta"></span>
-        <span class="frecce"><button type="button" class="prima" aria-label="previous event">←</button><button type="button" class="dopo" aria-label="next event">→</button></span>
-      </div>
-    </article>
-    <ol class="tutti">
-      {eventi.map(e => <li>{e.year}: {e.title}. {e.text}</li>)}
-    </ol>
+<Base title="Reef · Riccardo Mondi" description="Take a deep dive into the AI lexicon: fish the terms out of a reef, one at a time." tono="neutro" largo>
+  <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
+  <main class="pesca">
+    <h1>Reef</h1>
+    <p class="sotto">Take a deep dive into the AI lexicon.</p>
+    <p class="mono">Tap the water to cast. Answer to catch the term. Bigger fish, harder term.</p>
   </main>
-  <script type="application/json" id="eventi" set:html={JSON.stringify(eventi)} />
 </Base>
 
 <script>
-  import { monta, eraDi, ERE, type Evento } from '../../scripts/timelineBarca';
-
-  const TUTTI = JSON.parse(document.getElementById('eventi')!.textContent!) as Evento[];
-  const MESI = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const NOMI = { research: 'Research', system: 'System', company: 'Company', society: 'Society' } as const;
-  const binario = document.querySelector<HTMLElement>('.binario')!, scheda = document.querySelector<HTMLElement>('.scheda')!;
-  const $ = <T extends HTMLElement>(s: string) => scheda.querySelector<T>(s)!;
-  let tipo = 'all', eventi = TUTTI, mostrato = -1;
-
-  // Ogni evento occupa un passo di scorrimento; il binario dà alla pagina l'altezza giusta
-  const PASSO = () => Math.max(180, window.innerHeight * 0.45);
-  const misura = () => { binario.style.height = `${(eventi.length - 1) * PASSO() + window.innerHeight}px`; };
-  const inizio = () => binario.offsetTop;
-  const indice = () => Math.max(0, Math.min(eventi.length - 1, (window.scrollY - inizio() + window.innerHeight * 0.3) / PASSO()));
-  const vai = (i: number, liscio = true) => window.scrollTo({ top: inizio() - window.innerHeight * 0.3 + i * PASSO(), behavior: liscio ? 'smooth' : 'auto' });
-
-  const scrivi = () => {
-    const i = Math.round(indice());
-    if (i === mostrato || !eventi[i]) return;
-    mostrato = i;
-    const e = eventi[i]!;
-    $('.quando').textContent = `${e.month ? `${MESI[e.month - 1]} ` : ''}${e.year} · ${NOMI[e.kind]} · ${ERE[eraDi(e.year)]!.nome}`;
-    $('.quando').dataset.tipo = e.kind;
-    $('.titolo').textContent = e.title;
-    $('.chi').textContent = e.who;
-    $('.testo').textContent = e.text;
-    $<HTMLAnchorElement>('.fonte').href = e.source;
-    $('.conta').textContent = `${i + 1} / ${eventi.length}`;
-    scheda.classList.remove('entra'); void scheda.offsetWidth; scheda.classList.add('entra');
-  };
-
-  // I filtri: si resta sull'evento più vicino all'anno di prima
-  document.querySelectorAll<HTMLButtonElement>('.filtri button').forEach(b => b.addEventListener('click', () => {
-    const anno = eventi[Math.round(indice())]?.year ?? 1943;
-    tipo = b.dataset.tipo!;
-    document.querySelectorAll<HTMLButtonElement>('.filtri button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-    eventi = tipo === 'all' ? TUTTI : TUTTI.filter(e => e.kind === tipo);
-    misura();
-    let k = 0; eventi.forEach((e, j) => { if (Math.abs(e.year - anno) < Math.abs(eventi[k]!.year - anno)) k = j; });
-    mostrato = -1;
-    vai(k, false);
-    scrivi();
-  }));
-  $('.prima').addEventListener('click', () => vai(Math.round(indice()) - 1));
-  $('.dopo').addEventListener('click', () => vai(Math.round(indice()) + 1));
-  window.addEventListener('keydown', e => {
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' && e.altKey) { e.preventDefault(); vai(Math.round(indice()) + 1); }
-    if (e.key === 'ArrowLeft') { e.preventDefault(); vai(Math.round(indice()) - 1); }
-  });
-  // Quando lo scorrimento si ferma, la barca si ferma su una boa
-  let fermo = 0;
-  window.addEventListener('scroll', () => { scrivi(); clearTimeout(fermo); fermo = window.setTimeout(() => { const i = indice(); if (Math.abs(i - Math.round(i)) > 0.04) vai(Math.round(i)); }, 220); }, { passive: true });
-  window.addEventListener('resize', () => { misura(); scrivi(); });
-  misura(); scrivi();
-
-  monta(document.querySelector<HTMLCanvasElement>('.mare')!, { indice, eventi: () => eventi, boaX: () => (window.innerWidth < 760 ? 0.5 : 0.36) });
+  import('../../scripts/barriera').then(m => m.monta(document.querySelector<HTMLElement>('.scena3d')!, { pesca: true }));
 </script>
 
 <style>
-  .mare { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
-  :global(.barra), :global(.piede) { position: relative; z-index: 2; }
-  .timeline { position: relative; z-index: 1; pointer-events: none; }
-  .testa { position: sticky; top: 0; padding-top: var(--s2); max-width: 520px; color: #f4f1ea; }
-  h1 { margin: 0 0 6px; font-size: 33px; font-weight: 400; line-height: 1.1; }
-  .sotto { margin: 0 0 12px; color: rgb(244 241 234 / .7); }
-  .filtri { display: flex; flex-wrap: wrap; gap: 6px; pointer-events: auto; }
-  .filtri button { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid rgb(244 241 234 / .3); border-radius: 999px; background: rgb(10 16 28 / .5); color: #f4f1ea; font: inherit; font-size: 12px; cursor: pointer; }
-  .filtri button[aria-pressed='true'] { background: #f4f1ea; color: #121417; }
-  .filtri i { width: 8px; height: 8px; border-radius: 50%; background: #f4f1ea; }
-  .filtri .tipo-research { background: #5fb6d9; } .filtri .tipo-system { background: #f2c14e; } .filtri .tipo-company { background: #ff9fb4; } .filtri .tipo-society { background: #8fd6b4; }
-  .binario { pointer-events: none; }
-  /* La scheda dell'evento: a destra, ferma mentre la barca si muove */
-  .scheda {
-    position: fixed; right: 24px; top: 50%; z-index: 1; width: min(380px, 36vw); padding: 18px 20px 14px; transform: translateY(-50%);
-    border-radius: 12px; background: rgb(244 241 234 / .96); color: #121417; box-shadow: 0 12px 34px rgb(0 0 0 / .35); pointer-events: auto;
+  .fondo3d { position: fixed; top: 64px; bottom: 0; left: 0; right: 0; z-index: 0; }
+  .scena3d { position: absolute; inset: 0; overflow: hidden; touch-action: pan-y; }
+  .pesca { position: relative; z-index: 1; pointer-events: none; padding-top: var(--s2); }
+  .pesca a { pointer-events: auto; color: inherit; }
+  .pesca > * { max-width: 420px; margin: 0 0 var(--s1); }
+  h1 { font-size: 33px; font-weight: 400; line-height: 1.1; }
+  .sotto { color: var(--muted); }
+  :global(.barra), :global(.piede) { position: relative; z-index: 1; }
+  /* Il biglietto: sopra alla scena, a destra; su telefono in fondo allo schermo */
+  :global(.scheda-glossario) { position: fixed; top: 84px; right: 24px; z-index: 2; width: min(430px, 42vw); }
+  :global(.scheda-glossario[hidden]) { display: none; }
+  :global(.biglietto) { perspective: 1100px; }
+  :global(.carta) {
+    --rx: 0deg; --ry: 0deg; --lx: 50%; --tinta: #f7cf4f; --inchiostro: #121417;
+    position: relative; display: grid; transform-style: preserve-3d; transition: transform .7s cubic-bezier(.3, 1.3, .5, 1);
+    transform: rotateX(var(--rx)) rotateY(var(--ry));
   }
-  .scheda.entra { animation: entra .45s cubic-bezier(.2, 1.3, .4, 1); }
-  @keyframes entra { from { opacity: 0; transform: translateY(calc(-50% + 14px)); } }
-  .scheda p { color: inherit; }
-  .quando { margin: 0; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; opacity: .7; }
-  .quando::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: currentColor; vertical-align: 0; }
-  .quando[data-tipo='research']::before { background: #5fb6d9; } .quando[data-tipo='system']::before { background: #f2c14e; } .quando[data-tipo='company']::before { background: #ff9fb4; } .quando[data-tipo='society']::before { background: #8fd6b4; }
-  .titolo { margin: 8px 0 4px; font-size: 22px; font-weight: 400; line-height: 1.15; }
-  .chi { margin: 0 0 10px; font-size: 12px; opacity: .7; }
-  .testo { margin: 0; font-size: 14px; line-height: 1.55; }
-  .sotto-scheda { display: flex; align-items: center; gap: 12px; margin-top: 14px; padding-top: 10px; border-top: 1px dashed rgb(18 20 23 / .3); font-size: 12px; }
-  .fonte { color: inherit; }
-  .conta { margin-left: auto; opacity: .6; }
-  .frecce { display: inline-flex; gap: 4px; }
-  .frecce button { width: 30px; height: 28px; border: 1px solid rgb(18 20 23 / .35); border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
-  .frecce button:hover { background: rgb(18 20 23 / .08); }
-  /* L'elenco completo resta per chi legge con uno screen reader */
-  .tutti { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  @media (prefers-reduced-motion: reduce) { .scheda.entra { animation: none; } }
-  @media (max-width: 760px) {
-    .sotto { display: none; }
-    .scheda { top: auto; bottom: calc(68px + env(safe-area-inset-bottom)); left: 12px; right: 12px; width: auto; transform: none; padding: 14px 16px 12px; }
-    @keyframes entra { from { opacity: 0; transform: translateY(14px); } }
-    .titolo { font-size: 19px; }
-    .testo { font-size: 13px; }
-    .frecce button { width: 40px; height: 36px; }
+  :global(.carta.girata) { transform: rotateX(var(--rx)) rotateY(calc(var(--ry) + 180deg)); }
+  :global(.faccia) {
+    grid-area: 1 / 1; position: relative; display: flex; min-height: 300px; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    color: var(--inchiostro); background: var(--tinta); border-radius: 10px; overflow: hidden;
+    /* Le due tacche del biglietto, dove si stacca il tagliando */
+    -webkit-mask: radial-gradient(circle 9px at calc(100% - 92px) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 9px at calc(100% - 92px) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
+    mask: radial-gradient(circle 9px at calc(100% - 92px) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 9px at calc(100% - 92px) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
+  }
+  /* Il riflesso: una striscia chiara che segue il puntatore */
+  :global(.faccia)::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent calc(var(--lx) - 22%), rgb(255 255 255 / .22) var(--lx), transparent calc(var(--lx) + 22%)); mix-blend-mode: soft-light; }
+  :global(.retro) { transform: rotateY(180deg); flex-direction: column; padding: 18px 20px 16px; -webkit-mask: none; mask: none; }
+  :global(.corpo-biglietto) { position: relative; flex: 1; min-width: 0; padding: 18px 18px 16px 20px; }
+  :global(.biglietto .mono) { font-family: var(--mono); }
+  :global(.biglietto .testa), :global(.biglietto .gruppo) { position: relative; margin: 0; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+  :global(.biglietto .gruppo) { margin-top: 2px; }
+  :global(.biglietto .termine) { position: relative; margin: 14px 0 8px; font-family: var(--mono); font-size: 26px; font-weight: 400; line-height: 1.05; text-transform: uppercase; overflow-wrap: anywhere; }
+  :global(.biglietto .domanda) { position: relative; margin: 0 0 12px; font-size: 14px; line-height: 1.4; }
+  /* Il retino: puntini nell'inchiostro, come una stampa */
+  :global(.retino) { position: absolute; right: -40px; top: -30px; width: 190px; height: 190px; border-radius: 50%; background: radial-gradient(circle, var(--inchiostro) 1.3px, transparent 1.7px) 0 0 / 7px 7px; opacity: .1; }
+  :global(.opzioni) { position: relative; display: grid; gap: 6px; }
+  :global(.biglietto .opzione) {
+    display: flex; gap: 10px; align-items: baseline; width: 100%; min-height: 42px; padding: 9px 11px; border: 1.5px solid var(--inchiostro); border-radius: 6px;
+    background: transparent; color: var(--inchiostro); font-size: 13px; line-height: 1.3; text-align: left; cursor: pointer; transition: background .15s, transform .15s;
+  }
+  :global(.biglietto .opzione span) { flex: none; opacity: .6; }
+  :global(.biglietto .opzione:hover:not(:disabled)) { background: color-mix(in srgb, var(--inchiostro) 12%, transparent); transform: translateX(2px); }
+  :global(.biglietto .opzione:disabled) { cursor: default; opacity: .55; }
+  :global(.biglietto .opzione.giusta) { opacity: 1; background: var(--inchiostro); color: var(--tinta); }
+  :global(.biglietto .opzione.sbagliata) { opacity: 1; text-decoration: line-through; }
+  /* Il tagliando, dietro una linea tratteggiata: si stacca quando indovini */
+  :global(.tagliando) {
+    flex: none; display: flex; flex-direction: column; justify-content: space-between; align-items: center; width: 92px; padding: 16px 0;
+    border-left: 2px dashed color-mix(in srgb, var(--inchiostro) 45%, transparent); writing-mode: vertical-rl;
+    transition: transform .9s cubic-bezier(.5, 0, .7, 1) .55s, opacity .5s linear .9s; transform-origin: 0 100%;
+  }
+  :global(.tagliando p) { margin: 0; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+  :global(.tagliando .numero) { font-size: 22px; letter-spacing: 0; }
+  :global(.carta.strappato .tagliando) { transform: translate(26px, 46px) rotate(16deg); opacity: 0; }
+  /* Dietro: una grafica grande a retino con il numero, la definizione e un codice a barre */
+  :global(.grafica) { position: relative; height: 92px; margin: -18px -20px 10px; overflow: hidden; border-bottom: 2px dashed color-mix(in srgb, var(--inchiostro) 40%, transparent); }
+  :global(.grafica .cerchio) { position: absolute; left: -30px; top: -70px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, var(--inchiostro) 1.6px, transparent 2px) 0 0 / 8px 8px; opacity: .3; }
+  :global(.grafica .cerchio)::after { content: ''; position: absolute; left: 150px; top: 40px; width: 110px; height: 110px; border-radius: 50%; border: 2px solid var(--inchiostro); }
+  :global(.grafica .grande) { position: absolute; right: 14px; bottom: -8px; margin: 0; font-size: 84px; line-height: 1; opacity: .9; }
+  :global(.biglietto .esito) { margin: 0 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  :global(.retro .termine) { margin-top: 2px; }
+  :global(.definizione) { flex: 1; max-height: min(44vh, 360px); overflow-y: auto; font-size: 13px; line-height: 1.6; touch-action: pan-y; }
+  :global(.definizione p) { margin: 0 0 8px; }
+  :global(.definizione ul) { margin: 0 0 8px; padding-left: 18px; }
+  :global(.definizione li) { margin-bottom: 5px; }
+  :global(.definizione strong) { font-weight: 400; text-decoration: underline; text-underline-offset: 2px; }
+  :global(.piede-biglietto) { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: 10px; padding-top: 10px; border-top: 2px dashed color-mix(in srgb, var(--inchiostro) 40%, transparent); }
+  :global(.codice) { display: flex; height: 28px; }
+  :global(.codice span) { display: block; height: 100%; background: var(--inchiostro); }
+  :global(.seriale) { margin: 0; font-size: 10px; text-transform: uppercase; opacity: .75; }
+  /* Il bottone per rilasciare il pesce, sotto il biglietto */
+  :global(.scheda-glossario .rilascia) { display: block; margin: 10px 0 0 auto; padding: 4px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); cursor: pointer; }
+  :global(.scheda-glossario .rilascia:hover) { color: var(--fg); border-color: var(--muted); }
+  :global(.scheda-glossario .rilascia[hidden]) { display: none; }
+  @media (prefers-reduced-motion: reduce) { :global(.carta), :global(.tagliando) { transition: none; } }
+  :global(body:has(.scheda-glossario:not([hidden])) .piede) { visibility: hidden; }
+  :global(.conta-pesca) { position: fixed; right: 24px; bottom: 16px; z-index: 2; margin: 0; pointer-events: none; }
+  @media (max-width: 640px) {
+    .fondo3d { top: 220px; }
+    /* Su telefono il biglietto sta in fondo allo schermo, largo quasi quanto lo schermo */
+    :global(.scheda-glossario) { top: auto; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom)); width: auto; }
+    :global(.faccia) { min-height: 0; }
+    :global(.tagliando) { width: 64px; }
+    :global(.faccia:not(.retro)) { -webkit-mask: radial-gradient(circle 8px at calc(100% - 64px) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 8px at calc(100% - 64px) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat; mask: radial-gradient(circle 8px at calc(100% - 64px) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 8px at calc(100% - 64px) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat; }
+    :global(.biglietto .termine) { font-size: 21px; margin-top: 10px; }
+    :global(.biglietto .opzione) { min-height: 46px; font-size: 14px; }
+    :global(.definizione) { max-height: 38vh; }
+    :global(.grafica) { height: 70px; }
+    :global(.grafica .grande) { font-size: 64px; }
+    :global(.scheda-glossario .rilascia) { width: 100%; min-height: 44px; }
+    :global(.conta-pesca) { right: 16px; bottom: auto; top: 288px; }
   }
 </style>
