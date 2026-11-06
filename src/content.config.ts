@@ -134,6 +134,9 @@ const timeline = defineCollection({
     kind: z.enum(TIPI_EVENTO, fuoriLista('Tipo di evento', TIPI_EVENTO)),
     who: z.string(),
     source: z.string().url(),
+    // Importanza: 1 essenziale, 2 standard, 3 solo nella vista completa. simbolo: il disegno a filo di un evento essenziale
+    peso: z.number().int().min(1).max(3).default(2),
+    simbolo: z.string().optional(),
     checked: z.boolean().default(false),
     draft: z.boolean().default(false),
   }),

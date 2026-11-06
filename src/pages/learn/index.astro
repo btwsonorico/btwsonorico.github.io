@@ -4,6 +4,7 @@ import Base from '../../layouts/Base.astro';
 // Learn: la valle è il menu. Ogni mongolfiera porta a una risorsa, la stessa lista sta anche nel testo. L'ordine è un crescendo di difficoltà; il tono lega ogni pagina al suo pallone
 const RISORSE = [
   { nome: 'AI terms', href: '/learn/airport/', nota: 'a daily trivia: six planes, six AI terms', tono: 'giallo' },
+  { nome: 'AI timeline', href: '/learn/timeline/', nota: 'the history of AI on one line, from 1943 to today', tono: 'grigio' },
   { nome: 'neural network', href: '/learn/neural-network/', nota: 'add neurons and layers and teach it to draw', tono: 'arancio' },
   { nome: 'reinforcement learning', href: '/learn/reinforcement/', nota: 'a dog learns to herd from rewards', tono: 'rosso' },
   { nome: 'diffusion model', href: '/learn/diffusion/', nota: 'watch a digit come out of pure noise, one step at a time', tono: 'azzurro' },
@@ -56,6 +57,7 @@ const RISORSE = [
   :global([data-theme="light"]) .scena3d :global(.nome-pallone[data-tono="lilla"]) { --accent: #6a4bb0; }
   .scena3d :global(.nome-pallone[data-tono="giallo"]) { --accent: #e6c229; }
   :global([data-theme="light"]) .scena3d :global(.nome-pallone[data-tono="giallo"]) { --accent: #8f7300; }
+  .scena3d :global(.nome-pallone[data-tono="grigio"]) { --accent: var(--fg); }
   .scena3d :global(.nome-pallone[data-tono="rosso"]) { --accent: #ff4a3d; }
   :global([data-theme="light"]) .scena3d :global(.nome-pallone[data-tono="rosso"]) { --accent: #e0352a; }
   /* Col dito si tocca un'area più grande dell'etichetta */

@@ -4,6 +4,7 @@ year: 1969
 kind: research
 who: "Marvin Minsky and Seymour Papert"
 source: "https://en.wikipedia.org/wiki/Perceptrons_(book)"
+peso: 2
 checked: false
 ---
 The book "Perceptrons" proves that a single-layer perceptron cannot learn some simple functions, such as XOR. Interest and funding for neural networks drop for more than a decade.

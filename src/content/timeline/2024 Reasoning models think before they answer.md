@@ -5,6 +5,8 @@ month: 9
 kind: system
 who: "OpenAI"
 source: "https://en.wikipedia.org/wiki/OpenAI_o1"
+peso: 1
+simbolo: ragionamento
 checked: false
 ---
 OpenAI o1 is trained to write a long chain of thought before giving an answer. Spending more compute at answer time improves results in maths, science and code.
