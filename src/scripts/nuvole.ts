@@ -435,7 +435,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     }
     return quota;
   };
-  // Il rosso di reinforcement learning è quello della barriera di AI terms
+  // Il rosso di reinforcement learning è quello della barriera di reef
   // Colore e posto seguono il tono della pagina, non la sua posizione nella lista
   const TONI = ['arancio', 'azzurro', 'verde', 'lilla', 'rosso', 'giallo'], TINTE = ['#e08a3a', '#5fb6d9', '#6fa646', '#b79ce6', p.chiaro ? '#e0352a' : '#ff4a3d', p.chiaro ? '#c9a514' : '#e6c229'];
   const mongolfiere = risorse.map(q => {
