@@ -35,19 +35,19 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
       <div class="palco">
         <div class="mondo">
           <svg class="asse" aria-hidden="true"></svg>
-          {eventi.map((e, i) => <button type="button" class="punto" data-i={i} data-peso={e.peso} aria-label={`${e.data}: ${e.title}`}></button>)}
+          {eventi.map((e, i) => <button type="button" class="punto" data-i={i} data-peso={e.peso} data-kind={e.kind} aria-label={`${e.data}: ${e.title}`}></button>)}
         </div>
         <div class="cursore" aria-hidden="true"><span class="mono quando"></span></div>
         {eventi.map((e, i) => (
-          <article class="scheda" data-i={i} data-peso={e.peso}>
-            <p class="mono riga"><span>{e.data}</span><span>{TIPI[e.kind]}</span></p>
+          <article class="scheda" data-i={i} data-peso={e.peso} data-kind={e.kind}>
+            <p class="mono riga"><span>{e.data}</span><span class="tipo-k">{TIPI[e.kind]}</span></p>
             <h2>{e.title}</h2>
             <p class="chi">{e.who}</p>
             <p class="testo">{e.testo}</p>
             <a class="mono fonte" href={e.source} target="_blank" rel="noopener">source ↗</a>
           </article>
         ))}
-        {eventi.map((e, i) => e.svg && <figure class="scheda-simbolo" data-i={i} set:html={e.svg} />)}
+        {eventi.map((e, i) => e.svg && <figure class="scheda-simbolo" data-i={i} data-kind={e.kind} set:html={e.svg} />)}
         <span class="stelo" aria-hidden="true"></span>
       </div>
     </div>
@@ -58,7 +58,7 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
         <li data-i={i} data-peso={e.peso} data-kind={e.kind}>
           <span class="punto-v" aria-hidden="true"></span>
           <article class="scheda-v">
-            <p class="mono riga"><span>{e.data}</span><span>{TIPI[e.kind]}</span></p>
+            <p class="mono riga"><span>{e.data}</span><span class="tipo-k">{TIPI[e.kind]}</span></p>
             <h2>{e.title}</h2>
             <p class="chi">{e.who}</p>
             <p class="testo">{e.testo}</p>
@@ -101,7 +101,13 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
 </script>
 
 <style>
-  .tl { padding: 4px 24px 0; }
+  /* I colori delle categorie: i toni del sito, e il lilla di reef */
+  .tl { padding: 4px 24px 0; --c-research: var(--azzurro); --c-system: var(--verde); --c-company: var(--arancio); --c-society: #b79ce6; }
+  :global([data-theme="light"]) .tl { --c-society: #6a4bb0; }
+  .tl [data-kind="research"] { --k: var(--c-research); }
+  .tl [data-kind="system"] { --k: var(--c-system); }
+  .tl [data-kind="company"] { --k: var(--c-company); }
+  .tl [data-kind="society"] { --k: var(--c-society); }
   .testa { max-width: 620px; padding-bottom: var(--s2); }
   h1 { margin: 0 0 var(--s1); font-size: 33px; font-weight: 400; }
   .testa p { margin: 0; color: var(--muted); }
@@ -118,16 +124,19 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
   .asse :global(text) { fill: var(--muted); font-family: var(--mono); font-size: 11px; }
   .asse :global(text.decennio) { fill: var(--fg); }
   .asse :global(.oggi) { stroke: var(--fg); stroke-dasharray: 2 3; }
-  .punto { position: absolute; top: 0; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; padding: 0; border: 1px solid var(--fg); border-radius: 50%; background: var(--bg); cursor: pointer; transition: background .2s, transform .2s; }
+  .punto { position: absolute; top: 0; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; padding: 0; border: 1.5px solid var(--k, var(--fg)); border-radius: 50%; background: var(--bg); cursor: pointer; transition: background .2s, transform .2s; }
   .punto[data-peso="1"] { width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; }
-  .punto:hover, .punto.attivo { background: var(--fg); transform: scale(1.25); }
+  .punto:hover, .punto.attivo { background: var(--k, var(--fg)); transform: scale(1.3); }
+  .punto[data-peso="1"] { background: color-mix(in srgb, var(--k) 35%, var(--bg)); }
   .punto[hidden] { display: none; }
   .cursore { position: absolute; left: 50%; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--line); pointer-events: none; }
   .quando { position: absolute; left: 8px; font-size: 11px; color: var(--fg); white-space: nowrap; }
   .scheda, .scheda-simbolo { position: absolute; left: 0; top: 0; margin: 0; transform-origin: 50% 100%; will-change: transform, opacity; visibility: hidden; }
-  .scheda { width: 260px; padding: 12px 14px; border: 1px solid var(--line); background: var(--bg); }
-  .scheda.attiva { border-color: var(--fg); }
-  .scheda-simbolo { width: 150px; padding: 8px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); transform-origin: 50% 0; }
+  .scheda { width: 260px; padding: 12px 14px; border: 1px solid var(--line); border-top: 2px solid var(--k, var(--line)); background: var(--bg); }
+  .scheda.attiva { border-color: var(--k); box-shadow: 0 0 0 1px color-mix(in srgb, var(--k) 30%, transparent); }
+  .tipo-k { color: var(--k); }
+  /* Il simbolo non sta in un riquadro: fluttua accanto alla sua scheda, nel colore della categoria */
+  .scheda-simbolo { width: 130px; padding: 0; color: var(--k, var(--fg)); transform-origin: 0 50%; pointer-events: none; }
   .riga { display: flex; justify-content: space-between; gap: 8px; margin: 0 0 6px; font-size: 11px; color: var(--muted); }
   .scheda h2, .scheda-v h2 { margin: 0 0 4px; font-size: 15px; font-weight: 400; line-height: 1.3; color: var(--fg); }
   .chi { margin: 0 0 6px; font-size: 12px; color: var(--muted); }
@@ -158,6 +167,9 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
   .gruppo button { padding: 3px 9px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
   .gruppo button:hover { border-color: var(--fg); color: var(--fg); }
   .gruppo button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
+  .gruppo button.tipo::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--k); vertical-align: 1px; }
+  .gruppo button.tipo[aria-pressed="true"] { border-color: var(--k); }
+  .gruppo button.tipo[aria-pressed="false"]::before { background: transparent; box-shadow: inset 0 0 0 1px var(--k); }
 
   @media (max-width: 700px) {
     .tl { padding: 0 16px; }
@@ -167,8 +179,10 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
     .verticale { display: block; position: relative; margin: var(--s2) 0 0; padding: 0 0 0 22px; list-style: none; border-left: 1px solid var(--fg); margin-left: 6px; }
     .verticale li { position: relative; margin: 0 0 var(--s3); }
     .verticale li[hidden] { display: none; }
-    .punto-v { position: absolute; left: -28.5px; top: 4px; width: 11px; height: 11px; border: 1px solid var(--fg); border-radius: 50%; background: var(--bg); }
-    .verticale li[data-peso="1"] .punto-v { background: var(--fg); }
+    .punto-v { position: absolute; left: -28.5px; top: 4px; width: 11px; height: 11px; border: 1.5px solid var(--k); border-radius: 50%; background: var(--bg); }
+    .verticale li[data-peso="1"] .punto-v { background: var(--k); }
+    .scheda-v { border-top: 2px solid var(--k) !important; }
+    .simbolo-v { color: var(--k) !important; }
     .scheda-v { padding: 10px 12px; border: 1px solid var(--line); opacity: .35; transform: translateX(10px) scale(.97); transition: opacity .5s, transform .5s; }
     .scheda-v.vista { opacity: 1; transform: none; }
     .simbolo-v { width: 150px; margin: 8px 0 0; color: var(--fg); }

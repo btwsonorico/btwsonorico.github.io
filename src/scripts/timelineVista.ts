@@ -40,7 +40,7 @@ export function monta(radice: HTMLElement) {
     const fineOggi = xDiAnno(oggi);
     larghezza = Math.max(fineOggi, prima) + margine;
     pista.style.height = `${larghezza - margine * 2 + window.innerHeight}px`;
-    lineaY = Math.round(window.innerHeight * 0.56);
+    lineaY = Math.round(window.innerHeight * 0.48);
     disegnaAsse();
     // Le misure delle schede si leggono qui, una volta: leggerle a ogni fotogramma costringe il browser a ricalcolare tutto
     misure = schede.map(sc => [sc.offsetWidth, sc.offsetHeight]);
@@ -114,7 +114,7 @@ export function monta(radice: HTMLElement) {
     mondo.style.transform = `translate3d(${-scroll}px,0,0)`;
     const W = larghezzaPagina(), cx = W / 2, centroX = scroll + margine;
     quando.textContent = formatta(annoDiX(centroX));
-    quando.style.top = `${lineaY + 40}px`;
+    quando.style.top = '64px';
 
     // Il punto più vicino al centro è quello attivo: la sua scheda è piena, il suo simbolo si disegna
     let migliore = -1, dm = Infinity;
@@ -142,24 +142,38 @@ export function monta(radice: HTMLElement) {
       // Quanto è vicina al centro: in pixel, e in numero di eventi. Dove gli eventi sono fitti conta il secondo,
       // così si legge bene solo la scheda al centro e le vicine restano un'ombra
       const d = Math.min(1, Math.abs(m.x - cx) / (W * 0.5)), r = Math.abs((rango.get(i) ?? 0) - kAttivo);
-      const vicino = Math.min(1 - d, [1, 0.42, 0.24, 0.14][Math.min(3, r)]!);
+      const vicino = Math.min(1 - d, [1, 0.66, 0.4, 0.2][Math.min(3, r)]!);
       const scala = 0.62 + 0.38 * vicino ** 1.2, opacita = 0.08 + 0.92 * vicino ** 1.6;
       if (r <= 1) simboli.get(i)?.classList.add('disegnato');
       const giro = Math.max(-1, Math.min(1, (m.x - cx) / (W * 0.5))) * -28;
-      // Le schede vicine si mettono a quote diverse (tre corsie), quella attiva scende alla corsia più bassa
-      const corsia = i === attivo ? 0 : 1 + (i % 2);
-      const [larg = 260, alt = 160] = misure[i] ?? [], alza = 24 + corsia * 46 + vicino * 10;
-      const yBase = lineaY - alza;
+      // Sopra o sotto la linea, alternando un evento sì e uno no; fra due vicini dallo stesso lato, due quote diverse.
+      // Sotto la linea si parte dopo gli anni dell'asse
+      const kr = rango.get(i) ?? 0, sopra = kr % 2 === 0, quota = i === attivo ? 0 : (kr >> 1) % 2;
+      const [larg = 260, alt = 160] = misure[i] ?? [];
+      const stacco = (sopra ? 26 : 58) + quota * 38 + vicino * 8;
+      // y0: il bordo della scheda verso la linea; la scheda cresce allontanandosi dalla linea
+      const y0 = sopra ? lineaY - stacco : lineaY + stacco, yAlto = sopra ? y0 - alt : y0;
       sc.style.visibility = 'visible'; m.vista = true;
       sc.style.opacity = String(opacita);
       sc.style.zIndex = String(Math.round(vicino * 100));
-      sc.style.transform = `translate3d(${m.x - larg / 2}px, ${yBase - alt}px, 0) perspective(700px) rotateY(${giro}deg) rotateZ(${inclina * -3.5}deg) scale(${scala})`;
-      if (i === attivo) { stelo.style.transform = `translate3d(${xs[i]! - scroll}px, ${yBase - 2}px, 0)`; stelo.style.height = `${lineaY - yBase - 6}px`; }
+      sc.style.transformOrigin = sopra ? '50% 100%' : '50% 0';
+      sc.style.transform = `translate3d(${m.x - larg / 2}px, ${yAlto}px, 0) perspective(700px) rotateY(${giro}deg) rotateZ(${inclina * (sopra ? -3.5 : 3.5)}deg) scale(${scala})`;
+      if (i === attivo) {
+        const a = Math.min(y0, lineaY) + (sopra ? 0 : 6), b = Math.max(y0, lineaY) - (sopra ? 6 : 0);
+        stelo.style.transform = `translate3d(${xs[i]! - scroll}px, ${a}px, 0)`; stelo.style.height = `${b - a}px`;
+      }
       if (fs) {
-        const ds = Math.min(1, Math.abs(ms.x - cx) / (W * 0.5)), vs = Math.min(1 - ds, [1, 0.45, 0.25, 0.14][Math.min(3, r)]!);
+        // Il simbolo fluttua accanto alla scheda, sul lato destro, a metà della sua altezza: segue con una molla più morbida
+        // e ondeggia piano, così dà carattere alla scheda senza stare in un riquadro
+        const ds = Math.min(1, Math.abs(ms.x - cx) / (W * 0.5)), vs = Math.min(1 - ds, [1, 0.66, 0.4, 0.2][Math.min(3, r)]!);
+        const sw = misureS[i] ?? 130, sScala = 0.55 + 0.45 * vs ** 1.4, ondeggia = ridotto ? 0 : Math.sin(ora / 1100 + i) * 5;
+        // Sull'angolo esterno della scheda, lontano dalla linea: sopra in alto a destra, sotto in basso a destra (senza scendere sulla barra)
+        const bordoFuori = sopra ? y0 - alt * scala : y0 + alt * scala, maxY = window.innerHeight - 110 - (sw * 0.76 * sScala) / 2;
+        const xs2 = ms.x + (larg / 2) * scala - sw * 0.12, yMezzo = Math.min(maxY, bordoFuori + (sopra ? -1 : 1) * sw * 0.2);
         fs.style.visibility = 'visible'; ms.vista = true;
-        fs.style.opacity = String(0.12 + 0.88 * vs ** 2.4);
-        fs.style.transform = `translate3d(${ms.x - (misureS[i] ?? 150) / 2}px, ${lineaY + 52 + (1 - vs) * 30}px, 0) perspective(700px) rotateY(${giro * 0.8}deg) rotateZ(${inclina * 2.5}deg) scale(${0.55 + 0.45 * vs ** 1.4})`;
+        fs.style.opacity = String(0.08 + 0.92 * vs ** 2.2);
+        fs.style.zIndex = String(Math.round(vicino * 100) + 1);
+        fs.style.transform = `translate3d(${xs2 - sw / 2}px, ${yMezzo - sw * 0.38 + ondeggia}px, 0) perspective(700px) rotateY(${giro * 0.8}deg) rotateZ(${inclina * 2.5 + Math.sin(ora / 1700 + i) * 2}deg) scale(${sScala})`;
       }
     });
     disegnaDensita();
@@ -178,8 +192,14 @@ export function monta(radice: HTMLElement) {
     const conta = new Array(anni).fill(0);
     for (const i of visibili) conta[Math.floor(eventi[i]!.t) - INIZIO]++;
     const max = Math.max(1, ...conta), bw = w / anni;
-    g.fillStyle = css('--muted');
-    conta.forEach((c, k) => { if (c) g.fillRect(k * bw + bw * 0.15, h - (c / max) * (h - 4 * dpr), Math.max(1, bw * 0.7), (c / max) * (h - 4 * dpr)); });
+    // Ogni barra è fatta di pezzi, uno per evento, nel colore della sua categoria
+    const passoY = (h - 4 * dpr) / max, pila = new Array(anni).fill(0), stile = getComputedStyle(radice);
+    for (const i of visibili) {
+      const k = Math.floor(eventi[i]!.t) - INIZIO;
+      g.fillStyle = stile.getPropertyValue(`--c-${eventi[i]!.k}`).trim() || css('--muted');
+      g.fillRect(k * bw + bw * 0.15, h - (pila[k] + 1) * passoY, Math.max(1, bw * 0.7), passoY - dpr * 0.5);
+      pila[k]++;
+    }
     g.fillStyle = css('--line'); g.fillRect(0, h - dpr, w, dpr);
     if (!telefono()) {
       const a0 = annoDiX(scroll), a1 = annoDiX(scroll + larghezzaPagina());
@@ -246,6 +266,10 @@ export function monta(radice: HTMLElement) {
 
   window.addEventListener('resize', () => { const c = annoDiX(scroll + margine); disponi(); if (!telefono()) vaiAnno(c, false); });
   disponi();
+  // Le misure delle schede cambiano quando arriva il font mono, o quando una scheda cambia testo: si rileggono
+  document.fonts?.ready.then(() => { misure = schede.map(sc => [sc.offsetWidth, sc.offsetHeight]); misureS = eventi.map((_, i) => simboli.get(i)?.offsetWidth ?? 0); });
+  const ro = new ResizeObserver(() => { misure = schede.map(sc => [sc.offsetWidth, sc.offsetHeight]); });
+  schede.forEach(sc => ro.observe(sc));
   righeV.forEach((li, i) => { li.hidden = !visibile(eventi[i]!); });
   requestAnimationFrame(fotogramma);
   void palco;
