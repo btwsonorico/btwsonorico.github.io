@@ -61,7 +61,13 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   const pannello = el('div', 'pannello'), esito = el('p', 'mono sotto');
   const termineR = el('h2', 'titolo'), sezioneR = el('p', 'corsivo'), definizione = el('div', 'definizione'), piedeR = el('div', 'piede-retro'), serialeR = el('p', 'mono seriale'), trattaR = el('p', 'mono'), statoR = el('p', 'mono stato');
   piedeR.append(serialeR, trattaR);
-  pannello.append(esito, termineR, sezioneR, definizione, statoR, piedeR);
+  // La definizione scorre da sola: il dito che la scorre non inclina il biglietto. Se il testo continua, lo dice
+  const scorre = el('div', 'scorre');
+  scorre.append(definizione);
+  pannello.append(esito, termineR, sezioneR, scorre, statoR, piedeR);
+  for (const tipoE of ['pointerdown', 'pointermove'] as const) definizione.addEventListener(tipoE, e => e.stopPropagation());
+  const segnaAltro = () => scorre.classList.toggle('altro', definizione.scrollTop + definizione.clientHeight < definizione.scrollHeight - 4);
+  definizione.addEventListener('scroll', segnaAltro, { passive: true });
   retro.append(quadro, pannello, ...strati());
   carta.append(fronte, retro);
   biglietto.append(carta);
@@ -148,6 +154,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       definizione.append(lista);
     }
     definizione.scrollTop = 0;
+    requestAnimationFrame(segnaAltro);
     serialeR.textContent = `No. ${v.seriale}`;
     trattaR.textContent = `ASK ▶ ${CODICI[v.sezione % CODICI.length]}`;
     statoR.textContent = o.riassunto();

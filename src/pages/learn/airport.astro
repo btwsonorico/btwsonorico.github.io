@@ -235,7 +235,7 @@ import Base from '../../layouts/Base.astro';
   @keyframes scossa { 20% { translate: -7px 0; } 45% { translate: 6px 0; } 70% { translate: -3px 0; } }
   :global(.imbarco .faccia) {
     --stub: 168px;
-    grid-area: 1 / 1; position: relative; display: grid; height: 340px; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    grid-area: 1 / 1; position: relative; display: grid; grid-template-rows: minmax(0, 1fr); height: 340px; backface-visibility: hidden; -webkit-backface-visibility: hidden;
     color: var(--crema); background: var(--carta); border-radius: 6px; overflow: hidden; box-shadow: calc(var(--tx) * -14px) calc(18px + var(--ty) * -8px) 44px rgb(0 0 0 / .45);
     -webkit-mask: radial-gradient(circle 10px at calc(100% - var(--stub)) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 10px at calc(100% - var(--stub)) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
     mask: radial-gradient(circle 10px at calc(100% - var(--stub)) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 10px at calc(100% - var(--stub)) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
@@ -298,10 +298,15 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .retro) { transform: rotateY(180deg); grid-template-columns: 50% 50%; -webkit-mask: radial-gradient(circle 10px at var(--stub) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 10px at var(--stub) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat; mask: radial-gradient(circle 10px at var(--stub) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 10px at var(--stub) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat; }
   :global(.imbarco .poster) { position: relative; overflow: hidden; }
   :global(.imbarco .poster svg) { position: absolute; inset: 0; width: 100%; height: 100%; }
-  :global(.imbarco .pannello) { min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 18px 22px 14px; background: var(--crema); color: var(--nero); }
+  :global(.imbarco .pannello) { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 4px; padding: 18px 22px 14px; background: var(--crema); color: var(--nero); }
   :global(.imbarco .retro .titolo) { margin-top: 4px; font-size: 44px; color: var(--carta) !important; }
   :global(.imbarco .retro .corsivo) { margin-bottom: 4px; }
-  :global(.imbarco .definizione) { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; font-size: 13px; line-height: 22px; touch-action: pan-y; scrollbar-width: thin; background: repeating-linear-gradient(transparent 0 21px, rgb(23 22 27 / .13) 21px 22px); background-attachment: local; }
+  :global(.imbarco .definizione) { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; font-size: 13px; line-height: 22px; touch-action: pan-y; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--carta) transparent; background: repeating-linear-gradient(transparent 0 21px, rgb(23 22 27 / .13) 21px 22px); background-attachment: local; }
+  /* Quando il testo continua sotto: il fondo sfuma e compare «scroll ↓» */
+  :global(.imbarco .scorre) { position: relative; min-height: 0; flex: 1; display: flex; flex-direction: column; }
+  :global(.imbarco .scorre.altro .definizione) { -webkit-mask: linear-gradient(#000 calc(100% - 34px), transparent); mask: linear-gradient(#000 calc(100% - 34px), transparent); }
+  :global(.imbarco .scorre::after) { content: 'scroll ↓'; position: absolute; right: 0; bottom: -2px; padding: 1px 6px; font-family: var(--mono); font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: var(--crema); background: var(--carta); opacity: 0; transition: opacity .2s; pointer-events: none; }
+  :global(.imbarco .scorre.altro::after) { opacity: 1; }
   :global(.imbarco .definizione p) { margin: 0 0 22px; }
   :global(.imbarco .definizione p:last-child) { margin-bottom: 0; }
   :global(.imbarco .definizione ul) { margin: 0; padding-left: 16px; }
@@ -338,6 +343,7 @@ import Base from '../../layouts/Base.astro';
     :global(.imbarco .codice) { height: 22px; margin: 0 0 0 auto; }
     :global(.imbarco .timbro) { width: 92px; height: 92px; }
     :global(.imbarco .retro) { grid-template-columns: 1fr; grid-template-rows: 130px auto; }
+    :global(.imbarco .scorre) { flex: none; }
     :global(.imbarco .pannello) { padding: 12px 14px; }
     :global(.imbarco .retro .titolo) { font-size: 30px; }
     :global(.imbarco .definizione) { max-height: 30vh; }
