@@ -288,8 +288,9 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .codice) { display: flex; height: 30px; margin-top: auto; }
   :global(.imbarco .codice span) { display: block; height: 100%; background: var(--nero); }
   /* I timbri: solo inchiostro, sopra la domanda */
-  :global(.imbarco .timbri) { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
-  :global(.imbarco .timbro) { position: absolute; width: 124px; height: 124px; transform: rotate(var(--a)); mix-blend-mode: multiply; }
+  /* I timbri: sopra la faccia con la domanda ma fuori dal suo ritaglio, così possono uscire dal bordo. Inchiostro pieno */
+  :global(.imbarco .timbri) { grid-area: 1 / 1; position: relative; z-index: 7; pointer-events: none; transform: translateZ(1px); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  :global(.imbarco .timbro) { position: absolute; width: 176px; height: 176px; transform: rotate(var(--a)); opacity: .93; filter: drop-shadow(0 0 .5px currentColor); }
   :global(.imbarco .timbro svg) { display: block; width: 100%; height: 100%; overflow: visible; }
   :global(.imbarco .timbro.cade) { animation: cade .5s cubic-bezier(.2, 1.5, .4, 1) both; }
   @keyframes cade { 0% { transform: rotate(calc(var(--a) - 14deg)) scale(1.9); opacity: 0; } 45% { transform: rotate(var(--a)) scale(.94); opacity: 1; } 70% { transform: rotate(var(--a)) scale(1.03); } 100% { transform: rotate(var(--a)) scale(1); } }
@@ -341,7 +342,7 @@ import Base from '../../layouts/Base.astro';
     :global(.imbarco .numero) { font-size: 34px; }
     :global(.imbarco .fine) { display: none; }
     :global(.imbarco .codice) { height: 22px; margin: 0 0 0 auto; }
-    :global(.imbarco .timbro) { width: 92px; height: 92px; }
+    :global(.imbarco .timbro) { width: 128px; height: 128px; }
     :global(.imbarco .retro) { grid-template-columns: 1fr; grid-template-rows: 130px auto; }
     :global(.imbarco .scorre) { flex: none; }
     :global(.imbarco .pannello) { padding: 12px 14px; }

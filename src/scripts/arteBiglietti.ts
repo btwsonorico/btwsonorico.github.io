@@ -109,13 +109,13 @@ export function poster(sezione: number, livello: Livello, sera: boolean) {
 // con le lettere lasciate vuote (le toglie la maschera), il segno al centro. Un filtro fa i bordi irregolari e i buchi
 export function timbro(ok: boolean, data: string, codice: string, seme: number) {
   const id = `t${++uid}`, c = ok ? '#0b6b35' : '#a3161a', testo = ok ? '★ CLEARED ★ AI TERMS ★ CLEARED ★ AI TERMS ' : '✕ DELAYED ✕ TRY AGAIN ✕ DELAYED ✕ TRY AGAIN ';
-  const segno = ok ? '<path d="M50 41 L57 48 L71 33" stroke-width="5"/>' : '<path d="M52 33 L68 47 M68 33 L52 47" stroke-width="5"/>';
+  const segno = ok ? '<path d="M49 41 L57 49 L72 32" stroke-width="6.5"/>' : '<path d="M51 32 L69 48 M69 32 L51 48" stroke-width="6.5"/>';
   return `<svg viewBox="0 0 120 120" aria-hidden="true"><defs>
     <filter id="f${id}" x="-8%" y="-8%" width="116%" height="116%">
       <feTurbulence type="fractalNoise" baseFrequency=".05" numOctaves="2" seed="${seme}" result="onde"/>
       <feDisplacementMap in="SourceGraphic" in2="onde" scale="3" xChannelSelector="R" yChannelSelector="G" result="mosso"/>
       <feTurbulence type="fractalNoise" baseFrequency=".75" numOctaves="2" seed="${seme + 7}" result="grana"/>
-      <feColorMatrix in="grana" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.7 1.42" result="buchi"/>
+      <feColorMatrix in="grana" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.5 1.62" result="buchi"/>
       <feComposite in="mosso" in2="buchi" operator="in"/>
     </filter>
     <linearGradient id="g${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".78"/><stop offset=".55" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity=".8"/></linearGradient>
@@ -123,7 +123,7 @@ export function timbro(ok: boolean, data: string, codice: string, seme: number) 
     <path id="p${id}" d="M60 60 m-40 0 a40 40 0 1 1 80 0 a40 40 0 1 1 -80 0"/>
   </defs>
   <g filter="url(#f${id})" mask="url(#k${id})" fill="none" stroke="${c}">
-    <circle cx="60" cy="60" r="55" stroke-width="4.5"/><circle cx="60" cy="60" r="49.5" stroke-width="1.4"/><circle cx="60" cy="60" r="30" stroke-width="2"/>
+    <circle cx="60" cy="60" r="55" stroke-width="6"/><circle cx="60" cy="60" r="48.5" stroke-width="2"/><circle cx="60" cy="60" r="30" stroke-width="2.8"/>
     <text fill="${c}" stroke="none" font-size="9.5" font-weight="800" letter-spacing="1.4" font-family="ui-monospace, monospace"><textPath href="#p${id}">${testo}</textPath></text>
     <g stroke-linecap="round" stroke-linejoin="round">${segno}</g>
     <rect x="22" y="53" width="76" height="15" fill="${c}" stroke="none"/>
