@@ -287,7 +287,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   pecore.forEach(q => { q.mx = q.x; q.mz = q.z; });
 
   // --- La spiaggia della baia. La sabbia è piena e opaca; il bordo verso il prato è ondulato, con una sfumatura corta,
-  // e lungo il bordo crescono ciuffi d'erba da duna. Sulla riva una fascia di sabbia bagnata più scura
+  // Sulla riva una fascia di sabbia bagnata più scura
   const larghezza = (t: number) => Math.exp(-((t - BAIA) ** 2) / (2 * 0.24 * 0.24));
   const fondoSabbia = (t: number) => 1.005 - (0.3 * larghezza(t) + 0.04) * (1 + 0.1 * Math.sin(t * 23) + 0.06 * Math.sin(t * 41 + 1));
   const sullaSabbia = (t: number, f: number) => { const rr = rivaA(t), u = 1.005 - (1.005 - fondoSabbia(t)) * f; return [Math.cos(t) * rr * u, Math.sin(t) * rr * u] as const; };
@@ -311,12 +311,6 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     const schiuma: THREE.Vector3[] = [];
     for (let k = 0; k <= N; k++) { const t = BAIA - 0.5 + (k / N), rr = rivaA(t) * 1.008; schiuma.push(new THREE.Vector3(Math.cos(t) * rr, 0.012, Math.sin(t) * rr)); }
     G.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(schiuma), linea('#ffffff', 0.7)));
-    // I ciuffi d'erba lungo il bordo della sabbia
-    const ciuffo = new THREE.ConeGeometry(0.025, 0.09, 4);
-    for (let k = 0; k < 26; k++) {
-      const t = BAIA - 0.42 + (k / 25) * 0.84 + (r() - 0.5) * 0.02, [x, z] = sullaSabbia(t, 0.9 + r() * 0.12), y = Math.max(0.006, altezza(x, z));
-      for (let q = 0; q < 3; q++) { const c = pezzo(ciuffo, pieno(q % 2 ? '#7aa84a' : '#93b85a', 0.15), x + (q - 1) * 0.025, y + 0.04, z + (r() - 0.5) * 0.03); c.rotation.z = (q - 1) * 0.35; G.add(c); }
-    }
   }
   // Le palme, sul fondo della spiaggia, a filo: tronco curvo, foglie lunghe che ricadono, tre noci di cocco.
   // Le chiome ondeggiano piano nel vento
