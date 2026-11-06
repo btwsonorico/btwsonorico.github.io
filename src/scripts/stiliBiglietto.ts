@@ -342,36 +342,25 @@ const VARIETA_PX: ((r: () => number) => (t: number, s: number) => Rgb)[] = [
   r => { const a = 0.08 + r() * 0.1; return (t, s) => (t > a && t < a + 0.3 ? KR : t > 0.5 && t < 0.8 && s > 0.2 && Math.round(t * 20 + s * 3) % 3 === 0 ? KK : KW); },
 ];
 function stagnoPixel(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, ty: number) {
-  const im = immagine(c, dpr), { w, h } = im, tav = acque(c), P = tavola(c), ERBA = P.erba, SASSO = P.sasso, FOGLIA = P.foglia, PETALI = P.petali;
+  const im = immagine(c, dpr), { w, h } = im, tav = acque(c), P = tavola(c), FOGLIA = P.foglia, PETALI = P.petali;
   const s = prendi<StagnoPx>(c, () => {
-    const r = casoTela(c), riva = (x: number) => h * 0.16 + (frattale(x * 0.07, 2) - 0.5) * 9 + (rumore(x * 0.4, 6) - 0.5) * 2;
+    // Niente riva: l'acqua riempie tutto il retro, così le koi non passano mai sopra l'erba. Restano dentro i bordi del biglietto
+    const r = casoTela(c), riva = () => -6;
     const pesci: KoiPx[] = Array.from({ length: 6 }, (_, k) => {
       const x = w * (0.15 + r() * 0.7), y = h * (0.35 + r() * 0.55), a = r() * Math.PI * 2, misura = 0.85 + r() * 0.5;
       return { x, y, a, voluta: a, vel: 0, misura, spina: Array.from({ length: 7 }, (_, i) => ({ x: x - Math.cos(a) * 1.7 * misura * i, y: y - Math.sin(a) * 1.7 * misura * i })), colore: VARIETA_PX[Math.floor(r() * VARIETA_PX.length)]!(r), fase: k * 1.3 + r() * 4 };
     });
     const ninfee = Array.from({ length: 4 }, (_, k) => ({ x: w * [0.12, 0.83, 0.62, 0.3][k]! + (r() - 0.5) * 8, y: h * [0.38, 0.33, 0.78, 0.86][k]! + (r() - 0.5) * 6, r: 6 + r() * 3, fiore: k % 2 === 0 }));
-    const sassi = Array.from({ length: 9 }, () => ({ x: r() * w, y: 0, r: 1.5 + r() * 2.5 })).map(q => ({ ...q, y: riva(q.x) - 1 }));
-    return { pesci, ninfee, sassi, cerchi: [], tempo: r() * 30, r, riva };
+    return { pesci, ninfee, sassi: [], cerchi: [], tempo: r() * 30, r, riva };
   });
   s.tempo += dt;
   const t = s.tempo;
-  // L'acqua e la riva, pixel per pixel
+  // L'acqua, pixel per pixel: un fondo a macchie larghe e la luce a chiazze irregolari, che scorrono piano e seguono l'inclinazione
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const bordo = s.riva(x);
-    if (y < bordo) { const v = 0.35 + 0.4 * hash(x, y) + (y > bordo - 2 ? -0.3 : 0) + 0.15 * Math.sin(x * 0.5 + y); metti(im, x, y, tono(ERBA, v, x, y)); continue; }
-    const vicino = Math.max(0, 1 - (y - bordo) / (h * 0.35));
-    // La luce a chiazze irregolari, che scorrono piano e seguono l'inclinazione
     const luce = frattale(x * 0.07 + t * 0.04 + tx, y * 0.09 - t * 0.03 + ty), fondo = frattale(x * 0.03 + 11, y * 0.03 + 5);
-    let v = 0.15 + vicino * 0.3 + (fondo - 0.5) * 0.3 + (luce > 0.68 ? 0.4 : luce > 0.6 ? 0.18 : 0);
-    if (y < bordo + 1.5) v = 0.95;
+    const v = 0.22 + (fondo - 0.5) * 0.4 + (luce > 0.68 ? 0.4 : luce > 0.6 ? 0.18 : 0);
     metti(im, x, y, tono(tav, v, x, y));
   }
-  // I sassi sulla riva e qualche fiore nell'erba
-  for (const q of s.sassi) for (let dy = -q.r; dy <= q.r; dy++) for (let dx = -q.r * 1.3; dx <= q.r * 1.3; dx++) {
-    if ((dx / 1.3) ** 2 + dy ** 2 > q.r * q.r) continue;
-    metti(im, q.x + dx, q.y + dy, SASSO[dy < -q.r * 0.3 ? 2 : dy > q.r * 0.4 ? 0 : 1]!);
-  }
-  for (let k = 0; k < 14; k++) { const x = (hash(k, 3) * w) | 0, y = (hash(k, 7) * s.riva(x) * 0.8) | 0; metti(im, x, y, PETALI[k % 3]!); }
   // Le koi: la testa va verso una direzione voluta che cambia ogni tanto, gira al massimo di poco al secondo,
   // e ogni giuntura della spina si piega al massimo di 0.2 radianti rispetto alla precedente
   for (const p of s.pesci) {
