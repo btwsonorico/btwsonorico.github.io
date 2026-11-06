@@ -1,4 +1,4 @@
-// Le illustrazioni dei biglietti di AI terms: panorami SVG a tinte piatte e contorno spesso, animati, uno per sezione.
+// Le illustrazioni dei biglietti di AI terms: panorami SVG a tinte piatte, filo sottile e grana da stampa, animati, uno per sezione.
 // Sono il premio dietro il biglietto, quindi sono ricchi di dettagli e di piccole sorprese nascoste.
 // Il meteo segue l'esito: sole al primo colpo; dopo un errore temporale che si apre in un arcobaleno. Di sera e di notte
 // (ora del computer di chi gioca) il cielo è stellato. Davanti, nel francobollo, la stessa scena senza meteo.
@@ -6,7 +6,7 @@
 
 export type Meteo = 'neutro' | 'sole' | 'pioggia';
 const INK = '#2b2420';
-const T = `stroke="${INK}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"`;
+const T = `stroke="rgba(18,20,26,.42)" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"`;
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 let uid = 0;
 
@@ -146,7 +146,9 @@ export function scena(sezione: number, meteo: Meteo, tinta: string, termine = ''
   const fondo = SCENE[sezione % SCENE.length]!(id, meteo);
   const volo = meteo === 'neutro' ? '' : aereo(tinta, termine, meteo === 'pioggia' ? 58 : 46, meteo === 'pioggia' ? 20 : 15);
   const vista = francobollo ? `${SOGGETTO[sezione % SOGGETTO.length]! - 64} 6 128 154` : '0 0 400 160';
-  return `<svg viewBox="${vista}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${cielo(meteo, notte, id)}${meteo !== 'pioggia' ? uccelli(40, 40) : ''}${fondo}${volo}</svg>`;
+  // La grana: un rumore fine sopra tutto, come una stampa su carta
+  const grana = `<filter id="n${id}"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .5 0"/></filter><rect x="-10" y="-10" width="420" height="180" filter="url(#n${id})" opacity=".55" style="mix-blend-mode:multiply"/>`;
+  return `<svg viewBox="${vista}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${cielo(meteo, notte, id)}${meteo !== 'pioggia' ? uccelli(40, 40) : ''}${fondo}${volo}${grana}</svg>`;
 }
 
 // Il timbro: solo inchiostro, niente carta. Tre anelli, il testo in cerchio, la data in una fascia piena con le lettere

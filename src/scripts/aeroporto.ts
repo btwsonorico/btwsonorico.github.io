@@ -533,22 +533,19 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     return { g, elica };
   };
 
-  // --- Lo striscione: un nastro che segue la scia dell'aereo, con il termine scritto sopra, nel colore della sezione
-  const inchiostro = (hex: string) => {
-    const [a, b, c] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255) as [number, number, number];
-    return 0.2126 * a + 0.7152 * b + 0.0722 * c > 0.45 ? '#121417' : '#f4f1ea';
-  };
+  // --- Lo striscione: il termine scritto in aria, che segue la scia dell'aereo in prospettiva, nel colore della sezione
   const SEGMENTI = 18;
   const nuovoStriscione = (testo: string, tinta: string) => {
     const tela = document.createElement('canvas'), parola = testo.toUpperCase();
     tela.width = 1024; tela.height = 96;
     const cx = tela.getContext('2d')!;
-    cx.fillStyle = tinta; cx.fillRect(0, 0, 1024, 96);
-    cx.strokeStyle = inchiostro(tinta); cx.lineWidth = 6; cx.strokeRect(6, 6, 1012, 84);
-    cx.fillStyle = inchiostro(tinta); cx.textAlign = 'center'; cx.textBaseline = 'middle';
-    let corpo = 58;
-    do { cx.font = `bold ${corpo}px ui-monospace, Menlo, Consolas, monospace`; corpo -= 2; } while (cx.measureText(parola).width > 960 && corpo > 20);
-    cx.fillText(parola, 512, 50);
+    // Solo il testo, senza fondo: nel colore dell'aereo con un bordo scuro, nel mono del sito, come i nomi delle mongolfiere
+    const mono = getComputedStyle(document.documentElement).getPropertyValue('--mono').trim() || 'ui-monospace, monospace';
+    cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.lineJoin = 'round';
+    let corpo = 76;
+    do { cx.font = `bold ${corpo}px ${mono}`; corpo -= 2; } while (cx.measureText(parola).width > 990 && corpo > 20);
+    cx.strokeStyle = 'rgba(10,12,16,.85)'; cx.lineWidth = 10; cx.strokeText(parola, 512, 50);
+    cx.fillStyle = tinta; cx.fillText(parola, 512, 50);
     const mappa = new THREE.CanvasTexture(tela);
     mappa.colorSpace = THREE.SRGBColorSpace;
     mappa.anisotropy = 4;
@@ -561,12 +558,13 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     geo.setIndex(indici);
-    const nastro = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: mappa, side: THREE.DoubleSide, transparent: true, opacity: 0 }));
+    // Una faccia sola: il testo si legge da un lato, dall'altro non si vede
+    const nastro = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: mappa, side: THREE.FrontSide, transparent: true, opacity: 0, depthWrite: false }));
     nastro.frustumCulled = false;
     const fune = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: FILO, transparent: true, opacity: 0 }));
     fune.frustumCulled = false;
     G.add(nastro, fune);
-    return { nastro, fune, pos, lungo: THREE.MathUtils.clamp(parola.length * 0.095, 0.85, 1.8), dritto: true };
+    return { nastro, fune, pos, lungo: THREE.MathUtils.clamp(parola.length * 0.1, 0.9, 1.9) };
   };
 
   // --- Gli aerei e i loro stati: attesa sul mare, arrivo e atterraggio, fermo sulla pista, decollo, giro con lo striscione
@@ -743,14 +741,6 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
           st.pos.set([c.x, c.y + 0.05 + sv, c.z, c.x, c.y + 0.05 - alto + sv, c.z], j * 6);
         });
         (st.nastro.geometry.attributes.position as THREE.BufferAttribute).needsUpdate = true;
-        // Il testo si legge sempre da sinistra a destra, da qualunque lato lo guardi la camera
-        const dritto = G.localToWorld(tmp.copy(campioni[0]!)).project(p.camera).x < G.localToWorld(coda0.copy(campioni[SEGMENTI]!)).project(p.camera).x;
-        if (dritto !== st.dritto) {
-          st.dritto = dritto;
-          const uv = st.nastro.geometry.attributes.uv as THREE.BufferAttribute;
-          for (let j = 0; j <= SEGMENTI; j++) { const u = dritto ? j / SEGMENTI : 1 - j / SEGMENTI; uv.setX(j * 2, u); uv.setX(j * 2 + 1, u); }
-          uv.needsUpdate = true;
-        }
         coda0.copy(a.g.position).addScaledVector(a.dir, -0.3);
         const fp = st.fune.geometry.attributes.position as THREE.BufferAttribute;
         fp.setXYZ(0, coda0.x, coda0.y + 0.1, coda0.z); fp.setXYZ(1, campioni[0]!.x, campioni[0]!.y + 0.05 - alto / 2, campioni[0]!.z);
