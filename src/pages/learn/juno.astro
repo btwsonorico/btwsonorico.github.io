@@ -1,81 +1,156 @@
 ---
 import Base from '../../layouts/Base.astro';
-
-// Juno: la voce di Underdog Woof, un modello di sintesi vocale di 31 MB che gira nel browser con WebGPU.
-// Non è un traduttore: prende del testo inglese e lo legge ad alta voce, tutto sul tuo dispositivo.
 ---
 
-<Base title="Juno · Underdog Woof" description="A 31 MB text-to-speech model that runs in your browser: type English text and hear Juno read it aloud. No server, no API key." tono="neutro" largo>
+<Base title="Juno · Underdog Woof" description="A 31 MB text-to-speech model running on this page: type English text and hear Juno read it aloud." tono="neutro" largo>
   <main class="juno">
     <header class="testa">
       <h1>Juno · Underdog Woof</h1>
-      <p class="sotto">A 31 MB text-to-speech model that runs in your browser. Type English text and hear Juno read it aloud: nothing leaves your device.</p>
+      <p class="sotto">A 31 MB text-to-speech model running on this page, on your GPU. Type English text and hear Juno read it aloud: nothing leaves your device.</p>
     </header>
 
     <section class="prova">
       <label for="testo" class="mono">English text</label>
-      <textarea id="testo" rows="4" placeholder="Type something in English, then open the demo below and paste it into the typewriter.">Please call me back at 415-555-0199 before 5:30 p.m. on Friday.</textarea>
+      <textarea id="testo" rows="4" placeholder="Type something in English.">Please call me back at 415-555-0199 before 5:30 p.m. on Friday.</textarea>
       <div class="azioni">
-        <button type="button" id="copia">Copy text</button>
-        <button type="button" id="apri">Open the demo in a new tab</button>
+        <button type="button" id="leggi">Read aloud</button>
         <span id="stato" class="mono"></span>
       </div>
-      <p class="nota mono">Juno is a voice, not a translator: it reads English text aloud. The official demo runs the model with WebGPU; on browsers without WebGPU it cannot speak.</p>
-    </section>
-
-    <section class="demo">
-      <h2>Try it here</h2>
-      <p class="mono">The model loads inside the official demo. Type on the virtual typewriter and press Enter to hear it.</p>
-      <iframe id="frame" src="https://underdog.ai/escape" title="Underdog Woof Escape demo" loading="lazy" allow="autoplay; fullscreen"></iframe>
-    </section>
-
-    <section class="info">
-      <h2>What this is</h2>
-      <ul>
-        <li><strong>Model:</strong> Underdog Woof, 30.7 million parameters, about 31.7 MB download (one-voice build). Two voices in the 40.6 MB build: Juno and Mira.</li>
-        <li><strong>Runs:</strong> in your browser, on your GPU, via WebGPU. After the first load it works offline.</li>
-        <li><strong>Licence:</strong> CC BY-NC 4.0 (non-commercial). Commercial use needs a separate licence from Underdog.</li>
-        <li><strong>Download:</strong> <a href="https://huggingface.co/ConwayResearch/Underdog-Woof" target="_blank" rel="noopener">ConwayResearch/Underdog-Woof on Hugging Face</a>.</li>
-      </ul>
+      <p class="nota mono">Runs with WebGPU. The model (31.7 MB) is hosted on this site. Non-commercial licence (CC BY-NC 4.0).</p>
+      <audio id="audio" controls hidden></audio>
     </section>
   </main>
 </Base>
 
 <script>
-  const testo = document.getElementById('testo') as HTMLTextAreaElement;
-  const copia = document.getElementById('copia') as HTMLButtonElement;
-  const apri = document.getElementById('apri') as HTMLButtonElement;
-  const stato = document.getElementById('stato') as HTMLSpanElement;
-  const frame = document.getElementById('frame') as HTMLIFrameElement;
+  import { loadWoof } from '../../scripts/woof/woof-i_PIAt3K.js';
 
-  copia.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(testo.value); stato.textContent = 'copied ✓'; }
-    catch { stato.textContent = 'copy failed'; }
-    setTimeout(() => { stato.textContent = ''; }, 1800);
-  });
-  apri.addEventListener('click', () => { window.open('https://underdog.ai/escape', '_blank', 'noopener'); });
-  // WebGPU check
-  if (!('gpu' in navigator)) {
-    stato.textContent = 'WebGPU not available in this browser';
+  const RATE = 24000;
+
+  const testo = document.getElementById('testo') as HTMLTextAreaElement;
+  const leggi = document.getElementById('leggi') as HTMLButtonElement;
+  const stato = document.getElementById('stato') as HTMLSpanElement;
+  const audio = document.getElementById('audio') as HTMLAudioElement;
+
+  let model: any = null;
+
+  async function loadModel() {
+    if (model) return model;
+    if (!('gpu' in navigator)) throw new Error('This browser has no WebGPU. Try a recent Chrome or Edge.');
+    stato.textContent = 'requesting GPU…';
+    const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+    if (!adapter) throw new Error('No GPU adapter available.');
+    const device = await adapter.requestDevice({
+      requiredLimits: {
+        maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize,
+        maxBufferSize: adapter.limits.maxBufferSize,
+      },
+    });
+    stato.textContent = 'loading model…';
+    const loaded = await loadWoof('/woof/model', {
+      download: (p: number) => { stato.textContent = `downloading model ${Math.round(p * 100)}%`; },
+      gpu: (p: number) => { stato.textContent = `preparing GPU ${Math.round(p * 100)}%`; },
+      slow: 0,
+    }, device);
+    if (!loaded) throw new Error('The model could not start on this GPU.');
+    model = loaded;
+    stato.textContent = 'ready';
+    return model;
   }
+
+  // The runtime streams mono float32 PCM at 24 kHz. Wrap it in a WAV so the
+  // audio element can play it, scrub it and download it.
+  function toWav(samples: Float32Array, rate: number) {
+    const bytes = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(bytes);
+    const str = (offset: number, text: string) => {
+      for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
+    };
+    str(0, 'RIFF');
+    view.setUint32(4, 36 + samples.length * 2, true);
+    str(8, 'WAVE');
+    str(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, rate, true);
+    view.setUint32(28, rate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    str(36, 'data');
+    view.setUint32(40, samples.length * 2, true);
+    let offset = 44;
+    for (let i = 0; i < samples.length; i++) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      offset += 2;
+    }
+    return new Blob([bytes], { type: 'audio/wav' });
+  }
+
+  let objectUrl: string | null = null;
+
+  leggi.addEventListener('click', async () => {
+    const text = testo.value.trim();
+    if (!text) {
+      stato.textContent = 'type something first';
+      return;
+    }
+    leggi.disabled = true;
+    try {
+      const m = await loadModel();
+      stato.textContent = 'generating…';
+      const parts: Float32Array[] = [];
+      let frames = 0;
+      const controller = new AbortController();
+      await m.speak(text, (pcm: Float32Array) => {
+        if (!pcm || !pcm.length) return;
+        parts.push(pcm.slice());
+        frames += pcm.length;
+        stato.textContent = `generating… ${(frames / RATE).toFixed(1)}s`;
+      }, controller.signal, () => 0.35, 'typist');
+
+      if (!frames) {
+        stato.textContent = 'no audio produced';
+        return;
+      }
+
+      const samples = new Float32Array(frames);
+      let at = 0;
+      for (const part of parts) {
+        samples.set(part, at);
+        at += part.length;
+      }
+
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      objectUrl = URL.createObjectURL(toWav(samples, RATE));
+      audio.src = objectUrl;
+      audio.hidden = false;
+      stato.textContent = `${(frames / RATE).toFixed(1)}s ready`;
+      try {
+        await audio.play();
+      } catch {
+        // Autoplay may be blocked; the controls are there to press play.
+      }
+    } catch (e) {
+      console.error(e);
+      stato.textContent = 'error: ' + (e && e.message ? e.message : e);
+    } finally {
+      leggi.disabled = false;
+    }
+  });
 </script>
 
 <style>
-  .juno { max-width: 960px; margin: 0 auto; padding: var(--s2); }
+  .juno { max-width: 720px; margin: 0 auto; padding: var(--s2); }
   .testa h1 { margin: 0 0 var(--s1); font-size: 30px; font-weight: 400; }
   .sotto { color: var(--muted); margin: 0 0 var(--s3); }
-  .prova { margin-bottom: var(--s3); }
   .prova label { display: block; margin-bottom: 6px; }
   .prova textarea { width: 100%; padding: 10px 12px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); resize: vertical; }
   .azioni { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
   .azioni button { padding: 6px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 13px; }
   .azioni button:hover { border-color: var(--fg); }
+  .azioni button:disabled { opacity: .5; cursor: default; border-color: var(--line); }
   .nota { margin-top: 8px; font-size: 11px; color: var(--muted); }
-  .demo { margin-bottom: var(--s3); }
-  .demo h2 { font-size: 18px; font-weight: 400; margin: 0 0 6px; }
-  .demo p { color: var(--muted); margin: 0 0 8px; font-size: 12px; }
-  .demo iframe { width: 100%; height: 620px; border: 1px solid var(--line); border-radius: 8px; background: #000; }
-  .info h2 { font-size: 18px; font-weight: 400; margin: 0 0 6px; }
-  .info ul { margin: 0; padding-left: 18px; line-height: 1.7; font-size: 13px; }
-  .info a { color: var(--fg); }
+  #audio { width: 100%; margin-top: var(--s2); }
 </style>
