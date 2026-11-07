@@ -172,8 +172,8 @@ import Base from '../../layouts/Base.astro';
     },
     prossimo: () => {
       fermaAttesa(); pendente = -1;
-      if (modo === 'in-quiz') { k++; if (k >= domande.length) fineQuiz(); else { scriviStato(); assegna(0, domande[k]!); } }
-      else if (modo === 'in-endless') assegna(0, aCaso(recenti));
+      if (modo === 'in-quiz') { imbarco.nascondi(); k++; if (k >= domande.length) fineQuiz(); else { scriviStato(); assegna(0, domande[k]!); } }
+      else if (modo === 'in-endless') { imbarco.nascondi(); assegna(0, aCaso(recenti)); }
       else imbarco.nascondi();
     },
     chiudi: () => { fermaAttesa(); pendente = -1; imbarco.nascondi(); if (modo === 'in-quiz') { modo = 'inizio'; scriviStato(); } else if (modo === 'in-endless') fineEndless(); },
@@ -308,24 +308,24 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .piede-retro .seriale) { font-size: 11px; }
   /* Gli stili a sorteggio: stessa struttura, aspetto diverso. Lo stile lo sceglie src/scripts/stiliBiglietto.ts */
   @keyframes respira { to { transform: translate(2%, -2%) scale(1.06); } }
-  :global(.imbarco .carta[data-stile='lime'] .faccia) { color: #eef7e2; background: linear-gradient(rgb(200 255 140 / .07) 1px, transparent 1px) 0 0 / 34px 34px, linear-gradient(90deg, rgb(200 255 140 / .07) 1px, transparent 1px) 0 0 / 34px 34px, #080b07; }
+  :global(.imbarco .carta[data-stile='lime'] .faccia) { color: #e2faff; background: linear-gradient(rgb(20 221 255 / .07) 1px, transparent 1px) 0 0 / 34px 34px, linear-gradient(90deg, rgb(20 221 255 / .07) 1px, transparent 1px) 0 0 / 34px 34px, #061017; }
   :global(.imbarco .carta[data-stile='lime'] .arte70), :global(.imbarco .carta[data-stile='lime'] .poster) { position: relative; overflow: hidden; }
   :global(.imbarco .carta[data-stile='lime'] .fiore) { position: absolute; inset: -20%; filter: blur(30px); background: radial-gradient(circle at calc(32% + var(--tx) * 8%) calc(42% + var(--ty) * 8%), var(--f1) 0 4%, var(--f2) 12%, transparent 32%), radial-gradient(circle at calc(24% - var(--tx) * 6%) calc(70% - var(--ty) * 6%), var(--f3) 0 6%, transparent 26%); opacity: .9; animation: respira 9s ease-in-out infinite alternate; }
   :global(.imbarco .carta[data-stile='lime'] canvas) { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  :global(.imbarco .carta[data-stile='lime'] .tick) { position: absolute; width: 6px; height: 6px; background: #eef7e2; }
+  :global(.imbarco .carta[data-stile='lime'] .tick) { position: absolute; width: 6px; height: 6px; background: #e2faff; }
   :global(.imbarco .carta[data-stile='lime'] .banda) { background: transparent !important; box-shadow: inset 1px 0 rgb(255 255 255 / .15), inset -1px 0 rgb(255 255 255 / .15); }
   :global(.imbarco .carta[data-stile='lime'] .banda span), :global(.imbarco .carta[data-stile='lime'] .sotto) { color: var(--f2) !important; }
-  :global(.imbarco .carta[data-stile='lime'] .carta-dom) { padding: 0; background: none; color: #eef7e2; border: 0; }
+  :global(.imbarco .carta[data-stile='lime'] .carta-dom) { padding: 0; background: none; color: #e2faff; border: 0; }
   :global(.imbarco .carta[data-stile='lime'] .titolo) { font-family: var(--serif); font-weight: 400; font-size: 38px; text-transform: none; letter-spacing: 0; }
-  :global(.imbarco .carta[data-stile='lime'] .opzione) { color: #eef7e2; border-color: color-mix(in srgb, var(--f2) 55%, transparent); }
+  :global(.imbarco .carta[data-stile='lime'] .opzione) { color: #e2faff; border-color: color-mix(in srgb, var(--f2) 55%, transparent); }
   :global(.imbarco .carta[data-stile='lime'] .opzione span) { color: var(--f2) !important; opacity: 1; }
-  :global(.imbarco .carta[data-stile='lime'] .opzione:hover:not(:disabled)) { background: color-mix(in srgb, var(--f2) 22%, transparent); color: #eef7e2; }
-  :global(.imbarco .carta[data-stile='lime'] .opzione.giusta) { background: var(--f2); color: #0b0f07; }
-  :global(.imbarco .carta[data-stile='lime'] .tagliando) { background: rgb(8 11 7 / .6); color: #eef7e2; border-left: 1px dashed rgb(238 247 226 / .35); }
+  :global(.imbarco .carta[data-stile='lime'] .opzione:hover:not(:disabled)) { background: color-mix(in srgb, var(--f2) 22%, transparent); color: #e2faff; }
+  :global(.imbarco .carta[data-stile='lime'] .opzione.giusta) { background: var(--f2); color: #061017; }
+  :global(.imbarco .carta[data-stile='lime'] .tagliando) { background: rgb(6 16 23 / .6); color: #e2faff; border-left: 1px dashed rgb(226 250 255 / .35); }
   :global(.imbarco .carta[data-stile='lime'] .tagliando .nome) { font-family: var(--serif); font-weight: 400; font-size: 23px; line-height: 1.05; text-transform: none; letter-spacing: 0; color: var(--f2) !important; }
   :global(.imbarco .carta[data-stile='lime'] .seriale), :global(.imbarco .carta[data-stile='lime'] .piede-retro) { color: var(--f2) !important; border-color: var(--f2); }
   :global(.imbarco .carta[data-stile='lime'] .codice span) { background: var(--f2); }
-  :global(.imbarco .carta[data-stile='lime'] .pannello) { background: rgb(8 11 7 / .85); color: #eef7e2; }
+  :global(.imbarco .carta[data-stile='lime'] .pannello) { background: rgb(6 16 23 / .85); color: #e2faff; }
   :global(.imbarco .carta[data-stile='lime'] .retro .titolo) { color: var(--f2) !important; }
   :global(.imbarco .carta[data-stile='lime'] .definizione) { font-family: var(--serif); font-size: 16px; background: repeating-linear-gradient(transparent 0 21px, rgb(255 255 255 / .08) 21px 22px); background-attachment: local; }
   :global(.imbarco .carta[data-stile='riso'] .faccia) { color: var(--ink2); background: #f6f0e4; font-family: system-ui, sans-serif; }
@@ -394,7 +394,7 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .carta[data-stile='koi'] .retro .titolo) { color: var(--testo-k) !important; }
   :global(.imbarco .carta[data-stile='koi'] .definizione) { font-family: var(--mono); font-size: 12.5px; background: none; }
   :global(.imbarco .carta[data-stile='koi'] .corsivo) { font-family: var(--mono); font-style: normal; font-size: 12px; }
-  /* ASCII Print: il paesaggio in caratteri colorati; tutto il biglietto prende il colore scuro del cielo della scena, il termine sul retro è in caratteri */
+  /* Meadow Print: prato in pixel art, versione giorno o notte, con interfaccia coordinata. */
   :global(.imbarco .carta[data-stile='stampa'] .faccia) { color: var(--st-testo); background: var(--st-fondo); font-family: var(--mono); }
   :global(.imbarco .carta[data-stile='stampa'] .arte70), :global(.imbarco .carta[data-stile='stampa'] .poster) { position: relative; overflow: hidden; background: #0b0d12; }
   :global(.imbarco .carta[data-stile='stampa'] .arte70 canvas), :global(.imbarco .carta[data-stile='stampa'] .poster canvas) { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -513,14 +513,23 @@ import Base from '../../layouts/Base.astro';
     :global(.imbarco .carta) { transition: none; }
     :global(.imbarco .carta[data-stile='sfera'] .sf-livello), :global(.imbarco .carta[data-stile='sfera'] .sf-sfera), :global(.imbarco .carta[data-stile='veduta'] .vd-l svg) { animation: none; }
   }
-  @media (max-width: 640px) {
+  @media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
     .fondo3d { top: 300px; }
     .sotto { display: none; }
     /* L'interfaccia sta al centro, e il biglietto pure: aperto, si apre a metà schermo invece che in fondo */
     .aeroporto > * { margin-left: auto; margin-right: auto; }
     h1, .punteggio { text-align: center; }
     /* Su telefono il biglietto va in colonna: l'arte in una striscia in alto, la banda di traverso, il tagliando in basso */
-    :global(.imbarco) { left: 10px; right: 10px; top: 50%; bottom: auto; width: auto; transform: translateY(-50%); }
+    /* Lo spazio di lettura resta nel viewport anche con testi lunghi o in orizzontale.
+       Il biglietto scorre: i pulsanti non possono rimanere fuori dallo schermo. */
+    :global(.imbarco) { inset: 0; width: auto; max-height: 100vh; max-height: 100dvh; box-sizing: border-box; transform: none; overflow-y: auto; overscroll-behavior: contain; padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
+    :global(.imbarco:not([hidden])) { display: flex; flex-direction: column; }
+    :global(.imbarco .biglietto) { margin-top: auto; transform: none !important; touch-action: pan-y; }
+    :global(.imbarco .azioni) { margin-bottom: auto; }
+    /* Su touch mostra solo il lato attivo: il retro precedente non può stirare il fronte. */
+    :global(.imbarco .carta), :global(.imbarco .carta.girata) { display: block; transform: none; transition: none; }
+    :global(.imbarco .retro), :global(.imbarco .carta.girata .fronte) { display: none; }
+    :global(.imbarco .carta.girata .retro) { display: grid; transform: none; }
     :global(.imbarco .faccia) { height: auto; -webkit-mask: none !important; mask: none !important; }
     :global(.imbarco .fronte) { grid-template-columns: 1fr; grid-template-rows: 76px 16px auto auto; }
     :global(.imbarco .fronte > :not(.arte70):not(.strato):not(.timbri)) { grid-column: 1 / -1; }

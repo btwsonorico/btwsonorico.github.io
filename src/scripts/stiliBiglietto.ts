@@ -35,8 +35,8 @@ const semeTela = (c: Contesto) => una(c, 'seme', () => 1 + Math.floor(c.r() * 21
 
 // ---------------- Lime Bloom: una fioritura di luce su una griglia nera, e dentro la luce una colonia del Game of Life
 // che nasce, cresce e muore. Sul retro il nome del termine si scioglie in celle vive, poi si riscrive
-// Al massimo due varianti di colore per stile: lime e rosa
-const FIORI = [['#e9ffb0', '#b9f04a', '#5d8a1e'], ['#ffe0f2', '#ff6fb8', '#8a2a5a']] as const;
+// Un'unica palette azzurro neon, senza varianti gialle o rosa.
+const FIORI = [['#bdfaff', '#14ddff', '#006b91']] as const;
 const lime: Stile = {
   id: 'lime', ascii: true,
   davanti: c => `<div class="fiore"></div><canvas data-ascii="vita" data-seme="${semeTela(c)}"></canvas><i class="tick" style="left:8%;top:7%"></i><i class="tick" style="right:8%;bottom:7%"></i>`,
@@ -46,7 +46,7 @@ const lime: Stile = {
 
 // ---------------- Risograph: due inchiostri fluo sovrapposti, mezzatinta, il fuori registro che segue l'inclinazione.
 // Davanti e dietro hanno due disegni diversi con gli stessi inchiostri, a coppie fisse: girando il biglietto si scopre il compagno
-const INCHIOSTRI = [['#ff48b0', '#0078bf'], ['#ffe800', '#765ba7']] as const;
+const INCHIOSTRI = [['#ff48b0', '#0078bf']] as const;
 const FORME: ((a: string, b: string, id: string) => [string, string])[] = [
   // Un profilo con un sole dietro
   (a, b, id) => [`<circle cx="58" cy="52" r="40" fill="url(#ha${id})"/><path d="M0 110 Q30 70 60 92 T100 80 V110 Z" fill="${a}"/>`, `<path d="M38 96 C30 70 32 40 50 26 C64 16 80 22 82 36 C84 44 78 46 80 52 L86 60 L80 62 C82 70 76 74 70 72 C66 84 64 92 66 100 Z" fill="url(#hb${id})" stroke="${b}" stroke-width="1.6"/><circle cx="72" cy="42" r="2.4" fill="${b}"/>`],
@@ -57,8 +57,8 @@ const FORME: ((a: string, b: string, id: string) => [string, string])[] = [
   // Un razzo che sale in diagonale, con la scia di fumo, la fiammata e le stelle
   (a, b, id) => [`<circle cx="24" cy="60" r="15" fill="url(#ha${id})"/><circle cx="12" cy="70" r="10" fill="url(#ha${id})"/><circle cx="36" cy="66" r="8" fill="url(#ha${id})"/><path d="M38 48 L26 64 L44 54 Z" fill="${a}"/><circle cx="82" cy="12" r="2" fill="${a}"/><circle cx="70" cy="6" r="1.4" fill="${a}"/><circle cx="92" cy="30" r="1.6" fill="${a}"/><circle cx="16" cy="18" r="1.6" fill="${a}"/>`, `<g transform="rotate(40 58 36)"><path d="M58 8 C66 18 68 34 66 52 L50 52 C48 34 50 18 58 8 Z" fill="url(#hb${id})" stroke="${b}" stroke-width="1.6"/><circle cx="58" cy="28" r="5" fill="none" stroke="${b}" stroke-width="2"/><path d="M50 42 L42 56 L50 52 Z M66 42 L74 56 L66 52 Z" fill="${b}"/></g>`],
 ];
-// Due coppie fisse: l'occhio davanti e la faccia dietro; il pianeta davanti e il razzo dietro
-const COPPIE = [[2, 0], [1, 3]] as const;
+// Un'unica coppia: occhio davanti e profilo dietro.
+const COPPIE = [[2, 0]] as const;
 const riso = (grande: boolean) => (c: Contesto) => {
   const [a, b] = una(c, 'ink', () => scegli(INCHIOSTRI, c.r)), id = `r${++uid}`;
   // Il biglietto pesca una coppia: un disegno davanti, il suo compagno dietro
@@ -105,20 +105,16 @@ const koi: Stile = {
   },
 };
 
-// ---------------- ASCII Print: un paesaggio dipinto e reso in caratteri colorati, con un bagliore dello stesso colore sotto.
-// Dove la luce è forte i segni sono fitti, nell'ombra restano puntini. Due paesaggi, ognuno in due momenti:
-// la stessa montagna al tramonto e di notte con l'aurora; il campo di lavanda di giorno e di notte.
-// Il pannello della definizione è scuro, nel colore del cielo della scena; il termine è scritto in caratteri con la sua sfumatura
+// ---------------- Meadow Print: un prato in pixel art, in due momenti dello stesso paesaggio.
+// Versione notte ispirata al prato animato di Astropelican Games; il giorno è una nostra interpretazione.
 const SCENE = [
-  { scena: 'tramonto', fondo: '#1e1332', testo: '#f4e6e4', bordo: '122,74,120', accento: '#ffb07a', banner: ['255,120,160', '255,196,110'] },
-  { scena: 'aurora', fondo: '#08111f', testo: '#e2eef0', bordo: '47,85,96', accento: '#6dffb0', banner: ['90,255,170', '200,120,255'] },
-  { scena: 'lavanda', fondo: '#1c1834', testo: '#efeaf7', bordo: '92,79,138', accento: '#c8a8ff', banner: ['200,160,255', '150,200,255'] },
-  { scena: 'lavanda-notte', fondo: '#110e24', testo: '#ece8f6', bordo: '84,74,130', accento: '#ffd98a', banner: ['170,140,255', '255,214,140'] },
+  { scena: 'prato-giorno', fondo: '#143e37', testo: '#f4f8e6', bordo: '142,188,142', accento: '#f9d678', banner: ['255,237,172', '255,255,239'] },
+  { scena: 'prato-notte', fondo: '#101422', testo: '#f8eaf2', bordo: '119,104,139', accento: '#ffd2e4', banner: ['255,190,220', '255,247,218'] },
 ] as const;
 const stampa: Stile = {
   id: 'stampa', ascii: true, titoloAscii: true,
-  davanti: c => `<canvas data-ascii="scena" data-scena="${una(c, 'scena', () => scegli(SCENE, c.r)).scena}"></canvas>`,
-  dietro: c => `<canvas data-ascii="scena" data-scena="${una(c, 'scena', () => scegli(SCENE, c.r)).scena}"></canvas>`,
+  davanti: c => `<canvas data-ascii="prato" data-seme="${semeTela(c)}" data-scena="${una(c, 'scena', () => scegli(SCENE, c.r)).scena}"></canvas>`,
+  dietro: c => `<canvas data-ascii="prato" data-seme="${semeTela(c)}" data-scena="${una(c, 'scena', () => scegli(SCENE, c.r)).scena}"></canvas>`,
   variabili: c => {
     const q = una(c, 'scena', () => scegli(SCENE, c.r));
     return { '--st-fondo': q.fondo, '--st-testo': q.testo, '--st-bordo': q.bordo, '--st-accento': q.accento, '--banner-1': q.banner[0], '--banner-2': q.banner[1] };
@@ -184,13 +180,14 @@ const sfera: Stile = {
   variabili: () => ({ '--sf-fondo': SFERA_CARTA.fondo, '--sf-tinta': SFERA_CARTA.tinta, '--sf-pannello': SFERA_CARTA.pannello, '--sf-ink': SFERA_CARTA.ink, '--sf-linea': SFERA_CARTA.linea }),
 };
 
-export const STILI: Stile[] = [replay, sfera, lime, risograph, notte, koi, stampa];
+// Replay escluso dal sorteggio; Sfera e Notte restano in attesa di revisione.
+export const STILI: Stile[] = [sfera, lime, risograph, notte, koi, stampa];
 
 // ---------------- Le tele vive. Il biglietto chiama disegnaAscii circa 30 volte al secondo; ogni tela decide quanto spesso
 // ridisegnarsi (le scene di caratteri bastano 12 volte al secondo). Lo stato di ogni tela (cellule, pesci) sta qui
 const ultimo = new WeakMap<HTMLCanvasElement, number>();
 export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: number) {
-  const tipoT = c.dataset.ascii ?? '', lento = tipoT.startsWith('notte') || tipoT === 'scena' || tipoT === 'banner';
+  const tipoT = c.dataset.ascii ?? '', lento = tipoT.startsWith('notte') || tipoT === 'scena' || tipoT === 'prato' || tipoT === 'banner';
   if (lento && ora - (ultimo.get(c) ?? -1e9) < 80) return;
   const prima = ultimo.get(c) ?? ora; ultimo.set(c, ora);
   const dt = Math.min(0.1, Math.max(0, (ora - prima) / 1000));
@@ -201,6 +198,7 @@ export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: 
   if (tipoT === 'onde') return ondeTela(c, dt, dpr, tx);
   if (tipoT.startsWith('koi')) return stagnoPixel(c, dt, dpr, tx, ty);
   if (tipoT === 'scena') return scenaTela(c, ora / 1000, tx);
+  if (tipoT === 'prato') return pratoPixel(c, ora / 1000);
   if (tipoT === 'banner') return bannerTela(c, ora / 1000);
   return notteTela(c, ora, tx, ty);
 }
@@ -226,7 +224,7 @@ function vita(c: HTMLCanvasElement, ora: number, dt: number, dpr: number, parola
   s.passo += dt;
   if (s.passo > 0.14) { s.passo = 0; generazione(s, parola); }
   if (parola && (s.parola += dt) > 22) { s.parola = 0; scriviParola(c, s); }
-  const f1 = varCss(c, '--f1', '#e9ffb0'), f2 = varCss(c, '--f2', '#b9f04a'), f3 = varCss(c, '--f3', '#5d8a1e');
+  const f1 = varCss(c, '--f1', '#bdfaff'), f2 = varCss(c, '--f2', '#14ddff'), f3 = varCss(c, '--f3', '#006b91');
   g.clearRect(0, 0, W, H);
   const k = Math.min(1, dt * 9), cx = s.cols * 0.34, cy = s.rows * 0.42, raggio = Math.max(s.cols, s.rows) * 0.6;
   for (let i = 0; i < s.luce.length; i++) {
@@ -458,6 +456,74 @@ function stagnoPixel(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, 
   }
   s.cerchi = s.cerchi.filter(q => q.vita > 0);
   mostra(c, im);
+}
+
+// Un prato in pixel art, disegnato proceduralmente: i fiori sono stabili per seme,
+// il vento si propaga in onde e fa oscillare i gambi in prospettiva. Nessun frame del riferimento viene incorporato.
+type FiorePrato = { x: number; z: number; h: number; fase: number; colore: number; grande: boolean };
+type StatoPrato = { fiori: FiorePrato[]; punti: { x: number; y: number; fase: number }[] };
+function pratoPixel(c: HTMLCanvasElement, tempo: number) {
+  const notte = c.dataset.scena === 'prato-notte';
+  const g = c.getContext('2d'); if (!g) return;
+  const w = c.width, h = c.height;
+  if (!w || !h) return;
+  const s = prendi<StatoPrato>(c, () => {
+    const r = casoTela(c), fiori: FiorePrato[] = [];
+    for (let i = 0; i < 210; i++) fiori.push({x:r(), z:Math.pow(r(), 1.7), h:.58 + r()*.75, fase:r()*6.28, colore:r(), grande:r()>.83});
+    fiori.sort((a,b) => a.z-b.z);
+    return { fiori, punti:Array.from({length:70},()=>({x:r(),y:r(),fase:r()*6.28})) };
+  });
+  // Una griglia logica bassa, poi ingrandita senza interpolazione: i pixel restano netti.
+  const scala = Math.max(1, Math.round(Math.min(w,h)/112));
+  const W = Math.max(1, Math.round(w/scala)), H = Math.max(1, Math.round(h/scala));
+  const im = prendiPrato(c, W, H), p = im.ctx;
+  p.imageSmoothingEnabled = false;
+  const ciel = notte ? '#070916' : '#a7daed', orizz = notte ? '#121d39' : '#7fbac7', fondo = notte ? '#080b16' : '#335b46';
+  p.fillStyle = ciel; p.fillRect(0,0,W,H);
+  const horizon = H*.31;
+  p.fillStyle = orizz; p.fillRect(0,Math.floor(horizon-5),W,8);
+  for (let i=0;i<55;i++) {
+    const x=Math.floor(hash(i,17)*W), y=Math.floor(horizon-9+hash(i,21)*10);
+    p.fillStyle = notte ? (i%5===0 ? '#b8c8cb' : '#344369') : (i%5===0 ? '#f4f2d7' : '#6da5ac');
+    p.fillRect(x,y,1,1);
+  }
+  p.fillStyle=fondo; p.fillRect(0,Math.floor(horizon+3),W,H-horizon);
+  // Fili d’erba e foglie dietro ai fiori.
+  for(let i=0;i<400;i++){
+    const x=hash(i,11)*W, z=hash(i,29), y=horizon+z*(H-horizon), len=1+z*4;
+    p.fillStyle = notte ? (i%3 ? '#16203a' : '#26314c') : (i%3 ? '#4b7757' : '#709468');
+    p.fillRect(Math.floor(x), Math.floor(y-len), 1, Math.ceil(len));
+  }
+  for(const f of s.fiori){
+    const z=f.z, x=f.x*W, y=horizon+z*(H-horizon+8), height=(2+z*H*.28)*f.h;
+    const wave=Math.sin(tempo*.85-f.x*7-z*4)*(.45+z*2.9)+Math.sin(tempo*.43+f.fase)*(.2+z*.55);
+    const topX=x+wave, topY=y-height;
+    p.strokeStyle=notte ? (f.colore>.7?'#684054':'#584053') : (f.colore>.7?'#6c7752':'#547052');
+    p.lineWidth=1; p.beginPath();p.moveTo(Math.round(x)+.5,Math.round(y));p.lineTo(Math.round(x+wave*.42)+.5,Math.round(y-height*.55));p.lineTo(Math.round(topX)+.5,Math.round(topY));p.stroke();
+    if(z>.25){p.fillStyle=notte?'#313b53':'#72996d'; p.fillRect(Math.round(x-1),Math.round(y-height*.36),2,1);}
+    const size = z>.68 ? (f.grande?3:2) : z>.34?2:1, px=Math.round(topX), py=Math.round(topY);
+    const petals=notte?(f.colore>.86?'#ffe982':f.colore>.5?'#ffdbea':'#e8aaca'):(f.colore>.86?'#f9d678':f.colore>.5?'#fff9ec':'#fac8d0');
+    p.fillStyle=petals;
+    if(size===1){p.fillRect(px,py,1,1);} else {
+      const d=size===3?2:1;
+      p.fillRect(px-d,py,d,1);p.fillRect(px+1,py,d,1);p.fillRect(px,py-d,1,d);p.fillRect(px,py+1,1,d);
+      if(size===3){p.fillRect(px-1,py-1,3,3);}
+      p.fillStyle=notte?'#fff5dc':'#eab75e';p.fillRect(px,py,1,1);
+    }
+  }
+  if(notte) for(const [i,o] of s.punti.entries()){
+    const a=.5+.5*Math.sin(tempo*1.3+o.fase); if(a<.68)continue;
+    const x=Math.floor(o.x*W), y=Math.floor(horizon+o.y*(H-horizon));
+    p.fillStyle=i%3?'#d5e3ee':'#ffdda3';p.fillRect(x,y,1,1);
+  }
+  g.clearRect(0,0,w,h); g.imageSmoothingEnabled=false;g.drawImage(im.canvas,0,0,w,h);
+}
+const superficiPrato = new WeakMap<HTMLCanvasElement, {canvas:HTMLCanvasElement;ctx:CanvasRenderingContext2D}>();
+function prendiPrato(c:HTMLCanvasElement,w:number,h:number) {
+  let im=superficiPrato.get(c);
+  if(!im){ const canvas=document.createElement('canvas');im={canvas,ctx:canvas.getContext('2d')!};superficiPrato.set(c,im); }
+  if(im.canvas.width!==w || im.canvas.height!==h){im.canvas.width=w;im.canvas.height=h;}
+  return im;
 }
 
 // --- La notte: la scena di caratteri con la luna, le stelle, il lago e l'aereo bianco a pixel

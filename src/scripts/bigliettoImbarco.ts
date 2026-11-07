@@ -82,6 +82,8 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   // --- L'inclinazione. Da -1 a 1 su x e y. Il mouse sopra o il dito che trascina vincono; poi il giroscopio; senza
   // niente, un'oscillazione lenta. Ogni fotogramma scrive --tx, --ty, --t e gira i gradienti della foglia
   const fermo = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Su telefono non inclinare la carta: trasformazioni 3D e gesti touch non devono ostacolare la lettura.
+  const telefono = matchMedia('(max-width: 640px), (max-height: 500px) and (pointer: coarse)');
   const mano = { x: 0, y: 0, attiva: false }, ora = { x: 0, y: 0 };
   let giro: { x: number; y: number } | null = null, anima = 0, foglie: Element[] = [], tele: HTMLCanvasElement[] = [], ultimoAscii = 0;
   const limita = (v: number) => Math.max(-1, Math.min(1, v));
@@ -94,8 +96,8 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   biglietto.addEventListener('pointerdown', e => {
     if (e.pointerType !== 'mouse') segui(e);
     // iOS chiede il permesso per il giroscopio al primo tocco
-    const D = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
-    if (e.pointerType !== 'mouse' && typeof D.requestPermission === 'function' && !giro) D.requestPermission().catch(() => { /* resta il dito */ });
+    const D = window.DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> } | undefined;
+    if (!telefono.matches && e.pointerType !== 'mouse' && typeof D?.requestPermission === 'function' && !giro) D.requestPermission().catch(() => { /* resta il dito */ });
   });
   biglietto.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') mano.attiva = false; });
   biglietto.addEventListener('pointerleave', () => { mano.attiva = false; });
@@ -114,11 +116,11 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     const s = biglietto.style;
     s.setProperty('--tx', ora.x.toFixed(3)); s.setProperty('--ty', ora.y.toFixed(3));
     s.setProperty('--t', Math.min(1, Math.hypot(ora.x, ora.y)).toFixed(3));
-    s.transform = fermo ? '' : `perspective(1600px) rotateX(${(-ora.y * 9).toFixed(2)}deg) rotateY(${(ora.x * 12).toFixed(2)}deg)`;
+    s.transform = fermo || telefono.matches ? '' : `perspective(1600px) rotateX(${(-ora.y * 9).toFixed(2)}deg) rotateY(${(ora.x * 12).toFixed(2)}deg)`;
     const ang = 20 + ora.x * 70 + ora.y * 25, sp = ora.x * 0.5;
     foglie.forEach(g => g.setAttribute('gradientTransform', `translate(${sp.toFixed(3)} 0) rotate(${ang.toFixed(1)} .5 .5)`));
     // Le tele vive: circa 30 fotogrammi al secondo (le scene di caratteri si limitano da sole); con il movimento ridotto un fotogramma solo
-    if (tele.length && t - ultimoAscii > 33) { ultimoAscii = t; tele.forEach(c => { if (fermo && c.dataset.fatto) return; disegnaAscii(c, t, ora.x, ora.y); c.dataset.fatto = '1'; }); }
+    if (tele.length && t - ultimoAscii > 33) { ultimoAscii = t; tele.forEach(c => { if ((fermo && c.dataset.fatto) || !c.clientWidth || !c.clientHeight) return; disegnaAscii(c, t, ora.x, ora.y); c.dataset.fatto = '1'; }); }
     anima = requestAnimationFrame(passo);
   };
   const avvia = () => { if (!anima) anima = requestAnimationFrame(passo); };
@@ -269,11 +271,17 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       opzioniEl.replaceChildren(...opzioni);
       timbri.replaceChildren();
       p.timbri[i]!.forEach(t => metti(t, false));
-      if (p.fatto[i]) retroDi(v); else { quadro.replaceChildren(); }
+      if (p.fatto[i]) retroDi(v); else {
+        // Il retro della domanda precedente non deve determinare l'altezza della nuova carta.
+        quadro.replaceChildren(); definizione.replaceChildren(); termineR.replaceChildren();
+        sezioneR.textContent = esito.textContent = statoR.textContent = serialeR.textContent = '';
+        termineR.removeAttribute('aria-label');
+      }
       foglie = [...scheda.querySelectorAll('.foglia-svg')];
       tele = [...scheda.querySelectorAll<HTMLCanvasElement>('canvas[data-ascii]')];
       bottoni();
       scheda.hidden = false;
+      scheda.scrollTop = 0;
       avvia();
       (p.fatto[i] ? (prossimo.hidden ? chiudi : prossimo) : opzioni.find(b => !b.disabled))?.focus({ preventScroll: true });
     },
