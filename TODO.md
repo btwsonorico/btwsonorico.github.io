@@ -1,5 +1,6 @@
 # TODO — decisioni aperte
 
+- **AI terms: rivedere da capo i biglietti e il gioco (voce principale).** Rivedere interamente i biglietti, da telefono e da computer, e il funzionamento di AI terms nel suo insieme: più funzionale, più usabile, più interessante. Decide: Riccardo.
 - **Aprire il sito a motori di ricerca e AI.** Oggi il sito chiede di non essere indicizzato (`INDICIZZABILE = false` in `src/lib/sito.ts`). Quando il contenuto è finale: mettere `true`, poi registrare il sito su Google Search Console e inviare la sitemap. Decide: Riccardo.
 - **Statistiche delle visite.** Scelta: Cloudflare Web Analytics (gratis, senza cookie). Serve il token del sito, da creare nell'account Cloudflare. Decide e crea l'account: Riccardo.
 - **Scena «via Trieste 10, Mozzate» (sospesa).** Idea: la zona intorno alla casa in wireframe 3D, vista dall'alto, in misc (pubblica). Fatto finora:
