@@ -109,7 +109,7 @@ const koi: Stile = {
 // Versione notte ispirata al prato animato di Astropelican Games; il giorno è una nostra interpretazione.
 const SCENE = [
   { scena: 'prato-giorno', fondo: '#143e37', testo: '#f4f8e6', bordo: '142,188,142', accento: '#f9d678', banner: ['255,237,172', '255,255,239'] },
-  { scena: 'prato-notte', fondo: '#101422', testo: '#f8eaf2', bordo: '119,104,139', accento: '#ffd2e4', banner: ['255,190,220', '255,247,218'] },
+  { scena: 'prato-notte', fondo: '#0b1c16', testo: '#efffe0', bordo: '100,151,93', accento: '#e3ff74', banner: ['164,255,119', '255,250,161'] },
 ] as const;
 const stampa: Stile = {
   id: 'stampa', ascii: true, titoloAscii: true,
@@ -119,6 +119,14 @@ const stampa: Stile = {
     const q = una(c, 'scena', () => scegli(SCENE, c.r));
     return { '--st-fondo': q.fondo, '--st-testo': q.testo, '--st-bordo': q.bordo, '--st-accento': q.accento, '--banner-1': q.banner[0], '--banner-2': q.banner[1] };
   },
+};
+
+// Passing minds: una figura davanti, la folla sul retro, palette ciano su nero.
+const passing: Stile = {
+  id: 'passing', ascii: true,
+  davanti: c => `<canvas data-ascii="passing" data-side="front" data-seme="${semeTela(c)}"></canvas>`,
+  dietro: c => `<canvas data-ascii="passing" data-side="back" data-seme="${semeTela(c)}"></canvas>`,
+  variabili: () => ({}),
 };
 
 // ---------------- Replay: carta editoriale, molto bianco, serif alto e metadati mono. Tre carte ispirate ai concept
@@ -181,13 +189,13 @@ const sfera: Stile = {
 };
 
 // Replay escluso dal sorteggio; Sfera e Notte restano in attesa di revisione.
-export const STILI: Stile[] = [sfera, lime, risograph, notte, koi, stampa];
+export const STILI: Stile[] = [sfera, lime, risograph, notte, koi, stampa, passing];
 
 // ---------------- Le tele vive. Il biglietto chiama disegnaAscii circa 30 volte al secondo; ogni tela decide quanto spesso
 // ridisegnarsi (le scene di caratteri bastano 12 volte al secondo). Lo stato di ogni tela (cellule, pesci) sta qui
 const ultimo = new WeakMap<HTMLCanvasElement, number>();
 export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: number) {
-  const tipoT = c.dataset.ascii ?? '', lento = tipoT.startsWith('notte') || tipoT === 'scena' || tipoT === 'prato' || tipoT === 'banner';
+  const tipoT = c.dataset.ascii ?? '', lento = tipoT.startsWith('notte') || tipoT === 'scena' || tipoT === 'prato' || tipoT === 'passing' || tipoT === 'banner';
   if (lento && ora - (ultimo.get(c) ?? -1e9) < 80) return;
   const prima = ultimo.get(c) ?? ora; ultimo.set(c, ora);
   const dt = Math.min(0.1, Math.max(0, (ora - prima) / 1000));
@@ -199,6 +207,7 @@ export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: 
   if (tipoT.startsWith('koi')) return stagnoPixel(c, dt, dpr, tx, ty);
   if (tipoT === 'scena') return scenaTela(c, ora / 1000, tx);
   if (tipoT === 'prato') return pratoPixel(c, ora / 1000);
+  if (tipoT === 'passing') return passingMinds(c, ora);
   if (tipoT === 'banner') return bannerTela(c, ora / 1000);
   return notteTela(c, ora, tx, ty);
 }
@@ -458,8 +467,8 @@ function stagnoPixel(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, 
   mostra(c, im);
 }
 
-// Un prato in pixel art, disegnato proceduralmente: i fiori sono stabili per seme,
-// il vento si propaga in onde e fa oscillare i gambi in prospettiva. Nessun frame del riferimento viene incorporato.
+// Un prato in pixel art: le radici restano ferme, le punte oscillano con il vento.
+// Nessun avanzamento della visuale o frame del riferimento incorporato.
 type FiorePrato = { x: number; z: number; h: number; fase: number; colore: number; grande: boolean };
 type StatoPrato = { fiori: FiorePrato[]; punti: { x: number; y: number; fase: number }[] };
 function pratoPixel(c: HTMLCanvasElement, tempo: number) {
@@ -469,7 +478,7 @@ function pratoPixel(c: HTMLCanvasElement, tempo: number) {
   if (!w || !h) return;
   const s = prendi<StatoPrato>(c, () => {
     const r = casoTela(c), fiori: FiorePrato[] = [];
-    for (let i = 0; i < 210; i++) fiori.push({x:r(), z:Math.pow(r(), 1.7), h:.58 + r()*.75, fase:r()*6.28, colore:r(), grande:r()>.83});
+    for (let i = 0; i < 210; i++) fiori.push({x:r(), z:Math.pow(r(), 1.7), h:.88 + r()*.24, fase:r()*6.28, colore:r(), grande:r()>.83});
     fiori.sort((a,b) => a.z-b.z);
     return { fiori, punti:Array.from({length:70},()=>({x:r(),y:r(),fase:r()*6.28})) };
   });
@@ -478,43 +487,50 @@ function pratoPixel(c: HTMLCanvasElement, tempo: number) {
   const W = Math.max(1, Math.round(w/scala)), H = Math.max(1, Math.round(h/scala));
   const im = prendiPrato(c, W, H), p = im.ctx;
   p.imageSmoothingEnabled = false;
-  const ciel = notte ? '#070916' : '#a7daed', orizz = notte ? '#121d39' : '#7fbac7', fondo = notte ? '#080b16' : '#335b46';
+  const ciel = notte ? '#07130f' : '#a7daed', orizz = notte ? '#1c4931' : '#7fbac7', fondo = notte ? '#0a2017' : '#335b46';
   p.fillStyle = ciel; p.fillRect(0,0,W,H);
   const horizon = H*.31;
   p.fillStyle = orizz; p.fillRect(0,Math.floor(horizon-5),W,8);
   for (let i=0;i<55;i++) {
     const x=Math.floor(hash(i,17)*W), y=Math.floor(horizon-9+hash(i,21)*10);
-    p.fillStyle = notte ? (i%5===0 ? '#b8c8cb' : '#344369') : (i%5===0 ? '#f4f2d7' : '#6da5ac');
+    p.fillStyle = notte ? (i%5===0 ? '#d6ff93' : '#4d8d63') : (i%5===0 ? '#f4f2d7' : '#6da5ac');
     p.fillRect(x,y,1,1);
   }
   p.fillStyle=fondo; p.fillRect(0,Math.floor(horizon+3),W,H-horizon);
   // Fili d’erba e foglie dietro ai fiori.
   for(let i=0;i<400;i++){
     const x=hash(i,11)*W, z=hash(i,29), y=horizon+z*(H-horizon), len=1+z*4;
-    p.fillStyle = notte ? (i%3 ? '#16203a' : '#26314c') : (i%3 ? '#4b7757' : '#709468');
+    p.fillStyle = notte ? (i%3 ? '#163e29' : '#2b653e') : (i%3 ? '#4b7757' : '#709468');
     p.fillRect(Math.floor(x), Math.floor(y-len), 1, Math.ceil(len));
   }
+  // Distribuzione stabile in profondità, con gambi lunghi e fiori a distanze diverse.
   for(const f of s.fiori){
-    const z=f.z, x=f.x*W, y=horizon+z*(H-horizon+8), height=(2+z*H*.28)*f.h;
-    const wave=Math.sin(tempo*.85-f.x*7-z*4)*(.45+z*2.9)+Math.sin(tempo*.43+f.fase)*(.2+z*.55);
-    const topX=x+wave, topY=y-height;
-    p.strokeStyle=notte ? (f.colore>.7?'#684054':'#584053') : (f.colore>.7?'#6c7752':'#547052');
-    p.lineWidth=1; p.beginPath();p.moveTo(Math.round(x)+.5,Math.round(y));p.lineTo(Math.round(x+wave*.42)+.5,Math.round(y-height*.55));p.lineTo(Math.round(topX)+.5,Math.round(topY));p.stroke();
-    if(z>.25){p.fillStyle=notte?'#313b53':'#72996d'; p.fillRect(Math.round(x-1),Math.round(y-height*.36),2,1);}
+    const z=f.z, x=f.x*W, y=horizon+z*(H-horizon+8);
+    const height=(2+z*H*.32)*f.h;
+    // Raffiche ampie attraversano il prato; un'oscillazione più lieve varia da fiore a fiore.
+    // La base resta ancorata e la punta si piega proporzionalmente alla lunghezza del gambo.
+    const vento=Math.sin(tempo*.65-f.x*4.0-z*1.6)*.72 + Math.sin(tempo*.27-f.x*2.2)*.22;
+    const tremolio=Math.sin(tempo*1.15+f.fase)*.10;
+    const piega=(vento+tremolio)*Math.min(7,height*.21);
+    const topX=x+piega, topY=y-height+Math.abs(piega)*.055;
+    p.strokeStyle=notte ? (f.colore>.7?'#69aa45':'#3a8551') : (f.colore>.7?'#6c7752':'#547052');
+    p.lineWidth=1; p.beginPath();p.moveTo(Math.round(x)+.5,Math.round(y));
+    p.quadraticCurveTo(Math.round(x+piega*.15)+.5,Math.round(y-height*.52),Math.round(topX)+.5,Math.round(topY));p.stroke();
+    if(z>.25){p.fillStyle=notte?'#65b867':'#72996d'; p.fillRect(Math.round(x-1),Math.round(y-height*.36),2,1);}
     const size = z>.68 ? (f.grande?3:2) : z>.34?2:1, px=Math.round(topX), py=Math.round(topY);
-    const petals=notte?(f.colore>.86?'#ffe982':f.colore>.5?'#ffdbea':'#e8aaca'):(f.colore>.86?'#f9d678':f.colore>.5?'#fff9ec':'#fac8d0');
+    const petals=notte?(f.colore>.80?'#f4ff68':f.colore>.45?'#a8ff74':'#65e7a0'):(f.colore>.86?'#f9d678':f.colore>.5?'#fff9ec':'#fac8d0');
     p.fillStyle=petals;
     if(size===1){p.fillRect(px,py,1,1);} else {
       const d=size===3?2:1;
       p.fillRect(px-d,py,d,1);p.fillRect(px+1,py,d,1);p.fillRect(px,py-d,1,d);p.fillRect(px,py+1,1,d);
       if(size===3){p.fillRect(px-1,py-1,3,3);}
-      p.fillStyle=notte?'#fff5dc':'#eab75e';p.fillRect(px,py,1,1);
+      p.fillStyle=notte?'#faffc1':'#eab75e';p.fillRect(px,py,1,1);
     }
   }
   if(notte) for(const [i,o] of s.punti.entries()){
-    const a=.5+.5*Math.sin(tempo*1.3+o.fase); if(a<.68)continue;
+    if(i%3===0)continue;
     const x=Math.floor(o.x*W), y=Math.floor(horizon+o.y*(H-horizon));
-    p.fillStyle=i%3?'#d5e3ee':'#ffdda3';p.fillRect(x,y,1,1);
+    p.fillStyle=i%2?'#adff81':'#edff74';p.fillRect(x,y,1,1);
   }
   g.clearRect(0,0,w,h); g.imageSmoothingEnabled=false;g.drawImage(im.canvas,0,0,w,h);
 }
@@ -524,6 +540,72 @@ function prendiPrato(c:HTMLCanvasElement,w:number,h:number) {
   if(!im){ const canvas=document.createElement('canvas');im={canvas,ctx:canvas.getContext('2d')!};superficiPrato.set(c,im); }
   if(im.canvas.width!==w || im.canvas.height!==h){im.canvas.width=w;im.canvas.height=h;}
   return im;
+}
+
+// Passing minds: figure pixelate originali. Un omino sul fronte e una folla sul retro.
+// Lo stato è condiviso dal seme fra le due tele dello stesso biglietto.
+type Persona = { x:number; z:number; vx:number; vz:number; heading:number; goal:number; cycle:number; speed:number; size:number; turn:number; hero:boolean };
+type ScenaFolla = { persone:Persona[]; ultimo:number; tick:number; r:()=>number };
+const sceneFolla = new Map<string, ScenaFolla>();
+const teleFolla = new WeakMap<HTMLCanvasElement, { canvas:HTMLCanvasElement; ctx:CanvasRenderingContext2D }>();
+const tau = Math.PI*2;
+function follaDi(c:HTMLCanvasElement):ScenaFolla {
+  const key=c.dataset.seme ?? '1';let state=sceneFolla.get(key);
+  if(state)return state;
+  const r=casoDa(Number(key)||1);
+  const persone:Persona[]=Array.from({length:115},(_,i)=>{
+    const hero=i===0,a=r()*tau,speed=hero?.047:.027+r()*.035,rad=Math.sqrt(r()),ang=r()*tau;
+    return {hero,x:hero?.32:.50+Math.cos(ang)*rad*.18,z:hero?.82:.27+Math.sin(ang)*rad*.10,vx:Math.cos(a)*speed,vz:Math.sin(a)*speed,heading:a,goal:a,cycle:r()*tau,speed,size:hero?2.1:.65+r()*.25,turn:.7+r()*3.5};
+  });
+  state={persone,ultimo:0,tick:0,r};sceneFolla.set(key,state);
+  if(sceneFolla.size>32){const first=sceneFolla.keys().next().value;if(first!==undefined)sceneFolla.delete(first);}
+  return state;
+}
+function avanzaFolla(s:ScenaFolla,dt:number){
+  for(const p of s.persone){
+    p.turn-=dt;if(p.turn<=0){p.goal+=(s.r()-.5)*2.6;p.turn=1.2+s.r()*4;}
+    let vx=Math.cos(p.goal)*p.speed,vz=Math.sin(p.goal)*p.speed;
+    if(!p.hero){const dx=p.x-.5,dz=p.z-.27,dist=Math.hypot(dx/.32,dz/.19);if(dist>1){vx-=dx*.18*(dist-1);vz-=dz*.18*(dist-1);}}
+    for(const q of s.persone){if(q===p||q.hero!==p.hero)continue;const dx=p.x-q.x,dz=p.z-q.z,d2=dx*dx+dz*dz;if(d2<.0014&&d2>.0000001){const d=Math.sqrt(d2),f=(.037-d)/.037;vx+=dx/d*f*.065;vz+=dz/d*f*.065;}}
+    if(p.x<.065)vx+=(.065-p.x)*1.7;if(p.x>.935)vx-=(p.x-.935)*1.7;
+    const zmin=p.hero?.70:.04,zmax=p.hero?.90:.50;if(p.z<zmin)vz+=(zmin-p.z)*1.7;if(p.z>zmax)vz-=(p.z-zmax)*1.7;
+    const n=Math.hypot(vx,vz)||1,k=Math.min(1,dt*2);p.vx+=(vx/n*p.speed-p.vx)*k;p.vz+=(vz/n*p.speed-p.vz)*k;
+    p.x=Math.max(.01,Math.min(.99,p.x+p.vx*dt));p.z=Math.max(p.hero?.66:.01,Math.min(p.hero?.94:.54,p.z+p.vz*dt));
+    const target=Math.atan2(p.vz,p.vx),angle=Math.atan2(Math.sin(target-p.heading),Math.cos(target-p.heading));p.heading+=angle*Math.min(1,dt*5);p.cycle+=Math.hypot(p.vx,p.vz)*dt*40;
+  }
+}
+function passingMinds(c:HTMLCanvasElement,ora:number){
+  const state=follaDi(c),tick=Math.floor(ora/33);
+  if(state.tick!==tick){
+    const dt=state.ultimo?Math.min(.05,Math.max(0,(ora-state.ultimo)/1000)):0;state.ultimo=ora;state.tick=tick;
+    if(!document.hidden){
+      // Sul fronte si muove solo l'omino: la folla aspetta al centro fino al primo giro.
+      if(c.dataset.side==='front'){const tutti=state.persone;state.persone=tutti.filter(p=>p.hero);avanzaFolla(state,dt);state.persone=tutti;}
+      else avanzaFolla(state,dt);
+    }
+  }
+  const ww=c.width,hh=c.height;if(!ww||!hh)return;
+  let layer=teleFolla.get(c);if(!layer){const canvas=document.createElement('canvas');layer={canvas,ctx:canvas.getContext('2d')!};teleFolla.set(c,layer);}
+  const dpr=Math.min(2,devicePixelRatio||1),scale=Math.max(1,Math.min(2,Math.floor(c.clientWidth/240)));
+  const w=Math.max(1,Math.round(c.clientWidth/scale)),h=Math.max(1,Math.round(c.clientHeight/scale));
+  if(layer.canvas.width!==w||layer.canvas.height!==h){layer.canvas.width=w;layer.canvas.height=h;}
+  const g=layer.ctx;g.imageSmoothingEnabled=false;g.fillStyle='#010304';g.fillRect(0,0,w,h);
+  const isFront=c.dataset.side==='front',base=Math.min(19,w*.075,h*.115);
+  for(const p of state.persone.filter(a=>isFront?a.hero:!a.hero).sort((a,b)=>a.z-b.z)){
+    const depth=.48+p.z*.72,sc=base*depth*p.size,x=w*(.06+p.x*.88+(p.z-.5)*.10),y=h*(.31+p.z*.51),a=p.heading,walk=Math.sin(p.cycle),cw=Math.cos(a),sw=Math.sin(a);
+    const bob=Math.abs(walk)*sc*.035,forward=(l:number)=>[cw*l,sw*l*.48],side=(l:number)=>[-sw*l,cw*l*.48];
+    const pt=(l:number,r:number,up:number):[number,number]=>{const f=forward(l),s=side(r);return [x+f[0]!+s[0]!,y+f[1]!+s[1]!-up-bob];};
+    const hip=pt(0,0,sc*.55),neck=pt(0,0,sc*1.12),head=pt(0,0,sc*1.38),sL=pt(0,-sc*.16,sc*1.06),sR=pt(0,sc*.16,sc*1.06);
+    const kneeL=pt(walk*sc*.16,-sc*.08,sc*.28),kneeR=pt(-walk*sc*.16,sc*.08,sc*.28),footL=pt(walk*sc*.29,-sc*.09,Math.max(0,walk)*sc*.07),footR=pt(-walk*sc*.29,sc*.09,Math.max(0,-walk)*sc*.07);
+    const elbowL=pt(-walk*sc*.11,-sc*.23,sc*.79),elbowR=pt(walk*sc*.11,sc*.23,sc*.79),handL=pt(-walk*sc*.20,-sc*.21,sc*.56),handR=pt(walk*sc*.20,sc*.21,sc*.56);
+    const stroke=(pts:[number,number][])=>{g.beginPath();g.moveTo(Math.round(pts[0]![0])+.5,Math.round(pts[0]![1])+.5);for(const t of pts.slice(1))g.lineTo(Math.round(t[0])+.5,Math.round(t[1])+.5);g.stroke();};
+    g.strokeStyle='rgba(215,237,229,.15)';g.lineWidth=Math.max(.5,sc*.05);stroke([[x-sc*.35,y+sc*.07],[x+sc*.65,y+sc*.12]]);
+    g.lineCap='square';g.lineJoin='miter';g.strokeStyle='rgba(241,252,248,.92)';g.lineWidth=1;stroke([neck,hip,kneeL,footL]);stroke([hip,kneeR,footR]);stroke([sL,neck,sR]);stroke([sL,elbowL,handL]);stroke([sR,elbowR,handR]);
+    const hs=Math.max(3,Math.round(sc*.38)),yaw=Math.cos(p.heading),facing=Math.sin(p.heading);g.save();g.translate(Math.round(head[0]),Math.round(head[1]));
+    g.fillStyle='#eafff7';g.fillRect(-hs/2,-hs/2,hs,hs);g.fillStyle='#031410';g.fillRect(-hs/2+1,-hs/2+1,Math.max(1,hs-2),Math.max(1,hs-2));
+    g.fillStyle=facing<-.25?'#367a70':'#86ffd7';g.fillRect(Math.round(yaw*Math.max(1,hs*.20)),0,1,1);if(facing>=-.25){g.fillStyle='#d2ffef';g.fillRect(Math.round(yaw*Math.max(1,hs*.30)),-1,1,1);}g.restore();
+  }
+  const out=c.getContext('2d');if(!out)return;out.setTransform(1,0,0,1,0,0);out.imageSmoothingEnabled=false;out.clearRect(0,0,ww,hh);out.drawImage(layer.canvas,0,0,ww,hh);void dpr;
 }
 
 // --- La notte: la scena di caratteri con la luna, le stelle, il lago e l'aereo bianco a pixel

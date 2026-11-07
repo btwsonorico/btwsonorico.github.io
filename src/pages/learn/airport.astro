@@ -415,6 +415,21 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .carta[data-stile='stampa'] .retro .titolo) { color: var(--st-testo) !important; font-size: 0; line-height: 0; }
   :global(.imbarco .carta[data-stile='stampa'] .titolo-ascii) { display: block; width: 100%; height: 84px; }
   :global(.imbarco .carta[data-stile='stampa'] .definizione) { font-family: var(--mono); font-size: 12.5px; background: none; }
+  /* Passing minds: una figura sul fronte, folla sul retro. */
+  :global(.imbarco .carta[data-stile='passing'] .faccia) { color: #e9f6f1; background: #080b0d; font-family: var(--mono); }
+  :global(.imbarco .carta[data-stile='passing'] .arte70), :global(.imbarco .carta[data-stile='passing'] .poster) { position: relative; overflow: hidden; background: #010304; }
+  :global(.imbarco .carta[data-stile='passing'] canvas) { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  :global(.imbarco .carta[data-stile='passing'] .banda) { background: #080b0d !important; box-shadow: inset 1px 0 #344641, inset -1px 0 #344641; }
+  :global(.imbarco .carta[data-stile='passing'] .banda span), :global(.imbarco .carta[data-stile='passing'] .sotto) { color: #8df5db !important; }
+  :global(.imbarco .carta[data-stile='passing'] .opzione) { color: #e9f6f1; border: 1px solid #425153; background: transparent; }
+  :global(.imbarco .carta[data-stile='passing'] .opzione span) { color: #8df5db !important; opacity: 1; }
+  :global(.imbarco .carta[data-stile='passing'] .opzione:hover:not(:disabled)), :global(.imbarco .carta[data-stile='passing'] .opzione.giusta) { background: #22483f; color: #f4fff9; }
+  :global(.imbarco .carta[data-stile='passing'] .tagliando) { background: #080b0d; color: #e9f6f1; border-left: 1px dashed #425153; }
+  :global(.imbarco .carta[data-stile='passing'] .tagliando .nome), :global(.imbarco .carta[data-stile='passing'] .retro .titolo) { font-family: var(--serif); font-weight: 400; text-transform: none; color: #f4fff9 !important; }
+  :global(.imbarco .carta[data-stile='passing'] .pannello) { background: #080b0d; color: #e9f6f1; border-left: 1px dashed #425153; }
+  :global(.imbarco .carta[data-stile='passing'] .seriale), :global(.imbarco .carta[data-stile='passing'] .piede-retro) { color: #8df5db !important; border-color: #425153; }
+  :global(.imbarco .carta[data-stile='passing'] .codice span) { background: #e9f6f1; }
+  :global(.imbarco .carta[data-stile='passing'] .definizione) { background: none; font-family: var(--mono); font-size: 12.5px; }
   /* Replay: carta editoriale, serif alto e metadati mono. Tre carte: crema, menta, senape */
   :global(.imbarco .carta[data-stile='replay'] .faccia) { color: var(--rp-ink); background: var(--rp-carta); border-radius: 0; font-family: system-ui, sans-serif; }
   :global(.imbarco .carta[data-stile='replay'] .arte70) { display: flex; flex-direction: column; justify-content: space-between; padding: 14px 12px; background: var(--rp-blocco); border-right: 1px solid var(--rp-linea); }
