@@ -4,7 +4,7 @@ import Cursore from '@/components/Cursore.astro';
 import { INDICIZZABILE } from '@/lib/sito';
 // tono: colore d'accento della pagina. Senza tono resta l'azzurro del sito.
 // largo: pagina a tutta larghezza su schermi grandi (home, Knowledge, Projects); i testi restano stretti.
-interface Props { title: string; description?: string; lang?: 'it' | 'en'; tono?: 'verde' | 'arancio' | 'azzurro' | 'neutro'; largo?: boolean }
+interface Props { title: string; description?: string; lang?: 'it' | 'en'; tono?: 'verde' | 'arancio' | 'azzurro' | 'rosa' | 'neutro'; largo?: boolean }
 const { title, description = 'Riccardo Mondi: AI advisor and developer at Politecnico di Milano.', lang = 'en', tono, largo = false } = Astro.props;
 // Indirizzo canonico della pagina, per i motori di ricerca e per le anteprime quando la pagina si condivide
 const canonico = new URL(Astro.url.pathname, Astro.site).href;
@@ -98,6 +98,7 @@ const SENZA_PAGINA = new Set(['/knowledge/t/']);
     --verde: #3fb950;
     --azzurro: #58a6ff;
     --arancio: #ffa45e;
+    --rosa: #ff7ab8;
     --accent: var(--azzurro);
     --mono: 'Departure Mono', ui-monospace, monospace;
     /* Spaziature: s1 dentro un blocco, s2 sotto un titolo, s3 fra sezioni, s4 in testa alla pagina */
@@ -118,6 +119,7 @@ const SENZA_PAGINA = new Set(['/knowledge/t/']);
     --verde: #14682c;
     --azzurro: #0755b5;
     --arancio: #983d00;
+    --rosa: #b3155c;
     color-scheme: light;
   }
   /* I componenti Arc usano i colori del sito */
@@ -134,11 +136,13 @@ const SENZA_PAGINA = new Set(['/knowledge/t/']);
     --shadow-resting: none;
     --radius-control: 2px;
   }
-  /* Tre sezioni, tre colori: verde GitHub (Software), arancio (Knowledge), azzurro (Advisory, anche il colore base) */
+  /* Tre sezioni, tre colori: verde GitHub (Software), arancio (Knowledge), azzurro (Advisory, anche il colore base).
+     Il rosa è per la pagina di Juno. */
   :root[data-theme][data-cyber][data-tono="azzurro"], [data-tono="azzurro"] { --accent: var(--azzurro); }
   :root[data-theme][data-cyber][data-tono="verde"], [data-tono="verde"] { --accent: var(--verde); }
   /* Vale per una pagina intera (Base con tono) o per una sola sezione (data-tono sull'elemento) */
   :root[data-theme][data-cyber][data-tono="arancio"], [data-tono="arancio"] { --accent: var(--arancio); }
+  :root[data-theme][data-cyber][data-tono="rosa"], [data-tono="rosa"] { --accent: var(--rosa); }
   /* Neutro (la home): niente colore d'accento, solo il colore del testo; i colori restano alle sezioni */
   :root[data-theme][data-cyber][data-tono="neutro"] { --accent: var(--fg); }
   /* Departure Mono (SIL OFL, helenazhang.com): nitida a multipli di 11px */

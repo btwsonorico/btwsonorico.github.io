@@ -9,7 +9,7 @@ const RISORSE = [
   { nome: 'reinforcement learning', href: '/learn/reinforcement/', nota: 'a dog learns to herd from rewards', tono: 'verde' },
   { nome: 'diffusion model', href: '/learn/diffusion/', nota: 'watch a digit come out of pure noise, one step at a time', tono: 'azzurro' },
   { nome: 'decision model', href: '/learn/decision/', nota: 'run a smart home in plain words, in English or Italian', tono: 'lilla' },
-  { nome: 'Juno', href: '/learn/juno/', nota: 'a 31 MB text-to-speech model that runs in your browser', tono: 'azzurro' },
+  { nome: 'text-to-speech model', href: '/learn/juno/', nota: 'a 31.7 MB Underdog Woof model that runs in your browser: local, private, paintable', tono: 'rosa' },
 ];
 ---
 <Base title="Learn · Riccardo Mondi" description="AI concepts you can touch: interactive resources by Riccardo Mondi." tono="neutro" largo>
@@ -60,6 +60,8 @@ const RISORSE = [
   .scena3d :global(.nome-pallone[data-tono="grigio"]) { --accent: var(--fg); }
   .scena3d :global(.nome-pallone[data-tono="rosso"]) { --accent: #ff4a3d; }
   :global([data-theme="light"]) .scena3d :global(.nome-pallone[data-tono="rosso"]) { --accent: #e0352a; }
+  .scena3d :global(.nome-pallone[data-tono="rosa"]) { --accent: #ff7ab8; }
+  :global([data-theme="light"]) .scena3d :global(.nome-pallone[data-tono="rosa"]) { --accent: #b3155c; }
   /* Col dito si tocca un'area più grande dell'etichetta */
   .scena3d :global(.nome-pallone)::before { content: ''; position: absolute; inset: -9px -6px; }
   .scena3d :global(.nome-pallone:hover), .scena3d :global(.nome-pallone.attiva) { color: var(--bg); background: var(--accent); padding: 2px 7px; z-index: 2; }

@@ -1,23 +1,84 @@
 ---
 import Base from '../../layouts/Base.astro';
+
+// Juno: il modello text-to-speech di Underdog Woof gira nel browser. La voce è un vettore di 7.168 numeri,
+// disposto come nella demo originale in 16 blocchi da 28 × 16. Qui si dipinge con il puntatore e poi si ascolta.
+const COME: [string, string][] = [
+  ['What is this?', 'A real text-to-speech model, 31.7 MB with 30.7 million parameters, running entirely in this browser tab on the GPU. It is Juno, one of the two voices of Underdog Woof. The page downloads the weights once, computes the audio itself, and the text stays on your device: no server, no API key, no request per sentence.'],
+  ['Why does it matter?', 'Not long ago, speech this good meant sending the text to a server. Now the whole model is 31.7 MB, small enough to sit in a browser tab. Models of this size keep improving, and phones and laptops keep gaining faster neural hardware, so the capabilities available on very small devices are growing quickly. The direction is clear: more speech, vision and language running on the device you already own. That means no round trip, no per-word bill, and privacy by default: what happens on your device can stay there. Once the weights are downloaded, it also works offline.'],
+  ['Why is the voice a grid?', 'The model does not take a recording. It reads a list of 7,168 numbers that describe the voice, and the original demo shows that list as 4 × 4 blocks of 28 × 16 values. This grid is the same list, flattened onto a plane: each square is one number. Pink squares are positive values, blue squares negative ones, and brighter means further from zero.'],
+  ['What does painting change?', 'A brush moves the numbers towards +0.55 or towards −0.32, strongest at the centre and softer at the edge. The model reads the whole list before every sentence, so the change is not an effect added to the audio afterwards: it changes the voice the model aims for. Small edits stay close to Juno; large ones push it further away. Press original to go back.'],
+  ['What happens when you press read aloud?', 'The text is split into sentences. For each one the model writes a short sequence of frames, and a decoder turns them into 24 kHz audio. A sentence takes a few seconds on a laptop, and a phone is slower. WebGPU is required, and the audio is assembled in the page, never uploaded.'],
+];
 ---
 
-<Base title="Juno · Underdog Woof" description="A 31 MB text-to-speech model running on this page: type English text and hear Juno read it aloud." tono="neutro" largo>
-  <main class="juno">
-    <header class="testa">
-      <h1>Juno · Underdog Woof</h1>
-      <p class="sotto">A 31 MB text-to-speech model running on this page, on your GPU. Type English text and hear Juno read it aloud: nothing leaves your device.</p>
-    </header>
+<Base
+  title="Juno · Underdog Woof · Riccardo Mondi"
+  description="A 31.7 MB Underdog Woof text-to-speech model running entirely in your browser: local, private, and a voice you can paint. Nothing leaves your device."
+  tono="rosa"
+  largo
+>
+  <main class="rn" data-juno>
+    <section class="schermo">
+      <header class="testa">
+        <h1>A voice you can paint</h1>
+        <a href="#how-it-works" class="mono">how it works ↓</a>
+        <p class="mono messaggio">A 31.7 MB text-to-speech model that runs entirely in your browser, on your GPU. No server, no API key: the text you type never leaves your device. The grid is its voice: drag on it to paint, type a sentence, and hear what comes out.</p>
+        <p class="mono spunto">A model this capable now fits on very small hardware, and the capabilities that fit there are growing fast. That opens the way to AI that runs locally, offline and private by default.</p>
+        <p class="mono credito">Voice by <a href="https://underdog.ai/woof">Underdog Woof</a>.</p>
+      </header>
 
-    <section class="prova">
-      <label for="testo" class="mono">English text</label>
-      <textarea id="testo" rows="4" placeholder="Type something in English.">Please call me back at 415-555-0199 before 5:30 p.m. on Friday.</textarea>
-      <div class="azioni">
-        <button type="button" id="leggi">Read aloud</button>
-        <span id="stato" class="mono"></span>
+      <div class="banco">
+        <div class="pannello mono">
+          <div class="sezione">
+            <span class="titolino">the voice</span>
+            <p class="spiega">7,168 numbers describe how Juno sounds, laid out as 4 × 4 blocks of 28 × 16 squares. Drag on the grid to move them.</p>
+            <div class="riga" role="group" aria-label="Brush">
+              <button type="button" data-modo="alza" aria-pressed="true">raise ↑</button>
+              <button type="button" data-modo="abbassa" aria-pressed="false">lower ↓</button>
+            </div>
+            <div class="riga">
+              <button type="button" class="originale">original</button>
+              <button type="button" class="inverti">invert</button>
+            </div>
+            <span class="lettura" aria-live="polite">original voice</span>
+          </div>
+
+          <div class="sezione">
+            <span class="titolino">hear it</span>
+            <label for="testo">English text</label>
+            <textarea id="testo" rows="3" spellcheck="false">Please call me back at 415-555-0199 before 5:30 p.m. on Friday.</textarea>
+            <div class="riga">
+              <button type="button" class="leggi">Read aloud</button>
+              <button type="button" class="nuovo">new take</button>
+            </div>
+            <span class="stato" aria-live="polite"></span>
+            <audio id="audio" controls hidden></audio>
+            <p class="nota">Runs entirely here with WebGPU; the weights are hosted on this site. No server call, no API key. Non-commercial licence: see the credits below.</p>
+          </div>
+        </div>
+
+        <div class="tela-wrap">
+          <canvas
+            class="tela-voce"
+            width="1210"
+            height="730"
+            role="img"
+            aria-label="Juno's voice as a grid of 7,168 squares in 4 by 4 blocks. Pink squares are positive values, blue squares negative. Drag to paint and change the voice."
+          ></canvas>
+        </div>
       </div>
-      <p class="nota mono">Runs with WebGPU. The model (31.7 MB) is hosted on this site. Non-commercial licence (CC BY-NC 4.0).</p>
-      <audio id="audio" controls hidden></audio>
+      <div class="pennello" aria-hidden="true"></div>
+    </section>
+
+    <section class="spiegone" id="how-it-works">
+      <h2 class="mono">how it works</h2>
+      {COME.map(([domanda, testo]) => <article><h3>{domanda}</h3><p>{testo}</p></article>)}
+      <article>
+        <h3>Credits and licence</h3>
+        <p>The model is <a href="https://huggingface.co/ConwayResearch/Underdog-Woof">Underdog-Woof by Conway Research</a>, hosted here unmodified under the <a href="/woof/LICENSE.txt">Underdog Non-Commercial License 1.0</a>: non-commercial use only. The <a href="/woof/NOTICE.txt">NOTICE</a> is included unchanged. It lists the third-party parts: the decoder is adapted from Kyutai Mimi, and the training data is LibriTTS-R and Emilia-YODAS (CC-BY 4.0). The original demo is at <a href="https://underdog.ai/woof">underdog.ai/woof</a>.</p>
+        <p>The grid follows the layout of that demo. The page is not affiliated with Underdog or Conway Research.</p>
+      </article>
     </section>
   </main>
 </Base>
@@ -25,37 +86,256 @@ import Base from '../../layouts/Base.astro';
 <script>
   import { loadWoof } from '../../scripts/woof/woof-i_PIAt3K.js';
 
-  const RATE = 24000;
+  // La griglia è 121 × 73: 16 blocchi da 28 × 16 valori, separati da 3 righe e 3 colonne vuote.
+  // La mappa porta dalla cella (x, y) al numero della voce: e = t * 448 + n.
+  const X = 121, Y = 73, CELLA = 10, N = 7168;
+  const mappa = new Int32Array(X * Y).fill(-1);
+  for (let t = 0; t < 16; t++) {
+    for (let n = 0; n < 448; n++) {
+      const x = (t % 4) * 31 + (n % 28);
+      const y = Math.floor(t / 4) * 19 + Math.floor(n / 28);
+      mappa[y * X + x] = t * 448 + n;
+    }
+  }
 
-  const testo = document.getElementById('testo') as HTMLTextAreaElement;
-  const leggi = document.getElementById('leggi') as HTMLButtonElement;
-  const stato = document.getElementById('stato') as HTMLSpanElement;
+  const tela = document.querySelector<HTMLCanvasElement>('.tela-voce')!;
+  const contesto = tela.getContext('2d')!;
+  const pennello = document.querySelector<HTMLElement>('.pennello')!;
+  const area = document.getElementById('testo') as HTMLTextAreaElement;
+  const leggiBtn = document.querySelector<HTMLButtonElement>('.leggi')!;
+  const nuovoBtn = document.querySelector<HTMLButtonElement>('.nuovo')!;
+  const originaleBtn = document.querySelector<HTMLButtonElement>('.originale')!;
+  const invertiBtn = document.querySelector<HTMLButtonElement>('.inverti')!;
+  const stato = document.querySelector<HTMLSpanElement>('.stato')!;
+  const lettura = document.querySelector<HTMLSpanElement>('.lettura')!;
   const audio = document.getElementById('audio') as HTMLAudioElement;
+  const bottoniModo = [...document.querySelectorAll<HTMLButtonElement>('[data-modo]')];
 
-  let model: any = null;
+  // La voce originale, quella di Juno, e quella che si sta dipingendo. La prima non cambia mai.
+  const base = new Float32Array(N);
+  const voci = new Float32Array(N);
 
-  async function loadModel() {
-    if (model) return model;
+  // Colori letti dal tema: il rosa della pagina per i valori alti, un blu freddo per quelli bassi.
+  let alto = [255, 122, 184], basso = [111, 155, 255], spento = [122, 130, 141];
+  function rgb(hex: string, ripiego: number[]) {
+    const h = hex.trim().replace('#', '');
+    const intero = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+    if (intero.length !== 6) return ripiego;
+    const n = parseInt(intero, 16);
+    return Number.isNaN(n) ? ripiego : [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function leggiColori() {
+    const s = getComputedStyle(document.documentElement);
+    alto = rgb(s.getPropertyValue('--accent'), alto);
+    spento = rgb(s.getPropertyValue('--muted'), spento);
+    basso = document.documentElement.dataset.theme === 'light' ? [47, 95, 191] : [111, 155, 255];
+  }
+
+  const rgba = (c: number[], a: number) => `rgba(${c[0]},${c[1]},${c[2]},${a.toFixed(3)})`;
+  function colore(v: number) {
+    if (v > 0.002) return rgba(alto, 0.12 + 0.85 * Math.sqrt(Math.min(1, v / 0.7)));
+    if (v < -0.002) return rgba(basso, 0.12 + 0.72 * Math.sqrt(Math.min(1, -v / 0.4)));
+    return rgba(spento, 0.09);
+  }
+
+  function disegnaTutto() {
+    contesto.clearRect(0, 0, tela.width, tela.height);
+    for (let y = 0; y < Y; y++) {
+      for (let x = 0; x < X; x++) {
+        const e = mappa[y * X + x];
+        if (e < 0) continue;
+        contesto.fillStyle = colore(voci[e]!);
+        contesto.fillRect(x * CELLA, y * CELLA, CELLA - 2, CELLA - 2);
+      }
+    }
+  }
+
+  function disegnaCelle(celle: Set<number>) {
+    for (const i of celle) {
+      const e = mappa[i]!;
+      if (e < 0) continue;
+      const x = (i % X) * CELLA, y = Math.floor(i / X) * CELLA;
+      contesto.clearRect(x, y, CELLA - 2, CELLA - 2);
+      contesto.fillStyle = colore(voci[e]!);
+      contesto.fillRect(x, y, CELLA - 2, CELLA - 2);
+    }
+  }
+
+  function contaCambiate() {
+    let n = 0;
+    for (let e = 0; e < N; e++) if (Math.abs(voci[e]! - base[e]!) > 0.03) n++;
+    return n;
+  }
+  function aggiornaLettura() {
+    const n = contaCambiate();
+    lettura.textContent = n ? `${n.toLocaleString('en-US')} of 7,168 values changed` : 'original voice';
+  }
+
+  // --- Il vettore originale arriva dal file safetensors del modello: un solo tensore, 7.168 float32.
+  // Si legge subito, così la griglia si vede anche prima che il modello da 31,7 MB finisca di scaricare.
+  async function leggiVoce() {
+    try {
+      const r = await fetch('/woof/model/isla.safetensors');
+      if (!r.ok) throw new Error(String(r.status));
+      const buf = await r.arrayBuffer();
+      const dv = new DataView(buf);
+      const n = Number(dv.getBigUint64(0, true));
+      const testa = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, n)));
+      const [a, b] = testa.voice.data_offsets as [number, number];
+      base.set(new Float32Array(buf.slice(8 + n + a, 8 + n + b)));
+      if (!sporcato) voci.set(base);
+      disegnaTutto();
+      aggiornaLettura();
+    } catch (e) {
+      console.error(e);
+      disegnaTutto();
+    }
+  }
+
+  // --- Pittura: il puntatore si converte in coordinate della griglia, poi un tratto unisce i campioni.
+  let modo: 'alza' | 'abbassa' = 'alza';
+  const fine = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  let raggio = fine ? 3 : 6;
+  let dipingendo = false, ultimoX = 0, ultimoY = 0;
+  const toccate = new Set<number>();
+
+  function coordinate(ev: PointerEvent) {
+    const r = tela.getBoundingClientRect();
+    return {
+      x: ((ev.clientX - r.left) / r.width) * X,
+      y: ((ev.clientY - r.top) / r.height) * Y,
+      r,
+    };
+  }
+
+  function tampona(cx: number, cy: number) {
+    const bersaglio = modo === 'alza' ? 0.55 : -0.32;
+    const da = Math.max(0, Math.floor(cy - raggio)), a = Math.min(Y - 1, Math.ceil(cy + raggio));
+    const sinistra = Math.max(0, Math.floor(cx - raggio)), destra = Math.min(X - 1, Math.ceil(cx + raggio));
+    for (let y = da; y <= a; y++) {
+      for (let x = sinistra; x <= destra; x++) {
+        const i = y * X + x, e = mappa[i]!;
+        if (e < 0) continue;
+        const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+        if (d > raggio) continue;
+        const forza = 1 - d / raggio;
+        voci[e] = voci[e]! + (bersaglio - voci[e]!) * 0.4 * forza;
+        toccate.add(i);
+        sporcato = true;
+      }
+    }
+  }
+
+  function tratto(x0: number, y0: number, x1: number, y1: number) {
+    const passi = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0)));
+    for (let k = 1; k <= passi; k++) {
+      tampona(x0 + ((x1 - x0) * k) / passi, y0 + ((y1 - y0) * k) / passi);
+    }
+  }
+
+  function mostraPennello(ev: PointerEvent) {
+    if (!fine) return;
+    const r = tela.getBoundingClientRect();
+    const lato = (raggio * r.width) / X * 2;
+    pennello.style.width = pennello.style.height = `${lato}px`;
+    pennello.style.marginLeft = pennello.style.marginTop = `${-lato / 2}px`;
+    pennello.style.transform = `translate(${ev.clientX}px, ${ev.clientY}px)`;
+    pennello.classList.add('visibile');
+    pennello.style.borderColor = modo === 'alza' ? 'var(--accent)' : 'var(--freddo)';
+  }
+
+  tela.addEventListener('pointerdown', ev => {
+    ev.preventDefault();
+    raggio = ev.pointerType === 'touch' ? 6 : 3;
+    dipingendo = true;
+    tela.setPointerCapture(ev.pointerId);
+    const p = coordinate(ev);
+    ultimoX = p.x; ultimoY = p.y;
+    toccate.clear();
+    tampona(p.x, p.y);
+    disegnaCelle(toccate);
+    toccate.clear();
+    mostraPennello(ev);
+  });
+
+  tela.addEventListener('pointermove', ev => {
+    mostraPennello(ev);
+    if (!dipingendo) return;
+    const p = coordinate(ev);
+    toccate.clear();
+    tratto(ultimoX, ultimoY, p.x, p.y);
+    ultimoX = p.x; ultimoY = p.y;
+    disegnaCelle(toccate);
+    toccate.clear();
+  });
+
+  const fineTratto = () => {
+    if (!dipingendo) return;
+    dipingendo = false;
+    aggiornaLettura();
+  };
+  tela.addEventListener('pointerup', fineTratto);
+  tela.addEventListener('pointercancel', fineTratto);
+  tela.addEventListener('pointerleave', () => pennello.classList.remove('visibile'));
+
+  // --- I tre comandi sulla voce.
+  for (const b of bottoniModo) {
+    b.addEventListener('click', () => {
+      modo = b.dataset.modo === 'abbassa' ? 'abbassa' : 'alza';
+      for (const altro of bottoniModo) altro.setAttribute('aria-pressed', String(altro === b));
+    });
+  }
+  originaleBtn.addEventListener('click', () => {
+    voci.set(base);
+    sporcato = false;
+    disegnaTutto();
+    aggiornaLettura();
+    stato.textContent = '';
+  });
+  invertiBtn.addEventListener('click', () => {
+    for (let e = 0; e < N; e++) voci[e] = Math.max(-0.38, Math.min(0.7, -voci[e]!));
+    sporcato = true;
+    disegnaTutto();
+    aggiornaLettura();
+    stato.textContent = '';
+  });
+
+  // --- Il modello. Il buffer della voce si crea una volta, poi si aggiorna prima di ogni frase.
+  let modello: any = null;
+  let dispositivo: any = null;
+  let bufferVoce: any = null;
+  let nuovaPresa = false;
+  let sporcato = false;
+  let urlAudio: string | null = null;
+
+  async function caricaModello() {
+    if (modello) return modello;
     if (!('gpu' in navigator)) throw new Error('This browser has no WebGPU. Try a recent Chrome or Edge.');
     stato.textContent = 'requesting GPU…';
     const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
     if (!adapter) throw new Error('No GPU adapter available.');
-    const device = await adapter.requestDevice({
+    dispositivo = await adapter.requestDevice({
       requiredLimits: {
         maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize,
         maxBufferSize: adapter.limits.maxBufferSize,
       },
     });
     stato.textContent = 'loading model…';
-    const loaded = await loadWoof('/woof/model', {
+    const caricato = await loadWoof('/woof/model', {
       download: (p: number) => { stato.textContent = `downloading model ${Math.round(p * 100)}%`; },
       gpu: (p: number) => { stato.textContent = `preparing GPU ${Math.round(p * 100)}%`; },
       slow: 0,
-    }, device);
-    if (!loaded) throw new Error('The model could not start on this GPU.');
-    model = loaded;
+    }, dispositivo);
+    if (!caricato) throw new Error('The model could not start on this GPU.');
+    modello = caricato;
+    bufferVoce = dispositivo.createBuffer({
+      size: N * 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+      label: 'voce dipinta',
+    });
+    modello.setVoiceSource(bufferVoce);
     stato.textContent = 'ready';
-    return model;
+    return modello;
   }
 
   // The runtime streams mono float32 PCM at 24 kHz. Wrap it in a WAV so the
@@ -81,76 +361,138 @@ import Base from '../../layouts/Base.astro';
     view.setUint32(40, samples.length * 2, true);
     let offset = 44;
     for (let i = 0; i < samples.length; i++) {
-      const s = Math.max(-1, Math.min(1, samples[i]));
+      const s = Math.max(-1, Math.min(1, samples[i]!));
       view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
       offset += 2;
     }
     return new Blob([bytes], { type: 'audio/wav' });
   }
 
-  let objectUrl: string | null = null;
+  nuovoBtn.addEventListener('click', () => {
+    nuovaPresa = true;
+    stato.textContent = 'new take: the next sentence uses new noise';
+  });
 
-  leggi.addEventListener('click', async () => {
-    const text = testo.value.trim();
-    if (!text) {
+  leggiBtn.addEventListener('click', async () => {
+    const testo = area.value.trim();
+    if (!testo) {
       stato.textContent = 'type something first';
       return;
     }
-    leggi.disabled = true;
+    leggiBtn.disabled = true;
     try {
-      const m = await loadModel();
+      const m = await caricaModello();
+      // La voce dipinta è quella che il modello legge: si copia sul GPU prima della frase.
+      dispositivo.queue.writeBuffer(bufferVoce!, 0, voci);
+      if (nuovaPresa) {
+        m.inspect.take = (Math.random() * 0x7fffffff) | 0;
+        nuovaPresa = false;
+      }
       stato.textContent = 'generating…';
-      const parts: Float32Array[] = [];
-      let frames = 0;
+      const pezzi: Float32Array[] = [];
+      let campioni = 0;
       const controller = new AbortController();
-      await m.speak(text, (pcm: Float32Array) => {
+      await m.speak(testo, (pcm: Float32Array) => {
         if (!pcm || !pcm.length) return;
-        parts.push(pcm.slice());
-        frames += pcm.length;
-        stato.textContent = `generating… ${(frames / RATE).toFixed(1)}s`;
+        pezzi.push(pcm.slice());
+        campioni += pcm.length;
+        stato.textContent = `generating… ${(campioni / m.rate).toFixed(1)}s`;
       }, controller.signal, () => 0.35, 'typist');
 
-      if (!frames) {
+      if (!campioni) {
         stato.textContent = 'no audio produced';
         return;
       }
 
-      const samples = new Float32Array(frames);
+      const tutti = new Float32Array(campioni);
       let at = 0;
-      for (const part of parts) {
-        samples.set(part, at);
-        at += part.length;
+      for (const parte of pezzi) {
+        tutti.set(parte, at);
+        at += parte.length;
       }
 
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-      objectUrl = URL.createObjectURL(toWav(samples, RATE));
-      audio.src = objectUrl;
+      if (urlAudio) URL.revokeObjectURL(urlAudio);
+      urlAudio = URL.createObjectURL(toWav(tutti, m.rate));
+      audio.src = urlAudio;
       audio.hidden = false;
-      stato.textContent = `${(frames / RATE).toFixed(1)}s ready`;
+      stato.textContent = `${(campioni / m.rate).toFixed(1)}s ready`;
       try {
         await audio.play();
       } catch {
         // Autoplay may be blocked; the controls are there to press play.
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
       stato.textContent = 'error: ' + (e && e.message ? e.message : e);
     } finally {
-      leggi.disabled = false;
+      leggiBtn.disabled = false;
     }
   });
+
+  leggiColori();
+  disegnaTutto();
+  leggiVoce();
 </script>
 
 <style>
-  .juno { max-width: 720px; margin: 0 auto; padding: var(--s2); }
-  .testa h1 { margin: 0 0 var(--s1); font-size: 30px; font-weight: 400; }
-  .sotto { color: var(--muted); margin: 0 0 var(--s3); }
-  .prova label { display: block; margin-bottom: 6px; }
-  .prova textarea { width: 100%; padding: 10px 12px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); resize: vertical; }
-  .azioni { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-  .azioni button { padding: 6px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 13px; }
-  .azioni button:hover { border-color: var(--fg); }
-  .azioni button:disabled { opacity: .5; cursor: default; border-color: var(--line); }
-  .nota { margin-top: 8px; font-size: 11px; color: var(--muted); }
-  #audio { width: 100%; margin-top: var(--s2); }
+  :global(html) { scroll-behavior: smooth; }
+  .rn { padding: 4px 24px 0; --freddo: #6f9bff; }
+  :global([data-theme="light"]) .rn { --freddo: #2f5fbf; }
+  .schermo { display: flex; flex-direction: column; gap: var(--s2); height: calc(100vh - 62px); min-height: 560px; padding-bottom: var(--s2); }
+  .testa { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px var(--s2); }
+  h1 { margin: 0; font-size: 24px; font-weight: 400; line-height: 1.15; }
+  .testa a { color: var(--fg); font-size: 12px; white-space: nowrap; }
+  .messaggio { flex: 1 1 100%; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+  .spunto { flex: 1 1 100%; margin: 2px 0 0; padding-left: 10px; border-left: 1px solid var(--accent); color: var(--fg); font-size: 13px; line-height: 1.45; }
+  .credito { flex: 1 1 auto; margin: 0; color: var(--muted); font-size: 12px; }
+  .credito a { color: var(--accent); }
+  .banco { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: minmax(300px, 340px) minmax(0, 1fr); gap: var(--s3); }
+  .pannello { display: flex; flex-direction: column; gap: var(--s2); overflow: hidden auto; font-size: 13px; }
+  .sezione + .sezione { padding-top: var(--s2); border-top: 1px solid var(--line); }
+  .titolino { display: block; margin-bottom: 6px; color: var(--fg); font-size: 14px; }
+  .titolino::before { content: '// '; color: var(--muted); }
+  .spiega { margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .riga { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+  button { padding: 5px 12px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; transition: color .12s, border-color .12s; }
+  button:hover:not(:disabled) { border-color: var(--fg); color: var(--fg); }
+  button:disabled { opacity: .5; cursor: default; }
+  button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  button[data-modo="abbassa"][aria-pressed="true"] { border-color: var(--freddo); color: var(--freddo); }
+  .leggi { padding: 7px 16px; background: var(--accent); border-color: var(--accent); color: var(--bg); font-size: 15px; }
+  .leggi:hover:not(:disabled) { background: var(--bg); color: var(--accent); }
+  .leggi:disabled { background: var(--bg); border-color: var(--line); color: var(--muted); opacity: 1; }
+  .nuovo { color: var(--muted); }
+  .lettura, .stato { display: block; min-height: 1.4em; margin-top: 6px; font-size: 12px; }
+  .lettura { color: var(--fg); }
+  .stato { color: var(--muted); }
+  label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 12px; }
+  textarea { display: block; width: 100%; padding: 8px 10px; font: inherit; font-size: 13px; line-height: 1.45; border: 1px solid var(--line); background: var(--bg); color: var(--fg); resize: vertical; }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .nota { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+  #audio { width: 100%; height: 32px; margin-top: 8px; }
+  .tela-wrap { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; }
+  .tela-voce { display: block; max-width: 100%; max-height: 100%; touch-action: none; }
+  .pennello { position: fixed; left: 0; top: 0; z-index: 4; border: 1px solid var(--accent); border-radius: 50%; pointer-events: none; opacity: 0; }
+  .pennello.visibile { opacity: .9; }
+  .spiegone { max-width: 720px; margin: 0 auto; padding: var(--s4) 0; border-top: 1px solid var(--line); scroll-margin-top: var(--s2); }
+  .spiegone h2 { margin: 0 0 var(--s3); font-size: 14px; font-weight: 400; color: var(--fg); }
+  .spiegone h2::before { content: '// '; color: var(--muted); }
+  .spiegone article { margin-bottom: var(--s3); }
+  .spiegone h3 { margin: 0 0 4px; font-size: 16px; font-weight: 400; color: var(--fg); }
+  .spiegone p { margin: 0 0 var(--s1); color: var(--muted); font-size: 14px; line-height: 1.7; }
+  .spiegone a { color: var(--fg); }
+  @media (max-width: 760px) {
+    .rn { padding: 0 16px; }
+    .schermo { height: auto; min-height: 0; gap: var(--s1); padding-bottom: var(--s3); }
+    h1 { font-size: 20px; }
+    .banco { display: flex; flex-direction: column; flex: none; gap: var(--s2); }
+    .tela-wrap { order: -1; height: auto; }
+    .tela-voce { width: 100%; height: auto; max-height: none; }
+    .pannello { width: 100%; overflow: visible; }
+    .pennello { display: none; }
+    button { padding: 9px 12px; min-height: 38px; }
+    textarea { font-size: 16px; }
+    .leggi { flex: 1 1 100%; width: 100%; padding: 10px; }
+    .nota { margin-bottom: var(--s2); }
+  }
 </style>
