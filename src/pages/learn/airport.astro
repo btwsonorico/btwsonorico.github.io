@@ -66,6 +66,8 @@ import Base from '../../layouts/Base.astro';
   // Lo stato del gioco
   let modo: Modo = 'inizio', domande: Voce[] = [], k = 0, tentativi: number[] = [], vite = 3, punti = 0, corrente = -1;
   const VITE = 3;
+  // L'aereo della domanda che sta atterrando: il biglietto non si apre finché non è sulla pista
+  let pendente = -1, attesa: number | undefined;
 
   const riassunto = () => { const s = serie(); return `streak ${s.ora} · best ${s.migliore}`; };
   const scriviPunteggio = () => { punteggio.textContent = riassunto(); };
@@ -77,7 +79,7 @@ import Base from '../../layouts/Base.astro';
     for (const [m, e] of Object.entries(stati)) e.hidden = m !== modo;
     const e = stati[modo], r = primati();
     if (modo === 'in-quiz') {
-      $('.titolo-stato', e).textContent = `Quiz · question ${Math.min(k + 1, 6)} of 6 · ${domande[k]?.livello ?? ''}`;
+      $('.titolo-stato', e).textContent = `Quiz · question ${Math.min(k + 1, 6)} of 6 · ${domande[k]?.livello ?? ''}${pendente >= 0 ? ' · landing ✈' : ''}`;
       $('.passi', e).replaceChildren(...domande.map((_, q) => { const li = document.createElement('li'); li.className = q < k ? (tentativi[q] === 1 ? 'primo' : 'dopo') : q === k ? 'ora' : ''; return li; }));
     } else if (modo === 'fine-quiz') {
       const primi = tentativi.filter(t => t === 1).length;
@@ -85,7 +87,7 @@ import Base from '../../layouts/Base.astro';
       $('.quadri', e).textContent = tentativi.map(quadro).join(' ');
       $('.dettaglio', e).textContent = `best quiz ${r.quiz}/6 · ${riassunto()}`;
     } else if (modo === 'in-endless') {
-      $('.titolo-stato', e).textContent = `Endless · ${punti} cleared · ${cuori()}`;
+      $('.titolo-stato', e).textContent = `Endless · ${punti} cleared · ${cuori()}${pendente >= 0 ? ' · landing ✈' : ''}`;
       $('.dettaglio', e).textContent = `best endless ${r.endless} · a wrong answer costs a life`;
     } else if (modo === 'fine-endless') {
       $('.titolo-stato', e).textContent = `Out of fuel · ${punti} cleared`;
@@ -97,9 +99,22 @@ import Base from '../../layouts/Base.astro';
     tinte: voli.map(v => v.tinta), termini: voli.map(v => v.voce.termine), partiti: voli.map(() => false),
     // Senza quiz in corso, un clic su un aereo fa atterrare una domanda della sua sezione
     alClic: i => { if (modo === 'in-quiz' || modo === 'in-endless') return; assegna(i, nuovoVolo(i, recenti).voce); },
-    alCambio: () => {},
+    alCambio: fasi => {
+      if (pendente >= 0 && fasi[pendente] === 'boarding') apriPendente();
+    },
   });
-  // Una domanda: va all'aereo della sua sezione, che atterra; il biglietto si apre
+  function apriPendente() {
+    if (pendente < 0) return;
+    const i = pendente;
+    pendente = -1;
+    if (attesa) { clearTimeout(attesa); attesa = undefined; }
+    imbarco.mostra(i);
+    scriviStato();
+  }
+  function fermaAttesa() {
+    if (attesa) { clearTimeout(attesa); attesa = undefined; }
+  }
+  // Una domanda: va all'aereo della sua sezione, che atterra; il biglietto si apre solo quando è sulla pista
   function assegna(_i: number, voce: Voce) {
     const v = voloDa(voce), i = v.indice;
     recenti.push(voce.id); if (recenti.length > 24) recenti.shift();
@@ -107,24 +122,29 @@ import Base from '../../layouts/Base.astro';
     azzera(p, i);
     scena.riposa(i, voce.termine);
     corrente = i;
-    imbarco.mostra(i);
-    scena.chiama(i);
+    fermaAttesa();
+    // Se l'aereo è già sulla pista non c'è atterraggio da aspettare
+    const arriva = scena.chiama(i, true);
+    if (!arriva) { pendente = -1; imbarco.mostra(i); scriviStato(); return; }
+    pendente = i;
+    scriviStato();
+    attesa = window.setTimeout(apriPendente, 4500);
   }
   const avviaQuiz = () => { domande = quiz(); k = 0; tentativi = []; modo = 'in-quiz'; scriviStato(); assegna(0, domande[0]!); };
   const avviaEndless = () => { vite = VITE; punti = 0; modo = 'in-endless'; scriviStato(); assegna(0, aCaso(recenti)); };
   const fineQuiz = () => {
-    imbarco.nascondi(); modo = 'fine-quiz';
+    fermaAttesa(); pendente = -1; imbarco.nascondi(); modo = 'fine-quiz';
     if (segnaPrimato('quiz', tentativi.filter(t => t === 1).length)) scena.fuochi();
     scriviStato();
   };
   const fineEndless = () => {
-    imbarco.nascondi(); modo = 'fine-endless';
+    fermaAttesa(); pendente = -1; imbarco.nascondi(); modo = 'fine-endless';
     if (segnaPrimato('endless', punti) && punti >= 2) scena.fuochi();
     scriviStato();
   };
   document.querySelectorAll('.avvia-quiz').forEach(b => b.addEventListener('click', avviaQuiz));
   document.querySelectorAll('.avvia-endless').forEach(b => b.addEventListener('click', avviaEndless));
-  document.querySelectorAll('.esci').forEach(b => b.addEventListener('click', () => { if (modo === 'in-quiz') { imbarco.nascondi(); modo = 'inizio'; scriviStato(); } else fineEndless(); }));
+  document.querySelectorAll('.esci').forEach(b => b.addEventListener('click', () => { fermaAttesa(); pendente = -1; if (modo === 'in-quiz') { imbarco.nascondi(); modo = 'inizio'; scriviStato(); } else fineEndless(); }));
   $('.copia').addEventListener('click', async e => {
     const b = e.currentTarget as HTMLButtonElement, testo = `AI terms quiz ✈ ${tentativi.filter(t => t === 1).length}/6\n${tentativi.map(quadro).join('')}\nhttps://btwsonorico.github.io/learn/airport/`;
     try { await navigator.clipboard.writeText(testo); b.textContent = 'copied ✓'; } catch { b.textContent = 'copy failed'; }
@@ -151,11 +171,12 @@ import Base from '../../layouts/Base.astro';
       scriviPunteggio(); scriviStato();
     },
     prossimo: () => {
+      fermaAttesa(); pendente = -1;
       if (modo === 'in-quiz') { k++; if (k >= domande.length) fineQuiz(); else { scriviStato(); assegna(0, domande[k]!); } }
       else if (modo === 'in-endless') assegna(0, aCaso(recenti));
       else imbarco.nascondi();
     },
-    chiudi: () => { imbarco.nascondi(); if (modo === 'in-quiz') { modo = 'inizio'; scriviStato(); } else if (modo === 'in-endless') fineEndless(); },
+    chiudi: () => { fermaAttesa(); pendente = -1; imbarco.nascondi(); if (modo === 'in-quiz') { modo = 'inizio'; scriviStato(); } else if (modo === 'in-endless') fineEndless(); },
   });
   void corrente;
   scriviPunteggio(); scriviStato();
@@ -441,42 +462,28 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .carta[data-stile='replay'] .definizione ul) { padding-left: 14px; }
   :global(.imbarco .carta[data-stile='replay'] .piede-retro) { padding-top: 5px; border-top: 1px solid var(--rp-linea); color: var(--rp-ink) !important; font-size: 8px; }
   :global(.imbarco .carta[data-stile='replay'] .piede-retro .seriale) { font-size: 8px; }
-  /* Veduta: una città di aeroporto disegnata in piano. Ogni strato si sposta a una velocità diversa con
-     l'inclinazione: il cielo fermo, i grattacieli lontani, il terminal, la pista e le palme in primo piano */
-  :global(.imbarco .carta[data-stile='veduta'] .faccia) { color: var(--vd-scuro); background: var(--vd-tinta); }
-  :global(.imbarco .carta[data-stile='veduta'] .arte70), :global(.imbarco .carta[data-stile='veduta'] .poster) { position: relative; overflow: hidden; background: var(--vd-tinta); }
-  :global(.imbarco .carta[data-stile='veduta'] .vd) { position: absolute; inset: 0; overflow: hidden; }
-  :global(.imbarco .carta[data-stile='veduta'] .vd-l) { position: absolute; inset: -12%; }
-  :global(.imbarco .carta[data-stile='veduta'] .vd-l svg) { display: block; width: 100%; height: 100%; }
-  :global(.imbarco .carta[data-stile='veduta'] .vd-cielo) { transform: translate(calc(var(--tx) * -2px), calc(var(--ty) * -1px)); }
-  :global(.imbarco .carta[data-stile='veduta'] .vd-lontano) { transform: translate(calc(var(--tx) * -6px), calc(var(--ty) * -3px)) scale(1.02); }
-  :global(.imbarco .carta[data-stile='veduta'] .vd-medio) { transform: translate(calc(var(--tx) * -11px), calc(var(--ty) * -6px)) scale(1.04); }
-  :global(.imbarco .carta[data-stile='veduta'] .vd-vicino) { transform: translate(calc(var(--tx) * -17px), calc(var(--ty) * -9px)) scale(1.06); }
-  :global(.imbarco .carta[data-stile='veduta'] .banda) { background: var(--vd-banda) !important; box-shadow: inset 1px 0 rgb(0 0 0 / .2), inset -1px 0 rgb(0 0 0 / .2); }
-  :global(.imbarco .carta[data-stile='veduta'] .banda span), :global(.imbarco .carta[data-stile='veduta'] .sotto) { color: #fff !important; opacity: 1; }
-  :global(.imbarco .carta[data-stile='veduta'] .carta-dom) { padding: 0; background: none; color: var(--vd-scuro); border: 0; }
-  :global(.imbarco .carta[data-stile='veduta'] .domanda) { font-weight: 800; letter-spacing: -.02em; }
-  :global(.imbarco .carta[data-stile='veduta'] .opzione) { border: 1.5px solid color-mix(in srgb, var(--vd-scuro) 62%, transparent); border-radius: 0; color: var(--vd-scuro); background: color-mix(in srgb, var(--vd-tinta) 70%, transparent); }
-  :global(.imbarco .carta[data-stile='veduta'] .opzione span) { color: var(--vd-banda) !important; opacity: 1; font-weight: 700; }
-  :global(.imbarco .carta[data-stile='veduta'] .opzione:hover:not(:disabled)) { background: var(--vd-banda); border-color: var(--vd-banda); color: #fff; }
-  :global(.imbarco .carta[data-stile='veduta'] .opzione:hover:not(:disabled) span) { color: #fff !important; }
-  :global(.imbarco .carta[data-stile='veduta'] .opzione.giusta) { background: var(--vd-scuro); border-color: var(--vd-scuro); color: var(--vd-tinta); }
-  :global(.imbarco .carta[data-stile='veduta'] .tagliando) { background: var(--vd-tinta) var(--trama); background-size: auto, 44px 9px; border-left: 2px dashed color-mix(in srgb, var(--vd-scuro) 45%, transparent); color: var(--vd-scuro); }
-  :global(.imbarco .carta[data-stile='veduta'] .tagliando .nome) { font-size: 22px; }
-  :global(.imbarco .carta[data-stile='veduta'] .seriale) { color: var(--vd-banda) !important; }
-  :global(.imbarco .carta[data-stile='veduta'] .codice span) { background: var(--vd-scuro); }
-  :global(.imbarco .carta[data-stile='veduta'] .pannello) { background: var(--vd-tinta); color: var(--vd-scuro); }
-  :global(.imbarco .carta[data-stile='veduta'] .retro .titolo) { color: var(--vd-banda) !important; }
-  :global(.imbarco .carta[data-stile='veduta'] .definizione) { background: repeating-linear-gradient(transparent 0 21px, color-mix(in srgb, var(--vd-scuro) 12%, transparent) 21px 22px); background-attachment: local; }
-  :global(.imbarco .carta[data-stile='veduta'] .piede-retro) { color: var(--vd-banda) !important; border-color: color-mix(in srgb, var(--vd-scuro) 45%, transparent); }
-  :global(.imbarco .carta[data-stile='veduta'] .bagliore) { opacity: calc(.1 + var(--t) * .5); }
   /* Sfera: carta burro e un grappolo di sfere translucide, come un render. Davanti il grappolo, dietro due */
-  @keyframes sfbreathe { to { transform: translate(1.6%, -1.8%) scale(1.05); } }
+  @keyframes sfbreathe {
+    0% { transform: translate(-.9%, .5%) scale(1) rotate(-.7deg); }
+    100% { transform: translate(1.5%, -1.4%) scale(1.045) rotate(.8deg); }
+  }
   :global(.imbarco .carta[data-stile='sfera'] .faccia) { color: var(--sf-ink); background: var(--sf-fondo); }
   :global(.imbarco .carta[data-stile='sfera'] .arte70), :global(.imbarco .carta[data-stile='sfera'] .poster) { position: relative; overflow: hidden; background: var(--sf-fondo); }
   :global(.imbarco .carta[data-stile='sfera'] .sf) { position: absolute; inset: 0; }
   :global(.imbarco .carta[data-stile='sfera'] .sf-livello) { position: absolute; inset: 0; animation: sfbreathe 11s ease-in-out infinite alternate; }
   :global(.imbarco .carta[data-stile='sfera'] .sf-livello svg) { display: block; width: 100%; height: 100%; }
+  /* Ogni sfera va per conto suo; i tre strati seguono l'inclinazione a velocità diverse, come il grappolo del video */
+  /* Il respiro di ogni sfera: deriva, si allunga e si schiaccia appena, come una sfera morbida */
+  @keyframes sfderiva {
+    0%, 100% { transform: translate(0, 0) scale(1, 1); }
+    27% { transform: translate(calc(var(--ax, 0px) * -.72), calc(var(--ay, 0px) * .58)) scale(calc(1 + var(--sc, .04)), calc(1 - var(--sc, .04) * .55)); }
+    53% { transform: translate(var(--ax, 0px), calc(var(--ay, 0px) * -.42)) scale(calc(1 - var(--sc, .04) * .6), calc(1 + var(--sc, .04))); }
+    78% { transform: translate(calc(var(--ax, 0px) * .38), var(--ay, 0px)) scale(calc(1 + var(--sc, .04) * .5), calc(1 - var(--sc, .04) * .3)); }
+  }
+  :global(.imbarco .carta[data-stile='sfera'] .sf-sfera) { transform-box: fill-box; transform-origin: 50% 50%; animation: sfderiva var(--dur, 9s) ease-in-out var(--delay, 0s) infinite; will-change: transform; }
+  :global(.imbarco .carta[data-stile='sfera'] .sf-strato-0) { transform: translate(calc(var(--tx) * -3px), calc(var(--ty) * -2px)); }
+  :global(.imbarco .carta[data-stile='sfera'] .sf-strato-1) { transform: translate(calc(var(--tx) * -7px), calc(var(--ty) * -5px)); }
+  :global(.imbarco .carta[data-stile='sfera'] .sf-strato-2) { transform: translate(calc(var(--tx) * -12px), calc(var(--ty) * -8px)); }
   :global(.imbarco .carta[data-stile='sfera'] .sf-testa), :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { position: absolute; left: 9px; right: 9px; display: flex; justify-content: space-between; gap: 8px; font-family: var(--mono); font-size: 6.5px; line-height: 1.2; letter-spacing: .16em; text-transform: uppercase; opacity: .82; }
   :global(.imbarco .carta[data-stile='sfera'] .sf-testa) { top: 9px; }
   :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { bottom: 9px; }
@@ -497,34 +504,15 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .carta[data-stile='sfera'] .definizione) { background: none; font-size: 13px; line-height: 21px; }
   :global(.imbarco .carta[data-stile='sfera'] .piede-retro) { color: #4b3fc0 !important; border-color: var(--sf-linea); }
   :global(.imbarco .carta[data-stile='sfera'] .grana) { opacity: .45; }
-  /* Flare: bagliori anime disegnati a mano. Quasi nero, rosa acceso, anelli e stelle a quattro punte */
-  :global(.imbarco .carta[data-stile='flare'] .faccia) { color: var(--fl-ink); background: var(--fl-fondo); }
-  :global(.imbarco .carta[data-stile='flare'] .arte70), :global(.imbarco .carta[data-stile='flare'] .poster) { position: relative; overflow: hidden; background: radial-gradient(circle at 50% 52%, color-mix(in srgb, var(--fl-rosa) 22%, transparent), transparent 62%), var(--fl-fondo); }
-  :global(.imbarco .carta[data-stile='flare'] .banda) { background: var(--fl-rosa) !important; box-shadow: inset 1px 0 rgb(0 0 0 / .25), inset -1px 0 rgb(0 0 0 / .25); }
-  :global(.imbarco .carta[data-stile='flare'] .banda span) { color: var(--fl-fondo) !important; font-weight: 700; }
-  :global(.imbarco .carta[data-stile='flare'] .sotto) { color: var(--fl-chiara) !important; opacity: 1; }
-  :global(.imbarco .carta[data-stile='flare'] .carta-dom) { padding: 0; background: none; color: var(--fl-ink); border: 0; }
-  :global(.imbarco .carta[data-stile='flare'] .opzione) { border: 1.5px solid color-mix(in srgb, var(--fl-rosa) 55%, transparent); border-radius: 0; color: var(--fl-ink); background: color-mix(in srgb, var(--fl-tinta) 70%, transparent); }
-  :global(.imbarco .carta[data-stile='flare'] .opzione span) { color: var(--fl-rosa) !important; opacity: 1; font-weight: 700; }
-  :global(.imbarco .carta[data-stile='flare'] .opzione:hover:not(:disabled)) { background: var(--fl-rosa); border-color: var(--fl-rosa); color: var(--fl-fondo); }
-  :global(.imbarco .carta[data-stile='flare'] .opzione:hover:not(:disabled) span) { color: var(--fl-fondo) !important; }
-  :global(.imbarco .carta[data-stile='flare'] .opzione.giusta) { background: var(--fl-rosa); border-color: var(--fl-rosa); color: var(--fl-fondo); }
-  :global(.imbarco .carta[data-stile='flare'] .tagliando) { background: var(--fl-pannello); border-left: 2px dashed color-mix(in srgb, var(--fl-rosa) 48%, transparent); color: var(--fl-ink); }
-  :global(.imbarco .carta[data-stile='flare'] .tagliando .nome) { color: var(--fl-ink); }
-  :global(.imbarco .carta[data-stile='flare'] .seriale) { color: var(--fl-chiara) !important; }
-  :global(.imbarco .carta[data-stile='flare'] .codice span) { background: var(--fl-rosa); }
-  :global(.imbarco .carta[data-stile='flare'] .pannello) { background: var(--fl-pannello); color: var(--fl-ink); }
-  :global(.imbarco .carta[data-stile='flare'] .retro .titolo) { color: var(--fl-rosa) !important; }
-  :global(.imbarco .carta[data-stile='flare'] .definizione) { background: none; }
-  :global(.imbarco .carta[data-stile='flare'] .piede-retro) { color: var(--fl-chiara) !important; border-color: color-mix(in srgb, var(--fl-rosa) 45%, transparent); }
-  :global(.imbarco .carta[data-stile='flare'] .grana) { opacity: .3; }
-  :global(.imbarco .carta[data-stile='flare'] .bagliore) { mix-blend-mode: screen; opacity: calc(.08 + var(--t) * .3); background: radial-gradient(circle at calc(50% + var(--tx) * 45%) calc(50% + var(--ty) * 45%), color-mix(in srgb, var(--fl-rosa) 50%, transparent), transparent 55%); }
   :global(.imbarco .azioni) { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
   :global(.imbarco .azioni button) { padding: 6px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--muted); cursor: pointer; }
   :global(.imbarco .azioni .prossimo), :global(.imbarco .azioni .gira) { color: var(--fg); border-color: var(--muted); }
   :global(.imbarco .azioni button:hover) { color: var(--fg); border-color: var(--fg); }
   :global(.imbarco .azioni button[hidden]) { display: none; }
-  @media (prefers-reduced-motion: reduce) { :global(.imbarco .carta) { transition: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    :global(.imbarco .carta) { transition: none; }
+    :global(.imbarco .carta[data-stile='sfera'] .sf-livello), :global(.imbarco .carta[data-stile='sfera'] .sf-sfera), :global(.imbarco .carta[data-stile='veduta'] .vd-l svg) { animation: none; }
+  }
   @media (max-width: 640px) {
     .fondo3d { top: 300px; }
     .sotto { display: none; }

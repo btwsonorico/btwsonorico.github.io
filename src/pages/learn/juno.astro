@@ -1,0 +1,81 @@
+---
+import Base from '../../layouts/Base.astro';
+
+// Juno: la voce di Underdog Woof, un modello di sintesi vocale di 31 MB che gira nel browser con WebGPU.
+// Non è un traduttore: prende del testo inglese e lo legge ad alta voce, tutto sul tuo dispositivo.
+---
+
+<Base title="Juno · Underdog Woof" description="A 31 MB text-to-speech model that runs in your browser: type English text and hear Juno read it aloud. No server, no API key." tono="neutro" largo>
+  <main class="juno">
+    <header class="testa">
+      <h1>Juno · Underdog Woof</h1>
+      <p class="sotto">A 31 MB text-to-speech model that runs in your browser. Type English text and hear Juno read it aloud: nothing leaves your device.</p>
+    </header>
+
+    <section class="prova">
+      <label for="testo" class="mono">English text</label>
+      <textarea id="testo" rows="4" placeholder="Type something in English, then open the demo below and paste it into the typewriter.">Please call me back at 415-555-0199 before 5:30 p.m. on Friday.</textarea>
+      <div class="azioni">
+        <button type="button" id="copia">Copy text</button>
+        <button type="button" id="apri">Open the demo in a new tab</button>
+        <span id="stato" class="mono"></span>
+      </div>
+      <p class="nota mono">Juno is a voice, not a translator: it reads English text aloud. The official demo runs the model with WebGPU; on browsers without WebGPU it cannot speak.</p>
+    </section>
+
+    <section class="demo">
+      <h2>Try it here</h2>
+      <p class="mono">The model loads inside the official demo. Type on the virtual typewriter and press Enter to hear it.</p>
+      <iframe id="frame" src="https://underdog.ai/escape" title="Underdog Woof Escape demo" loading="lazy" allow="autoplay; fullscreen"></iframe>
+    </section>
+
+    <section class="info">
+      <h2>What this is</h2>
+      <ul>
+        <li><strong>Model:</strong> Underdog Woof, 30.7 million parameters, about 31.7 MB download (one-voice build). Two voices in the 40.6 MB build: Juno and Mira.</li>
+        <li><strong>Runs:</strong> in your browser, on your GPU, via WebGPU. After the first load it works offline.</li>
+        <li><strong>Licence:</strong> CC BY-NC 4.0 (non-commercial). Commercial use needs a separate licence from Underdog.</li>
+        <li><strong>Download:</strong> <a href="https://huggingface.co/ConwayResearch/Underdog-Woof" target="_blank" rel="noopener">ConwayResearch/Underdog-Woof on Hugging Face</a>.</li>
+      </ul>
+    </section>
+  </main>
+</Base>
+
+<script>
+  const testo = document.getElementById('testo') as HTMLTextAreaElement;
+  const copia = document.getElementById('copia') as HTMLButtonElement;
+  const apri = document.getElementById('apri') as HTMLButtonElement;
+  const stato = document.getElementById('stato') as HTMLSpanElement;
+  const frame = document.getElementById('frame') as HTMLIFrameElement;
+
+  copia.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(testo.value); stato.textContent = 'copied ✓'; }
+    catch { stato.textContent = 'copy failed'; }
+    setTimeout(() => { stato.textContent = ''; }, 1800);
+  });
+  apri.addEventListener('click', () => { window.open('https://underdog.ai/escape', '_blank', 'noopener'); });
+  // WebGPU check
+  if (!('gpu' in navigator)) {
+    stato.textContent = 'WebGPU not available in this browser';
+  }
+</script>
+
+<style>
+  .juno { max-width: 960px; margin: 0 auto; padding: var(--s2); }
+  .testa h1 { margin: 0 0 var(--s1); font-size: 30px; font-weight: 400; }
+  .sotto { color: var(--muted); margin: 0 0 var(--s3); }
+  .prova { margin-bottom: var(--s3); }
+  .prova label { display: block; margin-bottom: 6px; }
+  .prova textarea { width: 100%; padding: 10px 12px; font: inherit; font-size: 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); resize: vertical; }
+  .azioni { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .azioni button { padding: 6px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; font-size: 13px; }
+  .azioni button:hover { border-color: var(--fg); }
+  .nota { margin-top: 8px; font-size: 11px; color: var(--muted); }
+  .demo { margin-bottom: var(--s3); }
+  .demo h2 { font-size: 18px; font-weight: 400; margin: 0 0 6px; }
+  .demo p { color: var(--muted); margin: 0 0 8px; font-size: 12px; }
+  .demo iframe { width: 100%; height: 620px; border: 1px solid var(--line); border-radius: 8px; background: #000; }
+  .info h2 { font-size: 18px; font-weight: 400; margin: 0 0 6px; }
+  .info ul { margin: 0; padding-left: 18px; line-height: 1.7; font-size: 13px; }
+  .info a { color: var(--fg); }
+</style>
