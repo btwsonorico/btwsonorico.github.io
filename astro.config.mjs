@@ -5,6 +5,6 @@ export default defineConfig({
   // Passando sopra un link la pagina si scarica in anticipo: il clic è quasi istantaneo
   prefetch: { prefetchAll: true, defaultStrategy: 'hover' },
   // La sezione Projects ora si chiama Software (indirizzo /software/): i vecchi indirizzi portano a quelli nuovi
-  // L'About è diventata la home
-  redirects: { '/projects': '/software', '/about': '/' },
+  // L'About è diventata la home; la pagina di Juno ora sta sotto /learn/t2s/
+  redirects: { '/projects': '/software', '/about': '/', '/learn/juno': '/learn/t2s' },
 });
