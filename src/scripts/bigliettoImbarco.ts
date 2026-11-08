@@ -92,7 +92,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   // --- L'inclinazione. Da -1 a 1 su x e y. Il mouse sopra o il dito che trascina vincono; poi il giroscopio; senza
   // niente, un'oscillazione lenta. Ogni fotogramma scrive --tx, --ty, --t e gira i gradienti della foglia
   const fermo = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // Su telefono non inclinare la carta: trasformazioni 3D e gesti touch non devono ostacolare la lettura.
+  // Su telefono la carta si inclina con il giroscopio, un po' meno che su computer
   const telefono = matchMedia('(max-width: 640px), (max-height: 500px) and (pointer: coarse)');
   const mano = { x: 0, y: 0, attiva: false }, ora = { x: 0, y: 0 };
   let giro: { x: number; y: number } | null = null, anima = 0, foglie: Element[] = [], tele: HTMLCanvasElement[] = [], ultimoAscii = 0;
@@ -107,7 +107,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     if (e.pointerType !== 'mouse') segui(e);
     // iOS chiede il permesso per il giroscopio al primo tocco
     const D = window.DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> } | undefined;
-    if (!telefono.matches && e.pointerType !== 'mouse' && typeof D?.requestPermission === 'function' && !giro) D.requestPermission().catch(() => { /* resta il dito */ });
+    if (e.pointerType !== 'mouse' && typeof D?.requestPermission === 'function' && !giro) D.requestPermission().catch(() => { /* resta il dito */ });
   });
   biglietto.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') mano.attiva = false; });
   biglietto.addEventListener('pointerleave', () => { mano.attiva = false; });
@@ -126,7 +126,8 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     const s = biglietto.style;
     s.setProperty('--tx', ora.x.toFixed(3)); s.setProperty('--ty', ora.y.toFixed(3));
     s.setProperty('--t', Math.min(1, Math.hypot(ora.x, ora.y)).toFixed(3));
-    s.transform = fermo || telefono.matches ? '' : `perspective(1600px) rotateX(${(-ora.y * 9).toFixed(2)}deg) rotateY(${(ora.x * 12).toFixed(2)}deg)`;
+    const k = telefono.matches ? 0.75 : 1;
+    s.transform = fermo ? '' : `perspective(1600px) rotateX(${(-ora.y * 9 * k).toFixed(2)}deg) rotateY(${(ora.x * 12 * k).toFixed(2)}deg)`;
     const ang = 20 + ora.x * 70 + ora.y * 25, sp = ora.x * 0.5;
     foglie.forEach(g => g.setAttribute('gradientTransform', `translate(${sp.toFixed(3)} 0) rotate(${ang.toFixed(1)} .5 .5)`));
     // Le tele vive: circa 30 fotogrammi al secondo (le scene di caratteri si limitano da sole); con il movimento ridotto un fotogramma solo

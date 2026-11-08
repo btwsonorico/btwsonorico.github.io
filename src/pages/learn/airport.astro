@@ -67,7 +67,17 @@ import Base from '../../layouts/Base.astro';
   const base = (t: number) => (t <= 1 ? 10 : t === 2 ? 5 : 2);
   const record = () => primati().punti ?? 0;
   const riassunto = () => `score ${punti} · combo ×${molt(combo).toFixed(1)} · best ${record()}`;
-  const scriviPunteggio = () => { punteggio.textContent = modo === 'in-gioco' ? `${punti} pts · ${cuori()} · ×${molt(combo).toFixed(1)} · best ${record()}` : `best ${record()}`; };
+  // Il punteggio come in un gioco: badge separati per punti, vite, combo e record
+  const badge = (classe: string, testo: string, piccolo?: string) => { const b = document.createElement('span'); b.className = `hud ${classe}`; b.textContent = testo; if (piccolo) { const sm = document.createElement('small'); sm.textContent = piccolo; b.append(sm); } return b; };
+  const scriviPunteggio = () => {
+    if (modo !== 'in-gioco') { punteggio.replaceChildren(badge('hud-best', `${record()}`, 'best')); return; }
+    punteggio.replaceChildren(
+      badge('hud-punti', `${punti}`, 'pts'),
+      badge('hud-vite', cuori()),
+      badge(`hud-combo${combo > 1 ? ' attiva' : ''}`, `×${molt(combo).toFixed(1)}`, 'combo'),
+      badge('hud-best', `${Math.max(record(), punti)}`, 'best'),
+    );
+  };
   const cuori = () => '♥'.repeat(Math.max(0, vite)) + '♡'.repeat(Math.max(0, VITE - vite));
   const scriviStato = () => {
     scriviPunteggio();
@@ -205,7 +215,12 @@ import Base from '../../layouts/Base.astro';
   .aeroporto > * { max-width: 400px; margin: 0 0 var(--s1); }
   h1 { font-size: 33px; font-weight: 400; line-height: 1.1; }
   .sotto { color: var(--muted); }
-  .punteggio { font-size: 12px; color: var(--muted); }
+  .punteggio { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+  .punteggio :global(.hud) { display: inline-flex; align-items: baseline; gap: 4px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: color-mix(in srgb, var(--bg) 72%, transparent); backdrop-filter: blur(6px); color: var(--fg); }
+  .punteggio :global(.hud small) { font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .punteggio :global(.hud-punti) { font-size: 17px; font-weight: 700; color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+  .punteggio :global(.hud-vite) { color: #ff6b81; letter-spacing: .08em; }
+  .punteggio :global(.hud-combo.attiva) { color: #ffd84a; border-color: #ffd84a88; }
   .pannello-gioco { pointer-events: auto; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--bg) 86%, transparent); }
   .stato-gioco > * { margin: 0 0 8px; }
   .stato-gioco > *:last-child { margin-bottom: 0; }
@@ -378,7 +393,7 @@ import Base from '../../layouts/Base.astro';
        Il biglietto scorre: i pulsanti non possono rimanere fuori dallo schermo. */
     :global(.imbarco) { inset: 0; width: auto; max-height: 100vh; max-height: 100dvh; box-sizing: border-box; transform: none; overflow-y: auto; overscroll-behavior: contain; padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); }
     :global(.imbarco:not([hidden])) { display: flex; flex-direction: column; }
-    :global(.imbarco .biglietto) { margin-top: auto; transform: none !important; touch-action: pan-y; }
+    :global(.imbarco .biglietto) { margin-top: auto; touch-action: pan-y; }
     :global(.imbarco .azioni) { margin-bottom: auto; }
     /* Su touch mostra solo il lato attivo: il retro precedente non può stirare il fronte. */
     :global(.imbarco .carta), :global(.imbarco .carta.girata) { display: block; transform: none; transition: none; }
@@ -390,7 +405,8 @@ import Base from '../../layouts/Base.astro';
        con le risposte dentro, a portata di pollice */
     :global(body:has(.imbarco:not([hidden]))) .fondo3d { top: 0; bottom: auto; height: 34vh; height: 34dvh; }
     :global(body:has(.imbarco:not([hidden]))) .aeroporto > :not(.punteggio) { display: none; }
-    :global(body:has(.imbarco:not([hidden]))) .punteggio { position: relative; z-index: 4; text-shadow: 0 1px 3px #000; }
+    /* In partita, su telefono, i badge stanno in alto sopra la scena, nello spazio lasciato dai link */
+    :global(body:has(.imbarco:not([hidden]))) .punteggio { position: fixed; top: 52px; left: 10px; right: 10px; z-index: 4; justify-content: center; }
     :global(.imbarco) { top: 30vh; top: 30dvh; }
     :global(.imbarco .fronte > :not(.arte70):not(.strato):not(.timbri)) { grid-column: 1 / -1; }
     :global(.imbarco .banda span) { writing-mode: horizontal-tb; rotate: 0deg; font-size: 8px; }
