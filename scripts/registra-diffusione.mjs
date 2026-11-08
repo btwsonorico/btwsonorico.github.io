@@ -1,10 +1,12 @@
-// Registra una volta, offline, i dati e una corsa di inference della stella per l'arte «diffusione» dei biglietti di AI terms.
-// Usa lo stesso modello della pagina /learn/diffusion (src/lib/spirale.ts), con le stesse impostazioni: 1.024 punti sul contorno
-// della stella, gruppi da 64, 8.000 passi, Adam con lr che scende, media dei pesi. Poi fa girare l'inference e salva le posizioni,
-// più una parte dei dati veri per il davanti (il training).
-// Uscita: src/data/diffusione-stella.ts, con le posizioni in byte (int8) codificati in base64.
+// Registra una volta, offline, quello che la tela di /learn/diffusion mostra con la stella, per l'arte «diffusione» dei biglietti di AI terms.
+// Usa lo stesso modello e lo stesso ciclo della pagina (src/lib/spirale.ts, src/scripts/spiraleVista.ts), con un orologio finto a 60 fps:
+// - davanti (training, bottone «train»): 8.000 passi in 30 s, il ritmo che la pagina dichiara. Si salvano i dati veri, le frecce a ogni
+//   ricalcolo della pagina (ogni 200 ms; dopo i primi 5 s una su tre), un racconto ogni 1,1 s (il punto vero, il suo cammino di rumore
+//   passo dopo passo, l'ipotesi della rete e il suo errore), l'errore medio ogni 100 passi e «on shape» ogni 500;
+// - dietro (inference, bottone «generate» a 20 passi): 300 punti dal rumore alla stella, con le frecce di ogni passo.
+// Uscita: src/data/diffusione-stella.ts, con posizioni e frecce in byte (int8) codificati in base64.
 // Uso: node scripts/registra-diffusione.mjs   (Node 23.6+: legge il .ts senza build)
-import { writeFileSync } from 'node:fs';
+import { renameSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 // Un caso ripetibile: lo stesso seme dà gli stessi dati, lo stesso modello e le stesse corse
@@ -16,110 +18,153 @@ Math.random = () => {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
 
-const { abar, aggiornaMedia, allena, conMedia, gauss, indietro, nuovoModello, stella, stima, sullaForma, T } = await import('../src/lib/spirale.ts');
+const { abar, aggiornaMedia, allena, conMedia, errorePiuBasso, gauss, indietro, nuovoModello, stella, stima, sullaForma, T } = await import('../src/lib/spirale.ts');
 
 // Le stesse impostazioni della pagina (src/scripts/spiraleVista.ts)
-const N_DATI = 1024, GRUPPO = 64, FINE = 8000, MONDO = 1.65, T_FRECCE_MAX = 44;
-// Cosa si registra. Davanti (training): 480 punti dei dati della stella e un campione vero ogni 50 passi (160 in tutto). Dietro (inference): una corsa da 300 punti in 25 passi, con le frecce
-const N_DATI_ARTE = 480, OGNI = 50, SCALA_E = 4.5 / 127, N_CORSA = 300, PASSI_CORSA = 25, N_FRECCE = 10;
-// Un byte con segno per coordinata: da -3 a 3, un gradino ogni 0,024 circa
-const SCALA = 3 / 127;
-const byte = v => Math.max(-127, Math.min(127, Math.round(v / SCALA)));
+const N_DATI = 1024, N_NUOVI = 300, GRUPPO = 64, FINE = 8000, MONDO = 1.65, N_FRECCE = 14, T_ALLENA = 12, T_FRECCE_MAX = 44, OGNI_FRECCE = 200, RACCONTO = 1100, PASSI_NUOVI = 20;
+// Il ritmo: la pagina dice «in about 30 seconds». L'orologio finto va a 60 fps
+const DURATA = 30000, FPS = 60, DT = 1000 / FPS;
+// Le frecce salvate: tutte nei primi 5 s, quando cambiano di più; dopo, una ogni 550 ms almeno
+const FRECCE_FITTE = 5000, FRECCE_RADE = 550;
 const LATO = (2 * MONDO) / N_FRECCE;
-
-// --- Training, come il bottone «train» della pagina
-const dati = stella(N_DATI), m = nuovoModello(), media = conMedia(m);
-const via = performance.now();
-let somma = 0;
-// I campioni del training: ogni OGNI passi si ascoltano i primi 6 numeri a caso del passo. Sono il primo punto del gruppo:
-// indice, livello t, poi due gauss da due numeri ciascuno (src/lib/spirale.ts, allena). Il training resta identico: i numeri
-// sono gli stessi, solo letti. Per campione: x0, y0 del punto vero, t, il rumore e0, e1, l'errore del passo × 100. Tutto in int8
-const casoVero = Math.random, campioni = new Int8Array((FINE / OGNI) * 6);
-for (let k = 0; k < FINE; k++) {
-  const registra = (k + 1) % OGNI === 0, letti = [];
-  if (registra) Math.random = () => { const r = casoVero(); if (letti.length < 6) letti.push(r); return r; };
-  const errore = allena(m, dati, GRUPPO, 3e-3 * (1 - m.passi / FINE) + 1e-4, T);
-  Math.random = casoVero;
-  somma += errore;
-  if (registra) {
-    const i = Math.floor(letti[0] * N_DATI), t = 1 + Math.floor(letti[1] * T), g = (a, b) => Math.sqrt(-2 * Math.log(1 - a)) * Math.cos(2 * Math.PI * b);
-    const e = [byte(dati[i * 2]), byte(dati[i * 2 + 1]), t, Math.max(-127, Math.min(127, Math.round(g(letti[2], letti[3]) / SCALA_E))), Math.max(-127, Math.min(127, Math.round(g(letti[4], letti[5]) / SCALA_E))), Math.min(127, Math.round(errore * 100))];
-    campioni.set(e, ((k + 1) / OGNI - 1) * 6);
-  }
-  aggiornaMedia(m, media);
-  if ((k + 1) % 1000 === 0) { console.log(`passo ${k + 1} · errore ${(somma / 1000).toFixed(3)}`); somma = 0; }
-}
-console.log(`training: ${((performance.now() - via) / 1000).toFixed(1)} s · sulla forma ${sullaForma(media, dati, 300, 20)}%`);
-
-// --- Inference: i tempi come in pagina, da T a 0 in parti uguali
-const tempiDi = passi => [...Array.from({ length: passi }, (_, k) => Math.round(T - (k * T) / passi)), 0];
+const lim = v => Math.max(-MONDO, Math.min(MONDO, v));
 const quota = t => Math.sqrt(1 - abar[t]);
+const int8 = (v, s) => Math.max(-127, Math.min(127, Math.round(v / s)));
+const tondo = (v, n = 3) => Number(v.toFixed(n));
 
-// Una corsa: per ogni passo, tutte le posizioni. frame 0 è il rumore puro
-function corsa(n, passi) {
-  const tempi = tempiDi(passi), p = Float32Array.from({ length: n * 2 }, () => gauss()), uscita = new Int8Array((passi + 1) * n * 2);
-  const salva = k => { for (let i = 0; i < n * 2; i++) uscita[k * n * 2 + i] = byte(p[i]); };
-  salva(0);
-  for (let k = 0; k < passi; k++) {
-    for (let i = 0; i < n; i++) [p[i * 2], p[i * 2 + 1]] = indietro(media, p[i * 2], p[i * 2 + 1], tempi[k], tempi[k + 1]);
-    salva(k + 1);
+// --- Le frecce della pagina (calcolaFrecce + il disegno): da ogni maglia verso il punto pulito stimato, già accorciate come le
+// disegna la pagina, in 127esimi di maglia
+function frecce(media, t) {
+  const q = Math.min(t, T_FRECCE_MAX), a = abar[q], sa = Math.sqrt(a), sb = Math.sqrt(1 - a), uscita = new Int8Array(N_FRECCE * N_FRECCE * 2);
+  for (let r = 0, i = 0; r < N_FRECCE; r++) for (let k = 0; k < N_FRECCE; k++, i += 2) {
+    const x = -MONDO + (k + 0.5) * LATO, y = -MONDO + (r + 0.5) * LATO, [e0, e1] = stima(media, x, y, q);
+    const dx = lim((x - sb * e0) / sa) - x, dy = lim((y - sb * e1) / sa) - y, d = Math.hypot(dx, dy) || 1, l = Math.min(0.8 * LATO, d * 0.6);
+    uscita[i] = Math.round(((dx / d) * l / LATO) * 127);
+    uscita[i + 1] = Math.round(((dy / d) * l / LATO) * 127);
   }
-  // Quanti punti finali stanno sulla stella, per controllo
-  let vicini = 0;
-  for (let i = 0; i < n; i++) {
-    let d = 9;
-    for (let j = 0; j < N_DATI; j++) d = Math.min(d, (p[i * 2] - dati[j * 2]) ** 2 + (p[i * 2 + 1] - dati[j * 2 + 1]) ** 2);
-    if (d < 0.0049) vicini++;
-  }
-  console.log(`corsa da ${n} punti in ${passi} passi: ${Math.round((vicini / n) * 100)}% sulla stella`);
-  return { tempi, uscita };
-}
-
-// Le frecce della pagina: da ogni maglia verso il punto pulito stimato, già accorciate come le disegna la pagina, in frazioni di maglia
-function frecce(tempi) {
-  const uscita = new Int8Array(tempi.length * N_FRECCE * N_FRECCE * 2), lim = v => Math.max(-MONDO, Math.min(MONDO, v));
-  tempi.forEach((t, f) => {
-    const q = Math.min(t, T_FRECCE_MAX), a = abar[q], sa = Math.sqrt(a), sb = Math.sqrt(1 - a);
-    for (let r = 0, i = f * N_FRECCE * N_FRECCE * 2; r < N_FRECCE; r++) for (let k = 0; k < N_FRECCE; k++, i += 2) {
-      const x = -MONDO + (k + 0.5) * LATO, y = -MONDO + (r + 0.5) * LATO;
-      if (q === 0) { uscita[i] = uscita[i + 1] = 0; continue; }
-      const [e0, e1] = stima(media, x, y, q), dx = lim((x - sb * e0) / sa) - x, dy = lim((y - sb * e1) / sa) - y, d = Math.hypot(dx, dy) || 1, l = Math.min(0.8 * LATO, d * 0.6);
-      uscita[i] = Math.round(((dx / d) * l / LATO) * 127);
-      uscita[i + 1] = Math.round(((dy / d) * l / LATO) * 127);
-    }
-  });
   return uscita;
 }
 
-const davanti = corsa(N_CORSA, PASSI_CORSA), frecceDavanti = frecce(davanti.tempi);
-// I dati del training: i primi punti della stella, già sparsi a caso lungo il contorno
-const datiArte = Int8Array.from(dati.subarray(0, N_DATI_ARTE * 2), byte);
+// --- Training, come il bottone «train» della pagina
+const dati = stella(N_DATI), m = nuovoModello(), media = conMedia(m), minimo = errorePiuBasso(dati, T);
+const storia = [], buoni = [], instantanee = [], racconti = [];
+let somma = 0, conta = 0, ora = 0, racconto = null, oraFrecce = -Infinity, ultimaSalvata = -Infinity;
+const allenaUno = () => {
+  somma += allena(m, dati, GRUPPO, 3e-3 * (1 - m.passi / FINE) + 1e-4, T);
+  aggiornaMedia(m, media);
+  if (++conta === 100) { storia.push(tondo(somma / conta)); somma = conta = 0; }
+  if (m.passi % 500 === 0) buoni.push(sullaForma(media, dati));
+};
+const calcolaFrecce = (fine = false) => {
+  oraFrecce = ora;
+  if (!fine && ora < ultimaSalvata + (ora < FRECCE_FITTE ? 0 : FRECCE_RADE)) return;
+  ultimaSalvata = ora;
+  instantanee.push({ ms: Math.round(ora), f: frecce(media, T_ALLENA) });
+};
+// Un racconto come nuovoRacconto: un punto vero, il suo rumore passo dopo passo (un gauss nuovo a ogni passo)
+function nuovoRacconto() {
+  const i = Math.floor(Math.random() * N_DATI), t = 1 + Math.floor(Math.random() * T), cammino = [dati[i * 2], dati[i * 2 + 1]];
+  let x = cammino[0], y = cammino[1];
+  for (let k = 1; k <= t; k++) {
+    const beta = 1 - abar[k] / abar[k - 1], s = Math.sqrt(1 - beta), r = Math.sqrt(beta);
+    x = s * x + r * gauss(); y = s * y + r * gauss();
+    cammino.push(x, y);
+  }
+  racconto = { inizio: ora, i, t, cammino, guess: null, errore: 0 };
+  racconti.push(racconto);
+}
+// Come indovina: l'ipotesi della rete sul punto pulito, con i pesi di quel momento
+function indovina(r) {
+  const n = r.cammino.length, x = r.cammino[n - 2], y = r.cammino[n - 1], a = abar[r.t], sa = Math.sqrt(a), sb = Math.sqrt(1 - a), [e0, e1] = stima(media, x, y, r.t);
+  r.guess = [lim((x - sb * e0) / sa), lim((y - sb * e1) / sa)];
+  const veri0 = (x - sa * dati[r.i * 2]) / sb, veri1 = (y - sa * dati[r.i * 2 + 1]) / sb;
+  r.errore = ((e0 - veri0) ** 2 + (e1 - veri1) ** 2) / 2;
+}
 
+// Il clic: le frecce si calcolano subito (non si vedono finché i passi sono 0). Poi il ciclo della pagina, un frame alla volta
+calcolaFrecce();
+const via = performance.now();
+while (m.passi < FINE) {
+  ora += DT;
+  const voluti = Math.min(FINE, Math.floor((ora / DURATA) * FINE));
+  while (m.passi < voluti) allenaUno();
+  if (m.passi >= FINE) racconto = null;
+  else if (!racconto || ora - racconto.inizio > RACCONTO) nuovoRacconto();
+  if (ora - oraFrecce > OGNI_FRECCE || m.passi >= FINE) calcolaFrecce(m.passi >= FINE);
+  if (racconto && (ora - racconto.inizio) / RACCONTO >= 0.5 && !racconto.guess) indovina(racconto);
+}
+// L'ultimo racconto si interrompe con la fine del training: la sua ipotesi non si vede, ma si calcola lo stesso
+for (const r of racconti) if (!r.guess) indovina(r);
+const fineMs = Math.round(ora);
+console.log(`training: ${((performance.now() - via) / 1000).toFixed(1)} s · errore ${storia.at(-1)} · minimo ${minimo.toFixed(3)} · on shape ${buoni.at(-1)}% · ${instantanee.length} frecce · ${racconti.length} racconti`);
+
+// --- Inference, come il bottone «generate» a 20 passi: i tempi da T a 0 in parti uguali
+const tempi = [...Array.from({ length: PASSI_NUOVI }, (_, k) => Math.round(T - (k * T) / PASSI_NUOVI)), 0];
+const p = Float32Array.from({ length: N_NUOVI * 2 }, () => gauss()), fotogrammi = [p.slice()];
+for (let k = 0; k < PASSI_NUOVI; k++) {
+  for (let i = 0; i < N_NUOVI; i++) [p[i * 2], p[i * 2 + 1]] = indietro(media, p[i * 2], p[i * 2 + 1], tempi[k], tempi[k + 1]);
+  fotogrammi.push(p.slice());
+}
+let vicini = 0;
+for (let i = 0; i < N_NUOVI; i++) {
+  let d = 9;
+  for (let j = 0; j < N_DATI; j++) d = Math.min(d, (p[i * 2] - dati[j * 2]) ** 2 + (p[i * 2 + 1] - dati[j * 2 + 1]) ** 2);
+  if (d < 0.0049) vicini++;
+}
+console.log(`inference: ${N_NUOVI} punti in ${PASSI_NUOVI} passi, ${Math.round((vicini / N_NUOVI) * 100)}% sulla stella`);
+
+// --- Codifica. Ogni fotogramma dell'inference ha la sua scala: con meno rumore i punti stanno più stretti e il byte è più fine
 const b64 = a => Buffer.from(a.buffer, a.byteOffset, a.byteLength).toString('base64');
-const quote = tempi => `[${tempi.map(t => quota(t).toFixed(3)).join(', ')}]`;
+const unisci = parti => { const u = new Int8Array(parti.reduce((s, a) => s + a.length, 0)); let o = 0; for (const a of parti) { u.set(a, o); o += a.length; } return u; };
+const SCALA_DATI = 1.2 / 127, SCALA_CAMMINO = 3.5 / 127;
+const scale = fotogrammi.map(f => tondo(f.reduce((s, v) => Math.max(s, Math.abs(v)), 0) / 127, 5));
+const punti = unisci(fotogrammi.map((f, k) => Int8Array.from(f, v => int8(v, scale[k]))));
+// Le frecce dell'inference: dopo il passo k la pagina le ricalcola al livello tempi[k]; all'ultimo passo restano quelle di prima
+const frecceNuovi = unisci(tempi.slice(0, PASSI_NUOVI).map(t => frecce(media, t)));
+const cammini = unisci(racconti.map(r => Int8Array.from(r.cammino, v => int8(v, SCALA_CAMMINO))));
+
 const testo = `// Generato da scripts/registra-diffusione.mjs: non modificare a mano.
-// Dati veri e una corsa di inference vera del modello di /learn/diffusion, allenato sulla stella (${FINE} passi, gruppi da ${GRUPPO}).
-// Ogni coordinata è un byte con segno (int8) in base64: valore = byte × SCALA. Ordine: frame, punto, x/y.
-// Le frecce sono in frazioni di maglia: valore = byte / 127 × LATO_FRECCE.
-export const SCALA = ${SCALA};
+// Quello che la tela di /learn/diffusion mostra con la stella, registrato con lo stesso modello e lo stesso ciclo della pagina.
+// Byte con segno (int8) in base64. Frecce: già accorciate come le disegna la pagina, valore = byte / 127 × lato della maglia.
 export const MONDO = ${MONDO};
 export const N_FRECCE = ${N_FRECCE};
-export const LATO_FRECCE = ${LATO};
+export const T_ALLENA = ${T_ALLENA};
 
-// Davanti (training): ${N_DATI_ARTE} punti dei dati veri della stella, x/y. CAMPIONI: un campione vero del training ogni ${OGNI} passi,
-// 6 byte ciascuno: x0, y0 (× SCALA), t (livello di rumore, 1–${T}), e0, e1 (il rumore usato, × SCALA_E), errore del passo (× 0,01)
-export const SCALA_E = ${SCALA_E};
-export const DATI = { n: ${N_DATI_ARTE}, punti: '${b64(datiArte)}', ogni: ${OGNI}, campioni: '${b64(campioni)}' };
+// Davanti (training, ${FINE} passi in ${DURATA / 1000} s). DATI: i ${N_DATI} punti veri, x/y × ${SCALA_DATI}.
+// FRECCE: istantanee a T_ALLENA, ognuna valida da MS[k] alla successiva. RACCONTI: [ms d'inizio, indice del punto vero, t, ipotesi x, y,
+// errore]; CAMMINI: i loro cammini di rumore (t + 1 punti x/y, × ${SCALA_CAMMINO}), uno dopo l'altro. STORIA: l'errore medio ogni 100 passi.
+// BUONI: «on shape» ogni 500 passi. MINIMO: l'errore più basso possibile (la riga tratteggiata)
+export const TRAINING = {
+  fine: ${FINE},
+  durata: ${fineMs},
+  scalaDati: ${SCALA_DATI},
+  dati: '${b64(Int8Array.from(dati, v => int8(v, SCALA_DATI)))}',
+  ms: [${instantanee.map(s => s.ms).join(', ')}],
+  frecce: '${b64(unisci(instantanee.map(s => s.f)))}',
+  racconto: ${RACCONTO},
+  racconti: [${racconti.map(r => `[${Math.round(r.inizio)}, ${r.i}, ${r.t}, ${tondo(r.guess[0])}, ${tondo(r.guess[1])}, ${tondo(r.errore)}]`).join(', ')}],
+  scalaCammino: ${SCALA_CAMMINO},
+  cammini: '${b64(cammini)}',
+  storia: [${storia.join(', ')}],
+  buoni: [${buoni.join(', ')}],
+  minimo: ${tondo(minimo)},
+};
 
-// Dietro (inference): una corsa da ${N_CORSA} punti in ${PASSI_CORSA} passi. QUOTE: il rumore rimasto a ogni frame, da 1 a 0
-export const CORSA = {
-  n: ${N_CORSA},
-  passi: ${PASSI_CORSA},
-  quote: ${quote(davanti.tempi)},
-  punti: '${b64(davanti.uscita)}',
-  frecce: '${b64(frecceDavanti)}',
+// Dietro (inference, ${PASSI_NUOVI} passi). TEMPI: il livello t di ogni passo, da ${T} a 0. PUNTI: ${PASSI_NUOVI + 1} fotogrammi da ${N_NUOVI} punti x/y,
+// valore = byte × SCALE[fotogramma]. FRECCE: ${PASSI_NUOVI} istantanee, al livello TEMPI[k]
+export const INFERENCE = {
+  n: ${N_NUOVI},
+  passi: ${PASSI_NUOVI},
+  durata: 3200,
+  tempi: [${tempi.join(', ')}],
+  quote: [${tempi.map(t => quota(t).toFixed(4)).join(', ')}],
+  scale: [${scale.join(', ')}],
+  punti: '${b64(punti)}',
+  frecce: '${b64(frecceNuovi)}',
 };
 `;
 const dove = fileURLToPath(new URL('../src/data/diffusione-stella.ts', import.meta.url));
-writeFileSync(dove, testo);
+// File temporaneo + rinomina: il dev server non legge mai un file a metà
+writeFileSync(dove + '.tmp', testo);
+renameSync(dove + '.tmp', dove);
 console.log(`scritto ${dove}: ${(Buffer.byteLength(testo) / 1024).toFixed(1)} KB`);
