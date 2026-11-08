@@ -1,17 +1,18 @@
-// La testa del cane, in pixel art a 8 bit: la sagoma di un cucciolo visto di fronte, tutta arancione, con le orecchie giù.
-// Occhi e naso sono buchi del colore del fondo. Si usa nella pagina /learn/reinforcement/ (greggeVista.ts) e nell'arte del
-// biglietto (arteGregge.ts). La bitmap ha un bordo di un pixel del colore del fondo; si ingrandisce senza sfumare.
-// O sagoma, k buco (occhi e naso)
+// La testa del cane, in pixel art a 8 bit: un cucciolo visto di fronte, arancione, con le orecchie nere che pendono giù
+// ai lati del muso, occhi e naso neri. Un contorno chiaro di un pixel lo stacca dal prato scuro e dalle pecore.
+// Si usa nella pagina /learn/reinforcement/ (greggeVista.ts) e nell'arte del biglietto (arteGregge.ts).
+// O pelo arancione, K orecchie nere, k occhi e naso
 const DISEGNO = [
-  'OO.....OO',
-  'OOOOOOOOO',
-  'OOOOOOOOO',
-  'OOkOOOkOO',
-  '.OOOOOOO.',
-  '..OOkOO..',
-  '...OOO...',
+  '...OOOOO...',
+  '..OOOOOOO..',
+  'KKOOOOOOOKK',
+  'KKOkOOOkOKK',
+  'KKOOOOOOOKK',
+  '.KOOOkOOOK.',
+  '.K.OOOOO.K.',
+  '....OOO....',
 ];
-const LARGO = 11, ALTO = 9;
+const LARGO = 13, ALTO = 10;
 const sprite = new Map<string, HTMLCanvasElement>();
 
 function bitmap(colore: string, fondo: string) {
@@ -23,11 +24,11 @@ function bitmap(colore: string, fondo: string) {
   const g = s.getContext('2d')!;
   const pieno = (x: number, y: number) => (DISEGNO[y]?.[x] ?? '.') !== '.';
   // Il bordo: ogni cella vuota accanto a una piena; così la testa si stacca dalle pecore chiare
-  g.fillStyle = fondo;
-  for (let y = -1; y <= DISEGNO.length; y++) for (let x = -1; x <= 9; x++) {
+  g.fillStyle = '#f4ead6'; void fondo;
+  for (let y = -1; y <= DISEGNO.length; y++) for (let x = -1; x <= 11; x++) {
     if (!pieno(x, y) && (pieno(x - 1, y) || pieno(x + 1, y) || pieno(x, y - 1) || pieno(x, y + 1))) g.fillRect(x + 1, y + 1, 1, 1);
   }
-  DISEGNO.forEach((riga, y) => [...riga].forEach((ch, x) => { if (ch !== '.') { g.fillStyle = ch === 'k' ? fondo : colore; g.fillRect(x + 1, y + 1, 1, 1); } }));
+  DISEGNO.forEach((riga, y) => [...riga].forEach((ch, x) => { if (ch !== '.') { g.fillStyle = ch === 'O' ? colore : '#16110d'; g.fillRect(x + 1, y + 1, 1, 1); } }));
   sprite.set(chiave, s);
   return s;
 }
