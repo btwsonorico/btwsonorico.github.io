@@ -1,8 +1,9 @@
-import { DATI_RETE } from './arteReteDati';
+import { DATI_RETE, FOTOGRAMMI_AL_SECONDO } from './arteReteDati';
 
 // Arte «rete» dei biglietti di AI terms: la griglia a filo della pagina /learn/neural-network, con la rete più grande (4 strati da 6 neuroni).
-// Davanti la rete impara la casa, dietro il pesce. Il biglietto non allena: scripts/registra-rete.mjs ha registrato poche fotografie
-// dell'allenamento, e qui si passa dall'una all'altra. La griglia parte quasi piatta, prende la forma, resta ferma, poi si scioglie e riparte.
+// Davanti la rete impara la casa, dietro il pesce. Il biglietto non allena: scripts/registra-rete.mjs ha registrato l'allenamento come
+// la pagina lo mostra, un fotogramma ogni 1/30 di secondo, con i pesi del momento. Qui i fotogrammi passano uno alla volta, senza
+// medie: la griglia trema come nella pagina. Poi la forma finita resta ferma, si scioglie e l'allenamento riparte.
 // Intanto il terreno gira piano. Il disegno è quello della pagina: una striscia alla volta, dal fondo verso chi guarda.
 
 // I colori del tema scuro della pagina (src/layouts/Base.astro)
@@ -11,8 +12,8 @@ const FONDO = '#0a0b0d', LINEA = '#1c2026', SPENTO = '#7a828d', ARANCIO = '#ffa4
 // La carta intorno all'arte: chiara come un biglietto vero, inchiostro blu notte, accento arancio come le maglie alte
 export const CARTA_RETE = { carta: '#f2efe8', inchiostro: '#15202e', accento: '#d9661f', tagliando: '#e7e2d6', fondo: FONDO };
 
-// Tempi del giro, in secondi: ogni fotografia, la forma ferma, lo scioglimento
-const PER_FOTO = 0.5, FERMO = 3.6, SCIOGLIE = 1.6;
+// Tempi del giro, in secondi: la forma ferma dopo l'allenamento, lo scioglimento prima di ripartire
+const FERMO = 3.5, SCIOGLIE = 0.8;
 
 const rgb = (hex: string) => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255] as const; };
 const misto = (a: string, b: string, t: number) => { const A = rgb(a), B = rgb(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i]! - v) * t)).join(',')})`; };
@@ -48,18 +49,25 @@ function bordoDi(nome: Nome) {
   return Float32Array.from(bordo);
 }
 
-// --- Le registrazioni: si leggono una volta sola, alla prima chiamata
+// --- Le registrazioni: si aprono una volta sola, alla prima chiamata. I dati sono compressi: finché non sono pronti
+// (pochi millisecondi) la tela mostra solo il fondo
 type Registrazione = { maglie: number; foto: number; punti: number; dati: Uint8Array; bordo: Float32Array };
-const registrazioni = new Map<Nome, Registrazione>();
-function registrazione(nome: Nome): Registrazione {
-  let r = registrazioni.get(nome);
-  if (!r) {
-    const q = DATI_RETE[nome], testo = atob(q.dati), dati = new Uint8Array(testo.length);
-    for (let k = 0; k < testo.length; k++) dati[k] = testo.charCodeAt(k);
-    r = { maglie: q.maglie, foto: q.foto, punti: (q.maglie + 1) ** 2, dati, bordo: bordoDi(nome) };
-    registrazioni.set(nome, r);
+const registrazioni = new Map<Nome, Registrazione | null>();
+async function apri(nome: Nome) {
+  const q = DATI_RETE[nome], testo = atob(q.dati), z = new Uint8Array(testo.length);
+  for (let k = 0; k < testo.length; k++) z[k] = testo.charCodeAt(k);
+  const dati = new Uint8Array(await new Response(new Blob([z]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+  // Ogni fotogramma è salvato come differenza dal fotogramma prima: si somma
+  const punti = (q.maglie + 1) ** 2;
+  for (let k = punti; k < dati.length; k++) dati[k] = (dati[k]! + dati[k - punti]!) & 255;
+  registrazioni.set(nome, { maglie: q.maglie, foto: q.foto, punti, dati, bordo: bordoDi(nome) });
+}
+function registrazione(nome: Nome): Registrazione | null {
+  if (!registrazioni.has(nome)) {
+    registrazioni.set(nome, null);
+    apri(nome).catch(() => {});
   }
-  return r;
+  return registrazioni.get(nome) ?? null;
 }
 
 // Stato di ogni tela: le altezze del momento e i punti già proiettati
@@ -68,11 +76,12 @@ const stati = new WeakMap<HTMLCanvasElement, Stato>();
 
 const morbido = (v: number) => { const q = Math.max(0, Math.min(1, v)); return q * q * (3 - 2 * q); };
 
-// Le altezze al tempo t del giro: l'allenamento a velocità fissa, la forma ferma, poi lo scioglimento verso la prima fotografia
+// Le altezze al tempo t del giro. Durante l'allenamento un fotogramma alla volta, senza medie, così il tremolio resta;
+// poi la forma finita ferma, poi lo scioglimento verso il primo fotogramma: è l'unico passaggio sfumato
 function altezzeAl(r: Registrazione, t: number, fuori: Float32Array) {
-  const impara = (r.foto - 1) * PER_FOTO, giro = impara + FERMO + SCIOGLIE, q = ((t % giro) + giro) % giro;
+  const impara = (r.foto - 1) / FOTOGRAMMI_AL_SECONDO, giro = impara + FERMO + SCIOGLIE, q = ((t % giro) + giro) % giro;
   let a: number, b: number, f: number;
-  if (q < impara) { const p = q / PER_FOTO; a = Math.floor(p); b = Math.min(r.foto - 1, a + 1); f = p - a; }
+  if (q < impara) { a = b = Math.min(r.foto - 2, Math.floor(q * FOTOGRAMMI_AL_SECONDO)); f = 0; }
   else if (q < impara + FERMO) { a = b = r.foto - 1; f = 0; }
   else { a = r.foto - 1; b = 0; f = morbido((q - impara - FERMO) / SCIOGLIE); }
   const A = a * r.punti, B = b * r.punti, d = r.dati;
@@ -83,7 +92,12 @@ export function disegnaRete(c: HTMLCanvasElement, tempo: number, retro: boolean)
   const ctx = c.getContext('2d');
   if (!ctx) return;
   const W = c.width, H = c.height;
-  const r = registrazione(retro ? 'fish' : 'house'), M = r.maglie;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = FONDO;
+  ctx.fillRect(0, 0, W, H);
+  const r = registrazione(retro ? 'fish' : 'house');
+  if (!r || W < 4 || H < 4) return;
+  const M = r.maglie;
   let s = stati.get(c);
   if (!s || s.altezze.length !== r.punti) {
     s = { altezze: new Float32Array(r.punti), sx: new Float32Array(r.punti), sy: new Float32Array(r.punti) };
@@ -95,10 +109,6 @@ export function disegnaRete(c: HTMLCanvasElement, tempo: number, retro: boolean)
 
   // dpr: la tela è già misurata in pixel del dispositivo
   const dpr = c.clientWidth ? c.width / c.clientWidth : Math.min(2, devicePixelRatio || 1);
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = FONDO;
-  ctx.fillRect(0, 0, W, H);
-  if (W < 4 || H < 4) return;
 
   // Inquadratura: in una colonna stretta la griglia si guarda più dall'alto, in un riquadro largo più di lato e più grande
   const alta = H > W * 0.9, PIATTO = alta ? 0.6 : 0.42, ALTEZZA = alta ? 0.68 : 0.6, margine = 0.06;

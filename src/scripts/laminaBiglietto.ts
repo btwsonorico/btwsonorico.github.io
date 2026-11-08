@@ -177,6 +177,8 @@ function disegnaMaschera(g: CanvasRenderingContext2D, faccia: HTMLElement, piano
       let cx = 0, cy = 0, r = 0;
       if (t && md && cd && t.h > 150) { const su = md.y + md.h, giu = cd.y; cx = t.x + t.w / 2; cy = (su + giu) / 2; r = Math.min(38, (giu - su) / 2 - 6, t.w / 2 - 14); }
       const co = q('.corpo');
+      const pa = q('.pannello');
+      if (r < 16 && pa && !t) { r = Math.min(30, pa.w * 0.12); cx = pa.x + pa.w - r - 12; cy = pa.y + r + 10; }
       if (r < 16 && co) { r = 20; cx = co.x + co.w - r - 8; cy = co.y + r + 6; }
       void ar;
       if (r < 12) continue;
@@ -193,7 +195,7 @@ function disegnaMaschera(g: CanvasRenderingContext2D, faccia: HTMLElement, piano
       // Linee ondulate intrecciate sull'arte e sul corpo; si fermano intorno alle scritte
       g.lineWidth = 0.8;
       // Solo sulla parte con la domanda: l'arte animata non si copre
-      for (const zona of [q('.corpo')]) {
+      for (const zona of [q('.corpo'), q('.pannello')]) {
         if (!zona) continue;
         g.save(); g.beginPath(); g.rect(zona.x, zona.y, zona.w, zona.h); g.clip();
         for (let k = 0; k < 14; k++) {
@@ -206,7 +208,7 @@ function disegnaMaschera(g: CanvasRenderingContext2D, faccia: HTMLElement, piano
         }
         g.restore();
       }
-      taglia(() => faccia.querySelectorAll<HTMLElement>('.domanda, .opzione').forEach(e => { const r = misura(e, faccia); if (r) g.fillRect(r.x - 5, r.y - 4, r.w + 10, r.h + 8); }));
+      taglia(() => faccia.querySelectorAll<HTMLElement>('.domanda, .opzione, .pannello .titolo').forEach(e => { const r = misura(e, faccia); if (r) g.fillRect(r.x - 5, r.y - 4, r.w + 10, r.h + 8); }));
     } else if (pezzo === 'simboli') {
       // Il nome del termine sul tagliando, in lamina al posto dell'inchiostro
       for (const sel of ['.tagliando .nome']) {

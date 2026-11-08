@@ -324,7 +324,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       variabiliMesse.forEach(k => carta.style.removeProperty(k));
       variabiliMesse = Object.keys(ds.variabili);
       for (const [k, x] of Object.entries(ds.variabili)) carta.style.setProperty(k, x);
-      carta.dataset.stile = ds.st.id;
+      carta.dataset.stile = ds.st.id; carta.classList.remove('bonus');
       carta.style.setProperty('--trama', `url("data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='44' height='9'><g fill='none' stroke='${tp.trama}' stroke-width='.6'><path d='M0 2.5 Q5.5 0 11 2.5 T22 2.5 T33 2.5 T44 2.5'/><path d='M0 6.5 Q5.5 9 11 6.5 T22 6.5 T33 6.5 T44 6.5'/></g></svg>`)}")`);
       carta.classList.add('subito');
       carta.classList.toggle('girata', p.fatto[i]!);
@@ -370,8 +370,8 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       (p.fatto[i] ? (prossimo.hidden ? chiudi : prossimo) : opzioni.find(b => !b.disabled))?.focus({ preventScroll: true });
     },
     nascondi() { clearTimeout(attesa); scheda.hidden = true; },
-    // La carta bonus: non è una domanda. Davanti si sceglie un premio fra tre; scelto il premio, la carta si gira e
-    // mostra per un attimo il retro tutto in lamina, poi riparte il gioco. Niente scritte sul poster
+    // La carta bonus: non è una domanda, ed è una faccia sola. Metà è il poster tutto in lamina, metà sono i tre premi
+    // da scegliere, decorati con la lamina dello stesso colore. Scelto il premio, si riparte
     mostraBonus(premi: { testo: string; fai: () => void }[], dopo: () => void) {
       clearTimeout(attesa);
       corrente = -1;
@@ -381,16 +381,13 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       variabiliMesse = Object.keys(variabili);
       for (const [k, x] of Object.entries(variabili)) carta.style.setProperty(k, x);
       carta.dataset.stile = 'olo'; carta.dataset.lamina = `bonus · ${lamina.tinta}`;
-      carta.classList.add('subito'); carta.classList.remove('girata');
+      carta.classList.add('subito', 'girata', 'bonus');
       requestAnimationFrame(() => requestAnimationFrame(() => carta.classList.remove('subito')));
-      svg(arte, OLO.davanti(c)); svg(quadro, OLO.dietro(c));
-      banda.className = 'banda'; motto.textContent = 'bonus';
-      laminaF.metti({ pezzi: lamina.davanti, tinta: lamina.tinta }); laminaR.metti({ pezzi: lamina.dietro, tinta: lamina.tinta });
-      nomeF.textContent = 'Bonus'; categoriaF.textContent = 'pick one reward'; livelloF.textContent = ''; citazioneF.textContent = '';
-      serialeT.textContent = ''; barre(codice, 'BONUSHOLOFOIL');
-      domanda.textContent = 'Pick your reward';
+      svg(quadro, OLO.dietro(c));
+      laminaF.metti(null);
+      termineR.textContent = 'Pick a reward'; termineR.removeAttribute('aria-label');
+      sezioneR.textContent = esito.textContent = statoR.textContent = serialeR.textContent = '';
       timbri.replaceChildren();
-      definizione.replaceChildren(); termineR.textContent = ''; sezioneR.textContent = esito.textContent = statoR.textContent = serialeR.textContent = '';
       opzioni = premi.map((pr, k) => {
         const b = el('button', 'opzione'); b.type = 'button';
         b.append(el('span', 'mono', `0${k + 1}`), pr.testo);
@@ -398,17 +395,19 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
           if (b.disabled) return;
           pr.fai();
           opzioni.forEach(x => { x.disabled = true; }); b.classList.add('giusta');
-          attesa = window.setTimeout(() => { carta.classList.add('girata'); attesa = window.setTimeout(dopo, fermo ? 600 : 2600); }, fermo ? 0 : 500);
+          attesa = window.setTimeout(() => { carta.classList.remove('bonus'); dopo(); }, fermo ? 300 : 1400);
         });
         return b;
       });
-      opzioniEl.replaceChildren(...opzioni);
-      gira.hidden = true; prossimo.hidden = true; scriviArcade();
-      extra.replaceChildren();
+      const scelte = el('div', 'opzioni'); scelte.append(...opzioni);
+      definizione.replaceChildren(scelte);
+      laminaR.metti({ pezzi: ['poster', 'guilloche', 'sigillo'], tinta: lamina.tinta });
+      gira.hidden = true; prossimo.hidden = true; chiudi.hidden = true; extra.replaceChildren(); azioni.hidden = true;
       foglie = []; tele = [...scheda.querySelectorAll<HTMLCanvasElement>('canvas[data-ascii]')];
       scheda.hidden = false; scheda.scrollTop = 0;
       avvia();
       opzioni[0]?.focus({ preventScroll: true });
     },
   };
+}  };
 }
