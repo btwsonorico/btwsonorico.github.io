@@ -11,7 +11,7 @@
 //   node scripts/registra-cane-segui.mjs [url] [secondi] [inizio] [durata]
 //     url: predefinito http://localhost:4352/learn/?vicino=0.55 (?vicino porta più vicina la camera di «follow the dog»,
 //     src/scripts/nuvole.ts; senza parametro la pagina non cambia)
-//     secondi registrati: 34 (una partita dell'AI dura circa 24 s, poi 4 s di festa)
+//     secondi registrati: 31 (una partita dell'AI dura circa 24 s, poi 4 s di festa); la clip è la partita intera
 //     inizio e durata della clip in secondi: vedi INIZIO e DURATA qui sotto
 //   node scripts/registra-cane-segui.mjs --solo-video [inizio] [durata]   rifà solo il video dai fotogrammi già presi
 // Uscita: public/learn/biglietti/cane-segui.mp4 (i fotogrammi PNG restano in una cartella temporanea)
@@ -23,8 +23,8 @@ import { join } from 'node:path';
 const SOLO_VIDEO = process.argv[2] === '--solo-video';
 const arg = SOLO_VIDEO ? ['', '', ...process.argv.slice(3)] : process.argv.slice(2);
 const URL_PAGINA = arg[0] || 'http://localhost:4352/learn/?vicino=0.55';
-const SECONDI = Number(arg[1] || 34);
-const INIZIO = Number(arg[2] || 14), DURATA = Number(arg[3] || 14), FONDI = 0.8, CRF = 39;
+const SECONDI = Number(arg[1] || 31);
+const INIZIO = Number(arg[2] || 1.5), DURATA = Number(arg[3] || 27.3), FONDI = 0.8, CRF = 39;
 const CHROME = process.env.CHROME ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe';
 const FPS = 30, SOTTOPASSI = 1;            // 30 fotogrammi al secondo, uno per passo da 1/30 s (come il telefono): fluido
 const LARGO = 390, ALTO = 844;            // il telefono
@@ -150,7 +150,3 @@ function codifica() {
   console.log(`cane-segui.mp4: ${(statSync(join(USCITA, 'cane-segui.mp4')).size / 1024).toFixed(0)} KB · ${((d - f) / FPS).toFixed(1)} s`);
   console.log(`fotogrammi in ${FOTO}`);
 }
-execFileSync('ffmpeg', [...comune, ...filtro, '-c:v', 'libx264', '-preset', 'veryslow', '-crf', '28', '-tune', 'animation', '-movflags', '+faststart', '-an', join(USCITA, 'cane-segui.mp4')], { stdio: 'inherit' });
-execFileSync('ffmpeg', [...comune, ...filtro, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '40', '-row-mt', '1', '-an', join(USCITA, 'cane-segui.webm')], { stdio: 'inherit' });
-for (const e of ['mp4', 'webm']) console.log(`cane-segui.${e}: ${(statSync(join(USCITA, `cane-segui.${e}`)).size / 1024).toFixed(0)} KB`);
-console.log(`fotogrammi in ${FOTO}`);
