@@ -354,7 +354,9 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .arte70 svg) { position: absolute; inset: 0; width: 100%; height: 100%; }
   :global(.imbarco .arte70 > canvas), :global(.imbarco .poster > canvas) { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   :global(.imbarco .banda) { position: relative; display: grid; place-items: center; box-shadow: inset 1px 0 color-mix(in srgb, var(--inchiostro) 25%, transparent), inset -1px 0 color-mix(in srgb, var(--inchiostro) 25%, transparent); }
-  :global(.imbarco .banda span) { writing-mode: vertical-rl; rotate: 180deg; font-size: 10px; letter-spacing: .4em; white-space: nowrap; color: var(--inchiostro); }
+  :global(.imbarco .banda span) { writing-mode: vertical-rl; rotate: 180deg; font-size: 10px; letter-spacing: .22em; text-transform: uppercase; white-space: nowrap; color: var(--inchiostro); max-height: 100%; overflow: hidden; }
+  /* Categoria e difficoltà ora stanno nella banda: sul tagliando non si ripetono */
+  :global(.imbarco .tagliando .metadati) { display: none !important; }
   /* La lamina olografica: una tela sopra la stampa (sotto la grana e i timbri). Il motto della banda è inciso nella lamina */
   :global(.imbarco .lamina) { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; z-index: 4; pointer-events: none; image-rendering: auto !important; }
   :global(.imbarco .lamina-banda .banda span) { color: transparent; }

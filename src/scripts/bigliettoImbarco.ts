@@ -333,7 +333,9 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       banda.className = 'banda';
       laminaF.metti({ pezzi: ds.lamina.davanti, tinta: ds.lamina.tinta, numero: n });
       carta.dataset.lamina = `${ds.lamina.davanti.join(' + ') || 'no foil'} · ${ds.lamina.tinta}`;
-      motto.textContent = `${tp.motto} · ${n}`;
+      // La banda verticale porta la categoria e la difficoltà; il tagliando resta libero per il contatore
+      motto.textContent = `${v.voce.sotto} · ${l}`;
+      void tp.motto;
       nomeF.textContent = v.voce.termine;
       categoriaF.textContent = v.voce.sotto;
       livelloF.textContent = l;

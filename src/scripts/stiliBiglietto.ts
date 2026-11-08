@@ -102,7 +102,7 @@ const koi: Stile = {
 
 // ---------------- Spiaggia, tutto a pixel: la riva vista dall'alto. Davanti di giorno: mare turchese, la schiuma, l'onda
 // che sale piano sulla sabbia e si ritira, la sabbia bagnata più scura. Dietro la stessa riva al tramonto, con i teli,
-// l'ombrellone, le ciabatte e il secchiello sulla sabbia asciutta, e le ombre lunghe
+// l'ombrellone, le ciabatte e il secchiello sulla sabbia asciutta, e le ombre lunghe. Anche di giorno la spiaggia è popolata
 const spiaggia: Stile = {
   id: 'spiaggia', ascii: true,
   davanti: c => `<canvas data-ascii="riva" data-seme="${semeTela(c)}"></canvas>`,
@@ -209,7 +209,12 @@ function arteLearn(tipo: string, c: HTMLCanvasElement, ora: number) {
   if (typeof f === 'function') { f(c, ora / 1000, c.dataset.side === 'back'); return; }
   if (f === 'attesa') return;
   caricate[tipo] = 'attesa';
-  CARICA[tipo]!().then(d => { caricate[tipo] = d; }).catch(() => { caricate[tipo] = undefined; });
+  // Se il pezzo non si carica è quasi sempre perché il sito è stato aggiornato mentre la pagina era aperta: i file vecchi
+  // non esistono più. Allora la pagina si ricarica una volta (non di più, per non entrare in un giro infinito)
+  CARICA[tipo]!().then(d => { caricate[tipo] = d; }).catch(() => {
+    caricate[tipo] = undefined;
+    try { if (!sessionStorage.getItem('ricaricata-arte')) { sessionStorage.setItem('ricaricata-arte', '1'); location.reload(); } } catch { /* niente */ }
+  });
 }
 
 // Il mazzo: ogni arte esce una volta per giro
@@ -426,7 +431,7 @@ function rivaTela(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, tra
   s.tempo += dt;
   // PERIODO: un'onda ogni 10 secondi. A: quanto sale l'onda. base: dove l'acqua si ferma quando si è ritirata.
   // Dietro, in alto, resta una fascia di sabbia asciutta per i teli e l'ombrellone
-  const t = s.tempo, PERIODO = 10, A = Math.round(Math.min(16, h * 0.26)), ZONA = tramonto ? 16 : 0;
+  const t = s.tempo, PERIODO = 10, A = Math.round(Math.min(16, h * 0.26)), ZONA = 16;
   const base = Math.min(h - 10, Math.max(Math.round(h * (tramonto ? 0.58 : 0.52)), ZONA + A + 4));
   const LB = 13, SURF = Math.max(6, Math.min(16, (h - base) * 0.7)), sole = w * 0.72, scia = Math.max(18, w * 0.2);
   for (let x = 0; x < w; x++) {
@@ -487,7 +492,7 @@ function rivaTela(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, tra
       metti(im, x, y, col);
     }
   }
-  if (tramonto) oggettiSpiaggia(im, w, base - A - 2);
+  oggettiSpiaggia(im, w, base - A - 2, tramonto, Number(c.dataset.seme) || 7);
   mostra(c, im, dpr);
 }
 
@@ -495,56 +500,57 @@ function rivaTela(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, tra
 const sprite = (im: Immagine, x: number, y: number, righe: string[], colori: Record<string, Rgb>) => {
   righe.forEach((r, dy) => { for (let dx = 0; dx < r.length; dx++) { const k = colori[r[dx]!]; if (k) metti(im, x + dx, y + dy, k); } });
 };
-// Gli oggetti sulla sabbia asciutta, al tramonto: il sole basso sta a destra, sul mare, e le ombre vanno lunghe a sinistra
-function oggettiSpiaggia(im: Immagine, w: number, fondoZona: number) {
-  const caldo = (hx: string) => misto(daHex(hx), daHex('#ff9566'), 0.16), OMBRA: Rgb = [70, 34, 48];
+// Gli oggetti sulla sabbia asciutta: teli, ombrelloni, ciabatte, secchielli, palloni, sparsi lungo tutta la riva come
+// su una spiaggia frequentata. La disposizione viene dal seme del biglietto, uguale davanti e dietro. Al tramonto i
+// colori si scaldano e le ombre vanno lunghe a sinistra (il sole è basso a destra); di giorno le ombre sono corte
+function oggettiSpiaggia(im: Immagine, w: number, fondoZona: number, tramonto: boolean, seme: number) {
+  const caldo = (hx: string) => (tramonto ? misto(daHex(hx), daHex('#ff9566'), 0.16) : daHex(hx)), OMBRA: Rgb = tramonto ? [70, 34, 48] : [120, 92, 56];
+  const lungo = tramonto ? 1 : 0.35, forza = tramonto ? 1 : 0.8;
   const ombraTonda = (cx: number, cy: number, rx: number, ry: number) => {
-    for (let dy = -Math.ceil(ry); dy <= Math.ceil(ry); dy++) for (let dx = -Math.ceil(rx); dx <= Math.ceil(rx); dx++) if ((dx / rx) ** 2 + (dy / ry) ** 2 <= 1) mescola(im, cx + dx, cy + dy, OMBRA, 0.32);
+    for (let dy = -Math.ceil(ry); dy <= Math.ceil(ry); dy++) for (let dx = -Math.ceil(rx); dx <= Math.ceil(rx); dx++) if ((dx / rx) ** 2 + (dy / ry) ** 2 <= 1) mescola(im, cx + dx, cy + dy, OMBRA, 0.32 * forza);
   };
   const telo = (x0: number, y0: number, lw: number, lh: number, righe: string[]) => {
-    for (let x = 0; x < 3; x++) for (let y = 0; y <= lh; y++) mescola(im, x0 - 1 - x, y0 + y + 1, OMBRA, 0.12);
+    for (let x = 0; x < Math.max(1, Math.round(3 * lungo)); x++) for (let y = 0; y <= lh; y++) mescola(im, x0 - 1 - x, y0 + y + 1, OMBRA, 0.12 * forza);
     for (let y = 0; y < lh; y++) for (let x = 0; x < lw; x++) metti(im, x0 + x, y0 + y, caldo(righe[Math.floor(x / 2) % righe.length]!));
-    // Le frange sui lati corti
     for (let y = 0; y < lh; y += 2) { metti(im, x0 - 1, y0 + y, caldo('#fff4e2')); metti(im, x0 + lw, y0 + y, caldo('#fff4e2')); }
   };
-  const ombrellone = (cx: number, cy: number, r: number, a: string, b: string) => {
-    ombraTonda(cx - r - 2, cy + 1, r + 3, r - 1.5);
-    for (let k = 0; k < 6; k++) mescola(im, cx - k, cy + 1, OMBRA, 0.3);
-    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-      const dd = Math.hypot(dx, dy); if (dd > r + 0.3) continue;
+  const ombrellone = (cx: number, cy: number, raggio: number, a: string, b: string) => {
+    ombraTonda(cx - Math.round((raggio + 2) * lungo), cy + 1, raggio + 3 * lungo, raggio - 1.5);
+    for (let dy = -raggio; dy <= raggio; dy++) for (let dx = -raggio; dx <= raggio; dx++) {
+      const dd = Math.hypot(dx, dy); if (dd > raggio + 0.3) continue;
       const spicchio = Math.floor(((Math.atan2(dy, dx) + Math.PI) / (Math.PI * 2)) * 8) % 2;
       let col = caldo(spicchio ? a : b);
-      if (dd > r - 0.9) col = scuro(col, 0.82); else if (dx > 0) col = misto(col, daHex('#fff1d0'), 0.12 * (dx / r));
+      if (dd > raggio - 0.9) col = scuro(col, 0.82); else if (dx > 0) col = misto(col, daHex('#fff1d0'), 0.12 * (dx / raggio));
       metti(im, cx + dx, cy + dy, col);
     }
     metti(im, cx, cy, caldo('#6b4a3a'));
   };
   const C = { o: caldo('#3fb7e0'), p: caldo('#ff8fb1'), s: caldo('#fdf6ea'), R: caldo('#ffd23f'), D: caldo('#c99a1c'), S: caldo('#e2b47a'), B: caldo('#e84a5f'), H: caldo('#7a5a3a'), r: caldo('#e8463f'), b: caldo('#2f78c8'), y: caldo('#ffd23f'), w: caldo('#fffaf0') };
-  const x1 = Math.round(w * 0.05) + 2, x2 = x1 + 19, xo = x2 + 16;
-  telo(x1, 3, 15, 7, ['#e6464a', '#fdf6ea', '#2f78c8']);
-  telo(x2, 6, 13, 7, ['#f2c14e', '#3aa6a0']);
-  ombrellone(xo, 6, 6, '#ff6b5a', '#fff4e0');
-  // Le ciabatte, una un po' più avanti dell'altra
-  for (const [dx, dy, k] of [[9, 3, 'o'], [13, 4, 'o']] as const) {
-    for (let y = 0; y < 6; y++) mescola(im, xo + dx - 1, 3 + dy + y - 3, OMBRA, 0.18);
-    sprite(im, xo + dx, dy, ['.o.', 'oso', 'sos', 'ooo', 'ooo', '.o.'].map(r => r.replace(/o/g, k)), C);
+  const TELI = [['#e6464a', '#fdf6ea', '#2f78c8'], ['#f2c14e', '#3aa6a0'], ['#7a55c8', '#fdf6ea'], ['#ff8fb1', '#fdf6ea', '#3aa6a0'], ['#2f9fd1', '#fff4e0']];
+  const OMBRELLONI = [['#ff6b5a', '#fff4e0'], ['#2f9fd1', '#fff4e0'], ['#f2c14e', '#e6464a'], ['#3aa6a0', '#fdf6ea']];
+  const r = casoDa(seme * 7 + 3), alto = Math.max(4, fondoZona - 10);
+  // Postazioni lungo la riva, ogni 24-34 pixel; ognuna è un telo, a volte con l'ombrellone, e qualcosa intorno
+  for (let x = 2 + Math.floor(r() * 8); x < w - 6; x += 24 + Math.floor(r() * 11)) {
+    const y = 2 + Math.floor(r() * Math.max(1, alto - 6)), cosa = r();
+    if (cosa < 0.72) {
+      const lw = 12 + Math.floor(r() * 4);
+      if (x + lw < w) telo(x, y, lw, 7, TELI[Math.floor(r() * TELI.length)]!);
+      if (r() < 0.6 && x + lw + 6 < w) { const o = OMBRELLONI[Math.floor(r() * OMBRELLONI.length)]!; ombrellone(x + lw + 1, y + 2, 5 + Math.floor(r() * 2), o[0]!, o[1]!); }
+      if (r() < 0.45 && y + 12 < fondoZona) { const k = r() < 0.5 ? 'o' : 'p'; sprite(im, x + 3, y + 8, ['.o.', 'oso', 'sos', 'ooo', '.o.'].map(q => q.replace(/o/g, k)), C); sprite(im, x + 7, y + 9, ['.o.', 'oso', 'sos', 'ooo', '.o.'].map(q => q.replace(/o/g, k)), C); }
+    } else if (cosa < 0.86) {
+      ombraTonda(x - 2, y + 3, 4, 2.5);
+      sprite(im, x, y, ['.RRR.', 'RDSDR', 'RSSSR', 'RDSDR', '.RRR.'], C);
+      sprite(im, x + 7, y - 1, ['BB', 'BB', '.H', '.H', '.H'], C);
+    } else {
+      ombraTonda(x - 2, y + 3, 3, 1.5);
+      sprite(im, x, y, ['.rw.', 'rrwb', 'yybb', '.yb.'], C); metti(im, x + 2, y, C.w);
+    }
   }
-  // Il secchiello visto dall'alto, pieno di sabbia, e la paletta
-  const xs = Math.round(w * 0.55);
-  if (xs + 10 < w) {
-    ombraTonda(xs - 2, 9, 4, 2.5);
-    sprite(im, xs, 6, ['.RRR.', 'RDSDR', 'RSSSR', 'RDSDR', '.RRR.'], C);
-    sprite(im, xs + 7, 5, ['BB', 'BB', '.H', '.H', '.H'], C);
+  // Qualche fila di impronte dalla sabbia asciutta fino all'acqua
+  for (let k = 0; k < 2; k++) {
+    const x0 = Math.floor(r() * (w - 20)) + 10;
+    for (let y = alto, j = 0; y < fondoZona; y += 3, j++) { const x = x0 + Math.round((y - alto) * 0.25) + (j % 2 ? 1 : -1); mescola(im, x, y, OMBRA, 0.26); mescola(im, x, y + 1, OMBRA, 0.14); }
   }
-  // Il pallone a spicchi
-  const xp = Math.round(w * 0.66);
-  if (xp + 4 < w) { ombraTonda(xp - 2, 11, 3, 1.5); sprite(im, xp, 8, ['.rw.', 'rrwb', 'yybb', '.yb.'], C); metti(im, xp + 2, 8, C.w); }
-  // Un altro telo con l'ombrellone, dove la tela è larga
-  const x3 = Math.round(w * 0.74);
-  if (x3 + 15 < w) telo(x3, 4, 14, 7, ['#7a55c8', '#fdf6ea']);
-  if (x3 + 19 < w) ombrellone(x3 + 13, 5, 5, '#2f9fd1', '#fff4e0');
-  // Le impronte dal telo fino all'acqua: due file di pixel scuri sfalsati
-  for (let y = 15, k = 0; y < fondoZona; y += 3, k++) { const x = x2 + 7 + Math.round((y - 15) * 0.25) + (k % 2 ? 1 : -1); mescola(im, x, y, OMBRA, 0.26); mescola(im, x, y + 1, OMBRA, 0.14); }
 }
 
 // ---------------- Le koi a pixel. Una koi è una spina di 16 punti: la testa va avanti e ogni punto segue il precedente,
