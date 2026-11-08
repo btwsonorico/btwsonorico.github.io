@@ -550,7 +550,8 @@ function pratoPixel(c: HTMLCanvasElement, tempo: number) {
     const m = rumore(x * 0.12, y * 0.25) > 0.62 && BAYER2[(y & 1) * 2 + (x & 1)]! < 2;
     p.fillStyle = m ? T.macchia : T.terra; p.fillRect(x, y, 1, 1);
   }
-  const vento = (x: number, z: number, fase: number) => Math.sin(tempo * 0.7 - x * 4.2 - z * 1.4) * 0.75 + Math.sin(tempo * 0.3 - x * 2) * 0.2 + Math.sin(tempo * 1.2 + fase) * 0.08;
+  // Il vento: raffiche lente e morbide che attraversano il prato, più un tremolio appena accennato per ogni fiore
+  const vento = (x: number, z: number, fase: number) => Math.sin(tempo * 0.45 - x * 3.2 - z * 1.1) * 0.32 + Math.sin(tempo * 0.2 - x * 1.6) * 0.12 + Math.sin(tempo * 0.9 + fase) * 0.04;
   // La base dei fiori vicini scende sotto il bordo: in basso si vedono solo le corolle
   const suolo = (z: number) => oriz + 3 + z * (H - oriz + 34);
   // Gli steli: lunghi e sottili davanti, cortissimi lontano. La base resta ferma, la punta si piega
