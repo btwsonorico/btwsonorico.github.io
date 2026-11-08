@@ -21,8 +21,10 @@ export type Risorsa = { nome: string; href: string; tono: string; lista?: HTMLEl
 
 export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   const r = casuale(23);
+  // Il punto che la camera guarda: fermo al centro, o sul cane quando lo si segue
+  const MIRA0 = new THREE.Vector3(0, 0.8, 0.3), MIRA = MIRA0.clone();
   const p = palco(el, {
-    camera: new THREE.Vector3(0, 8.3, 19.2), mira: new THREE.Vector3(0, 0.8, 0.3), giro: 0.006, inclina: [-0.12, 0.8], nebbia: [1.0, 2.0], zoom: [0.3, 1.15], aggiorna,
+    camera: new THREE.Vector3(0, 8.3, 19.2), mira: MIRA, giro: 0.006, inclina: [-0.12, 0.8], nebbia: [1.0, 2.0], zoom: [0.3, 1.15], aggiorna,
     afferra, trascina, rilascia, clic,
     scena: 'nuvole', toni: SITO,
   });
@@ -531,12 +533,29 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   const orologio = (x: number) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
   const conta = document.createElement('span');
   // Due righe: i record (a mano in questo browser; l'AI: la policy finale, migliore di 300 partite simulate dal centro) e il contatore
+  // Su telefono solo le pecore dentro e il tempo; su computer anche i record
   const scriviConta = (dentro: number) => {
-    conta.textContent = `Best: ${gioco.record ? orologio(gioco.record) : '–'} (Human), ${orologio(TAPPE.migliorAI)} (AI)
+    conta.textContent = p.telefono ? `Sheep: ${dentro}/${PECORE}   ${orologio(gioco.tempo)}` : `Best: ${gioco.record ? orologio(gioco.record) : '–'} (Human), ${orologio(TAPPE.migliorAI)} (AI)
 Sheep: ${dentro}/${PECORE}   ${orologio(gioco.tempo)}`;
   };
   conta.style.cssText = 'position:absolute;right:16px;bottom:8px;font:13px var(--mono);color:var(--fg);pointer-events:none;opacity:0;transition:opacity .6s;white-space:pre';
   el.appendChild(conta);
+  // Seguire il cane: la camera si avvicina e tiene al centro il cane e il gregge; le mongolfiere spariscono
+  let segui = false;
+  const bottoneSegui = document.createElement('button');
+  bottoneSegui.type = 'button';
+  bottoneSegui.textContent = 'follow the dog';
+  bottoneSegui.style.cssText = `position:absolute;left:16px;bottom:${p.telefono ? 10 : 72}px;z-index:2;padding:${p.telefono ? '9px 14px' : '4px 8px'};border:1px solid var(--line);background:var(--bg);color:var(--fg);font:${p.telefono ? 14 : 12}px var(--mono);cursor:pointer;pointer-events:auto`;
+  bottoneSegui.addEventListener('pointerdown', e => e.stopPropagation());
+  bottoneSegui.addEventListener('click', () => {
+    segui = !segui;
+    bottoneSegui.textContent = segui ? 'see everything' : 'follow the dog';
+    if (!segui) { MIRA.copy(MIRA0); p.zoom(1); }
+    nomi.forEach(n => { n.style.visibility = segui ? 'hidden' : ''; });
+    mongolfiere.forEach(m => { m.o.visible = !segui; });
+  });
+  el.appendChild(bottoneSegui);
+  const centroGregge = new THREE.Vector3();
   const smonta = p.distruggi;
   p.distruggi = () => { conta.remove(); bottoneAI.remove(); nomi.forEach(a => a.remove()); smonta(); };
   // Un punto davvero a caso a ogni giro: senza alberi né pale dentro, non troppo in salita, lontano dal gregge e dal cerchio
@@ -677,6 +696,16 @@ Sheep: ${dentro}/${PECORE}   ${orologio(gioco.tempo)}`;
     if (presa.nuvola < 0) el.style.cursor = sottoPallone ? 'pointer' : sopraNuvola ? 'grab' : '';
     const ora = dallaLista >= 0 ? dallaLista : sottoPallone - 1;
     if (ora !== acceso) { nomi[acceso]?.classList.remove('attiva'); nomi[ora]?.classList.add('attiva'); acceso = ora; }
+    // La camera che segue: guarda fra il cane e il centro del gregge, e si avvicina quanto basta per vederlo tutto
+    if (segui) {
+      centroGregge.set(0, 0, 0); let lontanaMax = 0;
+      for (const q of pecore) { centroGregge.x += q.x; centroGregge.z += q.z; }
+      centroGregge.x /= pecore.length; centroGregge.z /= pecore.length;
+      for (const q of pecore) lontanaMax = Math.max(lontanaMax, Math.hypot(q.x - centroGregge.x, q.z - centroGregge.z));
+      const tx = cane.x * 0.55 + centroGregge.x * 0.45, tz = cane.z * 0.55 + centroGregge.z * 0.45, sparso = lontanaMax + Math.hypot(cane.x - centroGregge.x, cane.z - centroGregge.z) * 0.5;
+      MIRA.x = morbido(MIRA.x, tx, dt * 1.5); MIRA.z = morbido(MIRA.z, tz, dt * 1.5); MIRA.y = morbido(MIRA.y, altezza(tx, tz) + 0.2, dt * 1.5);
+      p.zoom(THREE.MathUtils.clamp(0.32 + sparso * 0.055, 0.34, 0.75));
+    }
     // Mongolfiere: un lento giro largo, su e giù; la fiammella si accende quando salgono
     p.camera.updateMatrixWorld();
     mongolfiere.forEach((m, k) => {

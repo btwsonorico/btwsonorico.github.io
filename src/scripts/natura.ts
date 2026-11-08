@@ -268,6 +268,8 @@ export interface Palco {
   toni: THREE.Color[];
   // Ferma la scena e libera la memoria (per ridisegnarla con altri colori)
   distruggi: () => void;
+  // Avvicina o allontana la camera (1 = la distanza di partenza), dentro i limiti di zoom della scena
+  zoom: (v: number) => void;
 }
 export interface OpzioniPalco {
   camera: THREE.Vector3; mira: THREE.Vector3; fov?: number;
@@ -305,7 +307,7 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
   attivi = famiglie ? toni : null;
   const p: Palco = {
     scena, gruppo, camera, raggio: null, chiaro: tema(), ridotto, telefono, scalaPunti: 500,
-    colori: famiglie ? { ...T(), verde: toni[0]!, azzurro: toni[1]!, arancio: toni[2]! } : T(), toni, distruggi: () => {},
+    colori: famiglie ? { ...T(), verde: toni[0]!, azzurro: toni[1]!, arancio: toni[2]! } : T(), toni, distruggi: () => {}, zoom: () => {},
   };
 
   scena.fog = new THREE.Fog(p.colori.bg, 1, 2);
@@ -340,6 +342,7 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
     fermo = 240;
   }, { passive: false });
   function cv0() { return renderer.domElement; }
+  p.zoom = v => { zoomVoluto = THREE.MathUtils.clamp(v, vicinoMax, lontanoMax); };
   const ndc = new THREE.Vector2(), raggio = new THREE.Raycaster();
   const cv = renderer.domElement;
   cv.style.touchAction = 'pan-y';
