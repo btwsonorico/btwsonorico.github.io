@@ -426,6 +426,8 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .azioni .extra) { display: flex; flex-wrap: wrap; gap: 8px; margin-right: auto; }
   :global(.imbarco .azioni .premio) { color: var(--fg); border-color: #c8a8ff; background: color-mix(in srgb, #c8a8ff 14%, var(--bg)); }
   :global(.imbarco .azioni .aiuto) { color: var(--fg); border-color: #6fe3a2; }
+  /* Il retro è solo il termine, la definizione e l'arte: niente esito, punteggio o seriale */
+  :global(.imbarco .retro .pannello > .sotto), :global(.imbarco .retro .stato), :global(.imbarco .retro .piede-retro) { display: none; }
   :global(.imbarco .azioni) { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
   :global(.imbarco .azioni button) { padding: 6px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--muted); cursor: pointer; }
   :global(.imbarco .azioni .prossimo), :global(.imbarco .azioni .gira) { color: var(--fg); border-color: var(--muted); }
@@ -497,6 +499,12 @@ import Base from '../../layouts/Base.astro';
     :global(.imbarco .definizione) { max-height: 22vh; max-height: 22dvh; }
     :global(.imbarco .azioni) { flex-wrap: wrap; }
     :global(.imbarco .azioni button) { flex: 1; min-height: 44px; }
+    /* Il biglietto come un biglietto vero: il bordo in basso dentellato, e due tacche rotonde sulla linea di strappo del tagliando */
+    :global(.imbarco .faccia) { -webkit-mask: radial-gradient(circle 4px at 50% 100%, #0000 97%, #000) bottom / 11px 100% repeat-x !important; mask: radial-gradient(circle 4px at 50% 100%, #0000 97%, #000) bottom / 11px 100% repeat-x !important; padding-bottom: 4px; }
+    :global(.imbarco .tagliando) { position: relative; overflow: visible; }
+    :global(.imbarco .tagliando::before), :global(.imbarco .tagliando::after) { content: ''; position: absolute; top: -10px; width: 18px; height: 18px; border-radius: 50%; background: var(--bg); z-index: 3; }
+    :global(.imbarco .tagliando::before) { left: -9px; }
+    :global(.imbarco .tagliando::after) { right: -9px; }
     /* Niente scroll: il biglietto riempie esattamente lo spazio sotto la scena. L'arte cresce o si stringe per far stare
        tutto; sul retro scorre solo la definizione, dentro il biglietto */
     /* Il gioco non scorre mai su telefono: la pagina sta ferma, si muove solo la definizione dentro il biglietto */
