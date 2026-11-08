@@ -165,7 +165,8 @@ function disegnaMaschera(g: CanvasRenderingContext2D, faccia: HTMLElement, piano
     } else if (pezzo === 'filo') {
       // Il filo di sicurezza a finestre, sul bordo destro del corpo, con il micro testo inciso
       const c = q('.corpo'); if (!c) continue;
-      const x = c.x + c.w - 12;
+      // A metà del margine destro del corpo: fra le risposte e il bordo, su computer e su telefono
+      const x = c.x + c.w - Math.max(5, (parseFloat(getComputedStyle(faccia.querySelector<HTMLElement>('.corpo')!).paddingRight) || 22) / 2);
       for (let y = c.y + 8; y + 20 < c.y + c.h - 4; y += 30) {
         g.fillRect(x - 4, y, 8, 20);
         taglia(() => { g.translate(x, y + 10); g.rotate(-Math.PI / 2); g.font = `700 5.5px ${mono}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(`AI·${piano.numero ?? ''}`, 0, 0); });

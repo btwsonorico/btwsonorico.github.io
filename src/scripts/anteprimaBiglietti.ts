@@ -3,6 +3,27 @@
 // l'ultimo è la carta rara Holo. Un bottone gira tutti i biglietti.
 import { nuovoImbarco } from './bigliettoImbarco';
 import { nuovaPartita, nuovoVolo, SEZIONI } from '../lib/voli';
+import { laminaPer, METALLI, type Tinta } from './laminaBiglietto';
+
+// ?anteprima=tinte: un campionario delle tinte della lamina, una carta per tinta, tutte in movimento
+export function campionario() {
+  document.body.classList.add('anteprima');
+  const box = document.createElement('div'); box.className = 'galleria-biglietti';
+  box.innerHTML = '<div class="galleria-testa"><h1>Foil · tints</h1><p>Each card is the same foil with a different tint. Today: silver, gold, rainbow. The others are proposals.</p></div>';
+  const griglia = document.createElement('div'); griglia.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px';
+  box.append(griglia); document.body.append(box);
+  const tinte: Tinta[] = ['argento', 'oro', 'iride', ...(Object.keys(METALLI).filter(k => k !== 'argento' && k !== 'oro') as Tinta[])];
+  const lamine = tinte.map(t => {
+    const cella = document.createElement('div');
+    cella.innerHTML = `<p class="mono galleria-nota">${t}</p>`;
+    const faccia = document.createElement('div'); faccia.style.cssText = 'position:relative;height:150px;border-radius:8px;overflow:hidden;background:#f4efe4';
+    faccia.innerHTML = '<div class="banda" style="position:absolute;inset:0;display:grid;place-items:center"><span style="font:700 12px ui-monospace,monospace;letter-spacing:.4em;color:transparent">AI TERMS · FOIL</span></div>';
+    cella.append(faccia); griglia.append(cella);
+    const l = laminaPer(faccia); l.metti({ pezzi: ['banda'], tinta: t }); return l;
+  });
+  const giro = (t: number) => { const x = Math.sin(t / 1700) * 0.7, y = Math.sin(t / 2300 + 1) * 0.5; lamine.forEach(l => l.disegna(x, y, false)); requestAnimationFrame(giro); };
+  requestAnimationFrame(giro);
+}
 
 const KS = 'ai-terms-serie-v2';
 export function anteprima(n = 15) {

@@ -40,9 +40,9 @@ import Base from '../../layouts/Base.astro';
   import '@fontsource/anton/latin-400.css';
   import { monta } from '../../scripts/aeroporto';
   import { nuovoImbarco } from '../../scripts/bigliettoImbarco';
-  import { anteprima } from '../../scripts/anteprimaBiglietti';
+  import { anteprima, campionario } from '../../scripts/anteprimaBiglietti';
   // Solo per lo sviluppo: ?anteprima mostra una galleria di biglietti
-  if (new URLSearchParams(location.search).has('anteprima')) anteprima();
+  { const q = new URLSearchParams(location.search).get('anteprima'); if (q === 'tinte') campionario(); else if (q !== null) anteprima(); }
   import { aCaso, aCasoFuori, azzera, nuovaPartita, nuovoVolo, primati, segnaPrimato, segnaRisposta, serie, SEZIONI, voloDa, type Voce } from '../../lib/voli';
 
   type Modo = 'inizio' | 'in-gioco' | 'fine';
@@ -62,9 +62,9 @@ import Base from '../../layouts/Base.astro';
   let pilota = 0, doppi = 0, premioDa = false;
 
   // La combo moltiplica i punti: ×1 la prima, poi +0,5 per ogni giusta di fila, fino a ×4.
-  // Al primo colpo 100 punti, al secondo 50, dopo 25
+  // Al primo colpo 10 punti, al secondo 5, dopo 2
   const molt = (c: number) => Math.min(4, 1 + Math.max(0, c - 1) * 0.5);
-  const base = (t: number) => (t <= 1 ? 100 : t === 2 ? 50 : 25);
+  const base = (t: number) => (t <= 1 ? 10 : t === 2 ? 5 : 2);
   const record = () => primati().punti ?? 0;
   const riassunto = () => `score ${punti} · combo ×${molt(combo).toFixed(1)} · best ${record()}`;
   const scriviPunteggio = () => { punteggio.textContent = modo === 'in-gioco' ? `${punti} pts · ${cuori()} · ×${molt(combo).toFixed(1)} · best ${record()}` : `best ${record()}`; };
@@ -114,7 +114,7 @@ import Base from '../../layouts/Base.astro';
   function prova(i: number) { modo = 'inizio'; metti(nuovoVolo(i, recenti).voce); }
   const avvia = () => {
     vite = VITE; punti = 0; combo = 0; giuste = 0; domandeFatte = 0; pilota = 0; doppi = 0; premioDa = false; ultimiPunti = ''; modo = 'in-gioco';
-    fila = []; metti(aCaso(recenti), true); riempiFila();
+    fila = []; metti(aCaso(recenti), true); riempiFila(); scena.serie(0, record());
     scriviPunteggio(); scriviStato();
   };
   const fine = () => {
@@ -170,7 +170,7 @@ import Base from '../../layouts/Base.astro';
           if (domandeFatte % 10 === 0) premioDa = true;
         }
       }
-      const ss = serie(); scena.serie(ss.ora, ss.migliore);
+      scena.serie(punti, Math.max(record(), punti));
       scriviPunteggio(); scriviStato();
       if (modo === 'in-gioco' && vite <= 0) window.setTimeout(fine, 1300);
     },
@@ -187,7 +187,7 @@ import Base from '../../layouts/Base.astro';
   });
   void corrente;
   scriviPunteggio(); scriviStato();
-  { const ss = serie(); scena.serie(ss.ora, ss.migliore); }
+  scena.serie(0, record());
 </script>
 
 <style>
@@ -195,6 +195,8 @@ import Base from '../../layouts/Base.astro';
   /* Sul computer, con il biglietto aperto, la scena resta grande e sale di metà biglietto: l'isola sta al centro dello
      spazio libero sopra il biglietto, alla stessa grandezza, con gli aerei intorno */
   .fondo3d { transition: transform .6s cubic-bezier(.3, .9, .3, 1); }
+  /* Il bordo in basso della scena sfuma nel fondo della pagina: niente taglio netto dove la scena finisce */
+  .fondo3d { -webkit-mask: linear-gradient(#000 0 82%, transparent); mask: linear-gradient(#000 0 82%, transparent); }
   /* La scena si allunga di 190 px in basso (niente fascia vuota ai lati del biglietto) e sale di 285: il centro finisce
      a metà dello spazio sopra il biglietto */
   @media (min-width: 641px) and (min-height: 501px) { :global(body:has(.imbarco:not([hidden]))) .fondo3d { bottom: -190px; transform: translateY(-285px); } }

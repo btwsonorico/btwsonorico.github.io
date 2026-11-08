@@ -225,7 +225,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     const tela = document.createElement('canvas'); tela.width = 512; tela.height = 64;
     const cx = tela.getContext('2d')!;
     cx.fillStyle = '#f4f1ea'; cx.font = `bold 44px ${monoC}`; cx.textBaseline = 'middle';
-    cx.textAlign = 'center'; cx.fillText('STREAK', 128, 34); cx.fillText('BEST', 384, 34);
+    cx.textAlign = 'center'; cx.fillText('SCORE', 128, 34); cx.fillText('BEST', 384, 34);
     const t = new THREE.CanvasTexture(tela); t.colorSpace = THREE.SRGBColorSpace;
     cartello.add(new THREE.Mesh(new THREE.PlaneGeometry(0.84, 0.07), new THREE.MeshBasicMaterial({ map: t, transparent: true })).translateY(0.465).translateZ(0.02));
   }
@@ -241,15 +241,16 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       mappa.needsUpdate = true;
     };
     scrivi('0');
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.25), new THREE.MeshBasicMaterial({ map: mappa }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.125, 0.22), new THREE.MeshBasicMaterial({ map: mappa }));
     m.position.set(x, 0.29, 0.02);
     cartello.add(m);
     return { m, scrivi, cifra: '0', nuova: '0', giro: 0 };
   };
-  const palette = [-0.31, -0.13, 0.13, 0.31].map(paletta);
+  // Tre cifre per il punteggio, tre per il record
+  const palette = [-0.37, -0.235, -0.1, 0.1, 0.235, 0.37].map(paletta);
   let primaVolta = true;
   const mostraSerie = (ora: number, migliore: number) => {
-    const testo = `${String(Math.min(99, ora)).padStart(2, '0')}${String(Math.min(99, migliore)).padStart(2, '0')}`;
+    const testo = `${String(Math.min(999, ora)).padStart(3, '0')}${String(Math.min(999, migliore)).padStart(3, '0')}`;
     // La prima volta le cifre compaiono già giuste, senza giro
     if (primaVolta) { primaVolta = false; palette.forEach((q, k) => { q.cifra = q.nuova = testo[k]!; q.scrivi(q.cifra); }); return; }
     palette.forEach((q, k) => { const c = testo[k]!; if (c !== q.nuova) { q.nuova = c; q.giro = q.giro > 0 ? q.giro : 0.0001; } });
