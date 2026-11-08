@@ -217,7 +217,8 @@ function disegnaMaschera(g: CanvasRenderingContext2D, faccia: HTMLElement, piano
       // Il poster tutto in lamina, con il termine inciso a contorno e una riga di dati
       const p = q('.poster'); if (!p) continue;
       g.fillRect(p.x, p.y, p.w, p.h);
-      const parole = (piano.testo ?? '').replace(/\s*\([^)]*\)/g, '').trim().toUpperCase();
+      // La carta Holo è un premio, non un termine: sul poster c'è scritto BONUS ROUND
+      const parole = 'BONUS ROUND';
       taglia(() => {
         g.font = `400 100px ${display}`; g.textBaseline = 'middle';
         let righe = [parole];
@@ -225,7 +226,7 @@ function disegnaMaschera(g: CanvasRenderingContext2D, faccia: HTMLElement, piano
         const larga = Math.max(...righe.map(x => g.measureText(x).width), 1), alt = Math.min(p.h * 0.62 / righe.length, 100 * (p.w - 40) / larga);
         g.font = `400 ${alt.toFixed(1)}px ${display}`; g.lineWidth = Math.max(1.2, alt * 0.035);
         righe.forEach((x, i) => g.strokeText(x, p.x + 20, p.y + p.h / 2 + (i - (righe.length - 1) / 2) * alt * 1.02));
-        g.font = `700 9px ${mono}`; g.textBaseline = 'alphabetic'; g.fillText(`${piano.numero ?? ''} · HOLO · AI TERMS`, p.x + 20, p.y + p.h - 16);
+        g.font = `700 9px ${mono}`; g.textBaseline = 'alphabetic'; g.fillText(`HOLO · ${piano.numero ?? ''}`, p.x + 20, p.y + p.h - 16);
       });
     }
   }

@@ -65,9 +65,9 @@ export function aCaso(evita: string[]): Voce {
 }
 
 // Un termine a caso fuori da una sezione: l'aereo dopo non deve essere quello sulla pista
-export function aCasoFuori(evita: string[], sezione: number): Voce {
-  const altre = VOCI.filter(v => v.indiceSezione !== sezione && !evita.includes(v.id));
-  const da = altre.length ? altre : VOCI.filter(v => v.indiceSezione !== sezione);
+export function aCasoFuori(evita: string[], sezioni: number[]): Voce {
+  const altre = VOCI.filter(v => !sezioni.includes(v.indiceSezione) && !evita.includes(v.id));
+  const da = altre.length ? altre : VOCI.filter(v => !sezioni.includes(v.indiceSezione));
   return da[Math.floor(Math.random() * da.length)]!;
 }
 

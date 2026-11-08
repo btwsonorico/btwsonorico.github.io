@@ -158,7 +158,7 @@ const rosetta = () => {
 export const OLO: Stile = {
   id: 'olo',
   davanti: c => { const col = una(c, 'olo-colore', () => scegli(OLO_COLORI, c.r)); return `<svg viewBox="0 0 100 110" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="${col}" stroke-width=".22" opacity=".9">${rosetta()}</g><text x="50" y="104" text-anchor="middle" font-family="ui-monospace, monospace" font-size="3.2" letter-spacing=".9" fill="${col}">HOLO · ${esc(c.numero)}</text></svg>`; },
-  dietro: c => `<div class="olo-poster"><span>${esc(c.termine)}</span></div>`,
+  dietro: () => `<div class="olo-poster"><span>Bonus round</span></div>`,
   variabili: c => carta({ carta: '#f3f1ec', inchiostro: '#1b2340', accento: una(c, 'olo-colore', () => scegli(OLO_COLORI, c.r)), tagliando: '#e9e6f0', fondo: '#f3f1ec' }),
 };
 
@@ -171,7 +171,7 @@ export const STILI: Stile[] = [sfera, lime, risograph, koi, prato, paesaggi, pas
 // oro a 2, arcobaleno da 3
 export type PianoBiglietto = { davanti: Pezzo[]; dietro: Pezzo[]; tinta: Tinta };
 export function pianoLamina(st: Stile, c: Contesto, combo = 0): PianoBiglietto {
-  if (st.id === 'olo') { const tinta = una(c, 'olo-tinta', () => scegli(OLO_TINTE, c.r)); return { davanti: ['guilloche', 'sigillo', 'simboli'], dietro: ['poster'], tinta }; }
+  if (st.id === 'olo') { const tinta = una(c, 'olo-tinta', () => scegli(OLO_TINTE, c.r)); return { davanti: ['guilloche', 'sigillo'], dietro: ['poster'], tinta }; }
   if (combo <= 0) return { davanti: [], dietro: [], tinta: 'argento' };
   const tinta: Tinta = combo === 1 ? 'argento' : combo === 2 ? 'oro' : 'iride';
   const k = una(c, 'lamina', () => [c.r(), c.r(), c.r(), c.r(), c.r()] as const);

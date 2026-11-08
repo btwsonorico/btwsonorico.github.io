@@ -3,7 +3,8 @@ import Base from '../../layouts/Base.astro';
 
 // AI terms: sei aerei girano intorno all'isola, uno per sezione del glossario. Il gioco è una partita a punti senza fine,
 // con tre vite: ogni risposta giusta vale punti, e le giuste di fila al primo colpo fanno la combo, che moltiplica i punti.
-// L'aereo della domanda atterra mentre si risponde; quello della domanda dopo aspetta in fila sul cerchio di attesa.
+// All'inizio un aereo a caso è già sulla pista; altri due aspettano in fila sui cerchi di attesa, così la domanda
+// dopo è sempre pronta. Quando l'aereo in pista riparte, il primo della fila atterra e un aereo nuovo si mette in fila.
 // Logica in src/lib/voli.ts, scena in src/scripts/aeroporto.ts, biglietto in src/scripts/bigliettoImbarco.ts
 ---
 <Base title="AI terms · Riccardo Mondi" description="A trivia game for the AI lexicon. Answer questions, keep your streak alive, and try to beat your high score." tono="neutro" largo>
@@ -55,7 +56,8 @@ import Base from '../../layouts/Base.astro';
   // Lo stato della partita: vite, punti, combo (giuste di fila al primo colpo), la domanda in pista e quella in fila
   const VITE = 5;
   let modo: Modo = 'inizio', vite = VITE, punti = 0, combo = 0, migliorCombo = 0, giuste = 0, ultimiPunti = '';
-  let corrente = -1, prossima: Voce | null = null, domandeFatte = 0;
+  // La fila: le due domande dopo, ognuna con il suo aereo sui cerchi di attesa
+  let corrente = -1, fila: Voce[] = [], domandeFatte = 0;
   // Gli aiuti: il pilota automatico (risponde giusto da solo), i punti doppi per qualche domanda; il premio della carta Holo
   let pilota = 0, doppi = 0, premioDa = false;
 
@@ -65,9 +67,10 @@ import Base from '../../layouts/Base.astro';
   const base = (t: number) => (t <= 1 ? 100 : t === 2 ? 50 : 25);
   const record = () => primati().punti ?? 0;
   const riassunto = () => `score ${punti} · combo ×${molt(combo).toFixed(1)} · best ${record()}`;
-  const scriviPunteggio = () => { punteggio.textContent = modo === 'in-gioco' ? riassunto() : `best ${record()}`; };
+  const scriviPunteggio = () => { punteggio.textContent = modo === 'in-gioco' ? `${punti} pts · ${cuori()} · ×${molt(combo).toFixed(1)} · best ${record()}` : `best ${record()}`; };
   const cuori = () => '♥'.repeat(vite) + '♡'.repeat(VITE - vite);
   const scriviStato = () => {
+    scriviPunteggio();
     for (const [m, e] of Object.entries(stati)) e.hidden = m !== modo;
     const e = stati[modo];
     if (modo === 'inizio') $('.dettaglio', e).textContent = `five lives · combos multiply your points · best ${record()}`;
@@ -86,33 +89,36 @@ import Base from '../../layouts/Base.astro';
     alClic: i => { if (modo === 'in-gioco') return; prova(i); },
     alCambio: () => {},
   });
-  // Una domanda va all'aereo della sua sezione: l'aereo atterra, il biglietto si apre subito
-  function metti(voce: Voce) {
+  // Una domanda va all'aereo della sua sezione: l'aereo atterra (o è già in pista), il biglietto si apre subito
+  function metti(voce: Voce, giaInPista = false) {
     const v = voloDa(voce), i = v.indice;
     recenti.push(voce.id); if (recenti.length > 24) recenti.shift();
     voli[i] = v;
     azzera(p, i);
     scena.riposa(i, voce.termine);
-    scena.atterra(i);
+    if (giaInPista) scena.posa(i); else scena.atterra(i);
     corrente = i;
     if (modo === 'in-gioco') domandeFatte++;
     imbarco.mostra(i);
   }
-  // La domanda dopo: sempre di un'altra sezione, così il suo aereo aspetta in fila dietro quello in pista
-  function inFila() {
-    prossima = aCasoFuori(recenti, voli[corrente]?.sezione ?? -1);
-    const j = SEZIONI.indexOf(prossima.indiceSezione);
-    scena.riposa(j, prossima.termine);
-    scena.inAttesa(j);
+  // La fila: sempre due domande di sezioni diverse da quella in pista e fra loro, così ogni aereo è un altro
+  function riempiFila() {
+    while (fila.length < 2) {
+      const usate = [voli[corrente]?.sezione ?? -1, ...fila.map(v => v.indiceSezione)];
+      const v = aCasoFuori([...recenti, ...fila.map(x => x.id)], usate);
+      fila.push(v);
+      scena.riposa(SEZIONI.indexOf(v.indiceSezione), v.termine);
+    }
+    fila.forEach((v, posto) => scena.inAttesa(SEZIONI.indexOf(v.indiceSezione), posto));
   }
   function prova(i: number) { modo = 'inizio'; metti(nuovoVolo(i, recenti).voce); }
   const avvia = () => {
     vite = VITE; punti = 0; combo = 0; giuste = 0; domandeFatte = 0; pilota = 0; doppi = 0; premioDa = false; ultimiPunti = ''; modo = 'in-gioco';
-    metti(aCaso(recenti)); inFila();
+    fila = []; metti(aCaso(recenti), true); riempiFila();
     scriviPunteggio(); scriviStato();
   };
   const fine = () => {
-    imbarco.nascondi(); scena.liberaTutti(); modo = 'fine';
+    imbarco.nascondi(); scena.liberaTutti(); fila = []; modo = 'fine';
     if (segnaPrimato('punti', punti) && punti > 0) scena.fuochi();
     scriviPunteggio(); scriviStato();
   };
@@ -172,9 +178,9 @@ import Base from '../../layouts/Base.astro';
       if (modo !== 'in-gioco') { imbarco.nascondi(); return; }
       if (vite <= 0) { fine(); return; }
       premioDa = false;
-      // L'aereo in fila atterra, e un altro si mette in fila dietro
-      const v = prossima ?? aCaso(recenti);
-      metti(v); inFila();
+      // Il primo della fila atterra, il secondo scende al suo posto, e un aereo nuovo si mette in fila
+      const v = fila.shift() ?? aCaso(recenti);
+      metti(v); riempiFila();
       scriviStato();
     },
     chiudi: () => { if (modo === 'in-gioco') fine(); else imbarco.nascondi(); },
@@ -373,7 +379,13 @@ import Base from '../../layouts/Base.astro';
     :global(.imbarco .retro), :global(.imbarco .carta.girata .fronte) { display: none; }
     :global(.imbarco .carta.girata .retro) { display: grid; transform: none; }
     :global(.imbarco .faccia) { height: auto; -webkit-mask: none !important; mask: none !important; }
-    :global(.imbarco .fronte) { grid-template-columns: 1fr; grid-template-rows: 76px 16px auto auto; }
+    :global(.imbarco .fronte) { grid-template-columns: 1fr; grid-template-rows: clamp(120px, 22dvh, 190px) 16px auto auto; }
+    /* Con il biglietto aperto: la scena piccola nel terzo in alto, sopra solo il punteggio; il biglietto nei due terzi in basso,
+       con le risposte dentro, a portata di pollice */
+    :global(body:has(.imbarco:not([hidden]))) .fondo3d { top: 0; bottom: auto; height: 34vh; height: 34dvh; }
+    :global(body:has(.imbarco:not([hidden]))) .aeroporto > :not(.punteggio) { display: none; }
+    :global(body:has(.imbarco:not([hidden]))) .punteggio { position: relative; z-index: 4; text-shadow: 0 1px 3px #000; }
+    :global(.imbarco) { top: 30vh; top: 30dvh; }
     :global(.imbarco .fronte > :not(.arte70):not(.strato):not(.timbri)) { grid-column: 1 / -1; }
     :global(.imbarco .banda span) { writing-mode: horizontal-tb; rotate: 0deg; font-size: 8px; }
     :global(.imbarco .corpo) { padding: 10px 12px 12px; gap: 4px; }
@@ -387,7 +399,7 @@ import Base from '../../layouts/Base.astro';
     :global(.imbarco .tagliando .coda) { display: flex; align-items: center; gap: 8px; margin: 0 0 0 auto; }
     :global(.imbarco .codice) { height: 20px; }
     :global(.imbarco .timbro) { width: 128px; height: 128px; }
-    :global(.imbarco .retro) { grid-template-columns: 1fr; grid-template-rows: 130px auto; }
+    :global(.imbarco .retro) { grid-template-columns: 1fr; grid-template-rows: clamp(120px, 20dvh, 180px) auto; }
     :global(.imbarco .scorre) { flex: none; }
     :global(.imbarco .pannello) { padding: 12px 14px; }
     :global(.imbarco .retro .titolo) { font-size: 30px; }
@@ -395,7 +407,7 @@ import Base from '../../layouts/Base.astro';
     :global(.imbarco .carta[data-stile='sfera'] .sf-testa), :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { left: 8px; right: 8px; font-size: 5.5px; letter-spacing: .12em; }
     :global(.imbarco .carta[data-stile='sfera'] .sf-testa) { top: 6px; }
     :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { bottom: 6px; }
-    :global(.imbarco .definizione) { max-height: 30vh; }
+    :global(.imbarco .definizione) { max-height: 22vh; max-height: 22dvh; }
     :global(.imbarco .azioni) { flex-wrap: wrap; }
     :global(.imbarco .azioni button) { flex: 1; min-height: 44px; }
   }
