@@ -432,5 +432,18 @@ import Base from '../../layouts/Base.astro';
     :global(.imbarco .definizione) { max-height: 22vh; max-height: 22dvh; }
     :global(.imbarco .azioni) { flex-wrap: wrap; }
     :global(.imbarco .azioni button) { flex: 1; min-height: 44px; }
+    /* Niente scroll: il biglietto riempie esattamente lo spazio sotto la scena. L'arte cresce o si stringe per far stare
+       tutto; sul retro scorre solo la definizione, dentro il biglietto */
+    :global(body:has(.imbarco:not([hidden]))) { overflow: hidden; overscroll-behavior: none; }
+    :global(.imbarco) { overflow: hidden; }
+    :global(.imbarco .biglietto) { flex: 1 1 auto; min-height: 0; margin-top: 0; display: flex; }
+    :global(.imbarco .carta), :global(.imbarco .carta.girata) { display: flex; flex-direction: column; width: 100%; min-height: 0; }
+    :global(.imbarco .faccia) { flex: 1 1 auto; min-height: 0; }
+    :global(.imbarco .fronte) { grid-template-rows: minmax(64px, 1fr) 16px auto auto; }
+    :global(.imbarco .retro) { grid-template-rows: minmax(64px, 32%) minmax(0, 1fr); }
+    :global(.imbarco .pannello) { min-height: 0; overflow: hidden; }
+    :global(.imbarco .scorre) { flex: 1 1 auto; min-height: 0; }
+    :global(.imbarco .definizione) { max-height: none; }
+    :global(.imbarco .azioni) { flex: none; margin: 10px 0 0; }
   }
 </style>
