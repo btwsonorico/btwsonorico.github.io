@@ -1,18 +1,21 @@
-// La testa del cane, in pixel art a 8 bit: un cucciolo visto di fronte, arancione, con le orecchie nere che pendono giù
-// ai lati del muso, occhi e naso neri. Un contorno chiaro di un pixel lo stacca dal prato scuro e dalle pecore.
+// La testa del cane, in pixel art a 8 bit, come un'icona: un cucciolo visto di fronte, tutto arancione, con il contorno,
+// gli occhi, il naso e la bocca neri, e le orecchie larghe che pendono ai lati del muso.
 // Si usa nella pagina /learn/reinforcement/ (greggeVista.ts) e nell'arte del biglietto (arteGregge.ts).
-// O pelo arancione, K orecchie nere, k occhi e naso
+// O arancione, K nero
 const DISEGNO = [
-  '...OOOOO...',
-  '..OOOOOOO..',
-  'KKOOOOOOOKK',
-  'KKOkOOOkOKK',
-  'KKOOOOOOOKK',
-  '.KOOOkOOOK.',
-  '.K.OOOOO.K.',
-  '....OOO....',
+  '....KKKKKKK....',
+  '..KKOOOOOOOKK..',
+  '.KOKOOOOOOOKOK.',
+  'KOOKOOOOOOOKOOK',
+  'KOOKOKOOOKOKOOK',
+  'KOOKOOOOOOOKOOK',
+  '.KOKOOOOOOOKOK.',
+  '..KKOOKKKOOKK..',
+  '...KOOOKOOOK...',
+  '....KOKKKOK....',
+  '.....KKKKK.....',
 ];
-const LARGO = 13, ALTO = 10;
+const LARGO = 15, ALTO = 11;
 const sprite = new Map<string, HTMLCanvasElement>();
 
 function bitmap(colore: string, fondo: string) {
@@ -24,11 +27,8 @@ function bitmap(colore: string, fondo: string) {
   const g = s.getContext('2d')!;
   const pieno = (x: number, y: number) => (DISEGNO[y]?.[x] ?? '.') !== '.';
   // Il bordo: ogni cella vuota accanto a una piena; così la testa si stacca dalle pecore chiare
-  g.fillStyle = '#f4ead6'; void fondo;
-  for (let y = -1; y <= DISEGNO.length; y++) for (let x = -1; x <= 11; x++) {
-    if (!pieno(x, y) && (pieno(x - 1, y) || pieno(x + 1, y) || pieno(x, y - 1) || pieno(x, y + 1))) g.fillRect(x + 1, y + 1, 1, 1);
-  }
-  DISEGNO.forEach((riga, y) => [...riga].forEach((ch, x) => { if (ch !== '.') { g.fillStyle = ch === 'O' ? colore : '#16110d'; g.fillRect(x + 1, y + 1, 1, 1); } }));
+  void fondo;
+  DISEGNO.forEach((riga, y) => [...riga].forEach((ch, x) => { if (ch !== '.') { g.fillStyle = ch === 'O' ? colore : '#16110d'; g.fillRect(x, y, 1, 1); } }));
   sprite.set(chiave, s);
   return s;
 }

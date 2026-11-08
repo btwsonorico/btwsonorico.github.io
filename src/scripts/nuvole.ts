@@ -22,8 +22,11 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   const r = casuale(23);
   // Il punto che la camera guarda: fermo al centro, o sul cane quando lo si segue
   const MIRA0 = new THREE.Vector3(0, 0.8, 0.3), MIRA = MIRA0.clone();
+  // Solo per registrare la clip del biglietto (scripts/registra-cane-segui.mjs): ?vicino=0.6 porta «follow the dog» più vicino.
+  // Senza il parametro vale 1 e non cambia niente
+  const VICINO = Math.max(0.2, Math.min(1, Number(new URLSearchParams(location.search).get('vicino')) || 1));
   const p = palco(el, {
-    camera: new THREE.Vector3(0, 8.3, 19.2), mira: MIRA, giro: 0.006, inclina: [-0.12, 0.8], nebbia: [1.0, 2.0], zoom: [0.3, 1.15], aggiorna,
+    camera: new THREE.Vector3(0, 8.3, 19.2), mira: MIRA, giro: 0.006, inclina: [-0.12, 0.8], nebbia: [1.0, 2.0], zoom: [0.3 * VICINO, 1.15], aggiorna,
     afferra, trascina, rilascia, clic,
     scena: 'nuvole', toni: SITO,
   });
@@ -709,7 +712,7 @@ Sheep: ${dentro}/${PECORE}   ${orologio(gioco.tempo)}`;
       for (const q of pecore) lontanaMax = Math.max(lontanaMax, Math.hypot(q.x - centroGregge.x, q.z - centroGregge.z));
       const tx = cane.x * 0.55 + centroGregge.x * 0.45, tz = cane.z * 0.55 + centroGregge.z * 0.45, sparso = lontanaMax + Math.hypot(cane.x - centroGregge.x, cane.z - centroGregge.z) * 0.5;
       MIRA.x = morbido(MIRA.x, tx, dt * 1.5); MIRA.z = morbido(MIRA.z, tz, dt * 1.5); MIRA.y = morbido(MIRA.y, altezza(tx, tz) + 0.2, dt * 1.5);
-      p.zoom(THREE.MathUtils.clamp(0.32 + sparso * 0.055, 0.34, 0.75));
+      p.zoom(THREE.MathUtils.clamp(0.32 + sparso * 0.055, 0.34, 0.75) * VICINO);
     }
     // Mongolfiere: un lento giro largo, su e giù; la fiammella si accende quando salgono
     p.camera.updateMatrixWorld();

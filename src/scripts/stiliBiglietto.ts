@@ -232,7 +232,10 @@ export function pianoLamina(st: Stile, c: Contesto, combo = 0): PianoBiglietto {
 // ridisegnarsi (le scene di caratteri bastano 12 volte al secondo). Lo stato di ogni tela (cellule, pesci) sta qui
 const ultimo = new WeakMap<HTMLCanvasElement, number>();
 export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: number) {
-  const tipoT = c.dataset.ascii ?? '', lento = tipoT.startsWith('notte') || tipoT === 'scena' || tipoT === 'prato' || tipoT === 'passing' || tipoT === 'banner' || tipoT in CARICA;
+  const tipoT = c.dataset.ascii ?? '';
+  // La clip del cane sul retro è un video: si disegna a ogni giro, senza limiti, così resta fluida
+  const clip = tipoT === 'gregge' && c.dataset.side === 'back';
+  const lento = tipoT.startsWith('notte') || tipoT === 'scena' || tipoT === 'prato' || tipoT === 'passing' || tipoT === 'banner' || (tipoT in CARICA && !clip);
   // Le arti di Learn a circa 20 fotogrammi al secondo, le scene di caratteri a 12
   if (lento && ora - (ultimo.get(c) ?? -1e9) < (tipoT in CARICA ? 48 : 80)) return;
   const prima = ultimo.get(c) ?? ora; ultimo.set(c, ora);

@@ -153,7 +153,16 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     const ang = 20 + ora.x * 70 + ora.y * 25, sp = ora.x * 0.5;
     foglie.forEach(g => g.setAttribute('gradientTransform', `translate(${sp.toFixed(3)} 0) rotate(${ang.toFixed(1)} .5 .5)`));
     // Le tele vive: circa 30 fotogrammi al secondo (le scene di caratteri si limitano da sole); con il movimento ridotto un fotogramma solo
-    if (tele.length && t - ultimoAscii > 33) { ultimoAscii = t; tele.forEach(c => { if ((fermo && c.dataset.fatto) || !c.clientWidth || !c.clientHeight) return; disegnaAscii(c, t, ora.x, ora.y); c.dataset.fatto = '1'; }); }
+    if (tele.length) {
+      const passo30 = t - ultimoAscii > 33;
+      if (passo30) ultimoAscii = t;
+      // Le tele a ~30 fotogrammi al secondo; la clip del cane (un video) a ogni fotogramma dello schermo
+      tele.forEach(c => {
+        if ((fermo && c.dataset.fatto) || !c.clientWidth || !c.clientHeight) return;
+        if (!passo30 && !(c.dataset.ascii === 'gregge' && c.dataset.side === 'back')) return;
+        disegnaAscii(c, t, ora.x, ora.y); c.dataset.fatto = '1';
+      });
+    }
     // La lamina segue l'inclinazione a ogni fotogramma, solo sulla faccia che si vede
     (carta.classList.contains('girata') ? laminaR : laminaF).disegna(ora.x, ora.y, fermo);
     anima = requestAnimationFrame(passo);

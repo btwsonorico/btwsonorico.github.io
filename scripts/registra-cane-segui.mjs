@@ -7,24 +7,26 @@
 // Poi ffmpeg fa il video: ogni pixel della tela diventa 2×2, così il colore (che H.264 tiene a metà risoluzione) resta
 // sulle linee sottili, e i pixel restano quelli grossi del telefono.
 //
-// Uso: (con il sito acceso, es. npx astro dev --port 4351)
+// Uso: (con il sito acceso, es. npx astro dev --port 4352)
 //   node scripts/registra-cane-segui.mjs [url] [secondi] [inizio] [durata]
-//     url: predefinito http://localhost:4351/learn/; secondi registrati: 34 (una partita dell'AI dura circa 24 s, poi
-//     4 s di festa); inizio e durata della clip in secondi: 12 e 16,8 (la fine del radunare, il cerchio pieno, la festa)
+//     url: predefinito http://localhost:4352/learn/?vicino=0.55 (?vicino porta più vicina la camera di «follow the dog»,
+//     src/scripts/nuvole.ts; senza parametro la pagina non cambia)
+//     secondi registrati: 34 (una partita dell'AI dura circa 24 s, poi 4 s di festa)
+//     inizio e durata della clip in secondi: vedi INIZIO e DURATA qui sotto
 //   node scripts/registra-cane-segui.mjs --solo-video [inizio] [durata]   rifà solo il video dai fotogrammi già presi
 // Uscita: public/learn/biglietti/cane-segui.mp4 (i fotogrammi PNG restano in una cartella temporanea)
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const SOLO_VIDEO = process.argv[2] === '--solo-video';
 const arg = SOLO_VIDEO ? ['', '', ...process.argv.slice(3)] : process.argv.slice(2);
-const URL_PAGINA = arg[0] || 'http://localhost:4351/learn/';
+const URL_PAGINA = arg[0] || 'http://localhost:4352/learn/?vicino=0.55';
 const SECONDI = Number(arg[1] || 34);
-const INIZIO = Number(arg[2] || 12), DURATA = Number(arg[3] || 16.8), FONDI = 0.8, CRF = 41;
+const INIZIO = Number(arg[2] || 14), DURATA = Number(arg[3] || 14), FONDI = 0.8, CRF = 39;
 const CHROME = process.env.CHROME ?? 'C:/Program Files/Google/Chrome/Application/chrome.exe';
-const FPS = 15, SOTTOPASSI = 2;            // 15 fotogrammi al secondo, ognuno fatto di 2 passi da 1/30 s (come il telefono)
+const FPS = 30, SOTTOPASSI = 1;            // 30 fotogrammi al secondo, uno per passo da 1/30 s (come il telefono): fluido
 const LARGO = 390, ALTO = 844;            // il telefono
 const TAGLIO = { w: 390, h: 270 };        // il ritaglio al centro, circa 1,45:1 come il biglietto
 const PORTA = 9300 + Math.floor(Math.random() * 600);
@@ -121,7 +123,9 @@ const N = Math.round(SECONDI * FPS);
 const via = Date.now();
 for (let f = 0; f < N; f++) {
   const conta = await valuta(PASSO);
-  const foto = await cdp('Page.captureScreenshot', { format: 'png', clip, captureBeyondViewport: false });
+  // Una volta Chrome si è fermato a metà: dopo 30 s senza foto si smette e si fa il video con quello che c'è
+  const foto = await Promise.race([cdp('Page.captureScreenshot', { format: 'png', clip, captureBeyondViewport: false }), aspetta(30000).then(() => null)]);
+  if (!foto) { console.log(`Chrome non risponde al fotogramma ${f}: mi fermo qui`); break; }
   writeFileSync(join(FOTO, `f${String(f).padStart(4, '0')}.png`), Buffer.from(foto.data, 'base64'));
   if (f % FPS === 0) console.log(`${(f / FPS).toFixed(0)} s · ${conta.split(String.fromCharCode(10)).pop()}`);
 }
@@ -136,6 +140,8 @@ codifica();
 // Si può rifare solo questa parte sui fotogrammi già presi: node scripts/registra-cane-segui.mjs --solo-video [inizio] [durata]
 function codifica() {
   const a = Math.round(INIZIO * FPS), d = Math.round(DURATA * FPS), f = Math.round(FONDI * FPS);
+  // Senza abbastanza fotogrammi non si tocca il video che c'è già
+  if (!existsSync(join(FOTO, `f${String(a + d - 1).padStart(4, '0')}.png`))) { console.log(`mancano fotogrammi fino a ${INIZIO + DURATA} s: video non rifatto`); return; }
   const grafo = `[0:v]split[x][y];[x]trim=start_frame=${a + f}:end_frame=${a + d},setpts=PTS-STARTPTS[a];`
     + `[y]trim=start_frame=${a}:end_frame=${a + f},setpts=PTS-STARTPTS[b];`
     + `[a]scale=iw*2:ih*2:flags=neighbor[a2];[b]scale=iw*2:ih*2:flags=neighbor[b2];[a2][b2]xfade=transition=fadeblack:duration=${f / FPS}:offset=${(d - 2 * f) / FPS},format=yuv420p[v]`;
