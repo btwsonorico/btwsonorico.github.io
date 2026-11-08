@@ -165,21 +165,17 @@ export const OLO: Stile = {
 // Il mazzo: ogni arte esce una volta per giro
 export const STILI: Stile[] = [sfera, lime, risograph, koi, prato, paesaggi, passing];
 
-// ---------------- La lamina cresce con la combo. Alla prima domanda (combo 0) niente lamina. Con una giusta di fila un
-// elemento, con due due elementi, da tre in su tre o quattro: la banda o il filo per primi, poi a caso fra il sigillo,
-// i simboli in lamina (il termine sul tagliando, stelle, un aereo) e le linee guilloché. La tinta: argento a 1,
-// oro a 2, arcobaleno da 3
+// ---------------- La lamina dice la combo: ogni giusta di fila al primo colpo aggiunge un elemento, sempre nello stesso
+// ordine. 1: il nome del termine sul tagliando; 2: il filo sottile con le paroline; 3: la banda grande; 4: il bollino;
+// 5: le linee guilloché. Un errore azzera la combo e il biglietto dopo torna di solo inchiostro.
+// Il colore è a caso, per biglietto: argento e oro comuni, arcobaleno più raro
 export type PianoBiglietto = { davanti: Pezzo[]; dietro: Pezzo[]; tinta: Tinta };
+const ORDINE_LAMINA: Pezzo[] = ['simboli', 'filo', 'banda', 'sigillo', 'guilloche'];
 export function pianoLamina(st: Stile, c: Contesto, combo = 0): PianoBiglietto {
-  if (st.id === 'olo') { const tinta = una(c, 'olo-tinta', () => scegli(OLO_TINTE, c.r)); return { davanti: ['guilloche', 'sigillo'], dietro: ['poster'], tinta }; }
-  if (combo <= 0) return { davanti: [], dietro: [], tinta: 'argento' };
-  const tinta: Tinta = combo === 1 ? 'argento' : combo === 2 ? 'oro' : 'iride';
-  const k = una(c, 'lamina', () => [c.r(), c.r(), c.r(), c.r(), c.r()] as const);
-  const quanti = combo === 1 ? 1 : combo === 2 ? 2 : k[4] < 0.5 ? 3 : 4;
-  // Gli altri elementi in un ordine a caso, deciso dal seme del biglietto
-  const altri = (['sigillo', 'simboli', 'guilloche'] as Pezzo[]).map((p, i) => [p, k[i + 1]!] as const).sort((x, y) => x[1] - y[1]).map(x => x[0]);
-  const primo: Pezzo = k[0] < 0.75 ? 'banda' : 'filo';
-  return { davanti: [primo, ...altri].slice(0, quanti), dietro: [], tinta };
+  const k = una(c, 'tinta-lamina', () => c.r());
+  const tinta: Tinta = k < 0.42 ? 'argento' : k < 0.84 ? 'oro' : 'iride';
+  if (st.id === 'olo') { const t = una(c, 'olo-tinta', () => scegli(OLO_TINTE, c.r)); return { davanti: ['guilloche', 'sigillo'], dietro: ['poster'], tinta: t }; }
+  return { davanti: ORDINE_LAMINA.slice(0, Math.max(0, Math.min(combo, ORDINE_LAMINA.length))), dietro: [], tinta };
 }
 
 // ---------------- Le tele vive. Il biglietto chiama disegnaAscii circa 30 volte al secondo; ogni tela decide quanto spesso

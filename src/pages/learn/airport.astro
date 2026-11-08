@@ -192,8 +192,12 @@ import Base from '../../layouts/Base.astro';
 
 <style>
   .fondo3d { position: fixed; top: 64px; bottom: 0; left: 0; right: 0; z-index: 0; }
-  /* Sul computer, con il biglietto aperto, la scena si stringe nello spazio sopra il biglietto: l'isola e l'aereo in pista restano interi */
-  @media (min-width: 641px) and (min-height: 501px) { :global(body:has(.imbarco:not([hidden]))) .fondo3d { bottom: 380px; } }
+  /* Sul computer, con il biglietto aperto, la scena resta grande e sale di metà biglietto: l'isola sta al centro dello
+     spazio libero sopra il biglietto, alla stessa grandezza, con gli aerei intorno */
+  .fondo3d { transition: transform .6s cubic-bezier(.3, .9, .3, 1); }
+  /* La scena si allunga di 190 px in basso (niente fascia vuota ai lati del biglietto) e sale di 285: il centro finisce
+     a metà dello spazio sopra il biglietto */
+  @media (min-width: 641px) and (min-height: 501px) { :global(body:has(.imbarco:not([hidden]))) .fondo3d { bottom: -190px; transform: translateY(-285px); } }
   .scena3d { position: absolute; inset: 0; overflow: hidden; touch-action: pan-y; }
   .aeroporto { position: relative; z-index: 1; pointer-events: none; padding-top: var(--s2); }
   .aeroporto > * { max-width: 400px; margin: 0 0 var(--s1); }
@@ -259,7 +263,7 @@ import Base from '../../layouts/Base.astro';
   /* La lamina olografica: una tela sopra la stampa (sotto la grana e i timbri). Il motto della banda è inciso nella lamina */
   :global(.imbarco .lamina) { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; z-index: 4; pointer-events: none; image-rendering: auto !important; }
   :global(.imbarco .lamina-banda .banda span) { color: transparent; }
-  :global(.imbarco .lamina-simboli .tagliando .nome), :global(.imbarco .lamina-simboli .tagliando .citazione) { color: transparent; }
+  :global(.imbarco .lamina-simboli .tagliando .nome) { color: transparent; }
   :global(.imbarco .corpo) { min-width: 0; display: flex; flex-direction: column; padding: 18px 22px; }
   :global(.imbarco .sotto) { margin: 0; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; opacity: .85; }
   /* La domanda è la protagonista: nessun riquadro, nessun bordo, solo testo */

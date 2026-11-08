@@ -4,7 +4,15 @@
 // il poster del retro. Le scritte dentro la lamina sono incise: tagliate via, si vede la carta sotto.
 // Un solo contesto WebGL per tutta la pagina, fuori dallo schermo; ogni faccia copia il risultato sulla sua tela 2D.
 
-export type Tinta = 'iride' | 'argento' | 'oro';
+export type Tinta = 'iride' | 'argento' | 'oro' | 'rosa' | 'rame' | 'smeraldo' | 'cobalto' | 'perla' | 'canna' | 'camaleonte' | 'rubino';
+// I metalli: il tono scuro e il tono chiaro della luce spazzolata, e quanto arcobaleno passa sopra (0 niente, 1 tutto)
+export const METALLI: Record<Exclude<Tinta, 'iride'>, [number[], number[], number]> = {
+  argento: [[.40, .43, .48], [.97, .98, 1], .07], oro: [[.47, .32, .08], [1, .91, .62], .07],
+  rosa: [[.45, .22, .2], [1, .82, .76], .08], rame: [[.38, .16, .06], [1, .66, .42], .06],
+  smeraldo: [[.02, .25, .16], [.55, 1, .78], .1], cobalto: [[.05, .12, .42], [.62, .82, 1], .12],
+  perla: [[.72, .72, .78], [1, 1, 1], .38], canna: [[.08, .09, .11], [.62, .66, .72], .15],
+  camaleonte: [[.3, .08, .48], [.62, 1, .55], .04], rubino: [[.35, .02, .08], [1, .45, .55], .06],
+};
 export type Pezzo = 'banda' | 'filo' | 'sigillo' | 'guilloche' | 'poster' | 'simboli';
 export type Piano = { pezzi: Pezzo[]; tinta: Tinta; testo?: string; numero?: string };
 
@@ -12,7 +20,7 @@ const VS = 'attribute vec2 a; varying vec2 vUv; void main(){ vUv = a * 0.5 + 0.5
 const FS = `
 precision highp float;
 varying vec2 vUv;
-uniform vec2 uRes; uniform vec2 uTilt; uniform vec2 uCentro; uniform float uDpr; uniform float uTinta;
+uniform vec2 uRes; uniform vec2 uTilt; uniform vec2 uCentro; uniform float uDpr; uniform float uTinta; uniform vec3 uScuro; uniform vec3 uChiaro; uniform float uIri;
 uniform vec3 uSigillo; uniform sampler2D uMaschera; uniform sampler2D uGraffi;
 // Un ventaglio: argento, salmone, arancio, giallo, verde, verde acqua, blu, viola, buio, rosso, argento
 vec3 tavolozza(float t) {
@@ -30,11 +38,11 @@ vec3 tavolozza(float t) {
   c = mix(c, vec3(.74, .71, .69), smoothstep(.79, 1.0, t));
   return c;
 }
-// Il metallo: la stessa raggiera diventa una luce spazzolata che gira, argento freddo o oro caldo
-vec3 metallo(float t, float oro) {
+// Il metallo: la stessa raggiera diventa una luce spazzolata che gira, fra il tono scuro e il tono chiaro del metallo,
+// con un velo d'arcobaleno sopra
+vec3 metallo(float t) {
   float l = 0.5 + 0.32 * cos(6.2831853 * t) + 0.18 * cos(12.566 * t + 1.0);
-  vec3 scuro = mix(vec3(.40, .43, .48), vec3(.47, .32, .08), oro), chiaro = mix(vec3(.97, .98, 1.0), vec3(1.0, .91, .62), oro);
-  return mix(mix(scuro, chiaro, clamp(l, 0.0, 1.0)), tavolozza(t), 0.07);
+  return mix(mix(uScuro, uChiaro, clamp(l, 0.0, 1.0)), tavolozza(t), uIri);
 }
 void main() {
   vec2 px = vUv * uRes, asp = vec2(uRes.x / uRes.y, 1.0);
@@ -45,7 +53,7 @@ void main() {
   vec2 d = p - c;
   float r = length(d), ang = atan(d.y, d.x), fi = uTilt.x * 1.7 + uTilt.y * 1.0 + 0.4;
   float t = (ang - fi) / 3.14159265 * ventagli + 0.035 * log(r + 0.02);
-  vec3 col = uTinta < 0.5 ? tavolozza(t) : metallo(t, uTinta > 1.5 ? 1.0 : 0.0);
+  vec3 col = uTinta < 0.5 ? tavolozza(t) : metallo(t);
   col *= 0.94 + 0.14 * exp(-r * 3.5);
   // I graffi: righe chiare del colore della lamina, accese vicino alla luce e quando sono di traverso
   vec4 g = texture2D(uGraffi, px / (900.0 * uDpr));
@@ -196,8 +204,8 @@ function disegnaMaschera(g: CanvasRenderingContext2D, faccia: HTMLElement, piano
       }
       taglia(() => faccia.querySelectorAll<HTMLElement>('.domanda, .opzione').forEach(e => { const r = misura(e, faccia); if (r) g.fillRect(r.x - 5, r.y - 4, r.w + 10, r.h + 8); }));
     } else if (pezzo === 'simboli') {
-      // I simboli in lamina: il termine sul tagliando (al posto dell'inchiostro), il numero di citazione, due stelle e un aereo
-      for (const sel of ['.tagliando .nome', '.tagliando .citazione']) {
+      // Il nome del termine sul tagliando, in lamina al posto dell'inchiostro
+      for (const sel of ['.tagliando .nome']) {
         const el = faccia.querySelector<HTMLElement>(sel), rr = misura(el, faccia);
         if (!el || !rr) continue;
         const cs = getComputedStyle(el), fs = parseFloat(cs.fontSize) || 16, lh = parseFloat(cs.lineHeight) || fs * 1.05;
@@ -210,9 +218,6 @@ function disegnaMaschera(g: CanvasRenderingContext2D, faccia: HTMLElement, piano
         const destra = cs.textAlign === 'right' || el.classList.contains('citazione');
         righe.forEach((x, i) => g.fillText(x, destra ? rr.x + rr.w - g.measureText(x).width : rr.x, rr.y + i * lh + (lh - fs) / 2));
       }
-      const c = q('.corpo'), ar = q('.arte70');
-      if (c) stella(g, c.x + c.w - 20, c.y + 18, 9, 2.2);
-      if (ar && ar.h > 120) { stella(g, ar.x + 22, ar.y + 24, 7, 1.8); aereo(g, ar.x + ar.w - 34, ar.y + 30, 1.3); }
     } else if (pezzo === 'poster') {
       // Il poster tutto in lamina, con il termine inciso a contorno e una riga di dati
       const p = q('.poster'); if (!p) continue;
@@ -268,7 +273,8 @@ export function laminaPer(faccia: HTMLElement) {
       gl.viewport(0, 0, W, H);
       gl.uniform2f(U('uRes'), W, H); gl.uniform2f(U('uTilt'), tx, ty); gl.uniform1f(U('uDpr'), dpr);
       gl.uniform2f(U('uCentro'), 0.55 - tx * 0.35, 0.5 + ty * 0.35);
-      gl.uniform1f(U('uTinta'), piano.tinta === 'iride' ? 0 : piano.tinta === 'argento' ? 1 : 2);
+      gl.uniform1f(U('uTinta'), piano.tinta === 'iride' ? 0 : 1);
+      if (piano.tinta !== 'iride') { const [sc, ch, iri] = METALLI[piano.tinta]; gl.uniform3f(U('uScuro'), sc[0]!, sc[1]!, sc[2]!); gl.uniform3f(U('uChiaro'), ch[0]!, ch[1]!, ch[2]!); gl.uniform1f(U('uIri'), iri); }
       gl.uniform3f(U('uSigillo'), sigillo ? sigillo[0] * dpr : 0, sigillo ? H - sigillo[1] * dpr : 0, sigillo ? sigillo[2] * dpr : 0);
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
