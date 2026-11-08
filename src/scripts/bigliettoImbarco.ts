@@ -58,20 +58,25 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   scheda70.append(domanda, opzioniEl);
   corpo.append(scheda70);
   const tagliando = el('div', 'tagliando'), nomeF = el('h2', 'nome'), categoriaF = el('p', 'mono categoria'), metadati = el('div', 'metadati'), livelloF = el('p', 'mono livello'), citazioneF = el('p', 'mono citazione'), serialeT = el('p', 'mono seriale'), codice = el('div', 'codice'), coda = el('div', 'coda');
-  metadati.append(livelloF, citazioneF);
-  coda.append(serialeT, codice);
+  // In alto la categoria con la difficoltà accanto; in basso il numero della definizione accanto al codice a barre
+  metadati.append(categoriaF, livelloF);
+  const fondoCoda = el('div', 'fondo-coda');
+  fondoCoda.append(citazioneF, codice);
+  coda.append(serialeT, fondoCoda);
   // Il contatore arcade sul tagliando, fra i dati del termine e il codice
   const arcade = el('div', 'arcade');
-  tagliando.append(nomeF, categoriaF, metadati, arcade, coda);
+  tagliando.append(nomeF, metadati, arcade, coda);
   const scriviArcade = () => {
     const a = o.arcade?.() ?? null;
     arcade.hidden = !a;
     if (!a) return;
     const riga = (classe: string, etichetta: string, valore: string) => { const d = el('div', `ar ${classe}`); d.append(el('small', 'mono', etichetta), el('b', 'mono', valore)); return d; };
+    // Il moltiplicatore cambia colore salendo: bianco, verde, giallo, arancio, rosa
+    const livelloCombo = Math.min(4, Math.max(0, a.combo - 1));
     arcade.replaceChildren(
-      riga('ar-vite', 'lives', '♥'.repeat(Math.max(0, a.vite)) + '♡'.repeat(Math.max(0, a.viteMax - a.vite))),
-      riga(`ar-combo${a.combo > 1 ? ' attiva' : ''}`, 'combo', `x${a.combo}`),
       riga('ar-punti', 'score', String(a.punti).padStart(2, '0')),
+      riga('ar-vite', 'lives', '♥'.repeat(Math.max(0, a.vite)) + '♡'.repeat(Math.max(0, a.viteMax - a.vite))),
+      riga(`ar-combo c${livelloCombo}`, 'combo', `x${a.combo}`),
     );
   };
   const timbri = el('div', 'timbri');

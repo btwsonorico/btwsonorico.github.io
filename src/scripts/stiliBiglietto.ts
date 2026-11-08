@@ -39,13 +39,13 @@ const carta = (k: Carta): Record<string, string> => ({ '--carta': k.carta, '--in
 
 // ---------------- Lime Bloom: una fioritura di luce su una griglia nera, e dentro la luce una colonia del Game of Life
 // che nasce, cresce e muore. Sul retro il nome del termine si scioglie in celle vive, poi si riscrive
-// Un'unica palette azzurro neon, senza varianti gialle o rosa.
-const FIORI = [['#bdfaff', '#14ddff', '#006b91']] as const;
+// Un'unica palette verde Matrix, su un fondo quasi nero.
+const FIORI = [['#c8ffd4', '#00ff41', '#007a1f']] as const;
 const lime: Stile = {
   id: 'lime', ascii: true,
   davanti: c => `<div class="fiore"></div><canvas data-ascii="vita" data-seme="${semeTela(c)}"></canvas><i class="tick" style="left:8%;top:7%"></i><i class="tick" style="right:8%;bottom:7%"></i>`,
   dietro: c => `<div class="fiore"></div><canvas data-ascii="vita-parola" data-seme="${semeTela(c)}" data-testo="${esc(c.termine.toUpperCase().slice(0, 18))}"></canvas>`,
-  variabili: c => { const f = una(c, 'fiore', () => scegli(FIORI, c.r)); return { ...carta({ carta: '#eef7f8', inchiostro: '#06303d', accento: '#0a9fc4', tagliando: '#dcedf0', fondo: '#061017' }), '--f1': f[0], '--f2': f[1], '--f3': f[2] }; },
+  variabili: c => { const f = una(c, 'fiore', () => scegli(FIORI, c.r)); return { ...carta({ carta: '#eef6ef', inchiostro: '#062b12', accento: '#0a9a34', tagliando: '#dceede', fondo: '#030a05' }), '--f1': f[0], '--f2': f[1], '--f3': f[2] }; },
 };
 
 // ---------------- Risograph: due inchiostri fluo sovrapposti, mezzatinta, il fuori registro che segue l'inclinazione.
@@ -80,16 +80,16 @@ const risograph: Stile = {
   variabili: c => { const [a, b] = una(c, 'ink', () => scegli(INCHIOSTRI, c.r)); return { ...carta({ carta: '#f6f0e4', inchiostro: '#163a6b', accento: a, tagliando: '#f2e2e9', fondo: '#f6f0e4' }), '--ink1': a, '--ink2': b }; },
 };
 
-// ---------------- Koi Pond, tutto a pixel. Davanti la riva del mare vista dall'alto, con le onde che salgono sulla sabbia;
-// dietro lo stagno: la riva d'erba con i sassi, le ninfee e le koi a sprite che nuotano senza piegarsi su se stesse
+// ---------------- Koi Pond, tutto a pixel. Davanti una koi sola, da vicino: la camera la segue, l'acqua e le ninfee
+// scorrono sotto. Dietro lo stagno intero: all'inizio c'è solo lei, poi le altre entrano dai bordi una alla volta.
 // Solo la versione minimal in bianco e nero, dove solo le koi hanno colore
 const ACQUE = [
   { mono: true, acqua: ['#8f918e', '#a8aaa6', '#c2c3bf', '#d9dad6', '#f2f2ee'], ui: { fondo: '#f4f3ef', bg: '#f4f3ef', pannello: '#e7e6e1', bordo: '#1a1a1a', hover: '#d9d8d2', ombra: '#1a1a1a' }, testo: '#141414', accento: '#e2452c' },
 ] as const;
 const koi: Stile = {
   id: 'koi', ascii: true,
-  davanti: c => `<canvas data-ascii="onde" data-seme="${semeTela(c)}"></canvas>`,
-  dietro: c => `<canvas data-ascii="koi-grande" data-seme="${semeTela(c)}"></canvas>`,
+  davanti: c => `<canvas data-ascii="koi-uno" data-seme="${semeTela(c)}"></canvas>`,
+  dietro: c => `<canvas data-ascii="koi-stagno" data-seme="${semeTela(c)}"></canvas>`,
   variabili: c => {
     const q = una(c, 'acqua', () => scegli(ACQUE, c.r));
     return {
@@ -97,6 +97,16 @@ const koi: Stile = {
       '--acqua-0': q.acqua[0], '--acqua-1': q.acqua[1], '--acqua-2': q.acqua[2], '--acqua-3': q.acqua[3], '--acqua-4': q.acqua[4], '--koi-mono': q.mono ? '1' : '0',
     };
   },
+};
+
+// ---------------- Spiaggia, tutto a pixel: la riva vista dall'alto. Davanti di giorno: mare turchese, la schiuma, l'onda
+// che sale piano sulla sabbia e si ritira, la sabbia bagnata più scura. Dietro la stessa riva al tramonto, con i teli,
+// l'ombrellone, le ciabatte e il secchiello sulla sabbia asciutta, e le ombre lunghe
+const spiaggia: Stile = {
+  id: 'spiaggia', ascii: true,
+  davanti: c => `<canvas data-ascii="riva" data-seme="${semeTela(c)}"></canvas>`,
+  dietro: c => `<canvas data-ascii="riva-tramonto" data-seme="${semeTela(c)}"></canvas>`,
+  variabili: () => carta({ carta: '#f6f1e6', inchiostro: '#173847', accento: '#14879b', tagliando: '#ece4d3', fondo: '#e3cfa4' }),
 };
 
 // ---------------- Meadow: un prato in pixel art, in due momenti dello stesso paesaggio: il giorno davanti, la notte dietro.
@@ -157,8 +167,8 @@ const rosetta = () => {
 };
 export const OLO: Stile = {
   id: 'olo',
-  davanti: c => { const col = una(c, 'olo-colore', () => scegli(OLO_COLORI, c.r)); return `<svg viewBox="0 0 100 110" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="${col}" stroke-width=".22" opacity=".9">${rosetta()}</g><text x="50" y="104" text-anchor="middle" font-family="ui-monospace, monospace" font-size="3.2" letter-spacing=".9" fill="${col}">HOLO · ${esc(c.numero)}</text></svg>`; },
-  dietro: () => `<div class="olo-poster"><span>Bonus round</span></div>`,
+  davanti: c => { const col = una(c, 'olo-colore', () => scegli(OLO_COLORI, c.r)); return `<svg viewBox="0 0 100 110" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="${col}" stroke-width=".22" opacity=".9">${rosetta()}</g></svg>`; },
+  dietro: () => `<div class="olo-poster"></div>`,
   variabili: c => carta({ carta: '#f3f1ec', inchiostro: '#1b2340', accento: una(c, 'olo-colore', () => scegli(OLO_COLORI, c.r)), tagliando: '#e9e6f0', fondo: '#f3f1ec' }),
 };
 
@@ -202,7 +212,7 @@ function arteLearn(tipo: string, c: HTMLCanvasElement, ora: number) {
 }
 
 // Il mazzo: ogni arte esce una volta per giro
-export const STILI: Stile[] = [sfera, lime, risograph, koi, prato, paesaggi, passing, rete, diffusione, gregge];
+export const STILI: Stile[] = [sfera, lime, risograph, koi, spiaggia, prato, paesaggi, passing, rete, diffusione, gregge];
 
 // ---------------- La lamina dice la combo: ogni giusta di fila al primo colpo aggiunge un elemento, sempre nello stesso
 // ordine. 1: il nome del termine sul tagliando; 2: il filo sottile con le paroline; 3: la banda grande; 4: il bollino;
@@ -231,7 +241,14 @@ export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: 
   if (!W || !H) return;
   if (c.width !== W || c.height !== H) { c.width = W; c.height = H; stati.delete(c); maschere.delete(c); }
   if (tipoT.startsWith('vita')) return vita(c, ora, dt, dpr, tipoT === 'vita-parola');
-  if (tipoT === 'onde') return ondeTela(c, dt, dpr, tx);
+  // Spiaggia e koi costano di più: la faccia che non si vede (il retro prima del giro, il davanti dopo) si ferma,
+  // ma solo dopo il primo disegno, così anche con il movimento ridotto ogni faccia ha la sua immagine
+  if (tipoT.startsWith('riva') || tipoT.startsWith('koi')) {
+    const retro = tipoT === 'riva-tramonto' || tipoT === 'koi-stagno', girata = !!c.closest('.girata');
+    if (c.dataset.fatto && (retro ? !girata && !!c.closest('.carta') : girata)) return;
+  }
+  if (tipoT === 'riva' || tipoT === 'riva-tramonto') return rivaTela(c, dt, dpr, tx, tipoT === 'riva-tramonto');
+  if (tipoT === 'koi-uno') return koiVicina(c, dt, dpr, tx, ty);
   if (tipoT.startsWith('koi')) return stagnoPixel(c, dt, dpr, tx, ty);
   if (tipoT === 'scena') return scenaTela(c, ora / 1000, tx);
   if (tipoT === 'prato') return pratoPixel(c, ora / 1000);
@@ -263,7 +280,7 @@ function vita(c: HTMLCanvasElement, ora: number, dt: number, dpr: number, parola
   s.passo += dt;
   if (s.passo > 0.14) { s.passo = 0; generazione(s, parola); }
   if (parola && (s.parola += dt) > 22) { s.parola = 0; scriviParola(c, s); }
-  const f1 = varCss(c, '--f1', '#bdfaff'), f2 = varCss(c, '--f2', '#14ddff'), f3 = varCss(c, '--f3', '#006b91');
+  const f1 = varCss(c, '--f1', '#c8ffd4'), f2 = varCss(c, '--f2', '#00ff41'), f3 = varCss(c, '--f3', '#007a1f');
   g.clearRect(0, 0, W, H);
   const k = Math.min(1, dt * 9), cx = s.cols * 0.34, cy = s.rows * 0.42, raggio = Math.max(s.cols, s.rows) * 0.6;
   for (let i = 0; i < s.luce.length; i++) {
@@ -325,8 +342,11 @@ const daHex = (h: string): Rgb => [parseInt(h.slice(1, 3), 16), parseInt(h.slice
 const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);
 type Immagine = { tela: HTMLCanvasElement; g: CanvasRenderingContext2D; img: ImageData; w: number; h: number };
 const immagini = new WeakMap<HTMLCanvasElement, Immagine>();
+// Un pixel dell'arte è sempre un numero intero di pixel della tela: così nessuna riga esce più larga delle altre
+// e le cose che si muovono piano non tremolano. L'immagine può uscire di poco dal bordo destro e da quello in basso
+const latoPix = (dpr: number) => Math.max(1, Math.round(PIX * dpr));
 function immagine(c: HTMLCanvasElement, dpr: number): Immagine {
-  const w = Math.ceil(c.width / (PIX * dpr)), h = Math.ceil(c.height / (PIX * dpr));
+  const k = latoPix(dpr), w = Math.ceil(c.width / k), h = Math.ceil(c.height / k);
   let x = immagini.get(c);
   if (!x || x.w !== w || x.h !== h) {
     const tela = document.createElement('canvas'); tela.width = w; tela.height = h;
@@ -344,11 +364,22 @@ const tono = (tav: Rgb[], v: number, x: number, y: number) => {
   const f = Math.max(0, Math.min(tav.length - 1, v * (tav.length - 1))), k = Math.floor(f);
   return tav[Math.min(tav.length - 1, f - k > BAYER4[(y & 3) * 4 + (x & 3)]! ? k + 1 : k)]!;
 };
-const mostra = (c: HTMLCanvasElement, im: Immagine) => {
+const mostra = (c: HTMLCanvasElement, im: Immagine, dpr: number) => {
   im.g.putImageData(im.img, 0, 0);
-  const g = c.getContext('2d')!; g.imageSmoothingEnabled = false;
-  g.drawImage(im.tela, 0, 0, im.w * (c.width / im.w), im.h * (c.height / im.h));
+  const g = c.getContext('2d')!, k = latoPix(dpr); g.imageSmoothingEnabled = false;
+  g.drawImage(im.tela, 0, 0, im.w * k, im.h * k);
 };
+// Un colore sopra il pixel che c'è già: a dice quanto copre
+const mescola = (im: Immagine, x: number, y: number, col: Rgb, a: number) => {
+  x = Math.round(x); y = Math.round(y);
+  if (x < 0 || y < 0 || x >= im.w || y >= im.h) return;
+  const i = (y * im.w + x) * 4, d = im.img.data;
+  d[i] = d[i]! + (col[0] - d[i]!) * a; d[i + 1] = d[i + 1]! + (col[1] - d[i + 1]!) * a; d[i + 2] = d[i + 2]! + (col[2] - d[i + 2]!) * a; d[i + 3] = 255;
+};
+const misto = (a: Rgb, b: Rgb, k: number): Rgb => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+const scuro = (a: Rgb, k: number): Rgb => [a[0] * k, a[1] * k, a[2] * k];
+const frazione = (v: number) => v - Math.floor(v);
+const soglia = (x: number, y: number) => BAYER4[(y & 3) * 4 + (x & 3)]!;
 const acque = (c: HTMLCanvasElement) => [0, 1, 2, 3, 4].map(k => daHex(varCss(c, `--acqua-${k}`, ['#0b3b45', '#0f5560', '#167080', '#2a8f98', '#6fc3c1'][k]!)));
 // Le tavolozze delle due varianti: a colori, e in scala di grigi (le koi restano a colori)
 const TAVOLE = {
@@ -364,137 +395,421 @@ const rumore = (x: number, y: number) => {
 };
 const frattale = (x: number, y: number) => rumore(x, y) * 0.55 + rumore(x * 2.1 + 7, y * 2.1 + 3) * 0.3 + rumore(x * 4.3 + 1, y * 4.3 + 9) * 0.15;
 
-// Davanti: la riva vista dall'alto. Sabbia in alto, il mare in basso; le onde salgono di sbieco e si ritirano,
-// lasciano la sabbia bagnata e un filo di schiuma; sull'acqua corrono le creste e qualche luccichio
-type Onde = { bagnato: Float32Array; luccica: Float32Array; tempo: number; r: () => number };
-function ondeTela(c: HTMLCanvasElement, dt: number, dpr: number, tx: number) {
-  const im = immagine(c, dpr), { w, h } = im, tav = acque(c), P = tavola(c);
-  const s = prendi<Onde>(c, () => ({ bagnato: new Float32Array(w * h), luccica: new Float32Array(w * h), tempo: casoTela(c)() * 20, r: casoTela(c) }));
-  if (s.bagnato.length !== w * h) { s.bagnato = new Float32Array(w * h); s.luccica = new Float32Array(w * h); }
+// ---------------- La spiaggia vista dall'alto. Sabbia in alto, il mare in basso. Tutto si misura in pixel dell'arte, mai
+// in frazioni della tela: l'onda sale al massimo di 16 pixel e le creste corrono a 1,3 pixel al secondo, sia nella
+// colonna alta del desktop sia nella striscia larga del telefono. Niente caso a ogni fotogramma: schiuma e luccichii
+// dipendono solo dal posto e dal tempo, così non sfarfallano
+type Spiaggia = { mare: Rgb[]; schiuma: Rgb; schiuma2: Rgb; sabbia: Rgb[]; bagnata: Rgb[]; lucida: Rgb; luce: Rgb };
+const SPIAGGE: Record<'giorno' | 'tramonto', Spiaggia> = {
+  giorno: { mare: ['#155a80', '#1c7499', '#2490b0', '#38abc0', '#5cc6c9', '#8fdcd3', '#c2eedf'].map(daHex), schiuma: daHex('#fbfbf4'), schiuma2: daHex('#d9f1ea'), sabbia: ['#d6bb88', '#e0c795', '#e9d3a6', '#f2e1b9'].map(daHex), bagnata: ['#a98d63', '#b79a6e', '#c4a87d'].map(daHex), lucida: daHex('#d3d6c6'), luce: daHex('#ffffff') },
+  tramonto: { mare: ['#2a2c5a', '#43386d', '#69457c', '#975580', '#c66a7c', '#e8907c', '#f6bb93'].map(daHex), schiuma: daHex('#fff0e2'), schiuma2: daHex('#f4c9b6'), sabbia: ['#b07558', '#c18562', '#d1966d', '#dfa87b'].map(daHex), bagnata: ['#7a4f52', '#8a5b5a', '#9a6862'].map(daHex), lucida: daHex('#eba187'), luce: daHex('#fff1b8') },
+};
+// Un campo fermo, un valore per pixel, calcolato una volta sola per tela (la grana della sabbia, le macchie del fondo)
+const campi = new WeakMap<HTMLCanvasElement, Map<string, Float32Array>>();
+const campo = (c: HTMLCanvasElement, nome: string, w: number, h: number, f: (x: number, y: number) => number) => {
+  let m = campi.get(c); if (!m) { m = new Map(); campi.set(c, m); }
+  let a = m.get(nome);
+  if (!a || a.length !== w * h) { a = new Float32Array(w * h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) a[y * w + x] = f(x, y); m.set(nome, a); }
+  return a;
+};
+type Riva = { tempo: number; alto: Float32Array };
+function rivaTela(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, tramonto: boolean) {
+  const im = immagine(c, dpr), { w, h } = im, T = tramonto ? SPIAGGE.tramonto : SPIAGGE.giorno;
+  const s = prendi<Riva>(c, () => ({ tempo: casoTela(c)() * 40, alto: new Float32Array(w).fill(1e9) }));
+  if (s.alto.length !== w) s.alto = new Float32Array(w).fill(1e9);
+  const GRANA = campo(c, 'grana', w, h, (x, y) => hash(x, y) * 0.3 + rumore(x * 0.11, y * 0.11) * 0.45 + 0.08 * Math.sin(x * 0.3 + y * 0.12 + rumore(x * 0.05, y * 0.05) * 5));
   s.tempo += dt;
-  const t = s.tempo, PERIODO = 7, risalita = (f: number) => (f < 0.3 ? 1 - (1 - f / 0.3) ** 3 : 0.5 + 0.5 * Math.cos(((f - 0.3) / 0.7) * Math.PI));
+  // PERIODO: un'onda ogni 10 secondi. A: quanto sale l'onda. base: dove l'acqua si ferma quando si è ritirata.
+  // Dietro, in alto, resta una fascia di sabbia asciutta per i teli e l'ombrellone
+  const t = s.tempo, PERIODO = 10, A = Math.round(Math.min(16, h * 0.26)), ZONA = tramonto ? 16 : 0;
+  const base = Math.min(h - 10, Math.max(Math.round(h * (tramonto ? 0.58 : 0.52)), ZONA + A + 4));
+  const LB = 13, SURF = Math.max(6, Math.min(16, (h - base) * 0.7)), sole = w * 0.72, scia = Math.max(18, w * 0.2);
   for (let x = 0; x < w; x++) {
-    // Ogni colonna è un tratto di riva, un po' in ritardo sul vicino: l'onda arriva di sbieco. La riva è frastagliata
-    // dal rumore, e ogni onda arriva un po' più su o più giù della precedente
-    const f = (((t / PERIODO - x * 0.012 - (frattale(x * 0.05, 1) - 0.5) * 0.35) % 1) + 1) % 1, onda = Math.floor(t / PERIODO - x * 0.012);
-    const bordo = h * 0.4 + risalita(f) * h * (0.14 + 0.1 * rumore(x * 0.04, onda * 3.7)) + (frattale(x * 0.11, t * 0.05) - 0.5) * 9 + (rumore(x * 0.6, 5) - 0.5) * 2;
+    // Ogni colonna è un tratto di riva, un po' in ritardo sul vicino: l'onda arriva di sbieco
+    const g = t / PERIODO - x * 0.004 + (rumore(x * 0.03, 3) - 0.5) * 0.12, n = Math.floor(g), f = g - n;
+    // L'acqua sale in fretta (un terzo del tempo) e si ritira piano
+    const sale = f < 0.32 ? 1 - (1 - f / 0.32) ** 2.2 : 0.5 + 0.5 * Math.cos(((f - 0.32) / 0.68) * Math.PI), ritira = f < 0.32 ? 0 : (f - 0.32) / 0.68;
+    const R = (A * (0.62 + 0.38 * rumore(x * 0.035, n * 1.7)) + (rumore(x * 0.16, n * 2.3) - 0.5) * 2.4) * sale;
+    const yF = base - R;
+    // La sabbia bagnata arriva fin dove è salita l'acqua, poi si asciuga piano verso il mare
+    const alto = (s.alto[x] = Math.min(yF, s.alto[x]! + dt * 0.9));
+    const wob = (rumore(x * 0.05, n * 0.3 + 11) - 0.5) * 3;
+    const spessa = (1.2 + 1.3 * rumore(x * 0.22, n * 4 + f * 2)) * (f < 0.32 ? 1.5 : 1 - ritira * 0.6);
     for (let y = 0; y < h; y++) {
-      const i = y * w + x, u = h - y;
-      if (u < bordo) {
-        // Il fondo e le creste a chiazze: il rumore scorre verso la riva, le creste sono le sue parti più alte
-        const profondo = Math.min(1, (bordo - u) / 22), chiazza = frattale(x * 0.09 + tx, u * 0.13 - t * 0.35), cresta = Math.max(0, chiazza - 0.62) * 3.2;
-        let col = tono(tav, 0.82 - profondo * 0.7 + cresta * 0.45 + (frattale(x * 0.04, u * 0.05 + t * 0.03) - 0.5) * 0.25, x, y);
-        const schiuma = bordo - u, bordoSchiuma = 1.2 + rumore(x * 0.3, t * 0.8) * 2.4;
-        if (schiuma < bordoSchiuma || (schiuma < bordoSchiuma + 2.5 && rumore(x * 0.5, u * 0.5 + t) > (f < 0.35 ? 0.55 : 0.8))) col = P.schiuma;
-        s.bagnato[i] = 1;
-        if (dt > 0 && s.r() < 0.0008) s.luccica[i] = 1;
-        if (s.luccica[i]! > 0.4) col = P.schiuma;
-        s.luccica[i] = Math.max(0, s.luccica[i]! - dt * 1.4);
-        metti(im, x, y, col);
+      let col: Rgb;
+      const grana = GRANA[y * w + x]!;
+      if (y < yF) {
+        if (y >= alto - 0.5) {
+          // Bagnata: più scura vicino all'acqua; appena l'acqua si ritira la sabbia luccica un momento
+          const k = Math.min(1, (y - alto + 1) / 4);
+          col = tono(T.bagnata, grana * 0.6 + (1 - k) * 0.45, x, y);
+          if (ritira > 0 && yF - y < 3 && (1 - (yF - y) / 3) * Math.min(1, ritira * 2) > soglia(x, y)) col = T.lucida;
+        } else col = tono(T.sabbia, grana + (1 - y / base) * 0.22, x, y);
       } else {
-        s.bagnato[i] = Math.max(0, s.bagnato[i]! - dt * (0.12 + 0.12 * hash(x, 77)));
-        const b = s.bagnato[i]!, grana = hash(x, y) * 0.35 + frattale(x * 0.12, y * 0.12) * 0.45;
-        metti(im, x, y, b > 0.15 ? tono(P.bagnata, grana, x, y) : tono(P.sabbia, grana + (y / h) * 0.2, x, y));
+        const d = y - yF, v = y - base;
+        // Il colore del mare: chiaro dove l'acqua è bassa, blu dove è profonda (40 pixel dalla riva)
+        const D = Math.max(0, Math.min(1, (v + 4) / 40));
+        let val = 0.92 - D * 0.9 + (rumore(x * 0.07 + tx * 2, y * 0.12 - t * 0.1) - 0.5) * 0.08;
+        // Le creste: righe parallele alla riva che salgono piano e arrivano alla riva insieme all'onda
+        const fase = (v + wob) / LB + f, e = frazione(fase), q = v >= 0 ? (e < 0.12 ? 1 - e / 0.12 : e > 0.78 ? ((e - 0.78) / 0.22) * 0.5 : 0) : 0;
+        val += q * 0.16;
+        col = tono(T.mare, val, x, y);
+        if (y < base) {
+          // Il velo d'acqua sulla sabbia: sottile vicino al bordo, e si assottiglia mentre si ritira
+          const a = Math.min(1, d / (3 + 5 * (1 - ritira))) * (1 - ritira * 0.45);
+          if (a < soglia(x, y)) col = tono(T.bagnata, grana * 0.6, x, y);
+        }
+        if (d < spessa) col = T.schiuma;
+        else if (d < 9) {
+          // Il pizzo di schiuma dietro il bordo: si muove con il bordo e si scioglie mentre l'acqua torna indietro
+          const pz = rumore(x * 0.24, d * 0.35 + n * 5.1);
+          if (pz > 0.52 + d * 0.035 + ritira * 0.3) col = pz > 0.7 ? T.schiuma : T.schiuma2;
+        }
+        if (v >= -1 && v < SURF && q > 0.4) {
+          // L'onda che rompe vicino alla riva diventa schiuma bianca, che corre con la cresta
+          const pz = rumore(x * 0.3, e * LB * 0.55 + Math.floor(fase) * 3.1);
+          if (pz > 0.3 + (Math.max(0, v) / SURF) * 0.35) col = pz > 0.55 ? T.schiuma : T.schiuma2;
+        }
+        if (v > 2 && d > 3) {
+          if (tramonto) {
+            // Il riflesso del sole basso: una scia di strisce calde e di luccichii verso destra
+            const vicino = Math.max(0, 1 - Math.abs(x - sole) / scia);
+            if (vicino > 0 && rumore(x * 0.32, y * 1.1 - t * 0.3) > 0.76 - vicino * 0.24) col = misto(col, T.luce, 0.3 + vicino * 0.4);
+            if (hash(x, y) > 0.986 - vicino * 0.05 && Math.sin(t * 1.3 + hash(y, x) * 40) > 0.6) col = T.luce;
+          } else if (hash(x, y + 999) > 0.993 && Math.sin(t * 1.1 + hash(y + 5, x) * 40) > 0.75) col = T.luce;
+        }
       }
+      metti(im, x, y, col);
     }
   }
-  mostra(c, im);
+  if (tramonto) oggettiSpiaggia(im, w, base - A - 2);
+  mostra(c, im, dpr);
 }
 
-// Dietro: lo stagno. In alto la riva d'erba con i sassi e qualche fiore; l'acqua è più chiara vicino alla riva, ha strisce
-// di luce che si muovono, ninfee con i fiori e koi a sprite. Le koi girano piano e il corpo si piega poco: niente pesci arrotolati
-type KoiPx = { x: number; y: number; a: number; voluta: number; vel: number; spina: { x: number; y: number }[]; misura: number; colore: (t: number, s: number) => Rgb; fase: number };
-type StagnoPx = { pesci: KoiPx[]; ninfee: { x: number; y: number; r: number; fiore: boolean }[]; sassi: { x: number; y: number; r: number }[]; cerchi: { x: number; y: number; r: number; vita: number }[]; tempo: number; r: () => number; riva: (x: number) => number };
-const KW = daHex('#f6f2ea'), KR = daHex('#e2452c'), KK = daHex('#1f1f24'), KG = daHex('#f2b63c'), KG2 = daHex('#ffe08a'), KB = daHex('#b07a40'), KA = daHex('#7f9bb3'), KO = daHex('#e8743a');
-// Le varietà: il colore di ogni punto del pesce, dato t (0 testa, 1 coda) e il lato s (-1 sinistra, 1 destra)
-const VARIETA_PX: ((r: () => number) => (t: number, s: number) => Rgb)[] = [
-  r => { const a = 0.05 + r() * 0.1, b = a + 0.25, c2 = 0.5 + r() * 0.1; return (t, s) => ((t > a && t < b && s > -0.4) || (t > c2 && t < c2 + 0.22) ? KR : KW); },
-  () => (t, s) => (t < 0.18 && Math.abs(s) < 0.7 ? KR : KW),
-  r => { const a = 0.15 + r() * 0.1; return (t, s) => (t > a && t < a + 0.3 ? KR : t > 0.6 && t < 0.72 && s > 0 ? KW : KK); },
-  () => (_, s) => (s > 0.35 ? KG2 : KG),
-  () => () => KB,
-  () => (_, s) => (Math.abs(s) > 0.6 ? KO : KA),
-  r => { const a = 0.08 + r() * 0.1; return (t, s) => (t > a && t < a + 0.3 ? KR : t > 0.5 && t < 0.8 && s > 0.2 && Math.round(t * 20 + s * 3) % 3 === 0 ? KK : KW); },
+// Un piccolo disegno a righe di caratteri: ogni carattere è un colore, il punto è vuoto
+const sprite = (im: Immagine, x: number, y: number, righe: string[], colori: Record<string, Rgb>) => {
+  righe.forEach((r, dy) => { for (let dx = 0; dx < r.length; dx++) { const k = colori[r[dx]!]; if (k) metti(im, x + dx, y + dy, k); } });
+};
+// Gli oggetti sulla sabbia asciutta, al tramonto: il sole basso sta a destra, sul mare, e le ombre vanno lunghe a sinistra
+function oggettiSpiaggia(im: Immagine, w: number, fondoZona: number) {
+  const caldo = (hx: string) => misto(daHex(hx), daHex('#ff9566'), 0.16), OMBRA: Rgb = [70, 34, 48];
+  const ombraTonda = (cx: number, cy: number, rx: number, ry: number) => {
+    for (let dy = -Math.ceil(ry); dy <= Math.ceil(ry); dy++) for (let dx = -Math.ceil(rx); dx <= Math.ceil(rx); dx++) if ((dx / rx) ** 2 + (dy / ry) ** 2 <= 1) mescola(im, cx + dx, cy + dy, OMBRA, 0.32);
+  };
+  const telo = (x0: number, y0: number, lw: number, lh: number, righe: string[]) => {
+    for (let x = 0; x < 3; x++) for (let y = 0; y <= lh; y++) mescola(im, x0 - 1 - x, y0 + y + 1, OMBRA, 0.12);
+    for (let y = 0; y < lh; y++) for (let x = 0; x < lw; x++) metti(im, x0 + x, y0 + y, caldo(righe[Math.floor(x / 2) % righe.length]!));
+    // Le frange sui lati corti
+    for (let y = 0; y < lh; y += 2) { metti(im, x0 - 1, y0 + y, caldo('#fff4e2')); metti(im, x0 + lw, y0 + y, caldo('#fff4e2')); }
+  };
+  const ombrellone = (cx: number, cy: number, r: number, a: string, b: string) => {
+    ombraTonda(cx - r - 2, cy + 1, r + 3, r - 1.5);
+    for (let k = 0; k < 6; k++) mescola(im, cx - k, cy + 1, OMBRA, 0.3);
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const dd = Math.hypot(dx, dy); if (dd > r + 0.3) continue;
+      const spicchio = Math.floor(((Math.atan2(dy, dx) + Math.PI) / (Math.PI * 2)) * 8) % 2;
+      let col = caldo(spicchio ? a : b);
+      if (dd > r - 0.9) col = scuro(col, 0.82); else if (dx > 0) col = misto(col, daHex('#fff1d0'), 0.12 * (dx / r));
+      metti(im, cx + dx, cy + dy, col);
+    }
+    metti(im, cx, cy, caldo('#6b4a3a'));
+  };
+  const C = { o: caldo('#3fb7e0'), p: caldo('#ff8fb1'), s: caldo('#fdf6ea'), R: caldo('#ffd23f'), D: caldo('#c99a1c'), S: caldo('#e2b47a'), B: caldo('#e84a5f'), H: caldo('#7a5a3a'), r: caldo('#e8463f'), b: caldo('#2f78c8'), y: caldo('#ffd23f'), w: caldo('#fffaf0') };
+  const x1 = Math.round(w * 0.05) + 2, x2 = x1 + 19, xo = x2 + 16;
+  telo(x1, 3, 15, 7, ['#e6464a', '#fdf6ea', '#2f78c8']);
+  telo(x2, 6, 13, 7, ['#f2c14e', '#3aa6a0']);
+  ombrellone(xo, 6, 6, '#ff6b5a', '#fff4e0');
+  // Le ciabatte, una un po' più avanti dell'altra
+  for (const [dx, dy, k] of [[9, 3, 'o'], [13, 4, 'o']] as const) {
+    for (let y = 0; y < 6; y++) mescola(im, xo + dx - 1, 3 + dy + y - 3, OMBRA, 0.18);
+    sprite(im, xo + dx, dy, ['.o.', 'oso', 'sos', 'ooo', 'ooo', '.o.'].map(r => r.replace(/o/g, k)), C);
+  }
+  // Il secchiello visto dall'alto, pieno di sabbia, e la paletta
+  const xs = Math.round(w * 0.55);
+  if (xs + 10 < w) {
+    ombraTonda(xs - 2, 9, 4, 2.5);
+    sprite(im, xs, 6, ['.RRR.', 'RDSDR', 'RSSSR', 'RDSDR', '.RRR.'], C);
+    sprite(im, xs + 7, 5, ['BB', 'BB', '.H', '.H', '.H'], C);
+  }
+  // Il pallone a spicchi
+  const xp = Math.round(w * 0.66);
+  if (xp + 4 < w) { ombraTonda(xp - 2, 11, 3, 1.5); sprite(im, xp, 8, ['.rw.', 'rrwb', 'yybb', '.yb.'], C); metti(im, xp + 2, 8, C.w); }
+  // Un altro telo con l'ombrellone, dove la tela è larga
+  const x3 = Math.round(w * 0.74);
+  if (x3 + 15 < w) telo(x3, 4, 14, 7, ['#7a55c8', '#fdf6ea']);
+  if (x3 + 19 < w) ombrellone(x3 + 13, 5, 5, '#2f9fd1', '#fff4e0');
+  // Le impronte dal telo fino all'acqua: due file di pixel scuri sfalsati
+  for (let y = 15, k = 0; y < fondoZona; y += 3, k++) { const x = x2 + 7 + Math.round((y - 15) * 0.25) + (k % 2 ? 1 : -1); mescola(im, x, y, OMBRA, 0.26); mescola(im, x, y + 1, OMBRA, 0.14); }
+}
+
+// ---------------- Le koi a pixel. Una koi è una spina di 16 punti: la testa va avanti e ogni punto segue il precedente,
+// piegandosi al massimo di 0,09 radianti. Così il corpo resta morbido e non si arrotola mai. Sopra la spina passa
+// un'onda leggera che cresce verso la coda. Il corpo si disegna pixel per pixel: per ogni pixel si cerca il punto più
+// vicino della spina, e da lì si sa dove si è sul pesce (s: 0 testa, 1 coda; l: -1 un fianco, 1 l'altro)
+const KW = daHex('#f6f2ea'), KR = daHex('#e2452c'), KK = daHex('#1f1f24'), KG = daHex('#f2b63c'), KG2 = daHex('#ffe08a'), KA = daHex('#7f9bb3'), KO = daHex('#e8743a'), BIANCO: Rgb = [255, 255, 255], OCCHIO = daHex('#26262b');
+type VarietaKoi = (s: number, l: number, m: number) => Rgb;
+const VARIETA_KOI: VarietaKoi[] = [
+  // Kohaku: bianca con le macchie rosse
+  (s, l, m) => (s > 0.04 && s < 0.78 && rumore(s * 7 + m, l * 1.3 + m * 0.7) > 0.52 ? KR : KW),
+  // Sanke: come la kohaku, con qualche macchia nera piccola
+  (s, l, m) => (s > 0.15 && s < 0.8 && rumore(s * 13 + m * 2, l * 2.6 + 9) > 0.74 ? KK : s > 0.04 && s < 0.78 && rumore(s * 7 + m, l * 1.3 + m * 0.7) > 0.52 ? KR : KW),
+  // Showa: nera, con il rosso e il bianco
+  (s, l, m) => (rumore(s * 7 + m, l * 1.4 + 3) > 0.58 ? KR : rumore(s * 9 + m * 3, l * 2 + 7) > 0.55 ? KW : KK),
+  // Tancho: bianca, con un tondo rosso sulla testa
+  (s, l) => (Math.hypot((s - 0.09) * 9, l * 0.9) < 0.7 ? KR : KW),
+  // Ogon: tutta oro, più chiara sul dorso
+  (_, l) => (Math.abs(l) < 0.35 ? KG2 : KG),
+  // Asagi: il dorso azzurro, i fianchi arancio
+  (s, l) => (Math.abs(l) > 0.62 && s > 0.1 ? KO : KA),
 ];
-function stagnoPixel(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, ty: number) {
-  const im = immagine(c, dpr), { w, h } = im, tav = acque(c), P = tavola(c), FOGLIA = P.foglia, PETALI = P.petali;
-  const s = prendi<StagnoPx>(c, () => {
-    // Niente riva: l'acqua riempie tutto il retro, così le koi non passano mai sopra l'erba. Restano dentro i bordi del biglietto
-    const r = casoTela(c), riva = () => -6;
-    const pesci: KoiPx[] = Array.from({ length: 6 }, (_, k) => {
-      const x = w * (0.15 + r() * 0.7), y = h * (0.35 + r() * 0.55), a = r() * Math.PI * 2, misura = 0.85 + r() * 0.5;
-      return { x, y, a, voluta: a, vel: 0, misura, spina: Array.from({ length: 7 }, (_, i) => ({ x: x - Math.cos(a) * 1.7 * misura * i, y: y - Math.sin(a) * 1.7 * misura * i })), colore: VARIETA_PX[Math.floor(r() * VARIETA_PX.length)]!(r), fase: k * 1.3 + r() * 4 };
-    });
-    const ninfee = Array.from({ length: 4 }, (_, k) => ({ x: w * [0.12, 0.83, 0.62, 0.3][k]! + (r() - 0.5) * 8, y: h * [0.38, 0.33, 0.78, 0.86][k]! + (r() - 0.5) * 6, r: 6 + r() * 3, fiore: k % 2 === 0 }));
-    return { pesci, ninfee, sassi: [], cerchi: [], tempo: r() * 30, r, riva };
+type Koi = { x: number; y: number; a: number; voluta: number; vel: number; L: number; spina: { x: number; y: number }[]; tipo: VarietaKoi; m: number; fase: number; onda: number; stato: 'entra' | 'nuota' | 'esce'; meta: { x: number; y: number } };
+const NK = 16;
+const nuovaKoi = (x: number, y: number, a: number, L: number, tipo: VarietaKoi, m: number, fase: number): Koi => ({
+  x, y, a, voluta: a, vel: 0, L, tipo, m, fase, onda: fase, stato: 'nuota', meta: { x, y },
+  spina: Array.from({ length: NK }, (_, i) => ({ x: x - (Math.cos(a) * L * i) / (NK - 1), y: y - (Math.sin(a) * L * i) / (NK - 1) })),
+});
+function muoviKoi(p: Koi, dt: number, giro: number) {
+  let d = p.voluta - p.a; d = Math.atan2(Math.sin(d), Math.cos(d));
+  p.a += Math.max(-giro * dt, Math.min(giro * dt, d));
+  p.x += Math.cos(p.a) * p.vel * dt; p.y += Math.sin(p.a) * p.vel * dt;
+  // La coda batte più in fretta quando la koi va più veloce: circa una volta ogni due secondi
+  p.onda += dt * Math.PI * 2 * (0.4 + (1.2 * p.vel) / p.L);
+  p.spina[0] = { x: p.x, y: p.y };
+  const seg = p.L / (NK - 1);
+  let dir = p.a;
+  for (let i = 1; i < NK; i++) {
+    const a = p.spina[i - 1]!, b = p.spina[i]!;
+    let ang = Math.atan2(a.y - b.y, a.x - b.x), dd = ang - dir; dd = Math.atan2(Math.sin(dd), Math.cos(dd));
+    ang = dir + Math.max(-0.09, Math.min(0.09, dd)); dir = ang;
+    p.spina[i] = { x: a.x - Math.cos(ang) * seg, y: a.y - Math.sin(ang) * seg };
+  }
+}
+// La larghezza del corpo da 0 a 1: muso tondo, la pancia larga a un terzo, poi si stringe fino all'attacco della coda
+const profiloKoi = (s: number) => (s < 0.3 ? Math.sqrt(Math.max(0, s) / 0.3) : 1 - 0.76 * Math.pow(Math.min(1, (s - 0.3) / 0.52), 1.4));
+// Le misure del pesce in un rettangolo intorno a lui: per ogni pixel la distanza dalla spina, dove cade (s) e da che lato
+let mBest = new Float32Array(0), mS = new Float32Array(0), mD = new Float32Array(0);
+function disegnaKoi(im: Immagine, p: Koi, ox: number, oy: number, t: number, ombra: Rgb) {
+  // La spina che si vede: quella vera più l'onda del nuoto
+  const q = p.spina.map((pt, i) => {
+    const s = i / (NK - 1), a = p.spina[Math.max(0, i - 1)]!, b = p.spina[Math.min(NK - 1, i + 1)]!, ang = Math.atan2(a.y - b.y, a.x - b.x);
+    const lat = p.L * (0.01 + 0.07 * s * s) * Math.sin(p.onda - s * Math.PI * 1.8);
+    return { x: pt.x - Math.sin(ang) * lat + ox, y: pt.y + Math.cos(ang) * lat + oy };
+  });
+  const HW = p.L * 0.13, grande = p.L >= 40, medio = p.L >= 22, sh = Math.max(1, Math.round(p.L / 20)), W = HW * 1.25 + 1;
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const v of q) { x0 = Math.min(x0, v.x); y0 = Math.min(y0, v.y); x1 = Math.max(x1, v.x); y1 = Math.max(y1, v.y); }
+  x0 = Math.floor(x0 - W); y0 = Math.floor(y0 - W); x1 = Math.ceil(x1 + W); y1 = Math.ceil(y1 + W);
+  if (x1 < -sh || y1 < -sh || x0 >= im.w || y0 >= im.h) return;
+  const bw = x1 - x0 + 1, bh = y1 - y0 + 1, n = bw * bh;
+  if (mBest.length < n) { mBest = new Float32Array(n * 2); mS = new Float32Array(n * 2); mD = new Float32Array(n * 2); }
+  mBest.fill(1e9, 0, n);
+  // Ogni tratto della spina timbra solo i pixel vicini: costa poco anche per la koi grande del davanti
+  for (let i = 0; i < NK - 1; i++) {
+    const a = q[i]!, b = q[i + 1]!, ex = b.x - a.x, ey = b.y - a.y, l2 = ex * ex + ey * ey || 1e-6;
+    const ya = Math.max(y0, Math.floor(Math.min(a.y, b.y) - W)), yb = Math.min(y1, Math.ceil(Math.max(a.y, b.y) + W));
+    const xa = Math.max(x0, Math.floor(Math.min(a.x, b.x) - W)), xb = Math.min(x1, Math.ceil(Math.max(a.x, b.x) + W));
+    for (let Y = ya; Y <= yb; Y++) for (let X = xa; X <= xb; X++) {
+      const uu = ((X - a.x) * ex + (Y - a.y) * ey) / l2;
+      // Oltre la fine della coda non c'è niente: niente tappo tondo che chiude la forcella
+      if (i === NK - 2 && uu > 1) continue;
+      const u = Math.max(0, Math.min(1, uu)), cx = a.x + ex * u - X, cy = a.y + ey * u - Y, d2 = cx * cx + cy * cy, j = (Y - y0) * bw + X - x0;
+      if (d2 < mBest[j]!) { mBest[j] = d2; mS[j] = (i + u) / (NK - 1); mD[j] = ((X - a.x) * ey - (Y - a.y) * ex >= 0 ? 1 : -1) * Math.sqrt(d2); }
+    }
+  }
+  // 0 niente, 1 corpo, 2 coda
+  const cosa = (j: number) => {
+    if (mBest[j]! > 1e8) return 0;
+    const s = mS[j]!, d = Math.abs(mD[j]!);
+    if (s <= 0.82 && d <= HW * profiloKoi(s) + 0.35) return 1;
+    if (s > 0.78) {
+      // La coda a ventaglio: si allarga verso la fine, con una forcella poco profonda
+      const u = (s - 0.78) / 0.22;
+      if (d <= HW * (0.3 + 0.95 * u) && !(u > 0.75 && d < HW * (u - 0.75) * 2.6)) return 2;
+    }
+    return 0;
+  };
+  // L'ombra sul fondo, spostata in basso a destra
+  for (let Y = y0; Y <= y1; Y++) for (let X = x0; X <= x1; X++) if (cosa((Y - y0) * bw + X - x0)) mescola(im, X + sh, Y + sh, ombra, 0.4);
+  const pinna = misto(p.tipo(0.3, 0.95, p.m), BIANCO, 0.5);
+  // Le pinne pettorali, grandi, e le ventrali, piccole: remano piano, una in controfase con l'altra
+  for (const [sf, lung, largo] of [[0.2, 0.2, 0.5], [0.52, 0.11, 0.45]] as const) for (const lato of [-1, 1]) {
+    const i0 = Math.round(sf * (NK - 1)), a0 = q[i0]!, a1 = q[i0 + 1]!, beta = Math.atan2(a1.y - a0.y, a1.x - a0.x);
+    const nx = Math.sin(beta), ny = -Math.cos(beta), bx = a0.x + nx * lato * HW * profiloKoi(sf) * 0.75, by = a0.y + ny * lato * HW * profiloKoi(sf) * 0.75;
+    const fa = beta - lato * (0.65 + 0.3 * Math.sin(t * 1.7 + p.fase + lato * 1.3)), ca = Math.cos(fa), sa = Math.sin(fa), len = p.L * lung, wid = len * largo;
+    for (let y = Math.floor(by - len - 1); y <= by + len + 1; y++) for (let x = Math.floor(bx - len - 1); x <= bx + len + 1; x++) {
+      const rx = x - bx, ry = y - by, lungo = rx * ca + ry * sa, attra = -rx * sa + ry * ca;
+      if (lungo < 0 || lungo > len) continue;
+      const mezzo = wid * 0.5 * Math.sin(Math.PI * Math.min(0.999, 0.12 + (0.88 * lungo) / len));
+      if (Math.abs(attra) > mezzo) continue;
+      const raggio = grande && (Math.floor((attra / (lungo + 1)) * 4 + 10) & 1) === 1;
+      const orlo = Math.abs(attra) > mezzo - 0.9 || lungo > len - 0.9;
+      mescola(im, x, y, orlo ? scuro(pinna, 0.72) : raggio ? scuro(pinna, 0.86) : pinna, orlo ? 0.8 : 0.72);
+    }
+  }
+  for (let Y = Math.max(0, y0); Y <= Math.min(im.h - 1, y1); Y++) for (let X = Math.max(0, x0); X <= Math.min(im.w - 1, x1); X++) {
+    const j = (Y - y0) * bw + X - x0, k0 = cosa(j);
+    if (!k0) continue;
+    const bs = mS[j]!, d = mD[j]!;
+    if (k0 === 2) { mescola(im, X, Y, medio && (Math.floor(Math.abs(d) / 1.5) & 1) ? scuro(pinna, 0.85) : pinna, 0.75); continue; }
+    const hw = HW * profiloKoi(bs), l = d / Math.max(0.5, hw), al = Math.abs(l);
+    let col = p.tipo(bs, l, p.m), k = 1 - Math.max(0, al - 0.55) * 0.45;
+    // La luce sul dorso, le squame a rombi sulle koi grandi, la pinna dorsale come una riga scura, gli occhi
+    if (al < 0.22 && bs > 0.08 && bs < 0.7) col = misto(col, BIANCO, 0.14);
+    if (grande && bs > 0.17 && bs < 0.78) { const a1 = (bs * p.L + d) / 3, a2 = (bs * p.L - d) / 3; if (frazione(a1) < 0.2 || frazione(a2) < 0.2) k *= 0.92; }
+    if (medio && al < 0.14 && bs > 0.33 && bs < 0.62) k *= 0.84;
+    if (bs < 0.03) k *= 0.9;
+    if (bs > 0.045 && bs < 0.1 && al > 0.42 && al < 0.88) { col = OCCHIO; k = 1; }
+    metti(im, X, Y, scuro(col, k));
+  }
+}
+// I colori dello stagno si leggono dal CSS una volta sola per tela: getComputedStyle a ogni fotogramma costa
+const coloriStagno = new WeakMap<HTMLCanvasElement, { tav: Rgb[]; P: ReturnType<typeof tavola> }>();
+const coloriKoi = (c: HTMLCanvasElement) => { let k = coloriStagno.get(c); if (!k) { k = { tav: acque(c), P: tavola(c) }; coloriStagno.set(c, k); } return k; };
+// Una ninfea vista dall'alto: la foglia tonda con il taglio, le nervature, l'orlo più chiaro; alcune hanno il fiore
+function ninfea(im: Immagine, cx: number, cy: number, r: number, rot: number, fiore: boolean, P: typeof TAVOLE.mono, ombra: Rgb) {
+  const R = Math.ceil(r) + 1;
+  for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+    const dd = Math.hypot(dx, dy); if (dd > r) continue;
+    let ang = Math.atan2(dy, dx) - rot; ang = Math.atan2(Math.sin(ang), Math.cos(ang));
+    if (Math.abs(ang) < 0.22 && dd > 0.8) continue;
+    mescola(im, cx + dx + 1, cy + dy + 1, ombra, 0.35);
+  }
+  for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+    const dd = Math.hypot(dx, dy); if (dd > r) continue;
+    let ang = Math.atan2(dy, dx) - rot; ang = Math.atan2(Math.sin(ang), Math.cos(ang));
+    if (Math.abs(ang) < 0.22 && dd > 0.8) continue;
+    const vena = r > 7 && dd > 1.5 && frazione((ang / (Math.PI * 2)) * 9 + 0.5) < 0.09;
+    metti(im, cx + dx, cy + dy, P.foglia[dd > r - 1.1 ? 2 : vena ? 0 : (hash(dx + 40, dy + 40) > 0.7 ? 0 : 1)]!);
+  }
+  if (!fiore) return;
+  const fr = Math.max(1.5, r * 0.32);
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2 + rot, x = cx - r * 0.2 + Math.cos(a) * fr, y = cy - r * 0.15 + Math.sin(a) * fr;
+    metti(im, x, y, P.petali[k % 2]!);
+    if (fr > 2.5) metti(im, cx - r * 0.2 + Math.cos(a) * fr * 0.55, cy - r * 0.15 + Math.sin(a) * fr * 0.55, P.petali[0]!);
+  }
+  metti(im, cx - r * 0.2, cy - r * 0.15, P.petali[2]!);
+}
+type Cerchio = { x: number; y: number; r: number; vita: number };
+const disegnaCerchi = (im: Immagine, cerchi: Cerchio[], ox: number, oy: number, col: Rgb, dt: number, vel: number) => {
+  for (const q of cerchi) {
+    q.r += dt * vel; q.vita -= dt * 0.45;
+    const n = Math.max(12, Math.round(q.r * 5));
+    if (q.vita > 0.15) for (let k = 0; k < n; k++) { const a = (k / n) * Math.PI * 2; mescola(im, q.x + ox + Math.cos(a) * q.r, q.y + oy + Math.sin(a) * q.r * 0.85, col, Math.min(1, q.vita * 1.3)); }
+  }
+  return cerchi.filter(q => q.vita > 0);
+};
+
+// Davanti: una koi sola, da vicino. La camera la segue: l'acqua, la luce sul fondo e le ninfee scorrono sotto di lei.
+// Tutte le misure dipendono dalla lunghezza della koi, così il colpo d'occhio è lo stesso sulla colonna alta e sulla striscia larga
+type KoiDavanti = { p: Koi; camX: number; camY: number; tempo: number; dir0: number; amp: number; f1: number; f2: number; foglie: { x: number; y: number; r: number; rot: number; fiore: boolean }[]; cerchi: Cerchio[]; tessera: number; r: () => number };
+function koiVicina(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, ty: number) {
+  const im = immagine(c, dpr), { w, h } = im, { tav, P } = coloriKoi(c);
+  const s = prendi<KoiDavanti>(c, () => {
+    // Le prime due estrazioni del seme sono la varietà e le macchie: il retro le rifà uguali, ed è la stessa koi
+    const r = casoTela(c), tipo = VARIETA_KOI[Math.floor(r() * VARIETA_KOI.length)]!, m = r() * 50;
+    const largo = w > h * 1.25, L = largo ? Math.min(w * 0.55, h * 1.55) : Math.min(h * 0.7, w * 0.95);
+    const dir0 = largo ? (r() < 0.5 ? 0 : Math.PI) : -Math.PI / 2 + (r() - 0.5) * 0.6;
+    const p = nuovaKoi(0, 0, dir0, L, tipo, m, r() * 6); p.vel = L * 0.085;
+    const tessera = Math.round(L * 2.4);
+    const foglie = Array.from({ length: 3 }, (_, k) => ({ x: tessera * (k / 3 + r() * 0.2), y: tessera * r(), r: L * (0.14 + r() * 0.07), rot: r() * Math.PI * 2, fiore: k !== 1 }));
+    const mezzo = p.spina[7]!;
+    return { p, camX: mezzo.x, camY: mezzo.y, tempo: r() * 30, dir0, amp: largo ? 0.22 : 0.5, f1: r() * 6, f2: r() * 6, foglie, cerchi: [], tessera, r };
   });
   s.tempo += dt;
-  const t = s.tempo;
-  // L'acqua, pixel per pixel: un fondo a macchie larghe e la luce a chiazze irregolari, che scorrono piano e seguono l'inclinazione
+  const t = s.tempo, p = s.p, z = 64 / p.L;
+  // La direzione cambia piano, con due onde lente: la koi curva dolce e non torna mai su se stessa
+  p.voluta = s.dir0 + s.amp * (Math.sin(t * 0.13 + s.f1) * 0.7 + Math.sin(t * 0.29 + s.f2) * 0.3);
+  p.vel += (p.L * (0.085 + 0.025 * Math.sin(t * 0.21 + s.f1)) - p.vel) * Math.min(1, dt);
+  muoviKoi(p, dt, 0.35);
+  const mezzo = p.spina[7]!, kc = Math.min(1, dt * 1.5);
+  s.camX += (mezzo.x - s.camX) * kc; s.camY += (mezzo.y - s.camY) * kc;
+  // La camera si sposta a pixel interi: il fondo scorre netto, senza retinatura che tremola
+  const ox = Math.round(w / 2 - s.camX), oy = Math.round(h / 2 - s.camY);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const luce = frattale(x * 0.07 + t * 0.04 + tx, y * 0.09 - t * 0.03 + ty), fondo = frattale(x * 0.03 + 11, y * 0.03 + 5);
-    const v = 0.22 + (fondo - 0.5) * 0.4 + (luce > 0.68 ? 0.4 : luce > 0.6 ? 0.18 : 0);
-    metti(im, x, y, tono(tav, v, x, y));
+    const wx = (x - ox) * z, wy = (y - oy) * z;
+    const fondo = rumore(wx * 0.03, wy * 0.03) * 0.6 + rumore(wx * 0.08 + 5, wy * 0.08) * 0.4;
+    // La luce sul fondo: una rete di righe chiare che cambia forma piano
+    const rete = 1 - Math.abs(2 * rumore(wx * 0.07 + t * 0.05 + tx * 0.3, wy * 0.07 - t * 0.04 + ty * 0.3) - 1);
+    metti(im, x, y, tono(tav, 0.42 + (fondo - 0.5) * 0.35 + (rete > 0.9 ? 0.22 : rete > 0.8 ? 0.08 : 0), x - ox, y - oy));
   }
-  // Le koi: la testa va verso una direzione voluta che cambia ogni tanto, gira al massimo di poco al secondo,
-  // e ogni giuntura della spina si piega al massimo di 0.2 radianti rispetto alla precedente
-  for (const p of s.pesci) {
-    if (s.r() < dt * 0.25) p.voluta = p.a + (s.r() - 0.5) * 2.2;
-    const m = 8, cima = s.riva(p.x) + 6;
-    if (p.x < m) p.voluta = 0; else if (p.x > w - m) p.voluta = Math.PI; else if (p.y < cima) p.voluta = Math.PI / 2; else if (p.y > h - m) p.voluta = -Math.PI / 2;
-    let d = p.voluta - p.a; d = Math.atan2(Math.sin(d), Math.cos(d));
-    p.a += Math.max(-0.7 * dt, Math.min(0.7 * dt, d));
-    p.vel += ((5 + 3 * Math.sin(t * 0.3 + p.fase)) * p.misura - p.vel) * Math.min(1, dt);
-    p.x += Math.cos(p.a) * p.vel * dt; p.y += Math.sin(p.a) * p.vel * dt;
-    p.spina[0] = { x: p.x, y: p.y };
-    const L = 1.7 * p.misura;
-    let dir = p.a;
-    for (let i = 1; i < p.spina.length; i++) {
-      const a = p.spina[i - 1]!, b = p.spina[i]!;
-      let ang = Math.atan2(a.y - b.y, a.x - b.x), dd = ang - dir; dd = Math.atan2(Math.sin(dd), Math.cos(dd));
-      ang = dir + Math.max(-0.2, Math.min(0.2, dd)); dir = ang;
-      p.spina[i] = { x: a.x - Math.cos(ang) * L, y: a.y - Math.sin(ang) * L };
-    }
-    if (s.r() < dt * 0.05) s.cerchi.push({ x: p.x, y: p.y, r: 0, vita: 1 });
+  // Le ninfee scorrono sotto la koi: lei resta sempre tutta in vista. Il fondo si ripete ogni "tessera"
+  for (const f of s.foglie) {
+    const T = s.tessera, bx = ((((f.x + ox) % T) + T) % T), by = ((((f.y + oy) % T) + T) % T);
+    for (const X of [bx, bx - T]) for (const Y of [by, by - T]) if (X > -f.r - 2 && X < w + f.r + 2 && Y > -f.r - 2 && Y < h + f.r + 2) ninfea(im, X, Y + Math.sin(t * 0.6 + f.x) * 0.4, f.r, f.rot, f.fiore, P, tav[0]!);
   }
-  const ombra = tav[0]!, raggi = [1.5, 1.9, 2, 1.8, 1.4, 0.95, 0.6];
-  const corpo = (p: KoiPx, ox: number, oy: number, col: ((t: number, sd: number) => Rgb) | null, extra: number) => {
-    const n = p.spina.length;
-    for (let i = 0; i < n; i++) {
-      const q = p.spina[i]!, rr = raggi[i]! * p.misura + extra, nx = -Math.sin(i ? Math.atan2(p.spina[i - 1]!.y - q.y, p.spina[i - 1]!.x - q.x) : p.a), ny = Math.cos(i ? Math.atan2(p.spina[i - 1]!.y - q.y, p.spina[i - 1]!.x - q.x) : p.a);
-      for (let dy = -Math.ceil(rr); dy <= Math.ceil(rr); dy++) for (let dx = -Math.ceil(rr); dx <= Math.ceil(rr); dx++) {
-        if (dx * dx + dy * dy > rr * rr + 0.3) continue;
-        metti(im, q.x + dx + ox, q.y + dy + oy, col ? col(i / (n - 1), (dx * nx + dy * ny) / Math.max(0.5, rr)) : ombra);
+  disegnaKoi(im, p, ox, oy, t, tav[0]!);
+  // Cerchi nell'acqua: ogni tanto uno vicino alla testa, ogni tanto uno lontano
+  if (s.r() < dt * 0.35) { const q = p.spina[0]!; s.cerchi.push({ x: q.x + (s.r() - 0.5) * 4, y: q.y + (s.r() - 0.5) * 4, r: 0, vita: 1 }); }
+  if (s.r() < dt * 0.25) s.cerchi.push({ x: (s.r() * w) - ox, y: (s.r() * h) - oy, r: 0, vita: 1 });
+  s.cerchi = disegnaCerchi(im, s.cerchi, ox, oy, tav[4]!, dt, p.L * 0.07);
+  mostra(c, im, dpr);
+}
+
+// Dietro: lo stagno intero, visto da più in alto. All'inizio c'è solo la koi del davanti; quando si gira il biglietto
+// le altre entrano dai bordi, una ogni 4 secondi, fino a 7-9. Dopo mezzo minuto escono piano una alla volta, resta
+// di nuovo lei sola, e si ricomincia
+type StagnoPx = { pesci: Koi[]; ninfee: { x: number; y: number; r: number; rot: number; fiore: boolean }[]; cerchi: Cerchio[]; tempo: number; visto: number; pieno: number; esce: number; fase: 'cresce' | 'svuota'; N: number; L: number; r: () => number };
+function stagnoPixel(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, ty: number) {
+  const im = immagine(c, dpr), { w, h } = im, { tav, P } = coloriKoi(c);
+  const s = prendi<StagnoPx>(c, () => {
+    const r = casoTela(c), tipo = VARIETA_KOI[Math.floor(r() * VARIETA_KOI.length)]!, m = r() * 50;
+    const L = Math.max(15, Math.min(30, Math.min(w * 0.24, h * 0.42)));
+    const prima = nuovaKoi(w * 0.5, h * 0.5, r() * Math.PI * 2, L * 1.1, tipo, m, r() * 6);
+    const ninfee = Array.from({ length: 4 }, (_, k) => ({ x: w * [0.12, 0.83, 0.62, 0.3][k]! + (r() - 0.5) * 8, y: h * [0.3, 0.25, 0.78, 0.84][k]! + (r() - 0.5) * 6, r: Math.max(4, Math.min(9, L * 0.3)) * (0.8 + r() * 0.4), rot: r() * Math.PI * 2, fiore: k % 2 === 0 }));
+    return { pesci: [prima], ninfee, cerchi: [], tempo: r() * 30, visto: 0, pieno: 0, esce: 0, fase: 'cresce', N: 7 + Math.floor(r() * 3), L, r };
+  });
+  s.tempo += dt;
+  const t = s.tempo, r = s.r;
+  // Il tempo dello stagno corre solo con il retro in vista: prima del giro c'è solo lei
+  if (c.closest('.girata')) {
+    if (s.fase === 'cresce') {
+      s.visto += dt;
+      if (s.pesci.length < Math.min(s.N, 1 + Math.floor(s.visto / 4))) {
+        // Entra da un bordo a caso, già orientata verso un punto dentro lo stagno
+        const L = s.L * (0.8 + r() * 0.35), lato = Math.floor(r() * 4), fuori = L * 0.4;
+        const x = lato === 0 ? -fuori : lato === 1 ? w + fuori : w * (0.15 + r() * 0.7), y = lato === 2 ? -fuori : lato === 3 ? h + fuori : h * (0.2 + r() * 0.6);
+        const meta = { x: w * (0.3 + r() * 0.4), y: h * (0.3 + r() * 0.4) };
+        const k = nuovaKoi(x, y, Math.atan2(meta.y - y, meta.x - x), L, VARIETA_KOI[Math.floor(r() * VARIETA_KOI.length)]!, r() * 50, r() * 6);
+        k.stato = 'entra'; k.meta = meta; k.vel = L * 0.2; s.pesci.push(k);
       }
+      if (s.pesci.length >= s.N && s.pesci.every(p => p.stato === 'nuota') && (s.pieno += dt) > 30) { s.fase = 'svuota'; s.esce = 0; }
+    } else if ((s.esce += dt) > 2.5) {
+      s.esce = 0;
+      const k = s.pesci.slice(1).reverse().find(p => p.stato !== 'esce');
+      if (k) {
+        // Esce dal bordo più vicino
+        k.stato = 'esce';
+        const dl = [k.x, w - k.x, k.y, h - k.y], i = dl.indexOf(Math.min(...dl));
+        k.meta = [{ x: -999, y: k.y }, { x: w + 999, y: k.y }, { x: k.x, y: -999 }, { x: k.x, y: h + 999 }][i]!;
+      } else if (s.pesci.length === 1) { s.fase = 'cresce'; s.visto = 0; s.pieno = 0; }
     }
-  };
-  for (const p of s.pesci) corpo(p, 1, 2, null, 0.3);
+  }
+  // L'acqua: un fondo a macchie larghe e la luce a chiazze, che scorrono piano e seguono l'inclinazione
+  const FONDO = campo(c, 'fondo', w, h, (x, y) => frattale(x * 0.03 + 11, y * 0.03 + 5));
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const luce = rumore(x * 0.07 + t * 0.04 + tx, y * 0.09 - t * 0.03 + ty) * 0.65 + rumore(x * 0.15 + t * 0.06 + 7, y * 0.19 - t * 0.05) * 0.35, fondo = FONDO[y * w + x]!;
+    metti(im, x, y, tono(tav, 0.22 + (fondo - 0.5) * 0.4 + (luce > 0.68 ? 0.4 : luce > 0.6 ? 0.18 : 0), x, y));
+  }
   for (const p of s.pesci) {
-    // Pinne pettorali e coda: due pixel che battono piano
-    const batte = Math.sin(t * 6 + p.fase) > 0 ? 1 : 0, q1 = p.spina[1]!, coda = p.spina[p.spina.length - 1]!, nx = -Math.sin(p.a), ny = Math.cos(p.a);
-    const pinna = p.colore(0.2, 1)[0] > 200 && p.colore(0.2, 1)[1] > 200 ? daHex('#dfe8e6') : p.colore(0.2, 1);
-    for (const sd of [-1, 1]) metti(im, q1.x + nx * sd * (2.6 + batte * 0.6) * p.misura, q1.y + ny * sd * (2.6 + batte * 0.6) * p.misura, pinna);
-    const pc = p.spina[p.spina.length - 2]!, ac = Math.atan2(coda.y - pc.y, coda.x - pc.x);
-    for (const sd of [-1, 1]) metti(im, coda.x + Math.cos(ac + sd * (0.6 + batte * 0.3)) * 1.6 * p.misura, coda.y + Math.sin(ac + sd * (0.6 + batte * 0.3)) * 1.6 * p.misura, pinna);
-    corpo(p, 0, 0, p.colore, 0);
-  }
-  // Le ninfee: una foglia tonda col taglio, l'orlo più chiaro; alcune hanno il fiore rosa
-  for (const n of s.ninfee) {
-    const y0 = n.y + Math.sin(t * 0.6 + n.x) * 0.5;
-    for (let dy = -n.r; dy <= n.r; dy++) for (let dx = -n.r; dx <= n.r; dx++) {
-      const dd = Math.hypot(dx, dy), ang = Math.atan2(dy, dx);
-      if (dd > n.r || (ang > -0.25 && ang < 0.35 && dd > 1)) continue;
-      metti(im, n.x + dx, y0 + dy, FOGLIA[dd > n.r - 1.2 ? 2 : (dx + dy) % 3 === 0 ? 1 : 0]!);
+    const m = p.L * 0.45 + 3;
+    if (p.stato === 'nuota') {
+      if (r() < dt * 0.25) p.voluta = p.a + (r() - 0.5) * 2;
+      if (p.x < m) p.voluta = 0; else if (p.x > w - m) p.voluta = Math.PI; else if (p.y < m) p.voluta = Math.PI / 2; else if (p.y > h - m) p.voluta = -Math.PI / 2;
+    } else {
+      p.voluta = Math.atan2(p.meta.y - p.y, p.meta.x - p.x);
+      if (p.stato === 'entra' && p.x > m && p.x < w - m && p.y > m && p.y < h - m) p.stato = 'nuota';
     }
-    if (n.fiore) { for (const [dx, dy, k] of [[0, -1, 0], [-1, 0, 0], [1, 0, 0], [0, 1, 0], [-1, -1, 1], [1, -1, 1], [0, 0, 2]] as const) metti(im, n.x - 1 + dx, y0 - 1 + dy, PETALI[k]!); }
+    p.vel += ((0.2 + 0.07 * Math.sin(t * 0.3 + p.fase)) * p.L - p.vel) * Math.min(1, dt);
+    muoviKoi(p, dt, 0.8);
+    if (r() < dt * 0.05) s.cerchi.push({ x: p.x, y: p.y, r: 0, vita: 1 });
   }
-  // Cerchi nell'acqua: un anello di pixel che si allarga e sbiadisce
-  for (const q of s.cerchi) {
-    q.r += dt * 6; q.vita -= dt * 0.6;
-    if (q.vita > 0.3) for (let k = 0; k < 24; k++) { const a = (k / 24) * Math.PI * 2; metti(im, q.x + Math.cos(a) * q.r, q.y + Math.sin(a) * q.r * 0.8, tav[4]!); }
-  }
-  s.cerchi = s.cerchi.filter(q => q.vita > 0);
-  mostra(c, im);
+  // Chi è uscita del tutto, con la coda, sparisce
+  s.pesci = s.pesci.filter(p => p.stato !== 'esce' || p.spina.some(q => q.x > -3 && q.x < w + 3 && q.y > -3 && q.y < h + 3));
+  for (const p of [...s.pesci].sort((a, b) => a.L - b.L)) disegnaKoi(im, p, 0, 0, t, tav[0]!);
+  for (const n of s.ninfee) ninfea(im, n.x, n.y + Math.sin(t * 0.6 + n.x) * 0.5, n.r, n.rot, n.fiore, P, tav[0]!);
+  s.cerchi = disegnaCerchi(im, s.cerchi, 0, 0, tav[4]!, dt, 6);
+  mostra(c, im, dpr);
 }
 
 // Un prato in pixel art, in prospettiva: steli sottili che il vento piega dalla punta, fiori a croce grandi davanti e

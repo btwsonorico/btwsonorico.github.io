@@ -242,16 +242,24 @@ import Base from '../../layouts/Base.astro';
   .pannello-gioco { pointer-events: auto; max-width: 360px; }
   .pannello-gioco .in-gioco { display: none; }
   .pannello-gioco .punteggio { margin-top: 10px; grid-template-columns: 1fr; }
-  /* Il contatore arcade sul tagliando: vite e combo grandi, punti piccoli, nel font a pixel del sito */
-  :global(.imbarco .arcade) { display: grid; gap: 4px; margin-top: 8px; padding: 6px 0; border-top: 2px solid var(--inchiostro); border-bottom: 2px solid var(--inchiostro); }
+  /* Il tagliando: nome; categoria e difficoltà in una riga; poi score, vite e moltiplicatore grandi; in fondo il numero della
+     definizione accanto al codice a barre */
+  :global(.imbarco .tagliando .metadati) { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; justify-content: flex-start; margin-top: 0; }
+  :global(.imbarco .fondo-coda) { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; }
+  :global(.imbarco .fondo-coda .citazione) { margin: 0; font-size: 13px; font-weight: 700; }
+  :global(.imbarco .arcade) { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px; margin: 6px 0; padding: 8px 0; border-top: 2px solid var(--inchiostro); border-bottom: 2px solid var(--inchiostro); }
   :global(.imbarco .arcade[hidden]) { display: none; }
-  :global(.imbarco .arcade .ar) { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
-  :global(.imbarco .arcade small) { font-size: 8px; letter-spacing: .18em; text-transform: uppercase; opacity: .7; }
+  :global(.imbarco .arcade .ar) { display: flex; flex-direction: column; gap: 1px; }
+  :global(.imbarco .arcade small) { font-size: 8px; letter-spacing: .2em; text-transform: uppercase; opacity: .65; }
   :global(.imbarco .arcade b) { font-weight: 400; line-height: 1; }
-  :global(.imbarco .arcade .ar-vite b) { font-size: 16px; color: #e0364c; letter-spacing: .04em; }
-  :global(.imbarco .arcade .ar-combo b) { font-size: 26px; }
-  :global(.imbarco .arcade .ar-combo.attiva b) { color: var(--accento); text-shadow: 2px 2px 0 color-mix(in srgb, var(--accento) 30%, transparent); }
-  :global(.imbarco .arcade .ar-punti b) { font-size: 14px; }
+  :global(.imbarco .arcade .ar-punti b) { font-size: 34px; }
+  :global(.imbarco .arcade .ar-vite b) { font-size: 20px; color: #e0364c; letter-spacing: .06em; }
+  :global(.imbarco .arcade .ar-combo b) { font-size: 34px; text-shadow: 2px 2px 0 color-mix(in srgb, currentColor 30%, transparent); }
+  :global(.imbarco .arcade .ar-combo.c0 b) { color: var(--inchiostro); }
+  :global(.imbarco .arcade .ar-combo.c1 b) { color: #17a34a; }
+  :global(.imbarco .arcade .ar-combo.c2 b) { color: #d9a400; }
+  :global(.imbarco .arcade .ar-combo.c3 b) { color: #ea6a12; }
+  :global(.imbarco .arcade .ar-combo.c4 b) { color: #e0307a; }
   /* La fine partita: una carta arcade al centro dello schermo, sopra la scena */
   .pannello-gioco .fine:not([hidden]) { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; padding: 20px; background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(3px); animation: appare .35s ease-out; }
   @keyframes appare { from { opacity: 0; } }
@@ -388,9 +396,9 @@ import Base from '../../layouts/Base.astro';
   /* Le arti: vivono solo nella colonna a sinistra e nel poster dietro. Le sceglie src/scripts/stiliBiglietto.ts */
   @keyframes respira { to { transform: translate(2%, -2%) scale(1.06); } }
   /* Game of Life: la griglia azzurra e la fioritura di luce dietro le cellule */
-  :global(.imbarco .carta[data-stile='lime'] .arte70), :global(.imbarco .carta[data-stile='lime'] .poster) { background: linear-gradient(rgb(20 221 255 / .07) 1px, transparent 1px) 0 0 / 34px 34px, linear-gradient(90deg, rgb(20 221 255 / .07) 1px, transparent 1px) 0 0 / 34px 34px, #061017; }
+  :global(.imbarco .carta[data-stile='lime'] .arte70), :global(.imbarco .carta[data-stile='lime'] .poster) { background: linear-gradient(rgb(0 255 65 / .07) 1px, transparent 1px) 0 0 / 34px 34px, linear-gradient(90deg, rgb(0 255 65 / .07) 1px, transparent 1px) 0 0 / 34px 34px, #030a05; }
   :global(.imbarco .carta[data-stile='lime'] .fiore) { position: absolute; inset: -20%; filter: blur(30px); background: radial-gradient(circle at calc(32% + var(--tx) * 8%) calc(42% + var(--ty) * 8%), var(--f1) 0 4%, var(--f2) 12%, transparent 32%), radial-gradient(circle at calc(24% - var(--tx) * 6%) calc(70% - var(--ty) * 6%), var(--f3) 0 6%, transparent 26%); opacity: .9; animation: respira 9s ease-in-out infinite alternate; }
-  :global(.imbarco .carta[data-stile='lime'] .tick) { position: absolute; width: 6px; height: 6px; background: #e2faff; }
+  :global(.imbarco .carta[data-stile='lime'] .tick) { position: absolute; width: 6px; height: 6px; background: #c8ffd4; }
   /* Risograph: i due inchiostri sovrapposti, fuori registro con l'inclinazione */
   :global(.imbarco .carta[data-stile='riso'] .rosa), :global(.imbarco .carta[data-stile='riso'] .blu) { position: absolute; inset: 0; mix-blend-mode: multiply; }
   :global(.imbarco .carta[data-stile='riso'] .rosa) { transform: translate(calc(var(--tx) * 6px), calc(var(--ty) * 4px)); }
@@ -454,8 +462,11 @@ import Base from '../../layouts/Base.astro';
     /* Su telefono i quattro riquadri stanno in fila, piccoli, sopra la scena */
     .pannello-gioco .punteggio { grid-template-columns: 1fr; }
     /* Sul tagliando del telefono il contatore è una riga: vite, combo, punti */
-    :global(.imbarco .arcade) { flex: 1 1 100%; display: flex; justify-content: space-between; gap: 10px; margin: 2px 0; padding: 4px 0; }
-    :global(.imbarco .arcade .ar) { flex-direction: column; align-items: flex-start; gap: 1px; }
+    :global(.imbarco .arcade) { flex: 1 1 100%; flex-direction: row; justify-content: space-between; gap: 10px; margin: 2px 0; padding: 4px 0; }
+    :global(.imbarco .arcade .ar) { align-items: flex-start; }
+    :global(.imbarco .arcade .ar-punti b), :global(.imbarco .arcade .ar-combo b) { font-size: 24px; }
+    :global(.imbarco .arcade .ar-vite b) { font-size: 15px; }
+    :global(.imbarco .tagliando .coda) { flex: 1 1 100%; }
     .punteggio :global(.hud) { padding: 5px 6px 6px; align-items: center; }
     .punteggio :global(.hud small) { font-size: 8px; letter-spacing: .14em; }
     .punteggio :global(.hud b) { font-size: 22px; }
