@@ -533,9 +533,9 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   const orologio = (x: number) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
   const conta = document.createElement('span');
   // Due righe: i record (a mano in questo browser; l'AI: la policy finale, migliore di 300 partite simulate dal centro) e il contatore
-  // Su telefono solo le pecore dentro e il tempo; su computer anche i record
+  // Due righe: i record (a mano in questo browser; l'AI: la policy finale, sempre lo stesso tempo) e il contatore
   const scriviConta = (dentro: number) => {
-    conta.textContent = p.telefono ? `Sheep: ${dentro}/${PECORE}   ${orologio(gioco.tempo)}` : `Best: ${gioco.record ? orologio(gioco.record) : '–'} (Human), ${orologio(TAPPE.migliorAI)} (AI)
+    conta.textContent = `Best human ${gioco.record ? orologio(gioco.record) : '–'} · AI ${orologio(TAPPE.migliorAI)}
 Sheep: ${dentro}/${PECORE}   ${orologio(gioco.tempo)}`;
   };
   conta.style.cssText = 'position:absolute;right:16px;bottom:8px;font:13px var(--mono);color:var(--fg);pointer-events:none;opacity:0;transition:opacity .6s;white-space:pre';
