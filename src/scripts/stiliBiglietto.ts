@@ -132,12 +132,12 @@ const passing: Stile = {
 
 // ---------------- Sfera: un corpo morbido fatto di qualche centinaio di sfere di vetro, in 3D vero. Il grappolo gira piano
 // e trema come una gelatina quando il biglietto si inclina: il nucleo segue subito, il guscio arriva in ritardo.
-// Bolle verdi, gialle e menta su un verde bosco; ogni tanto una scoppia. Davanti un grappolo; dietro uno più grande
+// Sfere piene e lucide, verde acceso, azzurro e lilla, su un blu notte; ogni tanto una scoppia in tante gocce. Davanti un grappolo; dietro uno più grande
 const sfera: Stile = {
   id: 'sfera', ascii: true,
   davanti: c => `<canvas data-ascii="sfere" data-side="front" data-seme="${semeTela(c)}"></canvas><div class="sf"><div class="sf-testa"><span>STUDY ${esc(c.numero)}</span><span>SOFT GLASS</span></div><div class="sf-piede"><span>SPHERES</span><span>AI TERMS</span></div></div>`,
   dietro: c => `<canvas data-ascii="sfere" data-side="back" data-seme="${semeTela(c)}"></canvas><div class="sf"><div class="sf-testa"><span>SOFT GLASS</span><span>STUDY ${esc(c.numero)}</span></div><div class="sf-piede"><span>SOFT FOAM</span><span>POP / TAKE 03</span></div></div>`,
-  variabili: () => carta({ carta: '#f2f5e6', inchiostro: '#16231a', accento: '#6f9a12', tagliando: '#e4ecc9', fondo: '#0e1a12' }),
+  variabili: () => carta({ carta: '#eef3fb', inchiostro: '#161a33', accento: '#7a4fe0', tagliando: '#dde7f6', fondo: '#0f1226' }),
 };
 
 // ---------------- Holo: la carta rara, ogni 10 domande. In arcobaleno, argento o oro, con una nota di colore. Davanti una rosetta incisa a inchiostro, con le
@@ -895,20 +895,22 @@ function bannerTela(c: HTMLCanvasElement, t: number) {
 // nuova cresce in superficie. Una membrana trasparente unisce le bolle che si toccano. Il grappolo gira con
 // l'inclinazione: il nucleo subito, il guscio in ritardo con una molla, come una gelatina
 type Bolla = { x: number; y: number; z: number; vx: number; vy: number; vz: number; r: number; R: number; col: number; fase: number; scoppio: number };
-type Schiuma = { bolle: Bolla[]; sprite: HTMLCanvasElement[][]; nucleo: { a: number; b: number }; guscio: { a: number; b: number; va: number; vb: number }; prossimo: number; gocce: { x: number; y: number; vx: number; vy: number; vita: number }[]; velo: HTMLCanvasElement; rnd: () => number };
-const TONI_SFERE = [['#fbffd8', '#c8f25a', '#4c861a'], ['#fff9d2', '#ffd84a', '#a6720c'], ['#e8fff1', '#72e3a4', '#1c7a4b'], ['#fdffe9', '#a9d94c', '#4d6912'], ['#ffffff', '#f3f7c4', '#9aa35a']];
+type Schiuma = { bolle: Bolla[]; sprite: HTMLCanvasElement[][]; nucleo: { a: number; b: number }; guscio: { a: number; b: number; va: number; vb: number }; prossimo: number; gocce: { x: number; y: number; vx: number; vy: number; vita: number; col: number; l: number }[]; velo: HTMLCanvasElement; rnd: () => number };
+// Sfere solide e lucide, colori accesi: verde, azzurro, lilla, e qualche bianca
+const TONI_SFERE = [['#b8ffcf', '#22e06b', '#0a7a3a'], ['#c9f0ff', '#2fb4ff', '#0b5fa8'], ['#eadcff', '#b07cff', '#5b2fb8'], ['#d8fff0', '#2ee6c0', '#0b8270'], ['#ffffff', '#eef2ff', '#9aa3c8']];
+const COLORI_GOCCE = ['#22e06b', '#2fb4ff', '#b07cff', '#2ee6c0', '#ffffff'];
 function spriteSfera(tono: string[], sfoca: number) {
   const k = document.createElement('canvas'), L = 96; k.width = k.height = L;
   const g = k.getContext('2d')!, c = L / 2, R = L / 2 - 8;
   if (sfoca) g.filter = `blur(${sfoca}px)`;
-  // Il vetro: trasparente al centro, colorato sul bordo; il riflesso in alto a sinistra; la luce che passa in basso a destra
-  const corpo = g.createRadialGradient(c - R * 0.3, c - R * 0.35, R * 0.1, c, c, R);
-  corpo.addColorStop(0, tono[0]! + '99'); corpo.addColorStop(0.6, tono[1]! + '88'); corpo.addColorStop(0.93, tono[2]! + 'ee'); corpo.addColorStop(1, tono[2]! + '00');
+  // Una sfera piena e lucida: luce dall'alto a sinistra, ombra in basso a destra, un riflesso di luce sul bordo
+  const corpo = g.createRadialGradient(c - R * 0.35, c - R * 0.4, R * 0.05, c, c, R);
+  corpo.addColorStop(0, tono[0]!); corpo.addColorStop(0.45, tono[1]!); corpo.addColorStop(1, tono[2]!);
   g.fillStyle = corpo; g.beginPath(); g.arc(c, c, R, 0, Math.PI * 2); g.fill();
-  const passa = g.createRadialGradient(c + R * 0.35, c + R * 0.4, 0, c + R * 0.35, c + R * 0.4, R * 0.5);
-  passa.addColorStop(0, tono[0]! + 'aa'); passa.addColorStop(1, tono[0]! + '00');
-  g.fillStyle = passa; g.beginPath(); g.arc(c, c, R, 0, Math.PI * 2); g.fill();
-  g.fillStyle = 'rgba(255,255,255,.8)'; g.beginPath(); g.ellipse(c - R * 0.34, c - R * 0.4, R * 0.2, R * 0.12, -0.6, 0, Math.PI * 2); g.fill();
+  const bordo = g.createRadialGradient(c + R * 0.45, c + R * 0.5, 0, c + R * 0.45, c + R * 0.5, R * 0.55);
+  bordo.addColorStop(0, tono[0]! + '88'); bordo.addColorStop(1, tono[0]! + '00');
+  g.fillStyle = bordo; g.beginPath(); g.arc(c, c, R, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.ellipse(c - R * 0.36, c - R * 0.42, R * 0.18, R * 0.11, -0.6, 0, Math.PI * 2); g.fill();
   return k;
 }
 function sfereTela(c: HTMLCanvasElement, t: number, dt: number, tx: number, ty: number) {
@@ -957,10 +959,10 @@ function sfereTela(c: HTMLCanvasElement, t: number, dt: number, tx: number, ty: 
   s.guscio.va += ((s.nucleo.a - s.guscio.a) * 38 - s.guscio.va * 5.5) * h; s.guscio.a += s.guscio.va * h;
   s.guscio.vb += ((s.nucleo.b - s.guscio.b) * 38 - s.guscio.vb * 5.5) * h; s.guscio.b += s.guscio.vb * h;
   // Lo sfondo: verde bosco, con un alone giallo dietro il grappolo
-  g.fillStyle = '#0e1a12'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#0f1226'; g.fillRect(0, 0, W, H);
   const cx = W * 0.5, cy = H * 0.5, R = Math.min(W, H) * (retro ? 0.5 : 0.44);
   const alone = g.createRadialGradient(cx, cy, 0, cx, cy, R * 1.8);
-  alone.addColorStop(0, 'rgba(230,240,90,.2)'); alone.addColorStop(0.5, 'rgba(90,200,120,.07)'); alone.addColorStop(1, 'rgba(14,26,18,0)');
+  alone.addColorStop(0, 'rgba(120,200,255,.22)'); alone.addColorStop(0.5, 'rgba(176,124,255,.08)'); alone.addColorStop(1, 'rgba(15,18,38,0)');
   g.fillStyle = alone; g.fillRect(0, 0, W, H);
   const punti = B.map(q => {
     const dd = Math.hypot(q.x, q.y, q.z), peso = Math.min(1, dd * 1.3), a = s.nucleo.a + (s.guscio.a - s.nucleo.a) * peso, b = s.nucleo.b + (s.guscio.b - s.nucleo.b) * peso;
@@ -971,24 +973,23 @@ function sfereTela(c: HTMLCanvasElement, t: number, dt: number, tx: number, ty: 
   }).sort((p1, p2) => p1.Z - p2.Z);
   // La membrana: tutte le bolle un po' più grandi, su un velo a parte; dove si toccano il velo è continuo
   const v = s.velo; if (v.width !== W || v.height !== H) { v.width = W; v.height = H; }
-  const gv = v.getContext('2d')!; gv.clearRect(0, 0, W, H); gv.fillStyle = '#b9ef6a';
+  const gv = v.getContext('2d')!; gv.clearRect(0, 0, W, H); gv.fillStyle = '#9fd8ff';
   for (const q of punti) if (!q.sc) { gv.beginPath(); gv.arc(q.X, q.Y, q.S * 1.12, 0, Math.PI * 2); gv.fill(); }
-  g.save(); g.globalAlpha = 0.13; g.filter = `blur(${(R * 0.02).toFixed(1)}px)`; g.drawImage(v, 0, 0); g.restore();
+  g.save(); g.globalAlpha = 0.08; g.filter = `blur(${(R * 0.02).toFixed(1)}px)`; g.drawImage(v, 0, 0); g.restore();
   for (const q of punti) {
     // Lontane: sfocate e trasparenti; vicinissime: un po' sfocate, come la profondità di campo
     const fuoco = q.Z < -0.45 ? 2 : q.Z < -0.1 ? 1 : q.Z > 0.85 ? 1 : 0;
-    g.globalAlpha = (0.55 + 0.45 * Math.min(1, (q.Z + 1) / 1.4)) * (1 - q.sc);
+    g.globalAlpha = (0.8 + 0.2 * Math.min(1, (q.Z + 1) / 1.2)) * (1 - q.sc);
     const L = q.S * 2 * (96 / 80);
     g.drawImage(s.sprite[q.col]![fuoco]!, q.X - L / 2, q.Y - L / 2, L, L);
     // Lo scoppio: un anello sottile che si allarga e qualche goccia
     if (q.sc) {
-      g.globalAlpha = 1 - q.sc; g.strokeStyle = '#f6ffd0'; g.lineWidth = Math.max(1, q.S * 0.06);
+      g.globalAlpha = 1 - q.sc; g.strokeStyle = '#ffffff'; g.lineWidth = Math.max(1, q.S * 0.06);
       g.beginPath(); g.arc(q.X, q.Y, q.S * (1 + q.sc * 0.6), 0, Math.PI * 2); g.stroke();
-      if (q.sc < 0.25) for (let k = 0; k < 7; k++) { const a = rnd() * Math.PI * 2, vv = q.S * (2 + rnd() * 3); s.gocce.push({ x: q.X + Math.cos(a) * q.S, y: q.Y + Math.sin(a) * q.S, vx: Math.cos(a) * vv, vy: Math.sin(a) * vv, vita: 0.5 }); }
+      if (q.sc < 0.25) for (let k = 0; k < 14; k++) { const a = rnd() * Math.PI * 2, vv = q.S * (2 + rnd() * 4); s.gocce.push({ x: q.X + Math.cos(a) * q.S * 0.8, y: q.Y + Math.sin(a) * q.S * 0.8, vx: Math.cos(a) * vv, vy: Math.sin(a) * vv, vita: 0.7, col: q.col, l: Math.max(2, q.S * (0.12 + rnd() * 0.12)) }); }
     }
   }
-  g.fillStyle = '#f6ffd0';
   s.gocce = s.gocce.filter(d => (d.vita -= h) > 0);
-  for (const d of s.gocce) { d.x += d.vx * h; d.y += d.vy * h; d.vy += R * 0.8 * h; g.globalAlpha = d.vita * 2; g.fillRect(d.x, d.y, 2, 2); }
+  for (const d of s.gocce) { d.x += d.vx * h; d.y += d.vy * h; d.vy += R * 0.9 * h; g.globalAlpha = Math.min(1, d.vita * 1.6); g.fillStyle = COLORI_GOCCE[d.col]!; g.beginPath(); g.arc(d.x, d.y, d.l * Math.min(1, d.vita * 1.5), 0, Math.PI * 2); g.fill(); }
   g.globalAlpha = 1;
 }
