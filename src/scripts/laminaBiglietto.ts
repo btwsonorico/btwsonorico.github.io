@@ -176,7 +176,9 @@ function disegnaMaschera(g: CanvasRenderingContext2D, faccia: HTMLElement, piano
       const t = q('.tagliando'), md = q('.metadati'), cd = q('.coda'), ar = q('.arte70');
       let cx = 0, cy = 0, r = 0;
       if (t && md && cd && t.h > 150) { const su = md.y + md.h, giu = cd.y; cx = t.x + t.w / 2; cy = (su + giu) / 2; r = Math.min(38, (giu - su) / 2 - 6, t.w / 2 - 14); }
-      if (r < 16 && ar) { r = Math.min(28, ar.h / 2 - 6); cx = ar.x + ar.w - r - 10; cy = ar.y + ar.h / 2; }
+      const co = q('.corpo');
+      if (r < 16 && co) { r = 20; cx = co.x + co.w - r - 8; cy = co.y + r + 6; }
+      void ar;
       if (r < 12) continue;
       g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
       taglia(() => {
@@ -190,7 +192,8 @@ function disegnaMaschera(g: CanvasRenderingContext2D, faccia: HTMLElement, piano
     } else if (pezzo === 'guilloche') {
       // Linee ondulate intrecciate sull'arte e sul corpo; si fermano intorno alle scritte
       g.lineWidth = 0.8;
-      for (const zona of [q('.arte70'), q('.corpo')]) {
+      // Solo sulla parte con la domanda: l'arte animata non si copre
+      for (const zona of [q('.corpo')]) {
         if (!zona) continue;
         g.save(); g.beginPath(); g.rect(zona.x, zona.y, zona.w, zona.h); g.clip();
         for (let k = 0; k < 14; k++) {
@@ -223,17 +226,7 @@ function disegnaMaschera(g: CanvasRenderingContext2D, faccia: HTMLElement, piano
       // Il poster tutto in lamina, con il termine inciso a contorno e una riga di dati
       const p = q('.poster'); if (!p) continue;
       g.fillRect(p.x, p.y, p.w, p.h);
-      // La carta Holo è un premio, non un termine: sul poster c'è scritto BONUS ROUND
-      const parole = 'BONUS ROUND';
-      taglia(() => {
-        g.font = `400 100px ${display}`; g.textBaseline = 'middle';
-        let righe = [parole];
-        if (g.measureText(parole).width > (p.w - 40) * 2.2 && parole.includes(' ')) { const m = parole.length / 2; let tg = -1; for (let i = 0; i < parole.length; i++) if (parole[i] === ' ' && (tg < 0 || Math.abs(i - m) < Math.abs(tg - m))) tg = i; righe = [parole.slice(0, tg), parole.slice(tg + 1)]; }
-        const larga = Math.max(...righe.map(x => g.measureText(x).width), 1), alt = Math.min(p.h * 0.62 / righe.length, 100 * (p.w - 40) / larga);
-        g.font = `400 ${alt.toFixed(1)}px ${display}`; g.lineWidth = Math.max(1.2, alt * 0.035);
-        righe.forEach((x, i) => g.strokeText(x, p.x + 20, p.y + p.h / 2 + (i - (righe.length - 1) / 2) * alt * 1.02));
-        g.font = `700 9px ${mono}`; g.textBaseline = 'alphabetic'; g.fillText(`HOLO · ${piano.numero ?? ''}`, p.x + 20, p.y + p.h - 16);
-      });
+      // Il poster della carta bonus: tutto lamina, senza scritte
     }
   }
   void W; void H;

@@ -465,6 +465,8 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     a.href = risorse[k]!.href;
     a.textContent = risorse[k]!.nome.charAt(0).toUpperCase() + risorse[k]!.nome.slice(1);
     a.dataset.tono = risorse[k]!.tono;
+    // Nascosto finché non ha la sua posizione: senza, per un fotogramma compare in alto a sinistra
+    a.style.visibility = 'hidden';
     el.appendChild(a);
     return a;
   });
@@ -474,7 +476,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   const mondoAI = nuovoMondo(1), bottoneAI = document.createElement('button');
   bottoneAI.type = 'button';
   bottoneAI.textContent = 'try herding';
-  bottoneAI.style.cssText = 'position:absolute;right:16px;bottom:72px;z-index:2;padding:4px 8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:12px var(--mono);cursor:pointer;pointer-events:auto';
+  bottoneAI.style.cssText = 'position:absolute;left:16px;bottom:8px;z-index:2;padding:4px 8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:12px var(--mono);cursor:pointer;pointer-events:auto';
   const caricaAI = async () => { pesiAI ??= new Float32Array(await (await fetch('/learn/gregge/rfine.bin')).arrayBuffer()); };
   // Il cane parte sempre con l'AI; sul computer si può riprendere. Su telefono guida sempre lei
   caricaAI();
@@ -534,17 +536,17 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   // Due righe: i record (a mano in questo browser; l'AI: la policy finale, migliore di 300 partite simulate dal centro) e il contatore
   // Due righe: i record (a mano in questo browser; l'AI: la policy finale, sempre lo stesso tempo) e il contatore
   const scriviConta = (dentro: number) => {
-    conta.textContent = `Best ${gioco.record ? orologio(gioco.record) : '–'}
+    conta.textContent = `Human best ${gioco.record ? orologio(gioco.record) : '–'}
 Sheep: ${dentro}/${PECORE}   ${orologio(gioco.tempo)}`;
   };
-  conta.style.cssText = 'position:absolute;right:16px;bottom:8px;font:13px var(--mono);color:var(--fg);pointer-events:none;opacity:0;transition:opacity .6s;white-space:pre';
+  conta.style.cssText = `position:absolute;right:16px;bottom:${p.telefono ? 54 : 44}px;font:13px var(--mono);color:var(--fg);pointer-events:none;opacity:0;transition:opacity .6s;white-space:pre;text-align:right`;
   el.appendChild(conta);
   // Seguire il cane: la camera si avvicina e tiene al centro il cane e il gregge; le mongolfiere spariscono
   let segui = false;
   const bottoneSegui = document.createElement('button');
   bottoneSegui.type = 'button';
   bottoneSegui.textContent = 'follow the dog';
-  bottoneSegui.style.cssText = `position:absolute;right:16px;bottom:${p.telefono ? 52 : 112}px;z-index:2;padding:${p.telefono ? '9px 14px' : '4px 8px'};border:1px solid var(--line);background:var(--bg);color:var(--fg);font:${p.telefono ? 14 : 12}px var(--mono);cursor:pointer;pointer-events:auto`;
+  bottoneSegui.style.cssText = `position:absolute;right:16px;bottom:8px;z-index:2;padding:${p.telefono ? '9px 14px' : '4px 8px'};border:1px solid var(--line);background:var(--bg);color:var(--fg);font:${p.telefono ? 14 : 12}px var(--mono);cursor:pointer;pointer-events:auto`;
   bottoneSegui.addEventListener('pointerdown', e => e.stopPropagation());
   bottoneSegui.addEventListener('click', () => {
     segui = !segui;
@@ -723,6 +725,7 @@ Sheep: ${dentro}/${PECORE}   ${orologio(gioco.tempo)}`;
       const scarto = Math.abs(((tmp.x + 1) / 2) * el.clientWidth - x) + 8, largo = nomi[k]!.offsetWidth, centro = el.clientWidth / 2;
       if (x > centro + 24) m.aDestra = true; else if (x < centro - 24) m.aDestra = false;
       if (x + scarto + largo > el.clientWidth - 8) m.aDestra = false; else if (x - scarto - largo < 8) m.aDestra = true;
+      if (!segui) nomi[k]!.style.visibility = '';
       nomi[k]!.style.transform = `translate(${m.aDestra ? x + scarto : x - scarto}px, ${y}px) translate(${m.aDestra ? 0 : -100}%, -50%)`;
       const fm = m.fiamma.material as THREE.MeshBasicMaterial;
       fm.opacity = morbido(fm.opacity, m.quota - prima > 0.0003 ? 0.9 : 0, dt * 4);

@@ -39,6 +39,8 @@ export type OpzioniImbarco = {
   olo?: () => boolean;
   // Bottoni in più sotto il biglietto (aiuti e premi), decisi dal gioco: si riscrivono a ogni cambio
   extra?: (fatto: boolean) => { testo: string; classe?: string; fai: () => void }[];
+  // Il contatore arcade sul tagliando: vite e combo grandi, punti piccoli. Senza, il tagliando resta com'era
+  arcade?: () => { vite: number; viteMax: number; combo: number; punti: number } | null;
 };
 
 export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
@@ -58,7 +60,20 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   const tagliando = el('div', 'tagliando'), nomeF = el('h2', 'nome'), categoriaF = el('p', 'mono categoria'), metadati = el('div', 'metadati'), livelloF = el('p', 'mono livello'), citazioneF = el('p', 'mono citazione'), serialeT = el('p', 'mono seriale'), codice = el('div', 'codice'), coda = el('div', 'coda');
   metadati.append(livelloF, citazioneF);
   coda.append(serialeT, codice);
-  tagliando.append(nomeF, categoriaF, metadati, coda);
+  // Il contatore arcade sul tagliando, fra i dati del termine e il codice
+  const arcade = el('div', 'arcade');
+  tagliando.append(nomeF, categoriaF, metadati, arcade, coda);
+  const scriviArcade = () => {
+    const a = o.arcade?.() ?? null;
+    arcade.hidden = !a;
+    if (!a) return;
+    const riga = (classe: string, etichetta: string, valore: string) => { const d = el('div', `ar ${classe}`); d.append(el('small', 'mono', etichetta), el('b', 'mono', valore)); return d; };
+    arcade.replaceChildren(
+      riga('ar-vite', 'lives', '♥'.repeat(Math.max(0, a.vite)) + '♡'.repeat(Math.max(0, a.viteMax - a.vite))),
+      riga(`ar-combo${a.combo > 1 ? ' attiva' : ''}`, 'combo', `x${a.combo}`),
+      riga('ar-punti', 'score', String(a.punti).padStart(2, '0')),
+    );
+  };
   const timbri = el('div', 'timbri');
   fronte.append(arte, banda, corpo, tagliando, timbri, ...strati());
 
@@ -231,6 +246,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     scriviGira();
     prossimo.hidden = !fatto;
     prossimo.textContent = o.testoProssimo?.() ?? 'next flight →';
+    scriviArcade();
     extra.replaceChildren(...(o.extra?.(fatto) ?? []).map(x => { const b = el('button', `mono ${x.classe ?? ''}`, x.testo); b.type = 'button'; b.addEventListener('click', x.fai); return b; }));
   };
   const rispondi = (b: HTMLButtonElement) => {
@@ -332,5 +348,45 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       (p.fatto[i] ? (prossimo.hidden ? chiudi : prossimo) : opzioni.find(b => !b.disabled))?.focus({ preventScroll: true });
     },
     nascondi() { clearTimeout(attesa); scheda.hidden = true; },
+    // La carta bonus: non è una domanda. Davanti si sceglie un premio fra tre; scelto il premio, la carta si gira e
+    // mostra per un attimo il retro tutto in lamina, poi riparte il gioco. Niente scritte sul poster
+    mostraBonus(premi: { testo: string; fai: () => void }[], dopo: () => void) {
+      clearTimeout(attesa);
+      corrente = -1;
+      const c = { sezione: 0, livello: 'hard' as Livello, numero: '', termine: '', sera: false, r: casoDa(1 + Math.floor(Math.random() * 2147483646)) };
+      const variabili = OLO.variabili(c), lamina = pianoLamina(OLO, c);
+      variabiliMesse.forEach(k => carta.style.removeProperty(k));
+      variabiliMesse = Object.keys(variabili);
+      for (const [k, x] of Object.entries(variabili)) carta.style.setProperty(k, x);
+      carta.dataset.stile = 'olo'; carta.dataset.lamina = `bonus · ${lamina.tinta}`;
+      carta.classList.add('subito'); carta.classList.remove('girata');
+      requestAnimationFrame(() => requestAnimationFrame(() => carta.classList.remove('subito')));
+      svg(arte, OLO.davanti(c)); svg(quadro, OLO.dietro(c));
+      banda.className = 'banda'; motto.textContent = 'bonus';
+      laminaF.metti({ pezzi: lamina.davanti, tinta: lamina.tinta }); laminaR.metti({ pezzi: lamina.dietro, tinta: lamina.tinta });
+      nomeF.textContent = 'Bonus'; categoriaF.textContent = 'pick one reward'; livelloF.textContent = ''; citazioneF.textContent = '';
+      serialeT.textContent = ''; barre(codice, 'BONUSHOLOFOIL');
+      domanda.textContent = 'Pick your reward';
+      timbri.replaceChildren();
+      definizione.replaceChildren(); termineR.textContent = ''; sezioneR.textContent = esito.textContent = statoR.textContent = serialeR.textContent = '';
+      opzioni = premi.map((pr, k) => {
+        const b = el('button', 'opzione'); b.type = 'button';
+        b.append(el('span', 'mono', `0${k + 1}`), pr.testo);
+        b.addEventListener('click', () => {
+          if (b.disabled) return;
+          pr.fai();
+          opzioni.forEach(x => { x.disabled = true; }); b.classList.add('giusta');
+          attesa = window.setTimeout(() => { carta.classList.add('girata'); attesa = window.setTimeout(dopo, fermo ? 600 : 2600); }, fermo ? 0 : 500);
+        });
+        return b;
+      });
+      opzioniEl.replaceChildren(...opzioni);
+      gira.hidden = true; prossimo.hidden = true; scriviArcade();
+      extra.replaceChildren();
+      foglie = []; tele = [...scheda.querySelectorAll<HTMLCanvasElement>('canvas[data-ascii]')];
+      scheda.hidden = false; scheda.scrollTop = 0;
+      avvia();
+      opzioni[0]?.focus({ preventScroll: true });
+    },
   };
 }
