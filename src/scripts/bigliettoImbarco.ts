@@ -196,8 +196,15 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     salvaGiro();
     return ids.indexOf(id);
   };
+  // Alcuni termini hanno la loro pagina in Learn: il loro biglietto usa sempre l'arte di quella pagina
+  const ARTE_DEL_TERMINE: Record<string, string> = { 'neural network': 'rete', 'reinforcement learning': 'gregge', 'diffusion models': 'diffusione', 'diffusion model': 'diffusione' };
   const stileDi = (v: Volo) => {
     let x = sorteggio.get(v.seriale);
+    const fisso = ARTE_DEL_TERMINE[v.voce.termine.toLowerCase()];
+    if (!x && fisso) {
+      const k = STILI.findIndex(st => st.id === fisso);
+      if (k >= 0) { x = { stile: k, seme: 1 + Math.floor(Math.random() * 2147483646), serie: o.serie ? o.serie() : serie().ora }; sorteggio.set(v.seriale, x); }
+    }
     const sr = o.serie ? o.serie() : serie().ora;
     if (!x && o.olo?.()) {
       x = { stile: -1, seme: 1 + Math.floor(Math.random() * 2147483646), serie: sr };
@@ -250,6 +257,10 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       });
       definizione.append(lista);
     }
+    // Le arti che vengono da una pagina di Learn portano a quella pagina: «try it →»
+    const PROVA: Record<string, [string, string]> = { rete: ['/learn/neural-network/', 'train the network'], diffusione: ['/learn/diffusion/', 'train the diffusion model'], gregge: ['/learn/reinforcement/', 'race the two policies'] };
+    const prova = PROVA[stileR.st.id];
+    if (prova) { const a = el('a', 'mono prova-esperimento', `try it: ${prova[1]} →`); a.href = prova[0]; definizione.append(a); }
     definizione.scrollTop = 0;
     requestAnimationFrame(segnaAltro);
     serialeR.textContent = `No. ${v.seriale}`;

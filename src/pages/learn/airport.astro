@@ -455,6 +455,8 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .azioni .aiuto) { color: var(--fg); border-color: #6fe3a2; }
   /* Il retro è solo il termine, la definizione e l'arte: niente esito, punteggio o seriale */
   :global(.imbarco .retro .pannello > .sotto), :global(.imbarco .retro .stato), :global(.imbarco .retro .piede-retro) { display: none; }
+  :global(.imbarco .prova-esperimento) { display: inline-block; margin-top: 10px; padding: 6px 10px; border: 1.5px solid var(--inchiostro); color: var(--inchiostro) !important; font-size: 12px; letter-spacing: .04em; text-decoration: none; }
+  :global(.imbarco .prova-esperimento:hover) { background: var(--inchiostro); color: var(--carta) !important; }
   :global(.imbarco .azioni) { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
   :global(.imbarco .azioni button) { padding: 6px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--muted); cursor: pointer; }
   :global(.imbarco .azioni .prossimo), :global(.imbarco .azioni .gira) { color: var(--fg); border-color: var(--muted); }
