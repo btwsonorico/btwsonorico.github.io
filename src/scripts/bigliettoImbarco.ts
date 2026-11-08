@@ -37,6 +37,8 @@ export type OpzioniImbarco = {
   serie?: () => number;
   // Vero quando questo biglietto deve essere la carta rara Holo (nel gioco: ogni 10 domande)
   olo?: () => boolean;
+  // Bottoni in più sotto il biglietto (aiuti e premi), decisi dal gioco: si riscrivono a ogni cambio
+  extra?: (fatto: boolean) => { testo: string; classe?: string; fai: () => void }[];
 };
 
 export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
@@ -82,7 +84,8 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   prossimo.addEventListener('click', o.prossimo);
   chiudi.addEventListener('click', o.chiudi);
   gira.addEventListener('click', () => { carta.classList.toggle('girata'); scriviGira(); });
-  azioni.append(gira, prossimo, chiudi);
+  const extra = el('div', 'extra');
+  azioni.append(extra, gira, prossimo, chiudi);
   scheda.append(biglietto, azioni);
   contenitore.appendChild(scheda);
 
@@ -227,6 +230,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     scriviGira();
     prossimo.hidden = !fatto;
     prossimo.textContent = o.testoProssimo?.() ?? 'next flight →';
+    extra.replaceChildren(...(o.extra?.(fatto) ?? []).map(x => { const b = el('button', `mono ${x.classe ?? ''}`, x.testo); b.type = 'button'; b.addEventListener('click', x.fai); return b; }));
   };
   const rispondi = (b: HTMLButtonElement) => {
     const i = corrente, v = o.voli[i]!;
@@ -264,6 +268,13 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
 
   return {
     get aperto() { return scheda.hidden ? -1 : corrente; },
+    // Riscrive i bottoni sotto il biglietto (dopo un premio, per esempio)
+    aggiorna() { if (corrente >= 0) bottoni(); },
+    // Il pilota automatico: risponde da solo con la risposta giusta, come al primo colpo
+    risolvi() {
+      const v = o.voli[corrente]; if (!v || p.fatto[corrente]) return;
+      const b = opzioni.find(x => x.dataset.testo === v.voce.domanda.risposte[0]); if (b) rispondi(b);
+    },
     mostra(i: number) {
       clearTimeout(attesa);
       corrente = i;

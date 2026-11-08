@@ -56,6 +56,8 @@ import Base from '../../layouts/Base.astro';
   const VITE = 5;
   let modo: Modo = 'inizio', vite = VITE, punti = 0, combo = 0, migliorCombo = 0, giuste = 0, ultimiPunti = '';
   let corrente = -1, prossima: Voce | null = null, domandeFatte = 0;
+  // Gli aiuti: il pilota automatico (risponde giusto da solo), i punti doppi per qualche domanda; il premio della carta Holo
+  let pilota = 0, doppi = 0, premioDa = false;
 
   // La combo moltiplica i punti: ×1 la prima, poi +0,5 per ogni giusta di fila, fino a ×4.
   // Al primo colpo 100 punti, al secondo 50, dopo 25
@@ -70,7 +72,7 @@ import Base from '../../layouts/Base.astro';
     const e = stati[modo];
     if (modo === 'inizio') $('.dettaglio', e).textContent = `five lives · combos multiply your points · best ${record()}`;
     else if (modo === 'in-gioco') {
-      $('.titolo-stato', e).textContent = `${punti} pts · ${cuori()}${combo > 1 ? ` · combo ×${molt(combo).toFixed(1)}` : ''}`;
+      $('.titolo-stato', e).textContent = `${punti} pts · ${cuori()}${combo > 1 ? ` · combo ×${molt(combo).toFixed(1)}` : ''}${doppi ? ` · 2× pts (${doppi})` : ''}${pilota ? ` · autopilot ${pilota}` : ''}`;
       $('.dettaglio', e).textContent = ultimiPunti || 'answer at the first try to start a combo';
     } else {
       $('.titolo-stato', e).textContent = `Out of fuel · ${punti} pts`;
@@ -105,7 +107,7 @@ import Base from '../../layouts/Base.astro';
   }
   function prova(i: number) { modo = 'inizio'; metti(nuovoVolo(i, recenti).voce); }
   const avvia = () => {
-    vite = VITE; punti = 0; combo = 0; giuste = 0; domandeFatte = 0; ultimiPunti = ''; modo = 'in-gioco';
+    vite = VITE; punti = 0; combo = 0; giuste = 0; domandeFatte = 0; pilota = 0; doppi = 0; premioDa = false; ultimiPunti = ''; modo = 'in-gioco';
     metti(aCaso(recenti)); inFila();
     scriviPunteggio(); scriviStato();
   };
@@ -128,6 +130,20 @@ import Base from '../../layouts/Base.astro';
     serie: () => combo,
     // La carta rara Holo: la decima domanda, la ventesima, e così via
     olo: () => modo === 'in-gioco' && domandeFatte > 0 && domandeFatte % 10 === 0,
+    // Sotto il biglietto: il pilota automatico prima di rispondere; dopo la carta Holo, i tre premi da scegliere
+    extra: fatto => {
+      if (modo !== 'in-gioco') return [];
+      if (!fatto && pilota > 0) return [{ testo: `autopilot ✈ (${pilota})`, classe: 'aiuto', fai: () => { pilota--; imbarco.risolvi(); scriviStato(); } }];
+      if (fatto && premioDa) {
+        const prendi = (f: () => void) => () => { f(); premioDa = false; imbarco.aggiorna(); scriviStato(); };
+        return [
+          { testo: '+1 life ♥', classe: 'premio', fai: prendi(() => { vite++; }) },
+          { testo: 'autopilot ✈', classe: 'premio', fai: prendi(() => { pilota++; }) },
+          { testo: '2× points for 3', classe: 'premio', fai: prendi(() => { doppi = 3; }) },
+        ];
+      }
+      return [];
+    },
     testoProssimo: () => (modo === 'in-gioco' ? (vite > 0 ? 'next flight →' : 'see your score →') : 'close'),
     dopo: (i, giusto) => {
       const primo = p.tentativi[i] === 1, prima = serie().migliore;
@@ -140,9 +156,12 @@ import Base from '../../layouts/Base.astro';
         scena.decolla(i);
         if (modo === 'in-gioco') {
           combo = primo ? combo + 1 : 0; migliorCombo = Math.max(migliorCombo, combo); giuste++;
-          const vinti = Math.round(base(p.tentativi[i]!) * molt(Math.max(1, combo)));
+          const vinti = Math.round(base(p.tentativi[i]!) * molt(Math.max(1, combo))) * (doppi > 0 ? 2 : 1);
           punti += vinti;
-          ultimiPunti = `+${vinti}${combo > 1 ? ` · combo ×${molt(combo).toFixed(1)}` : ''}`;
+          ultimiPunti = `+${vinti}${combo > 1 ? ` · combo ×${molt(combo).toFixed(1)}` : ''}${doppi > 0 ? ' · 2× pts' : ''}`;
+          if (doppi > 0) doppi--;
+          // La carta Holo, se indovinata, fa scegliere un premio
+          if (domandeFatte % 10 === 0) premioDa = true;
         }
       }
       const ss = serie(); scena.serie(ss.ora, ss.migliore);
@@ -152,6 +171,7 @@ import Base from '../../layouts/Base.astro';
     prossimo: () => {
       if (modo !== 'in-gioco') { imbarco.nascondi(); return; }
       if (vite <= 0) { fine(); return; }
+      premioDa = false;
       // L'aereo in fila atterra, e un altro si mette in fila dietro
       const v = prossima ?? aCaso(recenti);
       metti(v); inFila();
@@ -323,6 +343,9 @@ import Base from '../../layouts/Base.astro';
   :global(.galleria-testa button) { margin-right: 8px; padding: 6px 14px; border: 1px solid var(--muted); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; }
   :global(.galleria-nota) { margin: 0 0 8px; font-size: 11px; letter-spacing: .08em; color: var(--muted); }
   :global(.galleria-biglietti .imbarco) { position: relative; left: auto; bottom: auto; z-index: auto; width: 100%; transform: none; }
+  :global(.imbarco .azioni .extra) { display: flex; flex-wrap: wrap; gap: 8px; margin-right: auto; }
+  :global(.imbarco .azioni .premio) { color: var(--fg); border-color: #c8a8ff; background: color-mix(in srgb, #c8a8ff 14%, var(--bg)); }
+  :global(.imbarco .azioni .aiuto) { color: var(--fg); border-color: #6fe3a2; }
   :global(.imbarco .azioni) { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
   :global(.imbarco .azioni button) { padding: 6px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--muted); cursor: pointer; }
   :global(.imbarco .azioni .prossimo), :global(.imbarco .azioni .gira) { color: var(--fg); border-color: var(--muted); }
