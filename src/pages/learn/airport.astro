@@ -1,47 +1,33 @@
 ---
 import Base from '../../layouts/Base.astro';
 
-// AI terms: sei aerei girano intorno all'isola, uno per sezione del glossario. "Take a quiz" fa atterrare sei domande:
-// due facili, due medie, due difficili. Alla fine il risultato, poi si può continuare in endless, con tre vite.
-// La serie conta i giusti di fila al primo colpo. Logica in src/lib/voli.ts, scena in src/scripts/aeroporto.ts,
-// biglietto in src/scripts/bigliettoImbarco.ts
+// AI terms: sei aerei girano intorno all'isola, uno per sezione del glossario. Il gioco è una partita a punti senza fine,
+// con tre vite: ogni risposta giusta vale punti, e le giuste di fila al primo colpo fanno la combo, che moltiplica i punti.
+// L'aereo della domanda atterra mentre si risponde; quello della domanda dopo aspetta in fila sul cerchio di attesa.
+// Logica in src/lib/voli.ts, scena in src/scripts/aeroporto.ts, biglietto in src/scripts/bigliettoImbarco.ts
 ---
 <Base title="AI terms · Riccardo Mondi" description="A trivia game for the AI lexicon. Answer questions, keep your streak alive, and try to beat your high score." tono="neutro" largo>
   <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
   <main class="aeroporto">
     <h1>AI terms</h1>
-    <p class="sotto">A trivia game to learn the AI lexicon. Answer right and try to beat your high score.</p>
+    <p class="sotto">A trivia game to learn the AI lexicon. Answer right in a row to build a combo and beat your high score.</p>
     <p class="mono punteggio"></p>
     <section class="pannello-gioco" aria-live="polite">
       <div class="stato-gioco inizio">
-        <button type="button" class="mono grande avvia-quiz">Take a quiz ✈</button>
-      </div>
-      <div class="stato-gioco in-quiz" hidden>
-        <p class="mono titolo-stato"></p>
-        <ol class="passi" aria-label="quiz progress"></ol>
-        <button type="button" class="mono piccolo esci">quit the quiz</button>
-      </div>
-      <div class="stato-gioco fine-quiz" hidden>
-        <p class="mono titolo-stato"></p>
-        <p class="quadri" aria-hidden="true"></p>
+        <button type="button" class="mono grande avvia">Take off ✈</button>
         <p class="mono piccolo dettaglio"></p>
-        <div class="bottoni">
-          <button type="button" class="mono grande avvia-endless">Keep flying: endless ✈</button>
-          <button type="button" class="mono copia">copy result</button>
-          <button type="button" class="mono avvia-quiz">new quiz</button>
-        </div>
       </div>
-      <div class="stato-gioco in-endless" hidden>
+      <div class="stato-gioco in-gioco" hidden>
         <p class="mono titolo-stato"></p>
         <p class="mono piccolo dettaglio"></p>
         <button type="button" class="mono piccolo esci">stop</button>
       </div>
-      <div class="stato-gioco fine-endless" hidden>
+      <div class="stato-gioco fine" hidden>
         <p class="mono titolo-stato"></p>
         <p class="mono piccolo dettaglio"></p>
         <div class="bottoni">
-          <button type="button" class="mono grande avvia-endless">Fly again ✈</button>
-          <button type="button" class="mono avvia-quiz">new quiz</button>
+          <button type="button" class="mono grande avvia">Fly again ✈</button>
+          <button type="button" class="mono copia">copy result</button>
         </div>
       </div>
     </section>
@@ -56,9 +42,9 @@ import Base from '../../layouts/Base.astro';
   import { anteprima } from '../../scripts/anteprimaBiglietti';
   // Solo per lo sviluppo: ?anteprima mostra una galleria di biglietti
   if (new URLSearchParams(location.search).has('anteprima')) anteprima();
-  import { aCaso, azzera, nuovaPartita, nuovoVolo, primati, quiz, segnaPrimato, segnaRisposta, serie, SEZIONI, voloDa, type Voce } from '../../lib/voli';
+  import { aCaso, aCasoFuori, azzera, nuovaPartita, nuovoVolo, primati, segnaPrimato, segnaRisposta, serie, SEZIONI, voloDa, type Voce } from '../../lib/voli';
 
-  type Modo = 'inizio' | 'in-quiz' | 'fine-quiz' | 'in-endless' | 'fine-endless';
+  type Modo = 'inizio' | 'in-gioco' | 'fine';
   const adesso = new Date(), recenti: string[] = [];
   const voli = SEZIONI.map((_, i) => { const v = nuovoVolo(i, recenti); recenti.push(v.voce.id); return v; });
   const p = nuovaPartita(voli.length);
@@ -66,120 +52,109 @@ import Base from '../../layouts/Base.astro';
   const punteggio = $('.punteggio');
   const stati = Object.fromEntries([...document.querySelectorAll<HTMLElement>('.stato-gioco')].map(e => [e.classList[1], e])) as Record<Modo, HTMLElement>;
 
-  // Lo stato del gioco
-  let modo: Modo = 'inizio', domande: Voce[] = [], k = 0, tentativi: number[] = [], vite = 3, punti = 0, corrente = -1;
-  const VITE = 3;
-  // L'aereo della domanda che sta atterrando: il biglietto non si apre finché non è sulla pista
-  let pendente = -1, attesa: number | undefined;
+  // Lo stato della partita: vite, punti, combo (giuste di fila al primo colpo), la domanda in pista e quella in fila
+  const VITE = 5;
+  let modo: Modo = 'inizio', vite = VITE, punti = 0, combo = 0, migliorCombo = 0, giuste = 0, ultimiPunti = '';
+  let corrente = -1, prossima: Voce | null = null;
 
-  const riassunto = () => { const s = serie(); return `streak ${s.ora} · best ${s.migliore}`; };
-  const scriviPunteggio = () => { punteggio.textContent = riassunto(); };
-
-  // Il quadratino di ogni domanda: verde al primo colpo, giallo al secondo, rosso dopo
-  const quadro = (t: number) => (t <= 1 ? '🟩' : t === 2 ? '🟨' : '🟥');
+  // La combo moltiplica i punti: ×1 la prima, poi +0,5 per ogni giusta di fila, fino a ×4.
+  // Al primo colpo 100 punti, al secondo 50, dopo 25
+  const molt = (c: number) => Math.min(4, 1 + Math.max(0, c - 1) * 0.5);
+  const base = (t: number) => (t <= 1 ? 100 : t === 2 ? 50 : 25);
+  const record = () => primati().punti ?? 0;
+  const riassunto = () => `score ${punti} · combo ×${molt(combo).toFixed(1)} · best ${record()}`;
+  const scriviPunteggio = () => { punteggio.textContent = modo === 'in-gioco' ? riassunto() : `best ${record()}`; };
   const cuori = () => '♥'.repeat(vite) + '♡'.repeat(VITE - vite);
   const scriviStato = () => {
     for (const [m, e] of Object.entries(stati)) e.hidden = m !== modo;
-    const e = stati[modo], r = primati();
-    if (modo === 'in-quiz') {
-      $('.titolo-stato', e).textContent = `Quiz · question ${Math.min(k + 1, 6)} of 6 · ${domande[k]?.livello ?? ''}${pendente >= 0 ? ' · landing ✈' : ''}`;
-      $('.passi', e).replaceChildren(...domande.map((_, q) => { const li = document.createElement('li'); li.className = q < k ? (tentativi[q] === 1 ? 'primo' : 'dopo') : q === k ? 'ora' : ''; return li; }));
-    } else if (modo === 'fine-quiz') {
-      const primi = tentativi.filter(t => t === 1).length;
-      $('.titolo-stato', e).textContent = `Quiz done · ${primi}/6 at the first try`;
-      $('.quadri', e).textContent = tentativi.map(quadro).join(' ');
-      $('.dettaglio', e).textContent = `best quiz ${r.quiz}/6 · ${riassunto()}`;
-    } else if (modo === 'in-endless') {
-      $('.titolo-stato', e).textContent = `Endless · ${punti} cleared · ${cuori()}${pendente >= 0 ? ' · landing ✈' : ''}`;
-      $('.dettaglio', e).textContent = `best endless ${r.endless} · a wrong answer costs a life`;
-    } else if (modo === 'fine-endless') {
-      $('.titolo-stato', e).textContent = `Out of fuel · ${punti} cleared`;
-      $('.dettaglio', e).textContent = `best endless ${r.endless} · ${riassunto()}`;
+    const e = stati[modo];
+    if (modo === 'inizio') $('.dettaglio', e).textContent = `five lives · combos multiply your points · best ${record()}`;
+    else if (modo === 'in-gioco') {
+      $('.titolo-stato', e).textContent = `${punti} pts · ${cuori()}${combo > 1 ? ` · combo ×${molt(combo).toFixed(1)}` : ''}`;
+      $('.dettaglio', e).textContent = ultimiPunti || 'answer at the first try to start a combo';
+    } else {
+      $('.titolo-stato', e).textContent = `Out of fuel · ${punti} pts`;
+      $('.dettaglio', e).textContent = `${giuste} cleared · best combo ${migliorCombo} · best ${record()}`;
     }
   };
 
   const scena = monta($('.scena3d'), {
     tinte: voli.map(v => v.tinta), termini: voli.map(v => v.voce.termine), partiti: voli.map(() => false),
-    // Senza quiz in corso, un clic su un aereo fa atterrare una domanda della sua sezione
-    alClic: i => { if (modo === 'in-quiz' || modo === 'in-endless') return; assegna(i, nuovoVolo(i, recenti).voce); },
-    alCambio: fasi => {
-      if (pendente >= 0 && fasi[pendente] === 'boarding') apriPendente();
-    },
+    // Prima di partire, un clic su un aereo apre una domanda della sua sezione, fuori partita
+    alClic: i => { if (modo === 'in-gioco') return; prova(i); },
+    alCambio: () => {},
   });
-  function apriPendente() {
-    if (pendente < 0) return;
-    const i = pendente;
-    pendente = -1;
-    if (attesa) { clearTimeout(attesa); attesa = undefined; }
-    imbarco.mostra(i);
-    scriviStato();
-  }
-  function fermaAttesa() {
-    if (attesa) { clearTimeout(attesa); attesa = undefined; }
-  }
-  // Una domanda: va all'aereo della sua sezione, che atterra; il biglietto si apre solo quando è sulla pista
-  function assegna(_i: number, voce: Voce) {
+  // Una domanda va all'aereo della sua sezione: l'aereo atterra, il biglietto si apre subito
+  function metti(voce: Voce) {
     const v = voloDa(voce), i = v.indice;
     recenti.push(voce.id); if (recenti.length > 24) recenti.shift();
     voli[i] = v;
     azzera(p, i);
     scena.riposa(i, voce.termine);
+    scena.atterra(i);
     corrente = i;
-    fermaAttesa();
-    // Se l'aereo è già sulla pista non c'è atterraggio da aspettare
-    const arriva = scena.chiama(i, true);
-    if (!arriva) { pendente = -1; imbarco.mostra(i); scriviStato(); return; }
-    pendente = i;
-    scriviStato();
-    attesa = window.setTimeout(apriPendente, 4500);
+    imbarco.mostra(i);
   }
-  const avviaQuiz = () => { domande = quiz(); k = 0; tentativi = []; modo = 'in-quiz'; scriviStato(); assegna(0, domande[0]!); };
-  const avviaEndless = () => { vite = VITE; punti = 0; modo = 'in-endless'; scriviStato(); assegna(0, aCaso(recenti)); };
-  const fineQuiz = () => {
-    fermaAttesa(); pendente = -1; imbarco.nascondi(); modo = 'fine-quiz';
-    if (segnaPrimato('quiz', tentativi.filter(t => t === 1).length)) scena.fuochi();
-    scriviStato();
+  // La domanda dopo: sempre di un'altra sezione, così il suo aereo aspetta in fila dietro quello in pista
+  function inFila() {
+    prossima = aCasoFuori(recenti, voli[corrente]?.sezione ?? -1);
+    const j = SEZIONI.indexOf(prossima.indiceSezione);
+    scena.riposa(j, prossima.termine);
+    scena.inAttesa(j);
+  }
+  function prova(i: number) { modo = 'inizio'; metti(nuovoVolo(i, recenti).voce); }
+  const avvia = () => {
+    vite = VITE; punti = 0; combo = 0; giuste = 0; ultimiPunti = ''; modo = 'in-gioco';
+    metti(aCaso(recenti)); inFila();
+    scriviPunteggio(); scriviStato();
   };
-  const fineEndless = () => {
-    fermaAttesa(); pendente = -1; imbarco.nascondi(); modo = 'fine-endless';
-    if (segnaPrimato('endless', punti) && punti >= 2) scena.fuochi();
-    scriviStato();
+  const fine = () => {
+    imbarco.nascondi(); scena.liberaTutti(); modo = 'fine';
+    if (segnaPrimato('punti', punti) && punti > 0) scena.fuochi();
+    scriviPunteggio(); scriviStato();
   };
-  document.querySelectorAll('.avvia-quiz').forEach(b => b.addEventListener('click', avviaQuiz));
-  document.querySelectorAll('.avvia-endless').forEach(b => b.addEventListener('click', avviaEndless));
-  document.querySelectorAll('.esci').forEach(b => b.addEventListener('click', () => { fermaAttesa(); pendente = -1; if (modo === 'in-quiz') { imbarco.nascondi(); modo = 'inizio'; scriviStato(); } else fineEndless(); }));
+  document.querySelectorAll('.avvia').forEach(b => b.addEventListener('click', avvia));
+  document.querySelectorAll('.esci').forEach(b => b.addEventListener('click', fine));
   $('.copia').addEventListener('click', async e => {
-    const b = e.currentTarget as HTMLButtonElement, testo = `AI terms quiz ✈ ${tentativi.filter(t => t === 1).length}/6\n${tentativi.map(quadro).join('')}\nhttps://btwsonorico.github.io/learn/airport/`;
+    const b = e.currentTarget as HTMLButtonElement, testo = `AI terms ✈ ${punti} pts · ${giuste} cleared · best combo ${migliorCombo}\nhttps://btwsonorico.github.io/learn/airport/`;
     try { await navigator.clipboard.writeText(testo); b.textContent = 'copied ✓'; } catch { b.textContent = 'copy failed'; }
     setTimeout(() => { b.textContent = 'copy result'; }, 1800);
   });
 
   const imbarco = nuovoImbarco(document.body, {
     data: adesso, voli, partita: p, riassunto,
-    testoProssimo: () => (modo === 'in-quiz' ? (k >= 5 ? 'see your result →' : 'next question →') : modo === 'in-endless' ? 'next flight →' : 'close'),
+    // La combo decide la lamina del biglietto: niente a 0, argento a 1, oro a 2, arcobaleno da 3
+    serie: () => combo,
+    testoProssimo: () => (modo === 'in-gioco' ? (vite > 0 ? 'next flight →' : 'see your score →') : 'close'),
     dopo: (i, giusto) => {
       const primo = p.tentativi[i] === 1, prima = serie().migliore;
       if (!giusto) {
         segnaRisposta(false, false);
-        if (modo === 'in-endless') { vite--; if (vite <= 0) { scriviStato(); window.setTimeout(fineEndless, 1300); } }
+        if (modo === 'in-gioco') { vite--; combo = 0; ultimiPunti = `wrong · ${cuori()}`; }
       } else {
         const dopo = segnaRisposta(true, primo);
-        // Un record di serie nuovo, da 2 in su: fuochi d'artificio sopra l'hangar
         if (dopo.migliore > prima && dopo.migliore >= 2) scena.fuochi();
         scena.decolla(i);
-        if (modo === 'in-quiz') tentativi[k] = p.tentativi[i]!;
-        if (modo === 'in-endless') punti++;
+        if (modo === 'in-gioco') {
+          combo = primo ? combo + 1 : 0; migliorCombo = Math.max(migliorCombo, combo); giuste++;
+          const vinti = Math.round(base(p.tentativi[i]!) * molt(Math.max(1, combo)));
+          punti += vinti;
+          ultimiPunti = `+${vinti}${combo > 1 ? ` · combo ×${molt(combo).toFixed(1)}` : ''}`;
+        }
       }
       const ss = serie(); scena.serie(ss.ora, ss.migliore);
       scriviPunteggio(); scriviStato();
+      if (modo === 'in-gioco' && vite <= 0) window.setTimeout(fine, 1300);
     },
     prossimo: () => {
-      fermaAttesa(); pendente = -1;
-      if (modo === 'in-quiz') { imbarco.nascondi(); k++; if (k >= domande.length) fineQuiz(); else { scriviStato(); assegna(0, domande[k]!); } }
-      else if (modo === 'in-endless') { imbarco.nascondi(); assegna(0, aCaso(recenti)); }
-      else imbarco.nascondi();
+      if (modo !== 'in-gioco') { imbarco.nascondi(); return; }
+      if (vite <= 0) { fine(); return; }
+      // L'aereo in fila atterra, e un altro si mette in fila dietro
+      const v = prossima ?? aCaso(recenti);
+      metti(v); inFila();
+      scriviStato();
     },
-    chiudi: () => { fermaAttesa(); pendente = -1; imbarco.nascondi(); if (modo === 'in-quiz') { modo = 'inizio'; scriviStato(); } else if (modo === 'in-endless') fineEndless(); },
+    chiudi: () => { if (modo === 'in-gioco') fine(); else imbarco.nascondi(); },
   });
   void corrente;
   scriviPunteggio(); scriviStato();
@@ -188,6 +163,8 @@ import Base from '../../layouts/Base.astro';
 
 <style>
   .fondo3d { position: fixed; top: 64px; bottom: 0; left: 0; right: 0; z-index: 0; }
+  /* Sul computer, con il biglietto aperto, la scena si stringe nello spazio sopra il biglietto: l'isola e l'aereo in pista restano interi */
+  @media (min-width: 641px) and (min-height: 501px) { :global(body:has(.imbarco:not([hidden]))) .fondo3d { bottom: 380px; } }
   .scena3d { position: absolute; inset: 0; overflow: hidden; touch-action: pan-y; }
   .aeroporto { position: relative; z-index: 1; pointer-events: none; padding-top: var(--s2); }
   .aeroporto > * { max-width: 400px; margin: 0 0 var(--s1); }
@@ -253,6 +230,7 @@ import Base from '../../layouts/Base.astro';
   /* La lamina olografica: una tela sopra la stampa (sotto la grana e i timbri). Il motto della banda è inciso nella lamina */
   :global(.imbarco .lamina) { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; z-index: 4; pointer-events: none; image-rendering: auto !important; }
   :global(.imbarco .lamina-banda .banda span) { color: transparent; }
+  :global(.imbarco .lamina-simboli .tagliando .nome), :global(.imbarco .lamina-simboli .tagliando .citazione) { color: transparent; }
   :global(.imbarco .corpo) { min-width: 0; display: flex; flex-direction: column; padding: 18px 22px; }
   :global(.imbarco .sotto) { margin: 0; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; opacity: .85; }
   /* La domanda è la protagonista: nessun riquadro, nessun bordo, solo testo */
@@ -325,25 +303,9 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .carta[data-stile='riso'] .rosa svg), :global(.imbarco .carta[data-stile='riso'] .blu svg) { display: block; width: 100%; height: 100%; }
   /* Koi, Passing minds: a pixel */
   :global(.imbarco .carta[data-stile='koi'] .arte70 > canvas), :global(.imbarco .carta[data-stile='koi'] .poster > canvas), :global(.imbarco .carta[data-stile='passing'] .arte70 > canvas), :global(.imbarco .carta[data-stile='passing'] .poster > canvas) { image-rendering: pixelated; }
-  /* Sfera: il grappolo di sfere translucide */
-  @keyframes sfbreathe {
-    0% { transform: translate(-.9%, .5%) scale(1) rotate(-.7deg); }
-    100% { transform: translate(1.5%, -1.4%) scale(1.045) rotate(.8deg); }
-  }
-  :global(.imbarco .carta[data-stile='sfera'] .sf) { position: absolute; inset: 0; color: var(--sf-ink); }
-  :global(.imbarco .carta[data-stile='sfera'] .sf-livello) { position: absolute; inset: 0; animation: sfbreathe 11s ease-in-out infinite alternate; }
-  :global(.imbarco .carta[data-stile='sfera'] .sf-livello svg) { display: block; width: 100%; height: 100%; }
-  @keyframes sfderiva {
-    0%, 100% { transform: translate(0, 0) scale(1, 1); }
-    27% { transform: translate(calc(var(--ax, 0px) * -.72), calc(var(--ay, 0px) * .58)) scale(calc(1 + var(--sc, .04)), calc(1 - var(--sc, .04) * .55)); }
-    53% { transform: translate(var(--ax, 0px), calc(var(--ay, 0px) * -.42)) scale(calc(1 - var(--sc, .04) * .6), calc(1 + var(--sc, .04))); }
-    78% { transform: translate(calc(var(--ax, 0px) * .38), var(--ay, 0px)) scale(calc(1 + var(--sc, .04) * .5), calc(1 - var(--sc, .04) * .3)); }
-  }
-  :global(.imbarco .carta[data-stile='sfera'] .sf-sfera) { transform-box: fill-box; transform-origin: 50% 50%; animation: sfderiva var(--dur, 9s) ease-in-out var(--delay, 0s) infinite; will-change: transform; }
-  :global(.imbarco .carta[data-stile='sfera'] .sf-strato-0) { transform: translate(calc(var(--tx) * -3px), calc(var(--ty) * -2px)); }
-  :global(.imbarco .carta[data-stile='sfera'] .sf-strato-1) { transform: translate(calc(var(--tx) * -7px), calc(var(--ty) * -5px)); }
-  :global(.imbarco .carta[data-stile='sfera'] .sf-strato-2) { transform: translate(calc(var(--tx) * -12px), calc(var(--ty) * -8px)); }
-  :global(.imbarco .carta[data-stile='sfera'] .sf-testa), :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { position: absolute; left: 9px; right: 9px; display: flex; justify-content: space-between; gap: 8px; font-family: var(--mono); font-size: 6.5px; line-height: 1.2; letter-spacing: .16em; text-transform: uppercase; opacity: .82; }
+  /* Sfera: le scritte piccole sopra la tela delle sfere */
+  :global(.imbarco .carta[data-stile='sfera'] .sf) { position: absolute; inset: 0; color: #f3e9ef; pointer-events: none; }
+  :global(.imbarco .carta[data-stile='sfera'] .sf-testa), :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { position: absolute; left: 9px; right: 9px; display: flex; justify-content: space-between; gap: 8px; font-family: var(--mono); font-size: 6.5px; line-height: 1.2; letter-spacing: .16em; text-transform: uppercase; opacity: .75; }
   :global(.imbarco .carta[data-stile='sfera'] .sf-testa) { top: 9px; }
   :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { bottom: 9px; }
   /* Holo: dietro il poster è tutto lamina; se la lamina non c'è (niente WebGL) resta il termine su un arcobaleno */
@@ -365,7 +327,7 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .azioni button[hidden]) { display: none; }
   @media (prefers-reduced-motion: reduce) {
     :global(.imbarco .carta) { transition: none; }
-    :global(.imbarco .carta[data-stile='sfera'] .sf-livello), :global(.imbarco .carta[data-stile='sfera'] .sf-sfera), :global(.imbarco .carta[data-stile='lime'] .fiore) { animation: none; }
+    :global(.imbarco .carta[data-stile='lime'] .fiore) { animation: none; }
   }
   @media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
     .fondo3d { top: 300px; }

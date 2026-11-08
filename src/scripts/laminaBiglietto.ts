@@ -5,7 +5,7 @@
 // Un solo contesto WebGL per tutta la pagina, fuori dallo schermo; ogni faccia copia il risultato sulla sua tela 2D.
 
 export type Tinta = 'iride' | 'argento' | 'oro';
-export type Pezzo = 'banda' | 'filo' | 'sigillo' | 'guilloche' | 'poster';
+export type Pezzo = 'banda' | 'filo' | 'sigillo' | 'guilloche' | 'poster' | 'simboli';
 export type Piano = { pezzi: Pezzo[]; tinta: Tinta; testo?: string; numero?: string };
 
 const VS = 'attribute vec2 a; varying vec2 vUv; void main(){ vUv = a * 0.5 + 0.5; gl_Position = vec4(a, 0.0, 1.0); }';
@@ -195,6 +195,24 @@ function disegnaMaschera(g: CanvasRenderingContext2D, faccia: HTMLElement, piano
         g.restore();
       }
       taglia(() => faccia.querySelectorAll<HTMLElement>('.domanda, .opzione').forEach(e => { const r = misura(e, faccia); if (r) g.fillRect(r.x - 5, r.y - 4, r.w + 10, r.h + 8); }));
+    } else if (pezzo === 'simboli') {
+      // I simboli in lamina: il termine sul tagliando (al posto dell'inchiostro), il numero di citazione, due stelle e un aereo
+      for (const sel of ['.tagliando .nome', '.tagliando .citazione']) {
+        const el = faccia.querySelector<HTMLElement>(sel), rr = misura(el, faccia);
+        if (!el || !rr) continue;
+        const cs = getComputedStyle(el), fs = parseFloat(cs.fontSize) || 16, lh = parseFloat(cs.lineHeight) || fs * 1.05;
+        g.font = `${cs.fontWeight} ${fs}px ${cs.fontFamily}`; g.textBaseline = 'top';
+        const testo = cs.textTransform === 'uppercase' ? (el.textContent ?? '').toUpperCase() : (el.textContent ?? '');
+        // A capo come nel testo stampato: parola per parola, dentro la larghezza dell'elemento
+        const righe: string[] = []; let riga = '';
+        for (const parola of testo.split(/\s+/)) { const prova = riga ? `${riga} ${parola}` : parola; if (riga && g.measureText(prova).width > rr.w + 1) { righe.push(riga); riga = parola; } else riga = prova; }
+        if (riga) righe.push(riga);
+        const destra = cs.textAlign === 'right' || el.classList.contains('citazione');
+        righe.forEach((x, i) => g.fillText(x, destra ? rr.x + rr.w - g.measureText(x).width : rr.x, rr.y + i * lh + (lh - fs) / 2));
+      }
+      const c = q('.corpo'), ar = q('.arte70');
+      if (c) stella(g, c.x + c.w - 20, c.y + 18, 9, 2.2);
+      if (ar && ar.h > 120) { stella(g, ar.x + 22, ar.y + 24, 7, 1.8); aereo(g, ar.x + ar.w - 34, ar.y + 30, 1.3); }
     } else if (pezzo === 'poster') {
       // Il poster tutto in lamina, con il termine inciso a contorno e una riga di dati
       const p = q('.poster'); if (!p) continue;
@@ -229,11 +247,12 @@ export function laminaPer(faccia: HTMLElement) {
       tela.hidden = !piano;
       faccia.classList.toggle('lamina-banda', !!piano?.pezzi.includes('banda'));
       faccia.classList.toggle('lamina-poster', !!piano?.pezzi.includes('poster'));
+      faccia.classList.toggle('lamina-simboli', !!piano?.pezzi.includes('simboli'));
     },
     // fermo: con il movimento ridotto, un fotogramma solo finché non cambia niente
     disegna(tx: number, ty: number, fermo: boolean) {
       if (!piano || !faccia.offsetWidth || (fermo && fatto && !sporca)) return;
-      const m = prendiMotore(); if (!m) { tela.hidden = true; return; }
+      const m = prendiMotore(); if (!m) { tela.hidden = true; faccia.classList.remove('lamina-banda', 'lamina-poster', 'lamina-simboli'); return; }
       const dpr = Math.min(2, devicePixelRatio || 1), W = Math.round(faccia.offsetWidth * dpr), H = Math.round(faccia.offsetHeight * dpr);
       if (!W || !H) return;
       if (tela.width !== W || tela.height !== H) { tela.width = W; tela.height = H; sporca = true; }

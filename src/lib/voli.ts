@@ -64,13 +64,20 @@ export function aCaso(evita: string[]): Voce {
   return da[Math.floor(Math.random() * da.length)]!;
 }
 
-// I record del quiz (giuste al primo colpo su 6) e dell'endless (giuste prima di finire le vite)
-export type Primati = { quiz: number; endless: number };
+// Un termine a caso fuori da una sezione: l'aereo dopo non deve essere quello sulla pista
+export function aCasoFuori(evita: string[], sezione: number): Voce {
+  const altre = VOCI.filter(v => v.indiceSezione !== sezione && !evita.includes(v.id));
+  const da = altre.length ? altre : VOCI.filter(v => v.indiceSezione !== sezione);
+  return da[Math.floor(Math.random() * da.length)]!;
+}
+
+// I record: il quiz (vecchio), l'endless (vecchio) e il punteggio della partita a punti
+export type Primati = { quiz: number; endless: number; punti?: number };
 const KR = 'ai-terms-record';
 export const primati = (): Primati => leggi<Primati>(KR) ?? { quiz: 0, endless: 0 };
 export function segnaPrimato(campo: keyof Primati, valore: number): boolean {
   const r = primati();
-  if (valore <= r[campo]) return false;
+  if (valore <= (r[campo] ?? 0)) return false;
   r[campo] = valore;
   salva(KR, r);
   return true;

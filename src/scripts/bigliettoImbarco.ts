@@ -33,6 +33,8 @@ export type OpzioniImbarco = {
   prossimo: () => void; chiudi: () => void;
   // Il testo del bottone per andare avanti: domanda dopo, risultati, ancora
   testoProssimo?: () => string;
+  // La combo in corso (giuste di fila al primo colpo): decide la lamina del biglietto e la carta Holo
+  serie?: () => number;
 };
 
 export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
@@ -133,7 +135,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   // --- Il sorteggio dello stile a giro: ogni stile esce una volta, poi il mazzo si rimescola.
   // Il giro resta nel browser, così continua anche ricaricando la pagina. Il seme tiene ferme
   // le scelte della variante, così il retro e un biglietto riaperto combaciano con il davanti.
-  const sorteggio = new Map<string, { stile: number; seme: number }>();
+  const sorteggio = new Map<string, { stile: number; seme: number; serie: number }>();
   const CHIAVE_GIRO = 'ai-terms-stili-giro-v1';
   let variabiliMesse: string[] = [];
   const mescola = <T,>(a: T[]) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j]!, a[i]!]; } return a; };
@@ -160,23 +162,23 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   let ultimaOlo = -1;
   const stileDi = (v: Volo) => {
     let x = sorteggio.get(v.seriale);
-    const sr = serie().ora;
+    const sr = o.serie ? o.serie() : serie().ora;
     if (!x && sr > 0 && sr % 5 === 0 && sr !== ultimaOlo) {
       ultimaOlo = sr;
-      x = { stile: -1, seme: 1 + Math.floor(Math.random() * 2147483646) };
+      x = { stile: -1, seme: 1 + Math.floor(Math.random() * 2147483646), serie: sr };
       sorteggio.set(v.seriale, x);
     }
     if (!x) {
       // Solo gli stili ammessi per questa sezione e questo livello
       const ammessi = STILI.map((_, k) => k).filter(k => STILI[k]!.ammesso?.(v.sezione, livelloDi(v)) ?? true);
-      x = { stile: prossimoStile(ammessi.length ? ammessi : STILI.map((_, k) => k)), seme: 1 + Math.floor(Math.random() * 2147483646) };
+      x = { stile: prossimoStile(ammessi.length ? ammessi : STILI.map((_, k) => k)), seme: 1 + Math.floor(Math.random() * 2147483646), serie: sr };
       sorteggio.set(v.seriale, x);
     }
     return x;
   };
   const disegnaStile = (v: Volo, sera: boolean) => {
     const x = stileDi(v), st = x.stile < 0 ? OLO : STILI[x.stile]!, c = { sezione: v.sezione, livello: livelloDi(v), numero: String(v.indice + 1).padStart(2, '0'), termine: v.voce.termine, sera, r: casoDa(x.seme) };
-    const variabili = st.variabili(c), davanti = st.davanti(c), dietro = st.dietro(c), lamina = pianoLamina(st, c);
+    const variabili = st.variabili(c), davanti = st.davanti(c), dietro = st.dietro(c), lamina = pianoLamina(st, c, x.serie);
     return { st, variabili, davanti, dietro, lamina, numero: c.numero };
   };
   const p = o.partita, d = o.data, quando = `${String(d.getDate()).padStart(2, '0')} ${MESI[d.getMonth()]} ${d.getFullYear()}`;

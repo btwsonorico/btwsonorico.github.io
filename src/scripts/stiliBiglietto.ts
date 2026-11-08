@@ -130,44 +130,14 @@ const passing: Stile = {
   variabili: () => carta({ carta: '#edf4f1', inchiostro: '#0c1a17', accento: '#139c7e', tagliando: '#dce9e4', fondo: '#010304' }),
 };
 
-// ---------------- Sfera: un grappolo di sfere translucide, come un render di Houdini. Carta burro, sfere viola e blu
-// che si sovrappongono, il nucleo ciano e lime. Davanti il grappolo nella colonna; dietro due grappoli, come uno studio.
-const SFERA_CARTA = { fondo: '#f6efc8', tinta: '#eee3b6', pannello: '#fbf6dd', ink: '#171331', linea: 'rgb(23 19 49 / .18)' };
-const SFERA_TONI: Record<string, [string, string, string]> = {
-  viola: ['#a294ff', '#5c4cd4', '#2f2887'],
-  blu: ['#79b0ff', '#3273d6', '#1b3f8f'],
-  ciano: ['#9af6f0', '#37c6d2', '#146f88'],
-  lime: ['#e0f9b0', '#82d66c', '#3f8f45'],
-};
-const sfGradients = (id: string) => `<radialGradient id="sf${id}viola" cx="34%" cy="28%" r="74%"><stop offset="0" stop-color="${SFERA_TONI.viola![0]}"/><stop offset=".58" stop-color="${SFERA_TONI.viola![1]}"/><stop offset="1" stop-color="${SFERA_TONI.viola![2]}"/></radialGradient><radialGradient id="sf${id}blu" cx="34%" cy="28%" r="74%"><stop offset="0" stop-color="${SFERA_TONI.blu![0]}"/><stop offset=".58" stop-color="${SFERA_TONI.blu![1]}"/><stop offset="1" stop-color="${SFERA_TONI.blu![2]}"/></radialGradient><radialGradient id="sf${id}ciano" cx="34%" cy="28%" r="74%"><stop offset="0" stop-color="${SFERA_TONI.ciano![0]}"/><stop offset=".58" stop-color="${SFERA_TONI.ciano![1]}"/><stop offset="1" stop-color="${SFERA_TONI.ciano![2]}"/></radialGradient><radialGradient id="sf${id}lime" cx="34%" cy="28%" r="74%"><stop offset="0" stop-color="${SFERA_TONI.lime![0]}"/><stop offset=".58" stop-color="${SFERA_TONI.lime![1]}"/><stop offset="1" stop-color="${SFERA_TONI.lime![2]}"/></radialGradient><radialGradient id="sf${id}alone"><stop offset="0" stop-color="#8c78ff" stop-opacity=".55"/><stop offset=".6" stop-color="#6c5be0" stop-opacity=".18"/><stop offset="1" stop-color="#6c5be0" stop-opacity="0"/></radialGradient><filter id="sf${id}soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.4"/></filter><filter id="sf${id}morbido" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation=".5"/></filter>`;
-const grappolo = (id: string, cx: number, cy: number, raggio: number, n: number, rand: () => number) => {
-  // Tre strati di profondità, come nel video: le sfere di fuori sono più grandi, scure e sfocate, quelle del nucleo
-  // sono più piccole, accese e nitide. Ognuna respira e va per conto suo, con durata e sfasamento suoi
-  const strati: string[][] = [[], [], []];
-  for (let i = 0; i < n; i++) {
-    const a = rand() * Math.PI * 2, q = Math.sqrt(rand()), d = q * raggio, r = raggio * (0.17 + rand() * 0.1) * (1.08 - q * 0.16);
-    const x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d;
-    const tono = q < 0.38 && rand() < 0.8 ? (rand() < 0.5 ? 'lime' : 'ciano') : q < 0.72 ? (rand() < 0.74 ? 'ciano' : 'blu') : (rand() < 0.58 ? 'viola' : 'blu');
-    const strato = q < 0.4 ? 2 : q < 0.74 ? 1 : 0;
-    const ampiezza = 4.2 + strato * 1.4, ax = (rand() - 0.5) * ampiezza, ay = (rand() - 0.5) * ampiezza;
-    const durata = 5.5 + rand() * 7, pausa = -rand() * durata, sc = 0.03 + rand() * 0.04;
-    strati[strato]!.push(`<g class="sf-sfera" style="--ax:${ax.toFixed(2)}px;--ay:${ay.toFixed(2)}px;--dur:${durata.toFixed(1)}s;--delay:${pausa.toFixed(1)}s;--sc:${sc.toFixed(3)}"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="url(#sf${id}${tono})" opacity="${strato === 0 ? '.7' : strato === 1 ? '.82' : '.92'}"/><circle cx="${(x - r * 0.29).toFixed(1)}" cy="${(y - r * 0.33).toFixed(1)}" r="${(r * 0.24).toFixed(1)}" fill="#fff" opacity="${strato === 2 ? '.3' : '.2'}"/><circle cx="${(x + r * 0.34).toFixed(1)}" cy="${(y + r * 0.4).toFixed(1)}" r="${(r * 0.1).toFixed(1)}" fill="#fff" opacity=".1"/></g>`);
-  }
-  return `<circle cx="${cx}" cy="${cy}" r="${(raggio * 1.5).toFixed(1)}" fill="url(#sf${id}alone)" filter="url(#sf${id}soft)"/>${strati.map((s, k) => `<g class="sf-strato sf-strato-${k}"${k === 0 ? ` filter="url(#sf${id}morbido)"` : ''}>${s.join('')}</g>`).join('')}`;
-};
-const sfFronte = (id: string, rand: () => number) => `<svg viewBox="0 0 100 110" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>${sfGradients(id)}</defs>${grappolo(id, 50, 57, 31, 28, rand)}</svg>`;
-const sfRetro = (id: string, rand: () => number) => `<svg viewBox="0 0 220 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>${sfGradients(id)}</defs>${grappolo(id, 61, 79, 33, 28, rand)}${grappolo(id, 158, 74, 38, 32, rand)}</svg>`;
+// ---------------- Sfera: un corpo morbido fatto di qualche centinaio di sfere di vetro, in 3D vero. Il grappolo gira piano
+// e trema come una gelatina quando il biglietto si inclina: il nucleo segue subito, il guscio arriva in ritardo.
+// Bolle verdi, gialle e menta su un verde bosco; ogni tanto una scoppia. Davanti un grappolo; dietro uno più grande
 const sfera: Stile = {
-  id: 'sfera',
-  davanti: c => {
-    const id = `s${++uid}`, rand = casoDa(Math.floor(c.r() * 2147483000));
-    return `<div class="sf"><div class="sf-livello">${sfFronte(id, rand)}</div><div class="sf-testa"><span>STUDY ${c.numero}</span><span>TRANSPARENT BLOOM</span></div><div class="sf-piede"><span>SPHERES / A–B</span><span>AI TERMS</span></div></div>`;
-  },
-  dietro: c => {
-    const id = `s${++uid}`, rand = casoDa(Math.floor(c.r() * 2147483000));
-    return `<div class="sf"><div class="sf-livello">${sfRetro(id, rand)}</div><div class="sf-testa"><span>TRANSPARENT BLOOM</span><span>STUDY ${c.numero}</span></div><div class="sf-piede"><span>63,000 SPHERES</span><span>SOFT BODY / RENDER 04</span></div></div>`;
-  },
-  variabili: () => ({ ...carta({ carta: '#f8f2d6', inchiostro: SFERA_CARTA.ink, accento: '#5c4cd4', tagliando: SFERA_CARTA.tinta, fondo: SFERA_CARTA.fondo }), '--sf-fondo': SFERA_CARTA.fondo, '--sf-tinta': SFERA_CARTA.tinta, '--sf-pannello': SFERA_CARTA.pannello, '--sf-ink': SFERA_CARTA.ink, '--sf-linea': SFERA_CARTA.linea }),
+  id: 'sfera', ascii: true,
+  davanti: c => `<canvas data-ascii="sfere" data-side="front" data-seme="${semeTela(c)}"></canvas><div class="sf"><div class="sf-testa"><span>STUDY ${esc(c.numero)}</span><span>SOFT GLASS</span></div><div class="sf-piede"><span>SPHERES</span><span>AI TERMS</span></div></div>`,
+  dietro: c => `<canvas data-ascii="sfere" data-side="back" data-seme="${semeTela(c)}"></canvas><div class="sf"><div class="sf-testa"><span>SOFT GLASS</span><span>STUDY ${esc(c.numero)}</span></div><div class="sf-piede"><span>SOFT FOAM</span><span>POP / TAKE 03</span></div></div>`,
+  variabili: () => carta({ carta: '#f2f5e6', inchiostro: '#16231a', accento: '#6f9a12', tagliando: '#e4ecc9', fondo: '#0e1a12' }),
 };
 
 // ---------------- Holo: la carta rara, dopo una serie di risposte giuste. Davanti una rosetta incisa a inchiostro, con le
@@ -194,17 +164,21 @@ export const OLO: Stile = {
 // Il mazzo: ogni arte esce una volta per giro
 export const STILI: Stile[] = [sfera, lime, risograph, koi, prato, paesaggi, passing];
 
-// ---------------- La lamina: quali elementi si stampano in lamina su questo biglietto, e in che tinta.
-// La tinta dice il livello: argento facile, oro medio, arcobaleno difficile. Gli elementi escono a caso, al massimo due:
-// la banda o il filo (mai insieme), il sigillo, le linee guilloché (rare)
+// ---------------- La lamina cresce con la combo. Alla prima domanda (combo 0) niente lamina. Con una giusta di fila un
+// elemento, con due due elementi, da tre in su tre o quattro: la banda o il filo per primi, poi a caso fra il sigillo,
+// i simboli in lamina (il termine sul tagliando, stelle, un aereo) e le linee guilloché. La tinta: argento a 1,
+// oro a 2, arcobaleno da 3
 export type PianoBiglietto = { davanti: Pezzo[]; dietro: Pezzo[]; tinta: Tinta };
-const SET_LAMINA: [number, Pezzo[]][] = [[0.28, ['banda']], [0.18, ['filo']], [0.16, ['banda', 'sigillo']], [0.1, ['filo', 'sigillo']], [0.12, ['sigillo']], [0.08, ['guilloche']], [0.08, []]];
-export function pianoLamina(st: Stile, c: Contesto): PianoBiglietto {
-  if (st.id === 'olo') return { davanti: ['guilloche', 'sigillo'], dietro: ['poster'], tinta: 'iride' };
-  const tinta: Tinta = c.livello === 'hard' ? 'iride' : c.livello === 'medium' ? 'oro' : 'argento';
-  let k = una(c, 'lamina', () => c.r());
-  for (const [peso, pezzi] of SET_LAMINA) { if (k < peso) return { davanti: pezzi, dietro: [], tinta }; k -= peso; }
-  return { davanti: [], dietro: [], tinta };
+export function pianoLamina(st: Stile, c: Contesto, combo = 0): PianoBiglietto {
+  if (st.id === 'olo') return { davanti: ['guilloche', 'sigillo', 'simboli'], dietro: ['poster'], tinta: 'iride' };
+  if (combo <= 0) return { davanti: [], dietro: [], tinta: 'argento' };
+  const tinta: Tinta = combo === 1 ? 'argento' : combo === 2 ? 'oro' : 'iride';
+  const k = una(c, 'lamina', () => [c.r(), c.r(), c.r(), c.r(), c.r()] as const);
+  const quanti = combo === 1 ? 1 : combo === 2 ? 2 : k[4] < 0.5 ? 3 : 4;
+  // Gli altri elementi in un ordine a caso, deciso dal seme del biglietto
+  const altri = (['sigillo', 'simboli', 'guilloche'] as Pezzo[]).map((p, i) => [p, k[i + 1]!] as const).sort((x, y) => x[1] - y[1]).map(x => x[0]);
+  const primo: Pezzo = k[0] < 0.75 ? 'banda' : 'filo';
+  return { davanti: [primo, ...altri].slice(0, quanti), dietro: [], tinta };
 }
 
 // ---------------- Le tele vive. Il biglietto chiama disegnaAscii circa 30 volte al secondo; ogni tela decide quanto spesso
@@ -224,6 +198,7 @@ export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: 
   if (tipoT === 'scena') return scenaTela(c, ora / 1000, tx);
   if (tipoT === 'prato') return pratoPixel(c, ora / 1000);
   if (tipoT === 'passing') return passingMinds(c, ora);
+  if (tipoT === 'sfere') return sfereTela(c, ora / 1000, dt, tx, ty);
   if (tipoT === 'banner') return bannerTela(c, ora / 1000);
   return notteTela(c, ora, tx, ty);
 }
@@ -913,4 +888,106 @@ function bannerTela(c: HTMLCanvasElement, t: number) {
     g.fillStyle = `rgba(${Math.round(col[0])},${Math.round(col[1])},${Math.round(col[2])},${(0.6 + a * 0.4).toFixed(2)})`;
     g.fillText(a > 0.7 ? (hash(x + Math.floor(t * 6), y) > 0.85 ? '%' : '#') : '+', x * cw, y * ch);
   }
+}
+// --- Le bolle. Una schiuma di bolle di vetro in 3D: ogni bolla spinge via quelle che tocca ed è tirata verso il centro,
+// così il grappolo resta unito. Ogni tanto una bolla del guscio scoppia: le altre si risistemano da sole e una bolla
+// nuova cresce in superficie. Una membrana trasparente unisce le bolle che si toccano. Il grappolo gira con
+// l'inclinazione: il nucleo subito, il guscio in ritardo con una molla, come una gelatina
+type Bolla = { x: number; y: number; z: number; vx: number; vy: number; vz: number; r: number; R: number; col: number; fase: number; scoppio: number };
+type Schiuma = { bolle: Bolla[]; sprite: HTMLCanvasElement[][]; nucleo: { a: number; b: number }; guscio: { a: number; b: number; va: number; vb: number }; prossimo: number; gocce: { x: number; y: number; vx: number; vy: number; vita: number }[]; velo: HTMLCanvasElement; rnd: () => number };
+const TONI_SFERE = [['#fbffd8', '#c8f25a', '#4c861a'], ['#fff9d2', '#ffd84a', '#a6720c'], ['#e8fff1', '#72e3a4', '#1c7a4b'], ['#fdffe9', '#a9d94c', '#4d6912'], ['#ffffff', '#f3f7c4', '#9aa35a']];
+function spriteSfera(tono: string[], sfoca: number) {
+  const k = document.createElement('canvas'), L = 96; k.width = k.height = L;
+  const g = k.getContext('2d')!, c = L / 2, R = L / 2 - 8;
+  if (sfoca) g.filter = `blur(${sfoca}px)`;
+  // Il vetro: trasparente al centro, colorato sul bordo; il riflesso in alto a sinistra; la luce che passa in basso a destra
+  const corpo = g.createRadialGradient(c - R * 0.3, c - R * 0.35, R * 0.1, c, c, R);
+  corpo.addColorStop(0, tono[0]! + '99'); corpo.addColorStop(0.6, tono[1]! + '88'); corpo.addColorStop(0.93, tono[2]! + 'ee'); corpo.addColorStop(1, tono[2]! + '00');
+  g.fillStyle = corpo; g.beginPath(); g.arc(c, c, R, 0, Math.PI * 2); g.fill();
+  const passa = g.createRadialGradient(c + R * 0.35, c + R * 0.4, 0, c + R * 0.35, c + R * 0.4, R * 0.5);
+  passa.addColorStop(0, tono[0]! + 'aa'); passa.addColorStop(1, tono[0]! + '00');
+  g.fillStyle = passa; g.beginPath(); g.arc(c, c, R, 0, Math.PI * 2); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.8)'; g.beginPath(); g.ellipse(c - R * 0.34, c - R * 0.4, R * 0.2, R * 0.12, -0.6, 0, Math.PI * 2); g.fill();
+  return k;
+}
+function sfereTela(c: HTMLCanvasElement, t: number, dt: number, tx: number, ty: number) {
+  const W = c.width, H = c.height, g = c.getContext('2d')!, retro = c.dataset.side === 'back';
+  const nuova = (r: () => number, x: number, y: number, z: number, R: number): Bolla => ({ x, y, z, vx: 0, vy: 0, vz: 0, r: 0.002, R, col: r() < 0.1 ? 4 : Math.floor(r() * 4), fase: r() * 6.28, scoppio: 0 });
+  const s = prendi<Schiuma>(c, () => {
+    const r = casoTela(c), n = retro ? 170 : 90, bolle: Bolla[] = [];
+    for (let i = 0; i < n; i++) {
+      const u = r() * 2 - 1, a = r() * Math.PI * 2, q = Math.cbrt(r()) * 0.75, sq = Math.sqrt(1 - u * u);
+      const b = nuova(r, Math.cos(a) * sq * q, u * q, Math.sin(a) * sq * q, 0.07 + r() ** 2 * 0.13); b.r = b.R; bolle.push(b);
+    }
+    const velo = document.createElement('canvas');
+    return { bolle, sprite: TONI_SFERE.map(tono => [0, 2.5, 6].map(bl => spriteSfera(tono, bl))), nucleo: { a: 0, b: 0 }, guscio: { a: 0, b: 0, va: 0, vb: 0 }, prossimo: t + 1.2, gocce: [], velo, rnd: r };
+  });
+  const h = Math.min(dt, 0.05), B = s.bolle, rnd = s.rnd;
+  // La fisica: le bolle si spingono via dove si sovrappongono, e tutte sono tirate verso il centro
+  for (let i = 0; i < B.length; i++) {
+    const a = B[i]!;
+    if (a.r < a.R && !a.scoppio) a.r = Math.min(a.R, a.r + h * 0.12);
+    a.vx -= a.x * 1.6 * h; a.vy -= a.y * 1.6 * h; a.vz -= a.z * 1.6 * h;
+    for (let j = i + 1; j < B.length; j++) {
+      const b = B[j]!, dx = b.x - a.x, dy = b.y - a.y, dz = b.z - a.z, d = Math.hypot(dx, dy, dz) || 1e-4, m = (a.r + b.r) * 0.92 - d;
+      if (m > 0) { const f = m * 18 * h / d; a.vx -= dx * f; a.vy -= dy * f; a.vz -= dz * f; b.vx += dx * f; b.vy += dy * f; b.vz += dz * f; }
+    }
+  }
+  for (const a of B) { a.vx *= 0.9; a.vy *= 0.9; a.vz *= 0.9; a.x += a.vx * h * 6; a.y += a.vy * h * 6; a.z += a.vz * h * 6; }
+  // Lo scoppio: ogni 0,9–2,2 secondi una bolla del guscio; al suo posto, dopo poco, ne cresce una nuova in superficie
+  if (t > s.prossimo) {
+    s.prossimo = t + 0.9 + rnd() * 1.3;
+    const fuori = B.filter(b => !b.scoppio && b.r > 0.06).sort((p1, p2) => Math.hypot(p2.x, p2.y, p2.z) - Math.hypot(p1.x, p1.y, p1.z)).slice(0, 12);
+    const v = fuori[Math.floor(rnd() * fuori.length)];
+    if (v) v.scoppio = 0.001;
+  }
+  for (let i = B.length - 1; i >= 0; i--) {
+    const b = B[i]!;
+    if (!b.scoppio) continue;
+    b.scoppio += h * 5;
+    if (b.scoppio >= 1) {
+      B.splice(i, 1);
+      const d = Math.hypot(b.x, b.y, b.z) || 1, a = rnd() * Math.PI * 2;
+      B.push(nuova(rnd, b.x / d * 0.5 + Math.cos(a) * 0.1, b.y / d * 0.5 + Math.sin(a) * 0.1, b.z / d * 0.5, 0.07 + rnd() ** 2 * 0.13));
+    }
+  }
+  // Le due rotazioni: il nucleo segue l'inclinazione e un giro lento; il guscio lo insegue con una molla smorzata
+  s.nucleo.a = t * 0.16 + tx * 0.9; s.nucleo.b = ty * 0.6 + Math.sin(t * 0.3) * 0.15;
+  s.guscio.va += ((s.nucleo.a - s.guscio.a) * 38 - s.guscio.va * 5.5) * h; s.guscio.a += s.guscio.va * h;
+  s.guscio.vb += ((s.nucleo.b - s.guscio.b) * 38 - s.guscio.vb * 5.5) * h; s.guscio.b += s.guscio.vb * h;
+  // Lo sfondo: verde bosco, con un alone giallo dietro il grappolo
+  g.fillStyle = '#0e1a12'; g.fillRect(0, 0, W, H);
+  const cx = W * 0.5, cy = H * 0.5, R = Math.min(W, H) * (retro ? 0.5 : 0.44);
+  const alone = g.createRadialGradient(cx, cy, 0, cx, cy, R * 1.8);
+  alone.addColorStop(0, 'rgba(230,240,90,.2)'); alone.addColorStop(0.5, 'rgba(90,200,120,.07)'); alone.addColorStop(1, 'rgba(14,26,18,0)');
+  g.fillStyle = alone; g.fillRect(0, 0, W, H);
+  const punti = B.map(q => {
+    const dd = Math.hypot(q.x, q.y, q.z), peso = Math.min(1, dd * 1.3), a = s.nucleo.a + (s.guscio.a - s.nucleo.a) * peso, b = s.nucleo.b + (s.guscio.b - s.nucleo.b) * peso;
+    const resp = 1 + 0.025 * Math.sin(t * 1.4 + q.fase);
+    const ca = Math.cos(a), sa = Math.sin(a), x1 = q.x * ca - q.z * sa, z1 = q.x * sa + q.z * ca;
+    const cb = Math.cos(b), sb = Math.sin(b), y1 = q.y * cb - z1 * sb, z2 = q.y * sb + z1 * cb, prosp = 2.6 / (2.6 - z2);
+    return { X: cx + x1 * R * prosp, Y: cy + y1 * R * prosp, Z: z2, S: q.r * R * prosp * resp * (1 + q.scoppio * 0.35), col: q.col, sc: q.scoppio };
+  }).sort((p1, p2) => p1.Z - p2.Z);
+  // La membrana: tutte le bolle un po' più grandi, su un velo a parte; dove si toccano il velo è continuo
+  const v = s.velo; if (v.width !== W || v.height !== H) { v.width = W; v.height = H; }
+  const gv = v.getContext('2d')!; gv.clearRect(0, 0, W, H); gv.fillStyle = '#b9ef6a';
+  for (const q of punti) if (!q.sc) { gv.beginPath(); gv.arc(q.X, q.Y, q.S * 1.12, 0, Math.PI * 2); gv.fill(); }
+  g.save(); g.globalAlpha = 0.13; g.filter = `blur(${(R * 0.02).toFixed(1)}px)`; g.drawImage(v, 0, 0); g.restore();
+  for (const q of punti) {
+    // Lontane: sfocate e trasparenti; vicinissime: un po' sfocate, come la profondità di campo
+    const fuoco = q.Z < -0.45 ? 2 : q.Z < -0.1 ? 1 : q.Z > 0.85 ? 1 : 0;
+    g.globalAlpha = (0.55 + 0.45 * Math.min(1, (q.Z + 1) / 1.4)) * (1 - q.sc);
+    const L = q.S * 2 * (96 / 80);
+    g.drawImage(s.sprite[q.col]![fuoco]!, q.X - L / 2, q.Y - L / 2, L, L);
+    // Lo scoppio: un anello sottile che si allarga e qualche goccia
+    if (q.sc) {
+      g.globalAlpha = 1 - q.sc; g.strokeStyle = '#f6ffd0'; g.lineWidth = Math.max(1, q.S * 0.06);
+      g.beginPath(); g.arc(q.X, q.Y, q.S * (1 + q.sc * 0.6), 0, Math.PI * 2); g.stroke();
+      if (q.sc < 0.25) for (let k = 0; k < 7; k++) { const a = rnd() * Math.PI * 2, vv = q.S * (2 + rnd() * 3); s.gocce.push({ x: q.X + Math.cos(a) * q.S, y: q.Y + Math.sin(a) * q.S, vx: Math.cos(a) * vv, vy: Math.sin(a) * vv, vita: 0.5 }); }
+    }
+  }
+  g.fillStyle = '#f6ffd0';
+  s.gocce = s.gocce.filter(d => (d.vita -= h) > 0);
+  for (const d of s.gocce) { d.x += d.vx * h; d.y += d.vy * h; d.vy += R * 0.8 * h; g.globalAlpha = d.vita * 2; g.fillRect(d.x, d.y, 2, 2); }
+  g.globalAlpha = 1;
 }
