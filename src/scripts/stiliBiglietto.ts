@@ -226,7 +226,8 @@ export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: 
   if (lento && ora - (ultimo.get(c) ?? -1e9) < (tipoT in CARICA ? 48 : 80)) return;
   const prima = ultimo.get(c) ?? ora; ultimo.set(c, ora);
   const dt = Math.min(0.1, Math.max(0, (ora - prima) / 1000));
-  const dpr = Math.min(2, devicePixelRatio || 1), W = Math.round(c.clientWidth * dpr), H = Math.round(c.clientHeight * dpr);
+  // Su telefono le tele dei biglietti al massimo a densità 1,5: costano meno e si vedono uguali
+  const dpr = Math.min(innerWidth < 700 ? 1.5 : 2, devicePixelRatio || 1), W = Math.round(c.clientWidth * dpr), H = Math.round(c.clientHeight * dpr);
   if (!W || !H) return;
   if (c.width !== W || c.height !== H) { c.width = W; c.height = H; stati.delete(c); maschere.delete(c); }
   if (tipoT.startsWith('vita')) return vita(c, ora, dt, dpr, tipoT === 'vita-parola');
@@ -511,13 +512,15 @@ function pratoPixel(c: HTMLCanvasElement, tempo: number) {
   const s = prendi<StatoPrato>(c, () => {
     const r = casoTela(c), fiori: FiorePrato[] = [], steli: StatoPrato['steli'] = [];
     // Più fiori lontano che vicino: la profondità z va da 0 (orizzonte) a 1 (davanti)
-    for (let i = 0; i < 520; i++) fiori.push({ x: r() * 1.1 - 0.05, z: Math.pow(r(), 1.9), h: 0.8 + r() * 0.4, fase: r() * 6.28, colore: r() });
-    for (let i = 0; i < 900; i++) steli.push({ x: r() * 1.1 - 0.05, z: Math.pow(r(), 1.5), h: 0.5 + r() * 0.7, fase: r() * 6.28 });
+    // Tanti fiori, anche vicinissimi: arrivano fino al bordo in basso, cioè fino alla camera
+    for (let i = 0; i < 640; i++) fiori.push({ x: r() * 1.1 - 0.05, z: Math.pow(r(), 1.25), h: 0.8 + r() * 0.4, fase: r() * 6.28, colore: r() });
+    for (let i = 0; i < 520; i++) steli.push({ x: r() * 1.1 - 0.05, z: Math.pow(r(), 1.5), h: 0.4 + r() * 0.5, fase: r() * 6.28 });
     fiori.sort((a, b) => a.z - b.z); steli.sort((a, b) => a.z - b.z);
     return { fiori, steli, stelle: Array.from({ length: 90 }, () => ({ x: r(), y: r(), fase: r() * 6.28 })), lanterne: Array.from({ length: 4 }, () => ({ x: r(), y: r(), v: 0.004 + r() * 0.006, fase: r() * 6.28 })) };
   });
   // Una griglia bassa, ingrandita senza sfumare: i pixel restano netti
-  const scala = Math.max(1, Math.round(Math.min(w, h) / 150));
+  // Pixel più grandi: il prato è più vicino, i fiori si vedono di più
+  const scala = Math.max(1, Math.round(Math.min(w, h) / 112));
   const W = Math.max(1, Math.round(w / scala)), H = Math.max(1, Math.round(h / scala));
   const im = prendiPrato(c, W, H), p = im.ctx;
   p.imageSmoothingEnabled = false;
@@ -526,7 +529,7 @@ function pratoPixel(c: HTMLCanvasElement, tempo: number) {
     ? { cielo: '#05060f', alto: '#0a0d22', foschia: ['#141c44', '#1f2c62', '#2c3d80'], terra: '#06120c', macchia: '#0c2017', stelo: ['#163e29', '#2b653e', '#3a8551'], fiore: ['#f4ff68', '#a8ff74', '#65e7a0'], cuore: ['#faffc1', '#faffc1', '#e8fff1'] }
     // Giorno: margheritine, petali bianchi e cuore giallo, qualche fiore giallo e qualche rosa chiaro
     : { cielo: '#bfe3f2', alto: '#8fc9e6', foschia: ['#d9eef4', '#cfe6ee', '#bcdbe6'], terra: '#3f6b3e', macchia: '#4e7c45', stelo: ['#2f5a2f', '#3f7238', '#5a8c43'], fiore: ['#ffffff', '#ffffff', '#ffd2dc'], cuore: ['#f5c518', '#f5c518', '#f5c518'] };
-  const oriz = Math.round(H * 0.3);
+  const oriz = Math.round(H * 0.26);
   // Il cielo: due toni retinati; di notte le stelle che brillano piano
   for (let y = 0; y < oriz; y++) for (let x = 0; x < W; x++) {
     const k = y / oriz, soglia = BAYER2[(y & 1) * 2 + (x & 1)]! / 4;
@@ -548,26 +551,27 @@ function pratoPixel(c: HTMLCanvasElement, tempo: number) {
     p.fillStyle = m ? T.macchia : T.terra; p.fillRect(x, y, 1, 1);
   }
   const vento = (x: number, z: number, fase: number) => Math.sin(tempo * 0.7 - x * 4.2 - z * 1.4) * 0.75 + Math.sin(tempo * 0.3 - x * 2) * 0.2 + Math.sin(tempo * 1.2 + fase) * 0.08;
-  const suolo = (z: number) => oriz + 3 + z * (H - oriz + 10);
+  // La base dei fiori vicini scende sotto il bordo: in basso si vedono solo le corolle
+  const suolo = (z: number) => oriz + 3 + z * (H - oriz + 34);
   // Gli steli: lunghi e sottili davanti, cortissimi lontano. La base resta ferma, la punta si piega
   for (const st of s.steli) {
-    const x = st.x * W, y = suolo(st.z), alt = (1.5 + st.z * H * 0.42) * st.h, piega = vento(st.x, st.z, st.fase) * Math.min(6, alt * 0.18);
+    const x = st.x * W, y = suolo(st.z), alt = (1.5 + st.z * H * 0.3) * st.h, piega = vento(st.x, st.z, st.fase) * Math.min(6, alt * 0.18);
     p.fillStyle = T.stelo[Math.min(2, Math.floor(st.z * 2.2 + st.h * 0.4))]!;
     const passi = Math.max(1, Math.round(alt));
     for (let k = 0; k < passi; k++) { const u = k / passi; p.fillRect(Math.round(x + piega * u * u), Math.round(y - alt * u), 1, 1); }
   }
   // I fiori a croce: un puntino lontano, una croce piccola a metà, una croce grande con il cuore davanti
   for (const f of s.fiori) {
-    const x = f.x * W, y = suolo(f.z), alt = (2 + f.z * H * 0.45) * f.h, piega = vento(f.x, f.z, f.fase) * Math.min(7, alt * 0.2);
+    const x = f.x * W, y = suolo(f.z), alt = (2 + f.z * H * 0.3) * f.h, piega = vento(f.x, f.z, f.fase) * Math.min(7, alt * 0.2);
     const passi = Math.max(1, Math.round(alt));
     p.fillStyle = T.stelo[f.z > 0.5 ? 2 : 1]!;
     for (let k = 0; k < passi; k++) { const u = k / passi; p.fillRect(Math.round(x + piega * u * u), Math.round(y - alt * u), 1, 1); }
     const fx = Math.round(x + piega), fy = Math.round(y - alt), ti = f.colore < 0.55 ? 0 : f.colore < 0.85 ? 1 : 2;
     p.fillStyle = T.fiore[ti]!;
-    if (f.z < 0.25) { p.fillRect(fx, fy, 1, 1); continue; }
-    const d = f.z < 0.6 ? 1 : 2;
+    if (f.z < 0.2) { p.fillRect(fx, fy, 1, 1); continue; }
+    const d = f.z < 0.5 ? 1 : f.z < 0.82 ? 2 : 3;
     p.fillRect(fx - d, fy, d * 2 + 1, 1); p.fillRect(fx, fy - d, 1, d * 2 + 1);
-    if (d === 2) { p.fillRect(fx - 1, fy - 1, 3, 3); p.fillStyle = T.cuore[ti]!; p.fillRect(fx, fy, 1, 1); }
+    if (d >= 2) { p.fillRect(fx - 1, fy - 1, 3, 3); if (d === 3) { p.fillRect(fx - 2, fy - 1, 5, 3); p.fillRect(fx - 1, fy - 2, 3, 5); } p.fillStyle = T.cuore[ti]!; p.fillRect(fx, fy, 1, 1); if (d === 3) p.fillRect(fx - 1, fy, 2, 1); }
     else if (!notte) { p.fillStyle = T.cuore[ti]!; p.fillRect(fx, fy, 1, 1); }
   }
   // Le lanterne: poche luci gialle che galleggiano basse sopra l'orizzonte e pulsano piano

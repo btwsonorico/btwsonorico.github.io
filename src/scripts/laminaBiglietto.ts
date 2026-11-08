@@ -260,7 +260,7 @@ export function laminaPer(faccia: HTMLElement) {
     disegna(tx: number, ty: number, fermo: boolean) {
       if (!piano || !faccia.offsetWidth || (fermo && fatto && !sporca)) return;
       const m = prendiMotore(); if (!m) { tela.hidden = true; faccia.classList.remove('lamina-banda', 'lamina-poster', 'lamina-simboli'); return; }
-      const dpr = Math.min(2, devicePixelRatio || 1), W = Math.round(faccia.offsetWidth * dpr), H = Math.round(faccia.offsetHeight * dpr);
+      const dpr = Math.min(innerWidth < 700 ? 1.5 : 2, devicePixelRatio || 1), W = Math.round(faccia.offsetWidth * dpr), H = Math.round(faccia.offsetHeight * dpr);
       if (!W || !H) return;
       if (tela.width !== W || tela.height !== H) { tela.width = W; tela.height = H; sporca = true; }
       if (sporca) {

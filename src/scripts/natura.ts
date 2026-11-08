@@ -292,8 +292,9 @@ export interface OpzioniPalco {
 export function palco(el: HTMLElement, o: OpzioniPalco) {
   const ridotto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const telefono = window.innerWidth < 700;
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, telefono ? 1.5 : 2));
+  // Su telefono la scena costa meno: densità 1, niente antialias, circa 30 fotogrammi al secondo
+  const renderer = new THREE.WebGLRenderer({ antialias: !telefono, alpha: true, powerPreference: telefono ? 'low-power' : 'default' });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, telefono ? 1 : 2));
   el.appendChild(renderer.domElement);
   renderer.domElement.style.display = 'block';
   const scena = new THREE.Scene(), gruppo = new THREE.Group();
@@ -391,7 +392,8 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
   function disegna(ora: number) {
     if (!vivo) return;
     requestAnimationFrame(disegna);
-    const dt = Math.min(0.05, (ora - prima) / 1000);
+    if (telefono && ora - prima < 31) return;
+    const dt = Math.min(0.06, (ora - prima) / 1000);
     prima = ora;
     if (el.offsetParent === null || !inVista || document.hidden) return;
     s += ridotto ? 0 : dt;

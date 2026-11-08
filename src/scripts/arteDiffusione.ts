@@ -172,7 +172,7 @@ export function disegnaDiffusione(c: HTMLCanvasElement, tempo: number, retro: bo
     s = { g, mono: getComputedStyle(c).getPropertyValue('--mono').trim() || 'ui-monospace, monospace' };
     stati.set(c, s);
   }
-  const { g, mono } = s, dpr = Math.min(2, devicePixelRatio || 1), w = c.width / dpr, h = c.height / dpr;
+  const { g, mono } = s, dpr = c.clientWidth ? c.width / c.clientWidth : Math.min(2, devicePixelRatio || 1), w = c.width / dpr, h = c.height / dpr;
   g.setTransform(1, 0, 0, 1, 0, 0);
   g.globalAlpha = 1;
   g.fillStyle = FONDO;

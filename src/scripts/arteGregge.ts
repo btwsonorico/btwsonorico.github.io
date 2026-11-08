@@ -213,7 +213,7 @@ function disegnaPrato(g: CanvasRenderingContext2D, d: number, k: Corsa, s: Stato
 export function disegnaGregge(c: HTMLCanvasElement, tempo: number, retro: boolean): void {
   const g = c.getContext('2d');
   if (!g || !c.width || !c.height) return;
-  const d = Math.min(2, devicePixelRatio || 1), W = c.width / d, H = c.height / d, tutte = decodifica();
+  const d = c.clientWidth ? c.width / c.clientWidth : Math.min(2, devicePixelRatio || 1), W = c.width / d, H = c.height / d, tutte = decodifica();
   let s = statiTela.get(c);
   if (!s) { s = { xs: new Float32Array(1 + PECORE + 32), zs: new Float32Array(1 + PECORE + 32), ordine: new Int32Array(N_COSE + 32), chiavi: new Float32Array(N_COSE + 32) }; statiTela.set(c, s); }
   g.setTransform(1, 0, 0, 1, 0, 0);
