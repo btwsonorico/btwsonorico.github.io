@@ -162,8 +162,47 @@ export const OLO: Stile = {
   variabili: c => carta({ carta: '#f3f1ec', inchiostro: '#1b2340', accento: una(c, 'olo-colore', () => scegli(OLO_COLORI, c.r)), tagliando: '#e9e6f0', fondo: '#f3f1ec' }),
 };
 
+// ---------------- Tre arti dalle pagine di Learn. Non calcolano niente: riproducono una run registrata una volta sola
+// (scripts/registra-rete.mjs, registra-diffusione.mjs, registra-gregge.ts). Il codice e i dati si caricano solo
+// quando l'arte esce nel sorteggio, così la pagina non pesa di più
+// Rete neurale: davanti la casa che prende forma sulla griglia, dietro il pesce, più grande
+const rete: Stile = {
+  id: 'rete', ascii: true,
+  davanti: () => `<canvas data-ascii="rete" data-side="front"></canvas>`,
+  dietro: () => `<canvas data-ascii="rete" data-side="back"></canvas>`,
+  variabili: () => carta({ carta: '#f2efe8', inchiostro: '#15202e', accento: '#d9661f', tagliando: '#e7e2d6', fondo: '#0a0b0d' }),
+};
+// Diffusion: davanti una run dal rumore alla stella, dietro sei run diverse
+const diffusione: Stile = {
+  id: 'diffusione', ascii: true,
+  davanti: () => `<canvas data-ascii="diffusione" data-side="front"></canvas>`,
+  dietro: () => `<canvas data-ascii="diffusione" data-side="back"></canvas>`,
+  variabili: () => carta({ carta: '#eef2f7', inchiostro: '#10161f', accento: '#1f6fd1', tagliando: '#dde5ef', fondo: '#0a0b0d' }),
+};
+// Reinforcement: davanti la policy addestrata 4M che porta il gregge nel cerchio, dietro le due policy a confronto
+const gregge: Stile = {
+  id: 'gregge', ascii: true,
+  davanti: () => `<canvas data-ascii="gregge" data-side="front"></canvas>`,
+  dietro: () => `<canvas data-ascii="gregge" data-side="back"></canvas>`,
+  variabili: () => carta({ carta: '#f3f0e9', inchiostro: '#16191e', accento: '#c45f17', tagliando: '#e7e2d7', fondo: '#0a0b0d' }),
+};
+type Disegno = (c: HTMLCanvasElement, tempo: number, retro: boolean) => void;
+const caricate: Record<string, Disegno | 'attesa' | undefined> = {};
+const CARICA: Record<string, () => Promise<Disegno>> = {
+  rete: () => import('./arteRete').then(m => m.disegnaRete),
+  diffusione: () => import('./arteDiffusione').then(m => m.disegnaDiffusione),
+  gregge: () => import('./arteGregge').then(m => m.disegnaGregge),
+};
+function arteLearn(tipo: string, c: HTMLCanvasElement, ora: number) {
+  const f = caricate[tipo];
+  if (typeof f === 'function') { f(c, ora / 1000, c.dataset.side === 'back'); return; }
+  if (f === 'attesa') return;
+  caricate[tipo] = 'attesa';
+  CARICA[tipo]!().then(d => { caricate[tipo] = d; }).catch(() => { caricate[tipo] = undefined; });
+}
+
 // Il mazzo: ogni arte esce una volta per giro
-export const STILI: Stile[] = [sfera, lime, risograph, koi, prato, paesaggi, passing];
+export const STILI: Stile[] = [sfera, lime, risograph, koi, prato, paesaggi, passing, rete, diffusione, gregge];
 
 // ---------------- La lamina dice la combo: ogni giusta di fila al primo colpo aggiunge un elemento, sempre nello stesso
 // ordine. 1: il nome del termine sul tagliando; 2: il filo sottile con le paroline; 3: la banda grande; 4: il bollino;
@@ -182,8 +221,9 @@ export function pianoLamina(st: Stile, c: Contesto, combo = 0): PianoBiglietto {
 // ridisegnarsi (le scene di caratteri bastano 12 volte al secondo). Lo stato di ogni tela (cellule, pesci) sta qui
 const ultimo = new WeakMap<HTMLCanvasElement, number>();
 export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: number) {
-  const tipoT = c.dataset.ascii ?? '', lento = tipoT.startsWith('notte') || tipoT === 'scena' || tipoT === 'prato' || tipoT === 'passing' || tipoT === 'banner';
-  if (lento && ora - (ultimo.get(c) ?? -1e9) < 80) return;
+  const tipoT = c.dataset.ascii ?? '', lento = tipoT.startsWith('notte') || tipoT === 'scena' || tipoT === 'prato' || tipoT === 'passing' || tipoT === 'banner' || tipoT in CARICA;
+  // Le arti di Learn a circa 20 fotogrammi al secondo, le scene di caratteri a 12
+  if (lento && ora - (ultimo.get(c) ?? -1e9) < (tipoT in CARICA ? 48 : 80)) return;
   const prima = ultimo.get(c) ?? ora; ultimo.set(c, ora);
   const dt = Math.min(0.1, Math.max(0, (ora - prima) / 1000));
   const dpr = Math.min(2, devicePixelRatio || 1), W = Math.round(c.clientWidth * dpr), H = Math.round(c.clientHeight * dpr);
@@ -196,6 +236,7 @@ export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: 
   if (tipoT === 'prato') return pratoPixel(c, ora / 1000);
   if (tipoT === 'passing') return passingMinds(c, ora);
   if (tipoT === 'sfere') return sfereTela(c, ora / 1000, dt, tx, ty);
+  if (tipoT in CARICA) return arteLearn(tipoT, c, ora);
   if (tipoT === 'banner') return bannerTela(c, ora / 1000);
   return notteTela(c, ora, tx, ty);
 }

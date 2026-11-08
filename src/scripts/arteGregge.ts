@@ -1,0 +1,252 @@
+// L'arte "gregge" del biglietto di AI terms: una partita delle due policy finali (tappa 4M) di /learn/reinforcement/,
+// con la stessa grafica della pagina (isometria, pecore chiare che diventano blu nel cerchio, cane arancio, cerchio tratteggiato).
+// Qui non gira né la rete né la simulazione: si rileggono i fotogrammi registrati da scripts/registra-gregge.ts e si interpolano.
+// Davanti: la policy 2, con una telecamera che segue il gregge. Dietro: le due policy sullo stesso campo, in due colonne, come nella pagina;
+// se la tela è troppo stretta per due colonne leggibili, solo la policy 1.
+import { GREGGE_RUN } from '../data/gregge-run';
+import { L, LATO_MAPPA, OSTACOLI, PECORE } from '../lib/gregge';
+
+// I colori del tema scuro della pagina (src/layouts/Base.astro)
+const FG = '#d9dde3', MUTED = '#7a828d', LINE = '#232830', ARANCIO = '#ffa45e', BLU = '#58a6ff', FONDO = '#0a0b0d';
+export const CARTA_GREGGE = { carta: '#f3f0e9', inchiostro: '#16191e', accento: '#c45f17', tagliando: '#e7e2d7', fondo: FONDO };
+
+const MONO = "'Departure Mono', ui-monospace, monospace";
+const K = Math.SQRT1_2, PAUSA = 2.2, ENTRA = 0.5, ESCE = 0.8, TITOLO = 14;
+const orologio = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+
+// --- Le partite decodificate: posizioni di tutti i fotogrammi, direzione letta dalla policy 2, e la telecamera già lisciata
+type Corsa = { nome: string; F: number; n: number; pos: Float32Array; ang: Float32Array | null; gx: number; gz: number; durata: number; cam: Float32Array };
+let corse: Corsa[] | null = null;
+function decodifica(): Corsa[] {
+  if (corse) return corse;
+  const { fps, q, raggio } = GREGGE_RUN;
+  corse = GREGGE_RUN.corse.map(c => {
+    const b = Uint8Array.from(atob(c.dati), ch => ch.charCodeAt(0)), dv = new DataView(b.buffer), F = c.fotogrammi;
+    const n = Math.floor((b.length - (c.angolo ? F : 0)) / (4 + F - 1)), pos = new Float32Array(F * n * 2);
+    const rx = new Int32Array(n), rz = new Int32Array(n);
+    let k = 0;
+    for (let i = 0; i < n; i++) { rx[i] = dv.getInt16(k, true); rz[i] = dv.getInt16(k + 2, true); k += 4; }
+    const nib = (v: number) => (v & 8 ? v - 16 : v);
+    for (let f = 0; f < F; f++) {
+      for (let i = 0; i < n; i++) {
+        if (f) { const v = b[k++]!; rx[i] = rx[i]! + nib(v >> 4); rz[i] = rz[i]! + nib(v & 15); }
+        pos[(f * n + i) * 2] = rx[i]! * q; pos[(f * n + i) * 2 + 1] = rz[i]! * q;
+      }
+    }
+    let ang: Float32Array | null = null;
+    if (c.angolo) { ang = new Float32Array(F); for (let f = 0; f < F; f++) ang[f] = (b[k++]! / 255) * Math.PI * 2 - Math.PI; }
+    return { nome: c.nome, F, n, pos, ang, gx: c.gx, gz: c.gz, durata: (F - 1) / fps, cam: telecamera(pos, F, n, c.gx, c.gz, raggio) };
+  });
+  return corse;
+}
+
+// La telecamera: per ogni fotogramma il riquadro (in unità isometriche) che tiene cane, pecore e cerchio.
+// Prende il massimo su 1,5 s avanti e indietro, poi una media: così si muove piano e non insegue ogni pecora
+function telecamera(pos: Float32Array, F: number, n: number, gx: number, gz: number, raggio: number) {
+  const grezzo = new Float32Array(F * 4), iso = (x: number, z: number) => [(x - z) * K, (x + z) * K * 0.5] as const;
+  for (let f = 0; f < F; f++) {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    const metti = (x: number, z: number) => { const [X, Y] = iso(x, z); x0 = Math.min(x0, X); x1 = Math.max(x1, X); y0 = Math.min(y0, Y); y1 = Math.max(y1, Y); };
+    for (let i = 0; i <= PECORE; i++) metti(pos[(f * n + i) * 2]!, pos[(f * n + i) * 2 + 1]!);
+    const [cx, cy] = iso(gx, gz);
+    x0 = Math.min(x0, cx - raggio); x1 = Math.max(x1, cx + raggio); y0 = Math.min(y0, cy - raggio * 0.5); y1 = Math.max(y1, cy + raggio * 0.5);
+    grezzo.set([x0, x1, y0, y1], f * 4);
+  }
+  const larga = new Float32Array(F * 4), cam = new Float32Array(F * 4), A = 15, B = 12;
+  for (let f = 0; f < F; f++) {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (let g = Math.max(0, f - A); g <= Math.min(F - 1, f + A); g++) { x0 = Math.min(x0, grezzo[g * 4]!); x1 = Math.max(x1, grezzo[g * 4 + 1]!); y0 = Math.min(y0, grezzo[g * 4 + 2]!); y1 = Math.max(y1, grezzo[g * 4 + 3]!); }
+    larga.set([(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2, (y1 - y0) / 2], f * 4);
+  }
+  for (let f = 0; f < F; f++) for (let j = 0; j < 4; j++) {
+    let s = 0, w = 0;
+    for (let g = Math.max(0, f - B); g <= Math.min(F - 1, f + B); g++) { s += larga[g * 4 + j]!; w++; }
+    cam[f * 4 + j] = s / w;
+  }
+  return cam;
+}
+
+// --- Lo stato di ogni tela: le posizioni del fotogramma interpolato, riusate a ogni disegno
+type Stato = { xs: Float32Array; zs: Float32Array; ordine: Int32Array; chiavi: Float32Array };
+const statiTela = new WeakMap<HTMLCanvasElement, Stato>();
+const N_COSE = 1 + PECORE + 14 + OSTACOLI.length;
+
+// Le posizioni al tempo t della partita, fra due fotogrammi
+function interpola(k: Corsa, t: number, s: Stato) {
+  const u = Math.min(k.F - 1, Math.max(0, t * GREGGE_RUN.fps)), f0 = Math.floor(u), f1 = Math.min(k.F - 1, f0 + 1), a = u - f0;
+  for (let i = 0; i < k.n; i++) {
+    const p = (f0 * k.n + i) * 2, r = (f1 * k.n + i) * 2;
+    s.xs[i] = k.pos[p]! + (k.pos[r]! - k.pos[p]!) * a;
+    s.zs[i] = k.pos[p + 1]! + (k.pos[r + 1]! - k.pos[p + 1]!) * a;
+  }
+  const c = k.cam, q = f0 * 4, w = f1 * 4;
+  return { f0, cam: [0, 1, 2, 3].map(j => c[q + j]! + (c[w + j]! - c[q + j]!) * a) as [number, number, number, number] };
+}
+
+type Vista = { S: number; ox: number; oy: number };
+// Un prato: suolo, griglia, mappe della policy 2, cerchio, linee di quello che il cane legge, poi tutto il resto in ordine di profondità
+function disegnaPrato(g: CanvasRenderingContext2D, d: number, k: Corsa, s: Stato, f0: number, t: number, v: Vista, scritte: { x: number; y: number; w: number }) {
+  const { S, ox, oy } = v, raggio = GREGGE_RUN.raggio, xs = s.xs, zs = s.zs;
+  const sx = (x: number, z: number) => ox + (x - z) * S * K, sy = (x: number, z: number, h = 0) => oy + (x + z) * S * K * 0.5 - h * S * 0.8;
+  const suolo = () => g.setTransform(d * S * K, d * S * K * 0.5, -d * S * K, d * S * K * 0.5, d * ox, d * oy);
+  const schermo = () => g.setTransform(d, 0, 0, d, 0, 0);
+  const px = 1 / (S * K), mi = Math.max(0.7, Math.min(1.4, S / 30));
+  let dentro = 0;
+  for (let i = 1; i <= PECORE; i++) if (Math.hypot(xs[i]! - k.gx, zs[i]! - k.gz) < raggio) dentro++;
+
+  // Lo spessore del prato, come una zolla
+  schermo();
+  g.strokeStyle = LINE; g.lineWidth = 1;
+  const zolla = S * 0.35;
+  g.beginPath(); g.ellipse(ox, oy + zolla, L * S, L * S * 0.5, 0, 0, Math.PI); g.moveTo(ox - L * S, oy); g.lineTo(ox - L * S, oy + zolla); g.moveTo(ox + L * S, oy); g.lineTo(ox + L * S, oy + zolla); g.stroke();
+  suolo();
+  g.lineWidth = px;
+  g.save();
+  g.beginPath(); g.arc(0, 0, L, 0, Math.PI * 2); g.clip();
+  g.strokeStyle = LINE;
+  g.beginPath();
+  for (let a = -L; a <= L; a += 2) { g.moveTo(a, -L); g.lineTo(a, L); g.moveTo(-L, a); g.lineTo(L, a); }
+  g.stroke();
+  // Le due mappe che legge la policy 2, intorno al cane: arancio le pecore fuori, blu quelle dentro
+  if (k.ang) {
+    const an = k.ang[f0]!, u = [Math.cos(an), Math.sin(an)] as const, w = [-u[1], u[0]] as const, m0 = LATO_MAPPA / 2, conte = new Float32Array(LATO_MAPPA * LATO_MAPPA);
+    const cx = xs[0]!, cz = zs[0]!, angolo = (a: number, b: number) => [cx + (a - m0) * u[0] + (b - m0) * w[0], cz + (a - m0) * u[1] + (b - m0) * w[1]] as const;
+    for (const blu of [false, true]) {
+      conte.fill(0);
+      for (let i = 1; i <= PECORE; i++) {
+        if ((Math.hypot(xs[i]! - k.gx, zs[i]! - k.gz) < raggio) !== blu) continue;
+        const dx = xs[i]! - cx, dz = zs[i]! - cz;
+        const a = Math.max(0, Math.min(LATO_MAPPA - 1, Math.floor(dx * u[0] + dz * u[1] + m0))), b = Math.max(0, Math.min(LATO_MAPPA - 1, Math.floor(dx * w[0] + dz * w[1] + m0)));
+        conte[a * LATO_MAPPA + b]! += 1;
+      }
+      g.fillStyle = blu ? BLU : ARANCIO;
+      for (let a = 0; a < LATO_MAPPA; a++) for (let b = 0; b < LATO_MAPPA; b++) {
+        const n = conte[a * LATO_MAPPA + b]!;
+        if (!n) continue;
+        g.globalAlpha = Math.min(0.55, 0.14 + n * 0.03);
+        g.beginPath(); g.moveTo(...angolo(a, b)); g.lineTo(...angolo(a + 1, b)); g.lineTo(...angolo(a + 1, b + 1)); g.lineTo(...angolo(a, b + 1)); g.closePath(); g.fill();
+      }
+    }
+    g.globalAlpha = 1;
+  }
+  g.restore();
+  g.lineWidth = px;
+  g.strokeStyle = LINE;
+  g.beginPath(); g.arc(0, 0, L, 0, Math.PI * 2); g.stroke();
+  g.setLineDash([4 * px, 4 * px]);
+  g.strokeStyle = MUTED;
+  g.beginPath(); g.arc(k.gx, k.gz, raggio, 0, Math.PI * 2); g.stroke();
+  g.setLineDash([]);
+  g.strokeStyle = FG;
+  g.lineWidth = 2 * px;
+  g.beginPath(); g.arc(k.gx, k.gz, raggio, -Math.PI / 2, -Math.PI / 2 + (dentro / PECORE) * Math.PI * 2); g.stroke();
+  g.lineWidth = px;
+  // Il centro del gregge fuori dal cerchio e la pecora più lontana: i numeri che leggono tutte e due
+  let cxG = 0, czG = 0, nf = 0, far = -1, fd = -1;
+  for (let i = 1; i <= PECORE; i++) if (Math.hypot(xs[i]! - k.gx, zs[i]! - k.gz) >= raggio) { cxG += xs[i]!; czG += zs[i]!; nf++; }
+  if (nf) {
+    cxG /= nf; czG /= nf;
+    for (let i = 1; i <= PECORE; i++) if (Math.hypot(xs[i]! - k.gx, zs[i]! - k.gz) >= raggio) { const q = (xs[i]! - cxG) ** 2 + (zs[i]! - czG) ** 2; if (q > fd) { fd = q; far = i; } }
+    g.strokeStyle = ARANCIO;
+    g.setLineDash([3 * px, 3 * px]);
+    g.beginPath(); g.moveTo(xs[0]!, zs[0]!); g.lineTo(cxG, czG); g.moveTo(cxG, czG); g.lineTo(xs[far]!, zs[far]!); g.stroke();
+    g.setLineDash([]);
+    g.fillStyle = ARANCIO;
+    g.beginPath(); g.arc(cxG, czG, 3 * px, 0, Math.PI * 2); g.fill();
+  }
+  // L'ombra del cane
+  g.fillStyle = LINE;
+  g.beginPath(); g.arc(xs[0]!, zs[0]!, 0.16, 0, Math.PI * 2); g.fill();
+  schermo();
+
+  // In ordine di profondità: ostacoli, mucche, pecore e cane. Gli indici: 0 cane, 1..180 pecore, poi mucche, poi ostacoli
+  const nm = k.n - 1 - PECORE, tot = k.n + OSTACOLI.length;
+  for (let i = 0; i < tot; i++) {
+    s.ordine[i] = i;
+    s.chiavi[i] = i < k.n ? xs[i]! + zs[i]! + (i === 0 ? 0.01 : 0) : OSTACOLI[i - k.n]!.x + OSTACOLI[i - k.n]!.z;
+  }
+  const ord = s.ordine.subarray(0, tot).sort((a, b) => s.chiavi[a]! - s.chiavi[b]!);
+  const lato = Math.max(2, S * 0.11);
+  g.lineWidth = 1;
+  // Le pecore vicine nell'ordine e dello stesso colore finiscono in un solo tracciato: molti meno fill a ogni fotogramma
+  let aperto = '';
+  const chiudi = () => { if (aperto) { g.fillStyle = aperto; g.fill(); aperto = ''; } };
+  for (const i of ord) {
+    if (i >= 1 && i <= PECORE) {
+      const x = xs[i]!, z = zs[i]!, colore = Math.hypot(x - k.gx, z - k.gz) >= raggio ? FG : BLU, X = sx(x, z), Y = sy(x, z, 0.07);
+      if (colore !== aperto) { chiudi(); aperto = colore; g.beginPath(); }
+      g.moveTo(X + lato * 0.62, Y); g.ellipse(X, Y, lato * 0.62, lato * 0.42, 0, 0, Math.PI * 2);
+      continue;
+    }
+    chiudi();
+    if (i === 0) {
+      const X = sx(xs[0]!, zs[0]!), Y = sy(xs[0]!, zs[0]!, 0.12);
+      g.fillStyle = ARANCIO; g.fillRect(X - 4 * mi, Y - 5 * mi, 8 * mi, 7 * mi); g.fillRect(X - 2 * mi, Y - 8 * mi, 4 * mi, 3 * mi);
+    } else if (i <= PECORE + nm) {
+      const X = sx(xs[i]!, zs[i]!), Y = sy(xs[i]!, zs[i]!, 0.12);
+      g.fillStyle = MUTED; g.fillRect(X - 3 * mi, Y - 2 * mi, 6 * mi, 4 * mi);
+    } else {
+      const o = OSTACOLI[i - k.n]!, X = sx(o.x, o.z), Y = sy(o.x, o.z), alto = (0.25 + o.r) * S * 0.8;
+      g.strokeStyle = MUTED;
+      g.beginPath(); g.moveTo(X, Y); g.lineTo(X, Y - alto); g.stroke();
+      g.beginPath(); g.ellipse(X, Y - alto, Math.max(1.5, o.r * S * 0.8), Math.max(1, o.r * S * 0.5), 0, 0, Math.PI * 2); g.stroke();
+    }
+  }
+  chiudi();
+
+  // Le scritte della pagina: chi gioca, e quante pecore sono dentro con il tempo
+  const finita = t >= k.durata && dentro === PECORE;
+  const fascia = g.createLinearGradient(0, scritte.y - 16, 0, scritte.y + 10);
+  fascia.addColorStop(0, FONDO); fascia.addColorStop(0.6, FONDO + 'd0'); fascia.addColorStop(1, FONDO + '00');
+  g.fillStyle = fascia;
+  g.fillRect(scritte.x - 8, scritte.y - 16, scritte.w + 16, 26);
+  g.font = `9px ${MONO}`;
+  g.textBaseline = 'alphabetic';
+  g.fillStyle = FG;
+  g.textAlign = 'left';
+  g.fillText(k.nome, scritte.x, scritte.y);
+  g.textAlign = 'right';
+  g.fillStyle = finita ? BLU : FG;
+  g.fillText(`${dentro}/${PECORE} · ${orologio(Math.min(t, k.durata))}${finita ? ' · done' : ''}`, scritte.x + scritte.w, scritte.y);
+}
+
+export function disegnaGregge(c: HTMLCanvasElement, tempo: number, retro: boolean): void {
+  const g = c.getContext('2d');
+  if (!g || !c.width || !c.height) return;
+  const d = Math.min(2, devicePixelRatio || 1), W = c.width / d, H = c.height / d, tutte = decodifica();
+  let s = statiTela.get(c);
+  if (!s) { s = { xs: new Float32Array(1 + PECORE + 32), zs: new Float32Array(1 + PECORE + 32), ordine: new Int32Array(N_COSE + 32), chiavi: new Float32Array(N_COSE + 32) }; statiTela.set(c, s); }
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalAlpha = 1;
+  g.fillStyle = FONDO;
+  g.fillRect(0, 0, c.width, c.height);
+
+  // Davanti: la policy 2. Dietro: le due policy in due colonne, come i due prati della pagina; se la colonna sarebbe troppo stretta, solo la policy 1
+  const due = retro && W / 2 >= 170;
+  const scelte = retro ? (due ? tutte : [tutte[0]!]) : [tutte[1]!];
+  const ciclo = Math.max(...scelte.map(k => k.durata)) + PAUSA, t = ((tempo % ciclo) + ciclo) % ciclo;
+  const riquadri = due ? [{ x: 0, y: 0, w: W / 2 - 1, h: H }, { x: W / 2 + 1, y: 0, w: W / 2 - 1, h: H }] : [{ x: 0, y: 0, w: W, h: H }];
+  scelte.forEach((k, j) => {
+    // La telecamera segue il gregge, senza scendere sotto il prato intero e senza zoomare oltre 2,6 volte
+    const r = riquadri[j]!, pad = 8, { f0, cam } = interpola(k, t, s!), alto = r.h - TITOLO - pad * 2, largo = r.w - pad * 2;
+    const minimo = Math.min(largo / (2 * L + 0.6), alto / (L + 1.2)), m = 1.25;
+    const S = Math.max(minimo, Math.min(minimo * 2.6, largo / (2 * cam[2] * m + 0.6), alto / (2 * cam[3] * m + 1.2)));
+    const v = { S, ox: r.x + r.w / 2 - cam[0] * S, oy: r.y + pad + TITOLO + alto / 2 - cam[1] * S + S * 0.25 };
+    g.save();
+    g.setTransform(d, 0, 0, d, 0, 0);
+    g.beginPath(); g.rect(r.x, r.y, r.w, r.h); g.clip();
+    disegnaPrato(g, d, k, s!, f0, t, v, { x: r.x + pad, y: r.y + pad + 7, w: r.w - pad * 2 });
+    g.restore();
+  });
+  if (due) { g.setTransform(d, 0, 0, d, 0, 0); g.fillStyle = LINE; g.fillRect(W / 2 - 0.5, 0, 1, H); }
+
+  // Dissolvenza: si apre all'inizio, si chiude alla fine della pausa, poi la partita riparte
+  const a = Math.max(t < ENTRA ? 1 - t / ENTRA : 0, t > ciclo - ESCE ? (t - (ciclo - ESCE)) / ESCE : 0);
+  if (a > 0) {
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalAlpha = Math.min(1, a);
+    g.fillStyle = FONDO;
+    g.fillRect(0, 0, c.width, c.height);
+    g.globalAlpha = 1;
+  }
+}
