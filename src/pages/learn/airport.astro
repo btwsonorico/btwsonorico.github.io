@@ -55,7 +55,7 @@ import Base from '../../layouts/Base.astro';
   // Lo stato della partita: vite, punti, combo (giuste di fila al primo colpo), la domanda in pista e quella in fila
   const VITE = 5;
   let modo: Modo = 'inizio', vite = VITE, punti = 0, combo = 0, migliorCombo = 0, giuste = 0, ultimiPunti = '';
-  let corrente = -1, prossima: Voce | null = null;
+  let corrente = -1, prossima: Voce | null = null, domandeFatte = 0;
 
   // La combo moltiplica i punti: ×1 la prima, poi +0,5 per ogni giusta di fila, fino a ×4.
   // Al primo colpo 100 punti, al secondo 50, dopo 25
@@ -93,6 +93,7 @@ import Base from '../../layouts/Base.astro';
     scena.riposa(i, voce.termine);
     scena.atterra(i);
     corrente = i;
+    if (modo === 'in-gioco') domandeFatte++;
     imbarco.mostra(i);
   }
   // La domanda dopo: sempre di un'altra sezione, così il suo aereo aspetta in fila dietro quello in pista
@@ -104,7 +105,7 @@ import Base from '../../layouts/Base.astro';
   }
   function prova(i: number) { modo = 'inizio'; metti(nuovoVolo(i, recenti).voce); }
   const avvia = () => {
-    vite = VITE; punti = 0; combo = 0; giuste = 0; ultimiPunti = ''; modo = 'in-gioco';
+    vite = VITE; punti = 0; combo = 0; giuste = 0; domandeFatte = 0; ultimiPunti = ''; modo = 'in-gioco';
     metti(aCaso(recenti)); inFila();
     scriviPunteggio(); scriviStato();
   };
@@ -125,6 +126,8 @@ import Base from '../../layouts/Base.astro';
     data: adesso, voli, partita: p, riassunto,
     // La combo decide la lamina del biglietto: niente a 0, argento a 1, oro a 2, arcobaleno da 3
     serie: () => combo,
+    // La carta rara Holo: la decima domanda, la ventesima, e così via
+    olo: () => modo === 'in-gioco' && domandeFatte > 0 && domandeFatte % 10 === 0,
     testoProssimo: () => (modo === 'in-gioco' ? (vite > 0 ? 'next flight →' : 'see your score →') : 'close'),
     dopo: (i, giusto) => {
       const primo = p.tentativi[i] === 1, prima = serie().migliore;

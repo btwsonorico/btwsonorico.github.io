@@ -23,7 +23,7 @@ export function anteprima(n = 15) {
     const cella = document.createElement('section'); cella.className = 'galleria-cella'; box.append(cella);
     const voli = SEZIONI.map((_, i) => nuovoVolo(i)), p = nuovaPartita(voli.length), i = k % voli.length;
     p.fatto[i] = true; p.tentativi[i] = 1;
-    const imb = nuovoImbarco(cella, { data: new Date(), voli, partita: p, riassunto: () => 'preview', dopo: () => {}, prossimo: () => {}, chiudi: () => {} });
+    const imb = nuovoImbarco(cella, { data: new Date(), voli, partita: p, riassunto: () => 'preview', dopo: () => {}, prossimo: () => {}, chiudi: () => {}, serie: () => k % 5, olo: () => k === n - 1 });
     imb.mostra(i);
     // Si parte dal davanti
     const carta = cella.querySelector('.carta'); carta?.classList.remove('girata');

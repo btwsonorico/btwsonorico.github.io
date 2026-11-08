@@ -35,6 +35,8 @@ export type OpzioniImbarco = {
   testoProssimo?: () => string;
   // La combo in corso (giuste di fila al primo colpo): decide la lamina del biglietto e la carta Holo
   serie?: () => number;
+  // Vero quando questo biglietto deve essere la carta rara Holo (nel gioco: ogni 10 domande)
+  olo?: () => boolean;
 };
 
 export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
@@ -159,12 +161,10 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     salvaGiro();
     return ids.indexOf(id);
   };
-  let ultimaOlo = -1;
   const stileDi = (v: Volo) => {
     let x = sorteggio.get(v.seriale);
     const sr = o.serie ? o.serie() : serie().ora;
-    if (!x && sr > 0 && sr % 5 === 0 && sr !== ultimaOlo) {
-      ultimaOlo = sr;
+    if (!x && o.olo?.()) {
       x = { stile: -1, seme: 1 + Math.floor(Math.random() * 2147483646), serie: sr };
       sorteggio.set(v.seriale, x);
     }

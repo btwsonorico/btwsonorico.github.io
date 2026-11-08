@@ -140,8 +140,9 @@ const sfera: Stile = {
   variabili: () => carta({ carta: '#f2f5e6', inchiostro: '#16231a', accento: '#6f9a12', tagliando: '#e4ecc9', fondo: '#0e1a12' }),
 };
 
-// ---------------- Holo: la carta rara, dopo una serie di risposte giuste. Davanti una rosetta incisa a inchiostro, con le
+// ---------------- Holo: la carta rara, ogni 10 domande. In arcobaleno, argento o oro, con una nota di colore. Davanti una rosetta incisa a inchiostro, con le
 // linee guilloché e il sigillo in lamina; dietro il poster tutto in lamina, con il termine inciso. Non entra nel mazzo
+const OLO_TINTE = ['iride', 'argento', 'oro'] as const, OLO_COLORI = ['#e2566b', '#1f9a8a', '#6a4fd0', '#d48a12'] as const;
 const rosetta = () => {
   let linee = '';
   for (let k = 0; k < 18; k++) {
@@ -156,9 +157,9 @@ const rosetta = () => {
 };
 export const OLO: Stile = {
   id: 'olo',
-  davanti: c => `<svg viewBox="0 0 100 110" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="#1b2340" stroke-width=".22" opacity=".85">${rosetta()}</g><text x="50" y="104" text-anchor="middle" font-family="ui-monospace, monospace" font-size="3.2" letter-spacing=".9" fill="#1b2340">HOLO · ${esc(c.numero)}</text></svg>`,
+  davanti: c => { const col = una(c, 'olo-colore', () => scegli(OLO_COLORI, c.r)); return `<svg viewBox="0 0 100 110" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="${col}" stroke-width=".22" opacity=".9">${rosetta()}</g><text x="50" y="104" text-anchor="middle" font-family="ui-monospace, monospace" font-size="3.2" letter-spacing=".9" fill="${col}">HOLO · ${esc(c.numero)}</text></svg>`; },
   dietro: c => `<div class="olo-poster"><span>${esc(c.termine)}</span></div>`,
-  variabili: () => carta({ carta: '#f3f1ec', inchiostro: '#1b2340', accento: '#5a4fd0', tagliando: '#e9e6f0', fondo: '#f3f1ec' }),
+  variabili: c => carta({ carta: '#f3f1ec', inchiostro: '#1b2340', accento: una(c, 'olo-colore', () => scegli(OLO_COLORI, c.r)), tagliando: '#e9e6f0', fondo: '#f3f1ec' }),
 };
 
 // Il mazzo: ogni arte esce una volta per giro
@@ -170,7 +171,7 @@ export const STILI: Stile[] = [sfera, lime, risograph, koi, prato, paesaggi, pas
 // oro a 2, arcobaleno da 3
 export type PianoBiglietto = { davanti: Pezzo[]; dietro: Pezzo[]; tinta: Tinta };
 export function pianoLamina(st: Stile, c: Contesto, combo = 0): PianoBiglietto {
-  if (st.id === 'olo') return { davanti: ['guilloche', 'sigillo', 'simboli'], dietro: ['poster'], tinta: 'iride' };
+  if (st.id === 'olo') { const tinta = una(c, 'olo-tinta', () => scegli(OLO_TINTE, c.r)); return { davanti: ['guilloche', 'sigillo', 'simboli'], dietro: ['poster'], tinta }; }
   if (combo <= 0) return { davanti: [], dietro: [], tinta: 'argento' };
   const tinta: Tinta = combo === 1 ? 'argento' : combo === 2 ? 'oro' : 'iride';
   const k = una(c, 'lamina', () => [c.r(), c.r(), c.r(), c.r(), c.r()] as const);
