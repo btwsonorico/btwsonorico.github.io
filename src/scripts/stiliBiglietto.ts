@@ -459,72 +459,88 @@ function stagnoPixel(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, 
   mostra(c, im);
 }
 
-// Un prato in pixel art: le radici restano ferme, le punte oscillano con il vento.
-// Nessun avanzamento della visuale o frame del riferimento incorporato.
-type FiorePrato = { x: number; z: number; h: number; fase: number; colore: number; grande: boolean };
-type StatoPrato = { fiori: FiorePrato[]; punti: { x: number; y: number; fase: number }[] };
+// Un prato in pixel art, in prospettiva: steli sottili che il vento piega dalla punta, fiori a croce grandi davanti e
+// puntini all'orizzonte, una fascia di foschia retinata. Di notte: cielo stellato con la foschia blu,
+// qualche lanterna gialla che galleggia bassa; il prato nei nostri verdi. Di giorno: cielo chiaro e margheritine.
+// Disegnato da zero, nessun fotogramma del riferimento
+type FiorePrato = { x: number; z: number; h: number; fase: number; colore: number };
+type StatoPrato = { fiori: FiorePrato[]; steli: { x: number; z: number; h: number; fase: number }[]; stelle: { x: number; y: number; fase: number }[]; lanterne: { x: number; y: number; v: number; fase: number }[] };
+const BAYER2 = [0, 2, 3, 1];
 function pratoPixel(c: HTMLCanvasElement, tempo: number) {
   const notte = c.dataset.scena === 'prato-notte';
   const g = c.getContext('2d'); if (!g) return;
   const w = c.width, h = c.height;
   if (!w || !h) return;
   const s = prendi<StatoPrato>(c, () => {
-    const r = casoTela(c), fiori: FiorePrato[] = [];
-    for (let i = 0; i < 210; i++) fiori.push({x:r(), z:Math.pow(r(), 1.7), h:.88 + r()*.24, fase:r()*6.28, colore:r(), grande:r()>.83});
-    fiori.sort((a,b) => a.z-b.z);
-    return { fiori, punti:Array.from({length:70},()=>({x:r(),y:r(),fase:r()*6.28})) };
+    const r = casoTela(c), fiori: FiorePrato[] = [], steli: StatoPrato['steli'] = [];
+    // Più fiori lontano che vicino: la profondità z va da 0 (orizzonte) a 1 (davanti)
+    for (let i = 0; i < 520; i++) fiori.push({ x: r() * 1.1 - 0.05, z: Math.pow(r(), 1.9), h: 0.8 + r() * 0.4, fase: r() * 6.28, colore: r() });
+    for (let i = 0; i < 900; i++) steli.push({ x: r() * 1.1 - 0.05, z: Math.pow(r(), 1.5), h: 0.5 + r() * 0.7, fase: r() * 6.28 });
+    fiori.sort((a, b) => a.z - b.z); steli.sort((a, b) => a.z - b.z);
+    return { fiori, steli, stelle: Array.from({ length: 90 }, () => ({ x: r(), y: r(), fase: r() * 6.28 })), lanterne: Array.from({ length: 4 }, () => ({ x: r(), y: r(), v: 0.004 + r() * 0.006, fase: r() * 6.28 })) };
   });
-  // Una griglia logica bassa, poi ingrandita senza interpolazione: i pixel restano netti.
-  const scala = Math.max(1, Math.round(Math.min(w,h)/112));
-  const W = Math.max(1, Math.round(w/scala)), H = Math.max(1, Math.round(h/scala));
+  // Una griglia bassa, ingrandita senza sfumare: i pixel restano netti
+  const scala = Math.max(1, Math.round(Math.min(w, h) / 150));
+  const W = Math.max(1, Math.round(w / scala)), H = Math.max(1, Math.round(h / scala));
   const im = prendiPrato(c, W, H), p = im.ctx;
   p.imageSmoothingEnabled = false;
-  const ciel = notte ? '#07130f' : '#a7daed', orizz = notte ? '#1c4931' : '#7fbac7', fondo = notte ? '#0a2017' : '#335b46';
-  p.fillStyle = ciel; p.fillRect(0,0,W,H);
-  const horizon = H*.31;
-  p.fillStyle = orizz; p.fillRect(0,Math.floor(horizon-5),W,8);
-  for (let i=0;i<55;i++) {
-    const x=Math.floor(hash(i,17)*W), y=Math.floor(horizon-9+hash(i,21)*10);
-    p.fillStyle = notte ? (i%5===0 ? '#d6ff93' : '#4d8d63') : (i%5===0 ? '#f4f2d7' : '#6da5ac');
-    p.fillRect(x,y,1,1);
+  const T = notte
+    // Notte: il cielo stellato e la foschia blu come nel riferimento; il prato nei nostri verdi, fiori lime, verde chiaro e menta
+    ? { cielo: '#05060f', alto: '#0a0d22', foschia: ['#141c44', '#1f2c62', '#2c3d80'], terra: '#06120c', macchia: '#0c2017', stelo: ['#163e29', '#2b653e', '#3a8551'], fiore: ['#f4ff68', '#a8ff74', '#65e7a0'], cuore: ['#faffc1', '#faffc1', '#e8fff1'] }
+    // Giorno: margheritine, petali bianchi e cuore giallo, qualche fiore giallo e qualche rosa chiaro
+    : { cielo: '#bfe3f2', alto: '#8fc9e6', foschia: ['#d9eef4', '#cfe6ee', '#bcdbe6'], terra: '#3f6b3e', macchia: '#4e7c45', stelo: ['#2f5a2f', '#3f7238', '#5a8c43'], fiore: ['#ffffff', '#ffffff', '#ffd2dc'], cuore: ['#f5c518', '#f5c518', '#f5c518'] };
+  const oriz = Math.round(H * 0.3);
+  // Il cielo: due toni retinati; di notte le stelle che brillano piano
+  for (let y = 0; y < oriz; y++) for (let x = 0; x < W; x++) {
+    const k = y / oriz, soglia = BAYER2[(y & 1) * 2 + (x & 1)]! / 4;
+    p.fillStyle = k * 1.2 > soglia + 0.35 ? T.alto : T.cielo; p.fillRect(x, y, 1, 1);
   }
-  p.fillStyle=fondo; p.fillRect(0,Math.floor(horizon+3),W,H-horizon);
-  // Fili d’erba e foglie dietro ai fiori.
-  for(let i=0;i<400;i++){
-    const x=hash(i,11)*W, z=hash(i,29), y=horizon+z*(H-horizon), len=1+z*4;
-    p.fillStyle = notte ? (i%3 ? '#163e29' : '#2b653e') : (i%3 ? '#4b7757' : '#709468');
-    p.fillRect(Math.floor(x), Math.floor(y-len), 1, Math.ceil(len));
+  if (notte) for (const st of s.stelle) {
+    if (st.y * oriz > oriz - 4) continue;
+    p.fillStyle = Math.sin(tempo * 1.7 + st.fase) > 0.6 ? '#ffffff' : '#4a5378';
+    p.fillRect(Math.floor(st.x * W), Math.floor(st.y * (oriz - 6)), 1, 1);
   }
-  // Distribuzione stabile in profondità, con gambi lunghi e fiori a distanze diverse.
-  for(const f of s.fiori){
-    const z=f.z, x=f.x*W, y=horizon+z*(H-horizon+8);
-    const height=(2+z*H*.32)*f.h;
-    // Raffiche ampie attraversano il prato; un'oscillazione più lieve varia da fiore a fiore.
-    // La base resta ancorata e la punta si piega proporzionalmente alla lunghezza del gambo.
-    const vento=Math.sin(tempo*.65-f.x*4.0-z*1.6)*.72 + Math.sin(tempo*.27-f.x*2.2)*.22;
-    const tremolio=Math.sin(tempo*1.15+f.fase)*.10;
-    const piega=(vento+tremolio)*Math.min(7,height*.21);
-    const topX=x+piega, topY=y-height+Math.abs(piega)*.055;
-    p.strokeStyle=notte ? (f.colore>.7?'#69aa45':'#3a8551') : (f.colore>.7?'#6c7752':'#547052');
-    p.lineWidth=1; p.beginPath();p.moveTo(Math.round(x)+.5,Math.round(y));
-    p.quadraticCurveTo(Math.round(x+piega*.15)+.5,Math.round(y-height*.52),Math.round(topX)+.5,Math.round(topY));p.stroke();
-    if(z>.25){p.fillStyle=notte?'#65b867':'#72996d'; p.fillRect(Math.round(x-1),Math.round(y-height*.36),2,1);}
-    const size = z>.68 ? (f.grande?3:2) : z>.34?2:1, px=Math.round(topX), py=Math.round(topY);
-    const petals=notte?(f.colore>.80?'#f4ff68':f.colore>.45?'#a8ff74':'#65e7a0'):(f.colore>.86?'#f9d678':f.colore>.5?'#fff9ec':'#fac8d0');
-    p.fillStyle=petals;
-    if(size===1){p.fillRect(px,py,1,1);} else {
-      const d=size===3?2:1;
-      p.fillRect(px-d,py,d,1);p.fillRect(px+1,py,d,1);p.fillRect(px,py-d,1,d);p.fillRect(px,py+1,1,d);
-      if(size===3){p.fillRect(px-1,py-1,3,3);}
-      p.fillStyle=notte?'#faffc1':'#eab75e';p.fillRect(px,py,1,1);
-    }
+  // La foschia all'orizzonte: tre fasce, la retinatura fa il passaggio fra l'una e l'altra
+  for (let y = oriz - 6; y < oriz + 4; y++) for (let x = 0; x < W; x++) {
+    const k = (y - (oriz - 6)) / 10, f = Math.min(2, Math.floor(k * 3 + BAYER2[(y & 1) * 2 + (x & 1)]! / 4));
+    p.fillStyle = T.foschia[f]!; p.fillRect(x, y, 1, 1);
   }
-  if(notte) for(const [i,o] of s.punti.entries()){
-    if(i%3===0)continue;
-    const x=Math.floor(o.x*W), y=Math.floor(horizon+o.y*(H-horizon));
-    p.fillStyle=i%2?'#adff81':'#edff74';p.fillRect(x,y,1,1);
+  // La terra, con macchie scure retinate che danno profondità
+  for (let y = oriz + 4; y < H; y++) for (let x = 0; x < W; x++) {
+    const m = rumore(x * 0.12, y * 0.25) > 0.62 && BAYER2[(y & 1) * 2 + (x & 1)]! < 2;
+    p.fillStyle = m ? T.macchia : T.terra; p.fillRect(x, y, 1, 1);
   }
-  g.clearRect(0,0,w,h); g.imageSmoothingEnabled=false;g.drawImage(im.canvas,0,0,w,h);
+  const vento = (x: number, z: number, fase: number) => Math.sin(tempo * 0.7 - x * 4.2 - z * 1.4) * 0.75 + Math.sin(tempo * 0.3 - x * 2) * 0.2 + Math.sin(tempo * 1.2 + fase) * 0.08;
+  const suolo = (z: number) => oriz + 3 + z * (H - oriz + 10);
+  // Gli steli: lunghi e sottili davanti, cortissimi lontano. La base resta ferma, la punta si piega
+  for (const st of s.steli) {
+    const x = st.x * W, y = suolo(st.z), alt = (1.5 + st.z * H * 0.42) * st.h, piega = vento(st.x, st.z, st.fase) * Math.min(6, alt * 0.18);
+    p.fillStyle = T.stelo[Math.min(2, Math.floor(st.z * 2.2 + st.h * 0.4))]!;
+    const passi = Math.max(1, Math.round(alt));
+    for (let k = 0; k < passi; k++) { const u = k / passi; p.fillRect(Math.round(x + piega * u * u), Math.round(y - alt * u), 1, 1); }
+  }
+  // I fiori a croce: un puntino lontano, una croce piccola a metà, una croce grande con il cuore davanti
+  for (const f of s.fiori) {
+    const x = f.x * W, y = suolo(f.z), alt = (2 + f.z * H * 0.45) * f.h, piega = vento(f.x, f.z, f.fase) * Math.min(7, alt * 0.2);
+    const passi = Math.max(1, Math.round(alt));
+    p.fillStyle = T.stelo[f.z > 0.5 ? 2 : 1]!;
+    for (let k = 0; k < passi; k++) { const u = k / passi; p.fillRect(Math.round(x + piega * u * u), Math.round(y - alt * u), 1, 1); }
+    const fx = Math.round(x + piega), fy = Math.round(y - alt), ti = f.colore < 0.55 ? 0 : f.colore < 0.85 ? 1 : 2;
+    p.fillStyle = T.fiore[ti]!;
+    if (f.z < 0.25) { p.fillRect(fx, fy, 1, 1); continue; }
+    const d = f.z < 0.6 ? 1 : 2;
+    p.fillRect(fx - d, fy, d * 2 + 1, 1); p.fillRect(fx, fy - d, 1, d * 2 + 1);
+    if (d === 2) { p.fillRect(fx - 1, fy - 1, 3, 3); p.fillStyle = T.cuore[ti]!; p.fillRect(fx, fy, 1, 1); }
+    else if (!notte) { p.fillStyle = T.cuore[ti]!; p.fillRect(fx, fy, 1, 1); }
+  }
+  // Le lanterne: poche luci gialle che galleggiano basse sopra l'orizzonte e pulsano piano
+  if (notte) for (const l of s.lanterne) {
+    const x = Math.round(((l.x + tempo * l.v) % 1.1 - 0.05) * W), y = Math.round(oriz - 3 - l.y * 6 + Math.sin(tempo * 0.8 + l.fase) * 1.5);
+    p.fillStyle = Math.sin(tempo * 2 + l.fase) > -0.3 ? '#ffd84a' : '#b88a1c';
+    p.fillRect(x, y, 2, 1); p.fillStyle = '#fff1a8'; p.fillRect(x, y, 1, 1);
+    p.fillStyle = 'rgba(255,216,74,.18)'; p.fillRect(x - 2, y - 1, 6, 3);
+  }
+  g.clearRect(0, 0, w, h); g.imageSmoothingEnabled = false; g.drawImage(im.canvas, 0, 0, w, h);
 }
 const superficiPrato = new WeakMap<HTMLCanvasElement, {canvas:HTMLCanvasElement;ctx:CanvasRenderingContext2D}>();
 function prendiPrato(c:HTMLCanvasElement,w:number,h:number) {
@@ -537,7 +553,7 @@ function prendiPrato(c:HTMLCanvasElement,w:number,h:number) {
 // ---------------- Passing minds, motore: robot a pixel. Davanti uno solo, dietro la folla.
 // Ispirato alla clip "crowd control" di itsgalo: corpi a fil di ferro con il busto a rettangolo,
 // passo rigido a quattro pose, ombre a trattini sul terreno. Disegnato da zero, nessun frame incorporato.
-type Robot = { x: number; z: number; vx: number; vz: number; dir: number; meta: number; passo: number; vel: number; scala: number; timer: number; fermo: boolean; sguardo: number; timerSguardo: number; capo: boolean };
+type Robot = { x: number; z: number; vx: number; vz: number; dir: number; meta: number; passo: number; vel: number; scala: number; timer: number; fermo: boolean; sguardo: number; timerSguardo: number; capo: boolean; rosso?: boolean };
 // Ogni faccia ha il suo orologio: su desktop fronte e retro si disegnano nello stesso fotogramma
 type Folla = { robot: Robot[]; trattini: { x: number; z: number; l: number }[]; ultimo: { fronte: number; retro: number }; tick: { fronte: number; retro: number }; r: () => number };
 const folle = new Map<string, Folla>();
@@ -558,6 +574,8 @@ function follaDi(c: HTMLCanvasElement): Folla {
   robot.push(nuovo(true, .5, .55));
   // La folla nasce come una massa centrale che riempie già l'inquadratura del retro
   for (let i = 0; i < 72; i++) { const rad = Math.sqrt(r()), ang = r() * Math.PI * 2; robot.push(nuovo(false, .5 + Math.cos(ang) * rad * .36, .5 + Math.sin(ang) * rad * .33)); }
+  // Uno solo, in mezzo alla folla, ha la testa rossa
+  robot[1 + Math.floor(r() * 72)]!.rosso = true;
   const trattini = Array.from({ length: 150 }, () => ({ x: .5 + (r() - .5) * .95, z: r(), l: .015 + r() * .05 }));
   f = { robot, trattini, ultimo: { fronte: 0, retro: 0 }, tick: { fronte: -1, retro: -1 }, r };
   folle.set(chiave, f);
@@ -616,25 +634,33 @@ function pixCerchio(g: CanvasRenderingContext2D, cx: number, cy: number, r: numb
 }
 function disegnaRobot(g: CanvasRenderingContext2D, p: Robot, sx: number, sy: number, H: number) {
   const d = aOttavi(p.dir), cx = Math.cos(d), cz = Math.sin(d);
-  const posa = ((Math.floor(p.passo) % 4) + 4) % 4, passo = posa === 1 ? 1 : posa === 3 ? -1 : 0, giu = passo ? 1 : 0;
-  const x0 = Math.round(sx), y0 = Math.round(sy);
+  // Il passo è un ciclo continuo: una gamba avanti e l'altra indietro, il piede si alza quando la gamba torna avanti,
+  // il ginocchio si piega in avanti, il bacino scende sul passo. Da fermo le gambe restano unite
+  const fase = p.passo * Math.PI / 2, muove = p.fermo ? 0 : 1, sw = Math.sin(fase) * muove;
+  const x0 = Math.round(sx), y0 = Math.round(sy), giu = Math.round(Math.abs(Math.sin(fase)) * H * 0.025 * muove);
   const anca = y0 - Math.round(H * .46) + giu, spalla = y0 - Math.round(H * .76) + giu, testa = y0 - Math.round(H * .88) + giu;
-  // Busto largo di fronte e di schiena, stretto di profilo
   const mezzo = Math.max(1, Math.round(H * (.035 + .045 * Math.abs(cz))));
-  const px = Math.round(passo * H * .17 * cx), pz = Math.round(passo * H * .05 * cz);
   // Ombra a trattino sul terreno, verso destra
   g.fillStyle = 'rgba(110,210,190,.22)'; g.fillRect(x0 - 1, y0 + 1, Math.max(3, Math.round(H * .42)), 1);
   g.fillStyle = '#eef8f4';
-  // Gambe dritte, senza ginocchio: si aprono e chiudono come compassi
-  pixLinea(g, x0 - Math.min(1, mezzo), anca, x0 - 1 + px, y0 + pz);
-  pixLinea(g, x0 + Math.min(1, mezzo), anca, x0 + 1 - px, y0 - pz);
+  for (const lato of [-1, 1]) {
+    const s = sw * lato, avanti = Math.cos(fase) * lato * muove;
+    const ax = x0 + lato * Math.min(1, mezzo);
+    const fx = x0 + lato + s * H * .18 * cx, fy = y0 + s * H * .05 * cz - Math.max(0, avanti) * H * .05;
+    const piega = Math.max(0, avanti) * H * .06 + .02 * H;
+    const kx = (ax + fx) / 2 + piega * cx, ky = (anca + fy) / 2 - piega * .2;
+    pixLinea(g, ax, anca, kx, ky); pixLinea(g, kx, ky, fx, fy);
+  }
   // Busto a rettangolo
   pixLinea(g, x0 - mezzo, spalla, x0 + mezzo, spalla); pixLinea(g, x0 - mezzo, anca, x0 + mezzo, anca);
   pixLinea(g, x0 - mezzo, spalla, x0 - mezzo, anca); pixLinea(g, x0 + mezzo, spalla, x0 + mezzo, anca);
-  // Braccia rigide, in controfase con le gambe
-  const bx = Math.round(-px * .7), bz = Math.round(-pz * .7), mano = anca - Math.round(H * .04);
-  pixLinea(g, x0 - mezzo, spalla, x0 - mezzo - 1 + bx, mano + bz);
-  pixLinea(g, x0 + mezzo, spalla, x0 + mezzo + 1 - bx, mano - bz);
+  // Braccia con il gomito, in controfase con le gambe
+  for (const lato of [-1, 1]) {
+    const s = -sw * lato, sx0 = x0 + lato * mezzo, mano = anca - Math.round(H * .03);
+    const ex = sx0 + lato * .6 + s * H * .05 * cx, ey = (spalla + mano) / 2;
+    const hx = sx0 + lato + s * H * .13 * cx, hy = mano + s * H * .03 * cz - Math.abs(s) * H * .03;
+    pixLinea(g, sx0, spalla, ex, ey); pixLinea(g, ex, ey, hx, hy);
+  }
   // Testa: cranio scuro con il contorno chiaro e la sfera di luce dentro.
   // La sfera segue lo sguardo: al centro di fronte, sul lato di profilo, spenta quando il robot dà le spalle
   const rt = Math.max(2, Math.round(H * .075));
@@ -644,10 +670,10 @@ function disegnaRobot(g: CanvasRenderingContext2D, p: Robot, sx: number, sy: num
   const sguardo = d + p.sguardo, verso = Math.sin(sguardo), sx2 = x0 + Math.round(Math.cos(sguardo) * (rt - 1) * .65);
   if (verso > -.35) {
     const rs = Math.max(1, Math.round(rt * .45));
-    g.fillStyle = 'rgba(110,255,220,.28)'; g.fillRect(sx2 - rs - 1, testa - rs - 1, rs * 2 + 3, rs * 2 + 3);
-    g.fillStyle = '#62f3d2'; pixCerchio(g, sx2, testa, rs, true);
+    g.fillStyle = p.rosso ? 'rgba(255,80,60,.32)' : 'rgba(110,255,220,.28)'; g.fillRect(sx2 - rs - 1, testa - rs - 1, rs * 2 + 3, rs * 2 + 3);
+    g.fillStyle = p.rosso ? '#ff4a3d' : '#62f3d2'; pixCerchio(g, sx2, testa, rs, true);
     g.fillStyle = '#e8fff8'; g.fillRect(sx2, testa - (rs > 1 ? 1 : 0), 1, 1);
-  } else { g.fillStyle = '#2b6a60'; g.fillRect(sx2, testa, 1, 1); }
+  } else { g.fillStyle = p.rosso ? '#8a2a22' : '#2b6a60'; g.fillRect(sx2, testa, 1, 1); }
 }
 function passingMinds(c: HTMLCanvasElement, ora: number) {
   const f = follaDi(c), davanti = c.dataset.side === 'front', tick = Math.floor(ora / 33);
@@ -672,9 +698,7 @@ function passingMinds(c: HTMLCanvasElement, ora: number) {
   const schermo = (x: number, z: number): [number, number, number] => davanti
     ? [w * (.1 + x * .8), h * (.5 + (z - .25) / .6 * .42), H0 * (.85 + .3 * (z - .25) / .6)]
     : [w * (.5 + (x - .5) * 1.04 * (.84 + .16 * z)), h * (.2 + z * .76), H0 * (.74 + .4 * z)];
-  // Trattini del terreno, fermi: danno il piano su cui camminano
-  g.fillStyle = '#10342e';
-  for (const t of f.trattini) { if (davanti && t.z < .3) continue; const [x, y] = schermo(t.x, t.z); g.fillRect(Math.round(x), Math.round(y) + 1, Math.max(2, Math.round(t.l * w)), 1); }
+  // Sul terreno solo le ombre dei robot (le disegna ogni robot)
   for (const p of f.robot.filter(p => p.capo === davanti).sort((a, b) => a.z - b.z)) {
     const [x, y, H] = schermo(p.x, p.z);
     disegnaRobot(g, p, x, y, H * p.scala);

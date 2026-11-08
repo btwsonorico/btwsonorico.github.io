@@ -68,7 +68,7 @@ import Base from '../../layouts/Base.astro';
   const record = () => primati().punti ?? 0;
   const riassunto = () => `score ${punti} · combo ×${molt(combo).toFixed(1)} · best ${record()}`;
   const scriviPunteggio = () => { punteggio.textContent = modo === 'in-gioco' ? `${punti} pts · ${cuori()} · ×${molt(combo).toFixed(1)} · best ${record()}` : `best ${record()}`; };
-  const cuori = () => '♥'.repeat(vite) + '♡'.repeat(VITE - vite);
+  const cuori = () => '♥'.repeat(Math.max(0, vite)) + '♡'.repeat(Math.max(0, VITE - vite));
   const scriviStato = () => {
     scriviPunteggio();
     for (const [m, e] of Object.entries(stati)) e.hidden = m !== modo;
