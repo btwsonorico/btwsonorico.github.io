@@ -1,9 +1,10 @@
-// Gli stili del biglietto di AI terms. Ogni biglietto ne pesca uno a caso, e dentro lo stile una variante (colori,
-// elementi), così due biglietti non sono mai uguali. La struttura è la stessa per tutti: davanti la domanda, dietro la
-// definizione. Uno stile dà solo l'arte (colonna a sinistra davanti, poster dietro) e le variabili di colore; il resto
-// lo fa il CSS con l'attributo data-stile. Gli stili vivi (Game of Life, koi, notte, stampa) disegnano su tela.
+// Le arti del biglietto di AI terms. Il biglietto è sempre lo stesso: carta chiara, stesso layout, stessi caratteri.
+// Ogni biglietto pesca un'arte: l'arte riempie solo la colonna a sinistra davanti e il poster dietro, e dà i colori
+// della carta (carta, inchiostro, accento, tagliando). Sopra si stampano a caso gli elementi in lamina olografica
+// (pianoLamina). Le arti vive (Game of Life, koi, paesaggi, prato, passing minds) disegnano su tela.
 // Niente testo delle note entra qui, tranne dove passa da esc().
 import { type Livello } from './arteBiglietti';
+import type { Pezzo, Tinta } from './laminaBiglietto';
 
 export type Contesto = { sezione: number; livello: Livello; numero: string; termine: string; sera: boolean; r: () => number };
 export type Stile = {
@@ -32,6 +33,9 @@ const una = <T>(c: Contesto, chiave: string, f: () => T): T => {
 };
 // Il seme delle tele: lo stesso davanti e dietro, così un biglietto riaperto ritrova i suoi pesci e i suoi cervi
 const semeTela = (c: Contesto) => una(c, 'seme', () => 1 + Math.floor(c.r() * 2147483000));
+// I colori della carta, presi dall'arte: la carta resta sempre chiara, come un biglietto vero
+type Carta = { carta: string; inchiostro: string; accento: string; tagliando: string; fondo: string };
+const carta = (k: Carta): Record<string, string> => ({ '--carta': k.carta, '--inchiostro': k.inchiostro, '--accento': k.accento, '--tagliando': k.tagliando, '--arte-fondo': k.fondo });
 
 // ---------------- Lime Bloom: una fioritura di luce su una griglia nera, e dentro la luce una colonia del Game of Life
 // che nasce, cresce e muore. Sul retro il nome del termine si scioglie in celle vive, poi si riscrive
@@ -41,7 +45,7 @@ const lime: Stile = {
   id: 'lime', ascii: true,
   davanti: c => `<div class="fiore"></div><canvas data-ascii="vita" data-seme="${semeTela(c)}"></canvas><i class="tick" style="left:8%;top:7%"></i><i class="tick" style="right:8%;bottom:7%"></i>`,
   dietro: c => `<div class="fiore"></div><canvas data-ascii="vita-parola" data-seme="${semeTela(c)}" data-testo="${esc(c.termine.toUpperCase().slice(0, 18))}"></canvas>`,
-  variabili: c => { const f = una(c, 'fiore', () => scegli(FIORI, c.r)); return { '--f1': f[0], '--f2': f[1], '--f3': f[2] }; },
+  variabili: c => { const f = una(c, 'fiore', () => scegli(FIORI, c.r)); return { ...carta({ carta: '#eef7f8', inchiostro: '#06303d', accento: '#0a9fc4', tagliando: '#dcedf0', fondo: '#061017' }), '--f1': f[0], '--f2': f[1], '--f3': f[2] }; },
 };
 
 // ---------------- Risograph: due inchiostri fluo sovrapposti, mezzatinta, il fuori registro che segue l'inclinazione.
@@ -73,23 +77,13 @@ const risograph: Stile = {
   davanti: riso(false),
   dietro: riso(true),
   // I due inchiostri valgono per tutto il biglietto: li sceglie la variante, l'arte li riprende dallo stesso seme
-  variabili: c => { const [a, b] = una(c, 'ink', () => scegli(INCHIOSTRI, c.r)); return { '--ink1': a, '--ink2': b }; },
-};
-
-// ---------------- ASCII Night: una scena di caratteri, come l'intro della home
-const ACCENTI = ['111,227,255', '255,138,194'] as const;
-const notte: Stile = {
-  id: 'notte', ascii: true,
-  davanti: () => `<canvas data-ascii="notte"></canvas>`,
-  dietro: () => `<canvas data-ascii="notte-grande"></canvas>`,
-  variabili: c => { const a = una(c, 'accento', () => scegli(ACCENTI, c.r)); return { '--accento-a': `rgb(${a})`, '--accento-rgb': a, '--luna-x': (0.55 + c.r() * 0.3).toFixed(2) }; },
+  variabili: c => { const [a, b] = una(c, 'ink', () => scegli(INCHIOSTRI, c.r)); return { ...carta({ carta: '#f6f0e4', inchiostro: '#163a6b', accento: a, tagliando: '#f2e2e9', fondo: '#f6f0e4' }), '--ink1': a, '--ink2': b }; },
 };
 
 // ---------------- Koi Pond, tutto a pixel. Davanti la riva del mare vista dall'alto, con le onde che salgono sulla sabbia;
 // dietro lo stagno: la riva d'erba con i sassi, le ninfee e le koi a sprite che nuotano senza piegarsi su se stesse
-// Due varianti: a colori, e minimal in bianco e nero dove solo le koi hanno colore
+// Solo la versione minimal in bianco e nero, dove solo le koi hanno colore
 const ACQUE = [
-  { mono: false, acqua: ['#0b3b45', '#0f5560', '#167080', '#2a8f98', '#6fc3c1'], ui: { fondo: '#082c34', bg: '#0b3b45', pannello: '#0f5560', bordo: '#2a8f98', hover: '#167080', ombra: '#082c34' }, testo: '#f2f7f2', accento: '#ff7a59' },
   { mono: true, acqua: ['#8f918e', '#a8aaa6', '#c2c3bf', '#d9dad6', '#f2f2ee'], ui: { fondo: '#f4f3ef', bg: '#f4f3ef', pannello: '#e7e6e1', bordo: '#1a1a1a', hover: '#d9d8d2', ombra: '#1a1a1a' }, testo: '#141414', accento: '#e2452c' },
 ] as const;
 const koi: Stile = {
@@ -99,26 +93,33 @@ const koi: Stile = {
   variabili: c => {
     const q = una(c, 'acqua', () => scegli(ACQUE, c.r));
     return {
+      ...carta({ carta: '#f4f3ef', inchiostro: '#141414', accento: q.accento, tagliando: '#e7e6e1', fondo: q.acqua[4] }),
       '--acqua-0': q.acqua[0], '--acqua-1': q.acqua[1], '--acqua-2': q.acqua[2], '--acqua-3': q.acqua[3], '--acqua-4': q.acqua[4], '--koi-mono': q.mono ? '1' : '0',
-      '--ui-fondo': q.ui.fondo, '--ui-bg': q.ui.bg, '--ui-pannello': q.ui.pannello, '--ui-bordo': q.ui.bordo, '--ui-hover': q.ui.hover, '--ui-ombra': q.ui.ombra, '--testo-k': q.testo, '--accento-k': q.accento,
     };
   },
 };
 
-// ---------------- Meadow Print: un prato in pixel art, in due momenti dello stesso paesaggio.
+// ---------------- Meadow: un prato in pixel art, in due momenti dello stesso paesaggio: il giorno davanti, la notte dietro.
 // Versione notte ispirata al prato animato di Astropelican Games; il giorno è una nostra interpretazione.
-const SCENE = [
-  { scena: 'prato-giorno', fondo: '#143e37', testo: '#f4f8e6', bordo: '142,188,142', accento: '#f9d678', banner: ['255,237,172', '255,255,239'] },
-  { scena: 'prato-notte', fondo: '#0b1c16', testo: '#efffe0', bordo: '100,151,93', accento: '#e3ff74', banner: ['164,255,119', '255,250,161'] },
+const prato: Stile = {
+  id: 'prato', ascii: true,
+  davanti: c => `<canvas data-ascii="prato" data-seme="${semeTela(c)}" data-scena="prato-giorno"></canvas>`,
+  dietro: c => `<canvas data-ascii="prato" data-seme="${semeTela(c)}" data-scena="prato-notte"></canvas>`,
+  variabili: () => carta({ carta: '#eef3e4', inchiostro: '#143e37', accento: '#b77a12', tagliando: '#e1ead2', fondo: '#0b1c16' }),
+};
+
+// ---------------- Paesaggi: un paesaggio dipinto e reso in caratteri colorati. Lo stesso paesaggio in due momenti:
+// il più bello dei due sta dietro, nel poster grande. La montagna: tramonto davanti, aurora dietro. La lavanda:
+// notte davanti, giorno dietro
+const PAESAGGI = [
+  { davanti: 'tramonto', dietro: 'aurora', carta: { carta: '#f6ede8', inchiostro: '#2a1a35', accento: '#d4573f', tagliando: '#efdfe2', fondo: '#0b0d12' } },
+  { davanti: 'lavanda-notte', dietro: 'lavanda', carta: { carta: '#f3eff8', inchiostro: '#2a2240', accento: '#7a55c8', tagliando: '#e6def2', fondo: '#0b0d12' } },
 ] as const;
-const stampa: Stile = {
-  id: 'stampa', ascii: true, titoloAscii: true,
-  davanti: c => `<canvas data-ascii="prato" data-seme="${semeTela(c)}" data-scena="${una(c, 'scena', () => scegli(SCENE, c.r)).scena}"></canvas>`,
-  dietro: c => `<canvas data-ascii="prato" data-seme="${semeTela(c)}" data-scena="${una(c, 'scena', () => scegli(SCENE, c.r)).scena}"></canvas>`,
-  variabili: c => {
-    const q = una(c, 'scena', () => scegli(SCENE, c.r));
-    return { '--st-fondo': q.fondo, '--st-testo': q.testo, '--st-bordo': q.bordo, '--st-accento': q.accento, '--banner-1': q.banner[0], '--banner-2': q.banner[1] };
-  },
+const paesaggi: Stile = {
+  id: 'paesaggi', ascii: true,
+  davanti: c => `<canvas data-ascii="scena" data-scena="${una(c, 'paesaggio', () => scegli(PAESAGGI, c.r)).davanti}"></canvas>`,
+  dietro: c => `<canvas data-ascii="scena" data-scena="${una(c, 'paesaggio', () => scegli(PAESAGGI, c.r)).dietro}"></canvas>`,
+  variabili: c => carta(una(c, 'paesaggio', () => scegli(PAESAGGI, c.r)).carta),
 };
 
 // Passing minds: una figura davanti, la folla sul retro, palette ciano su nero.
@@ -126,26 +127,7 @@ const passing: Stile = {
   id: 'passing', ascii: true,
   davanti: c => `<canvas data-ascii="passing" data-side="front" data-seme="${semeTela(c)}"></canvas>`,
   dietro: c => `<canvas data-ascii="passing" data-side="back" data-seme="${semeTela(c)}"></canvas>`,
-  variabili: () => ({}),
-};
-
-// ---------------- Replay: carta editoriale, molto bianco, serif alto e metadati mono. Tre carte ispirate ai concept
-// scartati di Replay: crema, menta, senape. Davanti una copertina stretta con il marchio AI e una tabella di stato;
-// dietro il termine grande come una scritta di copertina, e la definizione su carta senza righe
-const CARTE_REPLAY = [
-  { carta: '#f4f0e7', blocco: '#e9e2d5', tinta: '#efe9dd', ink: '#171512', linea: 'rgb(23 21 18 / .2)', pannello: '#f8f4ec' },
-  { carta: '#f4f0e7', blocco: '#8ef0d7', tinta: '#dcf8ef', ink: '#101a16', linea: 'rgb(16 26 22 / .22)', pannello: '#f4f0e7' },
-  { carta: '#f4f0e7', blocco: '#d8cf9b', tinta: '#ece5c8', ink: '#17150f', linea: 'rgb(23 21 15 / .22)', pannello: '#f4f0e7' },
-] as const;
-const tabella = (c: Contesto) => `<dl class="rp-tab"><div><dt>ENTRY</dt><dd>${c.numero}</dd></div><div><dt>LEVEL</dt><dd>${esc(c.livello)}</dd></div><div><dt>STATUS</dt><dd>QUALIFIED</dd></div></dl>`;
-const replay: Stile = {
-  id: 'replay',
-  davanti: c => `<div class="rp-seal"><span>AI</span></div><div class="rp-marchio"><span class="rp-ai">AI</span><span class="rp-terms">TERMS</span></div>${tabella(c)}`,
-  dietro: c => `<div class="rp-copertina"><div class="rp-seal"><span>AI</span></div><div class="rp-parola" style="--rp-size:${Math.max(30, Math.min(112, 520 / Math.max(4, c.termine.length)))}px">${esc(c.termine.toUpperCase())}</div>${tabella(c)}</div>`,
-  variabili: c => {
-    const p = una(c, 'replay', () => scegli(CARTE_REPLAY, c.r));
-    return { '--rp-carta': p.carta, '--rp-blocco': p.blocco, '--rp-tinta': p.tinta, '--rp-ink': p.ink, '--rp-linea': p.linea, '--rp-pannello': p.pannello };
-  },
+  variabili: () => carta({ carta: '#edf4f1', inchiostro: '#0c1a17', accento: '#139c7e', tagliando: '#dce9e4', fondo: '#010304' }),
 };
 
 // ---------------- Sfera: un grappolo di sfere translucide, come un render di Houdini. Carta burro, sfere viola e blu
@@ -185,11 +167,45 @@ const sfera: Stile = {
     const id = `s${++uid}`, rand = casoDa(Math.floor(c.r() * 2147483000));
     return `<div class="sf"><div class="sf-livello">${sfRetro(id, rand)}</div><div class="sf-testa"><span>TRANSPARENT BLOOM</span><span>STUDY ${c.numero}</span></div><div class="sf-piede"><span>63,000 SPHERES</span><span>SOFT BODY / RENDER 04</span></div></div>`;
   },
-  variabili: () => ({ '--sf-fondo': SFERA_CARTA.fondo, '--sf-tinta': SFERA_CARTA.tinta, '--sf-pannello': SFERA_CARTA.pannello, '--sf-ink': SFERA_CARTA.ink, '--sf-linea': SFERA_CARTA.linea }),
+  variabili: () => ({ ...carta({ carta: '#f8f2d6', inchiostro: SFERA_CARTA.ink, accento: '#5c4cd4', tagliando: SFERA_CARTA.tinta, fondo: SFERA_CARTA.fondo }), '--sf-fondo': SFERA_CARTA.fondo, '--sf-tinta': SFERA_CARTA.tinta, '--sf-pannello': SFERA_CARTA.pannello, '--sf-ink': SFERA_CARTA.ink, '--sf-linea': SFERA_CARTA.linea }),
 };
 
-// Replay escluso dal sorteggio; Sfera e Notte restano in attesa di revisione.
-export const STILI: Stile[] = [sfera, lime, risograph, notte, koi, stampa, passing];
+// ---------------- Holo: la carta rara, dopo una serie di risposte giuste. Davanti una rosetta incisa a inchiostro, con le
+// linee guilloché e il sigillo in lamina; dietro il poster tutto in lamina, con il termine inciso. Non entra nel mazzo
+const rosetta = () => {
+  let linee = '';
+  for (let k = 0; k < 18; k++) {
+    let d = '';
+    for (let i = 0; i <= 240; i++) {
+      const a = (i / 240) * Math.PI * 2, rr = 26 + 9 * Math.sin(a * 7 + k * 0.35) + 4 * Math.sin(a * 13 - k * 0.2);
+      d += `${i ? 'L' : 'M'}${(50 + Math.cos(a + k * 0.03) * rr).toFixed(1)} ${(55 + Math.sin(a + k * 0.03) * rr).toFixed(1)}`;
+    }
+    linee += `<path d="${d}Z"/>`;
+  }
+  return linee;
+};
+export const OLO: Stile = {
+  id: 'olo',
+  davanti: c => `<svg viewBox="0 0 100 110" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><g fill="none" stroke="#1b2340" stroke-width=".22" opacity=".85">${rosetta()}</g><text x="50" y="104" text-anchor="middle" font-family="ui-monospace, monospace" font-size="3.2" letter-spacing=".9" fill="#1b2340">HOLO · ${esc(c.numero)}</text></svg>`,
+  dietro: c => `<div class="olo-poster"><span>${esc(c.termine)}</span></div>`,
+  variabili: () => carta({ carta: '#f3f1ec', inchiostro: '#1b2340', accento: '#5a4fd0', tagliando: '#e9e6f0', fondo: '#f3f1ec' }),
+};
+
+// Il mazzo: ogni arte esce una volta per giro
+export const STILI: Stile[] = [sfera, lime, risograph, koi, prato, paesaggi, passing];
+
+// ---------------- La lamina: quali elementi si stampano in lamina su questo biglietto, e in che tinta.
+// La tinta dice il livello: argento facile, oro medio, arcobaleno difficile. Gli elementi escono a caso, al massimo due:
+// la banda o il filo (mai insieme), il sigillo, le linee guilloché (rare)
+export type PianoBiglietto = { davanti: Pezzo[]; dietro: Pezzo[]; tinta: Tinta };
+const SET_LAMINA: [number, Pezzo[]][] = [[0.28, ['banda']], [0.18, ['filo']], [0.16, ['banda', 'sigillo']], [0.1, ['filo', 'sigillo']], [0.12, ['sigillo']], [0.08, ['guilloche']], [0.08, []]];
+export function pianoLamina(st: Stile, c: Contesto): PianoBiglietto {
+  if (st.id === 'olo') return { davanti: ['guilloche', 'sigillo'], dietro: ['poster'], tinta: 'iride' };
+  const tinta: Tinta = c.livello === 'hard' ? 'iride' : c.livello === 'medium' ? 'oro' : 'argento';
+  let k = una(c, 'lamina', () => c.r());
+  for (const [peso, pezzi] of SET_LAMINA) { if (k < peso) return { davanti: pezzi, dietro: [], tinta }; k -= peso; }
+  return { davanti: [], dietro: [], tinta };
+}
 
 // ---------------- Le tele vive. Il biglietto chiama disegnaAscii circa 30 volte al secondo; ogni tela decide quanto spesso
 // ridisegnarsi (le scene di caratteri bastano 12 volte al secondo). Lo stato di ogni tela (cellule, pesci) sta qui

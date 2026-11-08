@@ -53,6 +53,9 @@ import Base from '../../layouts/Base.astro';
   import '@fontsource/anton/latin-400.css';
   import { monta } from '../../scripts/aeroporto';
   import { nuovoImbarco } from '../../scripts/bigliettoImbarco';
+  import { anteprima } from '../../scripts/anteprimaBiglietti';
+  // Solo per lo sviluppo: ?anteprima mostra una galleria di biglietti
+  if (new URLSearchParams(location.search).has('anteprima')) anteprima();
   import { aCaso, azzera, nuovaPartita, nuovoVolo, primati, quiz, segnaPrimato, segnaRisposta, serie, SEZIONI, voloDa, type Voce } from '../../lib/voli';
 
   type Modo = 'inizio' | 'in-quiz' | 'fine-quiz' | 'in-endless' | 'fine-endless';
@@ -210,14 +213,15 @@ import Base from '../../layouts/Base.astro';
   .passi :global(li.dopo) { background: #e6b23c; }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
 
-  /* La carta d'imbarco, stile 70s Rapid: in basso al centro, sopra la scena */
+  /* La carta d'imbarco: in basso al centro, sopra la scena. È sempre la stessa carta; l'arte ne dà i colori */
   :global(.imbarco) { position: fixed; left: 50%; bottom: 22px; z-index: 3; width: min(980px, calc(100vw - 40px)); transform: translateX(-50%); }
   :global(.imbarco[hidden]) { display: none; }
   :global(body:has(.imbarco:not([hidden])) .piede) { visibility: hidden; }
   /* Il biglietto si inclina (lo muove lo script); la carta dentro si gira */
   :global(.imbarco .biglietto) { --tx: 0; --ty: 0; --t: 0; transform-style: preserve-3d; touch-action: none; }
   :global(.imbarco .carta) {
-    --carta: #e5532b; --c1: #1d2b4a; --c2: #f7cf4f; --tagliando: #f6dfe5; --nero: #17161b; --crema: #fff7ea; --rosso: #c9241e;
+    --carta: #f4efe4; --inchiostro: #17161b; --accento: #c9241e; --tagliando: #efe6d6; --arte-fondo: #0b0d12;
+    --nero: var(--inchiostro); --crema: var(--carta); --rosso: var(--accento);
     --display: 'Anton', Impact, 'Arial Narrow', sans-serif; --serif: 'Instrument Serif', Georgia, serif;
     position: relative; display: grid; transform-style: preserve-3d; transition: transform .8s cubic-bezier(.3, 1.3, .5, 1);
   }
@@ -228,7 +232,7 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .faccia) {
     --stub: 168px;
     grid-area: 1 / 1; position: relative; display: grid; grid-template-rows: minmax(0, 1fr); height: 340px; backface-visibility: hidden; -webkit-backface-visibility: hidden;
-    color: var(--crema); background: var(--carta); border-radius: 6px; overflow: hidden; box-shadow: calc(var(--tx) * -14px) calc(18px + var(--ty) * -8px) 44px rgb(0 0 0 / .45);
+    color: var(--inchiostro); background: var(--carta); border-radius: 6px; overflow: hidden; box-shadow: calc(var(--tx) * -14px) calc(18px + var(--ty) * -8px) 44px rgb(0 0 0 / .45);
     -webkit-mask: radial-gradient(circle 10px at calc(100% - var(--stub)) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 10px at calc(100% - var(--stub)) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
     mask: radial-gradient(circle 10px at calc(100% - var(--stub)) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 10px at calc(100% - var(--stub)) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat;
   }
@@ -241,13 +245,14 @@ import Base from '../../layouts/Base.astro';
 
   /* Davanti: arte | banda in foglia | corpo | tagliando */
   :global(.imbarco .fronte) { grid-template-columns: 29% 34px minmax(0, 1fr) var(--stub); }
-  :global(.imbarco .arte70) { position: relative; overflow: hidden; }
+  :global(.imbarco .arte70) { position: relative; overflow: hidden; background: var(--arte-fondo); }
   :global(.imbarco .arte70 svg) { position: absolute; inset: 0; width: 100%; height: 100%; }
-  :global(.imbarco .banda) { position: relative; display: grid; place-items: center; box-shadow: inset 1px 0 rgb(0 0 0 / .25), inset -1px 0 rgb(0 0 0 / .25); }
-  :global(.imbarco .banda span) { writing-mode: vertical-rl; rotate: 180deg; font-size: 10px; letter-spacing: .4em; white-space: nowrap; color: #2a2c31 !important; }
-  /* I due metalli: una riga di luce che gira con l'inclinazione, sopra una spazzolatura fine */
-  :global(.imbarco .argento) { background: repeating-linear-gradient(90deg, rgb(255 255 255 / .12) 0 1px, transparent 1px 3px), linear-gradient(calc(90deg + var(--tx) * 70deg + var(--ty) * 20deg), #7d8792 0%, #eef2f6 calc(30% + var(--tx) * 12%), #98a2ad 50%, #ffffff calc(68% + var(--tx) * 12%), #828c97 100%); }
-  :global(.imbarco .oro) { background: repeating-linear-gradient(90deg, rgb(255 255 255 / .14) 0 1px, transparent 1px 3px), linear-gradient(calc(90deg + var(--tx) * 70deg + var(--ty) * 20deg), #8d6418 0%, #f8dc8c calc(30% + var(--tx) * 12%), #b88a2a 50%, #fff2c4 calc(68% + var(--tx) * 12%), #94681a 100%); }
+  :global(.imbarco .arte70 > canvas), :global(.imbarco .poster > canvas) { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  :global(.imbarco .banda) { position: relative; display: grid; place-items: center; box-shadow: inset 1px 0 color-mix(in srgb, var(--inchiostro) 25%, transparent), inset -1px 0 color-mix(in srgb, var(--inchiostro) 25%, transparent); }
+  :global(.imbarco .banda span) { writing-mode: vertical-rl; rotate: 180deg; font-size: 10px; letter-spacing: .4em; white-space: nowrap; color: var(--inchiostro); }
+  /* La lamina olografica: una tela sopra la stampa (sotto la grana e i timbri). Il motto della banda è inciso nella lamina */
+  :global(.imbarco .lamina) { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; z-index: 4; pointer-events: none; image-rendering: auto !important; }
+  :global(.imbarco .lamina-banda .banda span) { color: transparent; }
   :global(.imbarco .corpo) { min-width: 0; display: flex; flex-direction: column; padding: 18px 22px; }
   :global(.imbarco .sotto) { margin: 0; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; opacity: .85; }
   /* La domanda è la protagonista: nessun riquadro, nessun bordo, solo testo */
@@ -262,12 +267,13 @@ import Base from '../../layouts/Base.astro';
     background: transparent; color: var(--nero); font: inherit; font-size: 16px; line-height: 1.3; text-align: left; cursor: pointer; transition: background .15s, color .15s;
   }
   :global(.imbarco .opzione span) { flex: none; font-size: 11px; opacity: .7; }
-  :global(.imbarco .opzione:hover:not(:disabled)) { background: var(--carta); color: var(--crema); }
+  :global(.imbarco .opzione:hover:not(:disabled)) { background: color-mix(in srgb, var(--accento) 14%, transparent); }
   :global(.imbarco .opzione:disabled) { cursor: default; opacity: .4; }
-  :global(.imbarco .opzione.giusta) { opacity: 1; background: var(--nero); color: var(--crema); }
+  :global(.imbarco .opzione.giusta) { opacity: 1; background: var(--inchiostro); color: var(--carta); }
+  :global(.imbarco .opzione span) { color: var(--accento); }
   :global(.imbarco .opzione.sbagliata) { text-decoration: line-through; }
   /* Il tagliando: il nome del termine e la sua categoria, poi in fondo seriale e codice */
-  :global(.imbarco .tagliando) { display: flex; flex-direction: column; gap: 6px; padding: 20px 16px 18px; color: var(--nero); background: var(--tagliando) var(--trama); background-size: auto, 44px 9px; border-left: 2px dashed rgb(23 22 27 / .4); }
+  :global(.imbarco .tagliando) { display: flex; flex-direction: column; gap: 6px; padding: 20px 16px 18px; color: var(--nero); background: var(--tagliando) var(--trama); background-size: auto, 44px 9px; border-left: 2px dashed color-mix(in srgb, var(--inchiostro) 40%, transparent); }
   :global(.imbarco .tagliando .nome) { margin: 0; font-family: var(--display); font-weight: 400; font-size: 21px; line-height: 1; letter-spacing: .01em; text-transform: uppercase; overflow-wrap: anywhere; }
   :global(.imbarco .tagliando .categoria) { margin: 0; font-size: 9px; letter-spacing: .16em; text-transform: uppercase; opacity: .8; }
   :global(.imbarco .tagliando .metadati) { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 2px; }
@@ -287,208 +293,46 @@ import Base from '../../layouts/Base.astro';
 
   /* Dietro, metà e metà: il poster e la definizione su carta crema a righe. Le tacche cadono dove sono davanti */
   :global(.imbarco .retro) { transform: rotateY(180deg); grid-template-columns: 50% 50%; -webkit-mask: radial-gradient(circle 10px at var(--stub) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 10px at var(--stub) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat; mask: radial-gradient(circle 10px at var(--stub) 0, #0000 98%, #000) top / 100% 51% no-repeat, radial-gradient(circle 10px at var(--stub) 100%, #0000 98%, #000) bottom / 100% 51% no-repeat; }
-  :global(.imbarco .poster) { position: relative; overflow: hidden; }
+  :global(.imbarco .poster) { position: relative; overflow: hidden; background: var(--arte-fondo); }
   :global(.imbarco .poster svg) { position: absolute; inset: 0; width: 100%; height: 100%; }
-  :global(.imbarco .pannello) { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 4px; padding: 18px 22px 14px; background: var(--crema); color: var(--nero); }
-  :global(.imbarco .retro .titolo) { margin-top: 4px; font-size: 44px; color: var(--carta) !important; }
+  :global(.imbarco .pannello) { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 4px; padding: 18px 22px 14px; background: var(--carta); color: var(--inchiostro); }
+  :global(.imbarco .retro .titolo) { margin-top: 4px; font-size: 44px; color: var(--inchiostro); }
   :global(.imbarco .retro .corsivo) { margin-bottom: 4px; }
-  :global(.imbarco .definizione) { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; font-size: 13px; line-height: 22px; touch-action: pan-y; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--carta) transparent; background: repeating-linear-gradient(transparent 0 21px, rgb(23 22 27 / .13) 21px 22px); background-attachment: local; }
+  :global(.imbarco .definizione) { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; font-size: 13px; line-height: 22px; touch-action: pan-y; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--accento) transparent; background: repeating-linear-gradient(transparent 0 21px, rgb(23 22 27 / .13) 21px 22px); background-attachment: local; }
   /* Quando il testo continua sotto: il fondo sfuma e compare «scroll ↓» */
   :global(.imbarco .scorre) { position: relative; min-height: 0; flex: 1; display: flex; flex-direction: column; }
   :global(.imbarco .scorre.altro .definizione) { -webkit-mask: linear-gradient(#000 calc(100% - 34px), transparent); mask: linear-gradient(#000 calc(100% - 34px), transparent); }
-  :global(.imbarco .scorre::after) { content: 'scroll ↓'; position: absolute; right: 0; bottom: -2px; padding: 1px 6px; font-family: var(--mono); font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: var(--crema); background: var(--carta); opacity: 0; transition: opacity .2s; pointer-events: none; }
+  :global(.imbarco .scorre::after) { content: 'scroll ↓'; position: absolute; right: 0; bottom: -2px; padding: 1px 6px; font-family: var(--mono); font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: var(--carta); background: var(--accento); opacity: 0; transition: opacity .2s; pointer-events: none; }
   :global(.imbarco .scorre.altro::after) { opacity: 1; }
   :global(.imbarco .definizione p) { margin: 0 0 22px; }
   :global(.imbarco .definizione p:last-child) { margin-bottom: 0; }
   :global(.imbarco .definizione ul) { margin: 0; padding-left: 16px; }
   :global(.imbarco .definizione strong) { font-weight: 700; }
   :global(.imbarco .stato) { margin: 4px 0 0; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; opacity: .7; }
-  :global(.imbarco .piede-retro) { display: flex; justify-content: space-between; gap: 8px; padding-top: 6px; border-top: 2px solid var(--carta); font-size: 11px; letter-spacing: .15em; color: var(--rosso) !important; }
+  :global(.imbarco .piede-retro) { display: flex; justify-content: space-between; gap: 8px; padding-top: 6px; border-top: 2px solid var(--accento); font-size: 11px; letter-spacing: .15em; color: var(--rosso) !important; }
   :global(.imbarco .piede-retro p) { margin: 0; }
   :global(.imbarco .piede-retro .seriale) { font-size: 11px; }
-  /* Gli stili a sorteggio: stessa struttura, aspetto diverso. Lo stile lo sceglie src/scripts/stiliBiglietto.ts */
+  /* Le arti: vivono solo nella colonna a sinistra e nel poster dietro. Le sceglie src/scripts/stiliBiglietto.ts */
   @keyframes respira { to { transform: translate(2%, -2%) scale(1.06); } }
-  :global(.imbarco .carta[data-stile='lime'] .faccia) { color: #e2faff; background: linear-gradient(rgb(20 221 255 / .07) 1px, transparent 1px) 0 0 / 34px 34px, linear-gradient(90deg, rgb(20 221 255 / .07) 1px, transparent 1px) 0 0 / 34px 34px, #061017; }
-  :global(.imbarco .carta[data-stile='lime'] .arte70), :global(.imbarco .carta[data-stile='lime'] .poster) { position: relative; overflow: hidden; }
+  /* Game of Life: la griglia azzurra e la fioritura di luce dietro le cellule */
+  :global(.imbarco .carta[data-stile='lime'] .arte70), :global(.imbarco .carta[data-stile='lime'] .poster) { background: linear-gradient(rgb(20 221 255 / .07) 1px, transparent 1px) 0 0 / 34px 34px, linear-gradient(90deg, rgb(20 221 255 / .07) 1px, transparent 1px) 0 0 / 34px 34px, #061017; }
   :global(.imbarco .carta[data-stile='lime'] .fiore) { position: absolute; inset: -20%; filter: blur(30px); background: radial-gradient(circle at calc(32% + var(--tx) * 8%) calc(42% + var(--ty) * 8%), var(--f1) 0 4%, var(--f2) 12%, transparent 32%), radial-gradient(circle at calc(24% - var(--tx) * 6%) calc(70% - var(--ty) * 6%), var(--f3) 0 6%, transparent 26%); opacity: .9; animation: respira 9s ease-in-out infinite alternate; }
-  :global(.imbarco .carta[data-stile='lime'] canvas) { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   :global(.imbarco .carta[data-stile='lime'] .tick) { position: absolute; width: 6px; height: 6px; background: #e2faff; }
-  :global(.imbarco .carta[data-stile='lime'] .banda) { background: transparent !important; box-shadow: inset 1px 0 rgb(255 255 255 / .15), inset -1px 0 rgb(255 255 255 / .15); }
-  :global(.imbarco .carta[data-stile='lime'] .banda span), :global(.imbarco .carta[data-stile='lime'] .sotto) { color: var(--f2) !important; }
-  :global(.imbarco .carta[data-stile='lime'] .carta-dom) { padding: 0; background: none; color: #e2faff; border: 0; }
-  :global(.imbarco .carta[data-stile='lime'] .titolo) { font-family: var(--serif); font-weight: 400; font-size: 38px; text-transform: none; letter-spacing: 0; }
-  :global(.imbarco .carta[data-stile='lime'] .opzione) { color: #e2faff; border-color: color-mix(in srgb, var(--f2) 55%, transparent); }
-  :global(.imbarco .carta[data-stile='lime'] .opzione span) { color: var(--f2) !important; opacity: 1; }
-  :global(.imbarco .carta[data-stile='lime'] .opzione:hover:not(:disabled)) { background: color-mix(in srgb, var(--f2) 22%, transparent); color: #e2faff; }
-  :global(.imbarco .carta[data-stile='lime'] .opzione.giusta) { background: var(--f2); color: #061017; }
-  :global(.imbarco .carta[data-stile='lime'] .tagliando) { background: rgb(6 16 23 / .6); color: #e2faff; border-left: 1px dashed rgb(226 250 255 / .35); }
-  :global(.imbarco .carta[data-stile='lime'] .tagliando .nome) { font-family: var(--serif); font-weight: 400; font-size: 23px; line-height: 1.05; text-transform: none; letter-spacing: 0; color: var(--f2) !important; }
-  :global(.imbarco .carta[data-stile='lime'] .seriale), :global(.imbarco .carta[data-stile='lime'] .piede-retro) { color: var(--f2) !important; border-color: var(--f2); }
-  :global(.imbarco .carta[data-stile='lime'] .codice span) { background: var(--f2); }
-  :global(.imbarco .carta[data-stile='lime'] .pannello) { background: rgb(6 16 23 / .85); color: #e2faff; }
-  :global(.imbarco .carta[data-stile='lime'] .retro .titolo) { color: var(--f2) !important; }
-  :global(.imbarco .carta[data-stile='lime'] .definizione) { font-family: var(--serif); font-size: 16px; background: repeating-linear-gradient(transparent 0 21px, rgb(255 255 255 / .08) 21px 22px); background-attachment: local; }
-  :global(.imbarco .carta[data-stile='riso'] .faccia) { color: var(--ink2); background: #f6f0e4; font-family: system-ui, sans-serif; }
-  :global(.imbarco .carta[data-stile='riso'] .arte70), :global(.imbarco .carta[data-stile='riso'] .poster) { position: relative; overflow: hidden; }
+  /* Risograph: i due inchiostri sovrapposti, fuori registro con l'inclinazione */
   :global(.imbarco .carta[data-stile='riso'] .rosa), :global(.imbarco .carta[data-stile='riso'] .blu) { position: absolute; inset: 0; mix-blend-mode: multiply; }
   :global(.imbarco .carta[data-stile='riso'] .rosa) { transform: translate(calc(var(--tx) * 6px), calc(var(--ty) * 4px)); }
   :global(.imbarco .carta[data-stile='riso'] .blu) { transform: translate(calc(var(--tx) * -6px), calc(var(--ty) * -4px)); }
   :global(.imbarco .carta[data-stile='riso'] .rosa svg), :global(.imbarco .carta[data-stile='riso'] .blu svg) { display: block; width: 100%; height: 100%; }
-  :global(.imbarco .carta[data-stile='riso'] .banda) { background: radial-gradient(circle, var(--ink2) 30%, transparent 33%) 0 0 / 6px 6px, var(--ink1) !important; box-shadow: none; }
-  :global(.imbarco .carta[data-stile='riso'] .banda span) { color: #f6f0e4 !important; }
-  :global(.imbarco .carta[data-stile='riso'] .sotto) { color: var(--ink2); opacity: 1; }
-  :global(.imbarco .carta[data-stile='riso'] .carta-dom) { padding: 0; background: none; color: var(--ink2); border: 0; }
-  :global(.imbarco .carta[data-stile='riso'] .titolo) { font-family: inherit; font-weight: 900; font-size: 40px; letter-spacing: -.03em; color: var(--ink2) !important; text-shadow: calc(3px + var(--tx) * 3px) calc(2px + var(--ty) * 2px) 0 var(--ink1); }
-  :global(.imbarco .carta[data-stile='riso'] .corsivo) { color: var(--ink2); }
-  :global(.imbarco .carta[data-stile='riso'] .opzione) { border: 2px solid var(--ink2); color: var(--ink2); font-weight: 600; }
-  :global(.imbarco .carta[data-stile='riso'] .opzione span) { color: var(--ink2) !important; opacity: 1; }
-  :global(.imbarco .carta[data-stile='riso'] .opzione:hover:not(:disabled)), :global(.imbarco .carta[data-stile='riso'] .opzione.giusta) { background: var(--ink2); color: #fff; }
-  :global(.imbarco .carta[data-stile='riso'] .tagliando) { background: radial-gradient(circle, color-mix(in srgb, var(--ink1) 35%, transparent) 28%, transparent 31%) 0 0 / 8px 8px, #f6f0e4; border-left: 2px dashed var(--ink1); color: var(--ink2); }
-  :global(.imbarco .carta[data-stile='riso'] .tagliando .nome) { font-family: inherit; font-weight: 900; font-size: 18px; line-height: 1.02; letter-spacing: -.02em; text-transform: none; }
-  :global(.imbarco .carta[data-stile='riso'] .seriale) { color: var(--ink2) !important; }
-  :global(.imbarco .carta[data-stile='riso'] .codice span) { background: var(--ink2); }
-  :global(.imbarco .carta[data-stile='riso'] .pannello) { background: #f6f0e4; color: var(--ink2); }
-  :global(.imbarco .carta[data-stile='riso'] .retro .titolo) { color: var(--ink2) !important; }
-  :global(.imbarco .carta[data-stile='riso'] .definizione) { font-family: var(--mono); font-size: 12.5px; }
-  :global(.imbarco .carta[data-stile='riso'] .piede-retro) { color: var(--ink1) !important; border-color: var(--ink1); }
-  :global(.imbarco .carta[data-stile='notte'] .faccia) { color: #d9dde3; background: #0a0b0d; font-family: var(--mono); }
-  :global(.imbarco .carta[data-stile='notte'] .arte70), :global(.imbarco .carta[data-stile='notte'] .poster) { position: relative; overflow: hidden; }
-  :global(.imbarco .carta[data-stile='notte'] canvas) { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  :global(.imbarco .carta[data-stile='notte'] .banda) { background: transparent !important; box-shadow: inset 1px 0 rgb(217 221 227 / .25), inset -1px 0 rgb(217 221 227 / .25); }
-  :global(.imbarco .carta[data-stile='notte'] .banda span), :global(.imbarco .carta[data-stile='notte'] .sotto) { color: var(--accento-a) !important; }
-  :global(.imbarco .carta[data-stile='notte'] .carta-dom) { padding: 0; background: none; color: #d9dde3; border: 0; }
-  :global(.imbarco .carta[data-stile='notte'] .titolo) { font-family: var(--mono); font-weight: 700; font-size: 28px; text-transform: lowercase; letter-spacing: -.02em; }
-  :global(.imbarco .carta[data-stile='notte'] .titolo::before) { content: '> '; color: var(--accento-a); }
-  :global(.imbarco .carta[data-stile='notte'] .corsivo) { font-family: var(--mono); font-style: normal; font-size: 12px; color: #8b9098; }
-  :global(.imbarco .carta[data-stile='notte'] .opzione) { border: 0; padding: 8px 6px; color: #d9dde3; }
-  :global(.imbarco .carta[data-stile='notte'] .opzione span) { color: var(--accento-a) !important; opacity: 1; }
-  :global(.imbarco .carta[data-stile='notte'] .opzione span::before) { content: '['; }
-  :global(.imbarco .carta[data-stile='notte'] .opzione span::after) { content: ']'; }
-  :global(.imbarco .carta[data-stile='notte'] .opzione:hover:not(:disabled)) { background: color-mix(in srgb, var(--accento-a) 15%, transparent); }
-  :global(.imbarco .carta[data-stile='notte'] .opzione.giusta) { background: var(--accento-a); color: #0a0b0d; }
-  :global(.imbarco .carta[data-stile='notte'] .tagliando) { background: transparent; color: #d9dde3; border-left: 1px dashed rgb(217 221 227 / .35); }
-  :global(.imbarco .carta[data-stile='notte'] .tagliando .nome) { font-family: var(--mono); font-weight: 700; font-size: 15px; line-height: 1.15; text-transform: lowercase; letter-spacing: -.02em; }
-  :global(.imbarco .carta[data-stile='notte'] .seriale), :global(.imbarco .carta[data-stile='notte'] .piede-retro) { color: var(--accento-a) !important; border-color: rgb(217 221 227 / .35); }
-  :global(.imbarco .carta[data-stile='notte'] .codice span) { background: #d9dde3; }
-  :global(.imbarco .carta[data-stile='notte'] .pannello) { background: #0a0b0d; color: #c4c8cf; border-left: 1px dashed rgb(217 221 227 / .3); }
-  :global(.imbarco .carta[data-stile='notte'] .retro .titolo) { color: #d9dde3 !important; }
-  :global(.imbarco .carta[data-stile='notte'] .definizione) { font-family: var(--mono); font-size: 12.5px; background: none; }
-  /* Koi Pond: tutto a pixel. Il font pixel del sito, angoli vivi, bordi a gradino come le finestre dei giochi a pixel */
-  :global(.imbarco .carta[data-stile='koi'] .faccia) { color: var(--testo-k); background: var(--ui-fondo); font-family: var(--mono); }
-  :global(.imbarco .carta[data-stile='koi'] .arte70), :global(.imbarco .carta[data-stile='koi'] .poster) { position: relative; overflow: hidden; }
-  :global(.imbarco .carta[data-stile='koi'] canvas) { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
-  :global(.imbarco .carta[data-stile='koi'] .banda) { background: var(--ui-bordo) !important; box-shadow: inset 1px 0 rgb(255 255 255 / .08), inset -1px 0 rgb(255 255 255 / .08); }
-  :global(.imbarco .carta[data-stile='koi'] .banda span), :global(.imbarco .carta[data-stile='koi'] .sotto) { color: var(--accento-k) !important; opacity: 1; }
-  :global(.imbarco .carta[data-stile='koi'] .carta-dom) { padding: 0; background: none; color: var(--testo-k); border: 0; box-shadow: none; }
-  :global(.imbarco .carta[data-stile='koi'] .titolo) { font-family: var(--mono); font-weight: 400; font-style: normal; font-size: 30px; text-transform: none; letter-spacing: 0; text-shadow: 3px 3px 0 var(--ui-ombra); }
-  :global(.imbarco .carta[data-stile='koi'] .corsivo) { color: color-mix(in srgb, var(--testo-k) 65%, transparent); }
-  :global(.imbarco .carta[data-stile='koi'] .opzione) { color: var(--testo-k); border: 0; border-radius: 0; background: var(--ui-pannello); box-shadow: 0 3px 0 var(--ui-ombra); margin-bottom: 4px; }
-  :global(.imbarco .carta[data-stile='koi'] .opzione span) { color: var(--accento-k) !important; opacity: 1; }
-  :global(.imbarco .carta[data-stile='koi'] .opzione:hover:not(:disabled)) { background: var(--ui-hover); }
-  :global(.imbarco .carta[data-stile='koi'] .opzione.giusta) { background: var(--accento-k); color: #101418; }
-  :global(.imbarco .carta[data-stile='koi'] .tagliando) { background: var(--ui-pannello); color: var(--testo-k); border-left: 3px dotted var(--ui-bordo); }
-  :global(.imbarco .carta[data-stile='koi'] .tagliando .nome) { font-family: var(--mono); font-weight: 400; font-style: normal; font-size: 16px; line-height: 1.2; text-transform: none; letter-spacing: 0; text-shadow: 2px 2px 0 var(--ui-ombra); }
-  :global(.imbarco .carta[data-stile='koi'] .seriale), :global(.imbarco .carta[data-stile='koi'] .piede-retro) { color: var(--accento-k) !important; border-color: rgb(255 255 255 / .22); }
-  :global(.imbarco .carta[data-stile='koi'] .codice span) { background: var(--testo-k); }
-  :global(.imbarco .carta[data-stile='koi'] .pannello) { background: var(--ui-fondo); color: var(--testo-k); }
-  :global(.imbarco .carta[data-stile='koi'] .retro .titolo) { color: var(--testo-k) !important; }
-  :global(.imbarco .carta[data-stile='koi'] .definizione) { font-family: var(--mono); font-size: 12.5px; background: none; }
-  :global(.imbarco .carta[data-stile='koi'] .corsivo) { font-family: var(--mono); font-style: normal; font-size: 12px; }
-  /* Meadow Print: prato in pixel art, versione giorno o notte, con interfaccia coordinata. */
-  :global(.imbarco .carta[data-stile='stampa'] .faccia) { color: var(--st-testo); background: var(--st-fondo); font-family: var(--mono); }
-  :global(.imbarco .carta[data-stile='stampa'] .arte70), :global(.imbarco .carta[data-stile='stampa'] .poster) { position: relative; overflow: hidden; background: #0b0d12; }
-  :global(.imbarco .carta[data-stile='stampa'] .arte70 canvas), :global(.imbarco .carta[data-stile='stampa'] .poster canvas) { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  :global(.imbarco .carta[data-stile='stampa'] .banda) { background: transparent !important; box-shadow: inset 1px 0 rgb(var(--st-bordo) / .6), inset -1px 0 rgb(var(--st-bordo) / .6); }
-  :global(.imbarco .carta[data-stile='stampa'] .banda span), :global(.imbarco .carta[data-stile='stampa'] .sotto) { color: var(--st-accento) !important; opacity: 1; }
-  :global(.imbarco .carta[data-stile='stampa'] .carta-dom) { padding: 0; background: none; color: var(--st-testo); border: 0; }
-  :global(.imbarco .carta[data-stile='stampa'] .titolo) { font-family: var(--mono); font-weight: 700; font-size: 28px; letter-spacing: -.01em; }
-  :global(.imbarco .carta[data-stile='stampa'] .corsivo) { font-family: var(--mono); font-style: normal; font-size: 12px; color: color-mix(in srgb, var(--st-testo) 60%, transparent); }
-  :global(.imbarco .carta[data-stile='stampa'] .opzione) { border: 0; border-top: 1px dashed rgb(var(--st-bordo)); color: var(--st-testo); }
-  :global(.imbarco .carta[data-stile='stampa'] .opzione span) { color: var(--st-accento) !important; opacity: 1; }
-  :global(.imbarco .carta[data-stile='stampa'] .opzione:hover:not(:disabled)) { background: color-mix(in srgb, var(--st-accento) 15%, transparent); }
-  :global(.imbarco .carta[data-stile='stampa'] .opzione.giusta) { background: var(--st-accento); color: var(--st-fondo); }
-  :global(.imbarco .carta[data-stile='stampa'] .tagliando) { background: transparent; color: var(--st-testo); border-left: 2px dashed rgb(var(--st-bordo)); }
-  :global(.imbarco .carta[data-stile='stampa'] .tagliando .nome) { font-family: var(--mono); font-weight: 700; font-size: 16px; line-height: 1.2; letter-spacing: -.01em; text-transform: none; }
-  :global(.imbarco .carta[data-stile='stampa'] .seriale), :global(.imbarco .carta[data-stile='stampa'] .piede-retro) { color: var(--st-accento) !important; border-color: rgb(var(--st-bordo)); }
-  :global(.imbarco .carta[data-stile='stampa'] .codice span) { background: var(--st-testo); }
-  :global(.imbarco .carta[data-stile='stampa'] .pannello) { background: var(--st-fondo); color: var(--st-testo); border-left: 2px dashed rgb(var(--st-bordo)); }
-  :global(.imbarco .carta[data-stile='stampa'] .retro .titolo) { color: var(--st-testo) !important; font-size: 0; line-height: 0; }
-  :global(.imbarco .carta[data-stile='stampa'] .titolo-ascii) { display: block; width: 100%; height: 84px; }
-  :global(.imbarco .carta[data-stile='stampa'] .definizione) { font-family: var(--mono); font-size: 12.5px; background: none; }
-  /* Passing minds: una figura sul fronte, folla sul retro. */
-  :global(.imbarco .carta[data-stile='passing'] .faccia) { color: #e9f6f1; background: #080b0d; font-family: var(--mono); }
-  :global(.imbarco .carta[data-stile='passing'] .arte70), :global(.imbarco .carta[data-stile='passing'] .poster) { position: relative; overflow: hidden; background: #010304; }
-  :global(.imbarco .carta[data-stile='passing'] canvas) { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
-  :global(.imbarco .carta[data-stile='passing'] .banda) { background: #080b0d !important; box-shadow: inset 1px 0 #344641, inset -1px 0 #344641; }
-  :global(.imbarco .carta[data-stile='passing'] .banda span), :global(.imbarco .carta[data-stile='passing'] .sotto) { color: #8df5db !important; }
-  :global(.imbarco .carta[data-stile='passing'] .opzione) { color: #e9f6f1; border: 1px solid #425153; background: transparent; }
-  :global(.imbarco .carta[data-stile='passing'] .opzione span) { color: #8df5db !important; opacity: 1; }
-  :global(.imbarco .carta[data-stile='passing'] .opzione:hover:not(:disabled)), :global(.imbarco .carta[data-stile='passing'] .opzione.giusta) { background: #22483f; color: #f4fff9; }
-  :global(.imbarco .carta[data-stile='passing'] .tagliando) { background: #080b0d; color: #e9f6f1; border-left: 1px dashed #425153; }
-  :global(.imbarco .carta[data-stile='passing'] .tagliando .nome), :global(.imbarco .carta[data-stile='passing'] .retro .titolo) { font-family: var(--serif); font-weight: 400; text-transform: none; color: #f4fff9 !important; }
-  :global(.imbarco .carta[data-stile='passing'] .pannello) { background: #080b0d; color: #e9f6f1; border-left: 1px dashed #425153; }
-  :global(.imbarco .carta[data-stile='passing'] .seriale), :global(.imbarco .carta[data-stile='passing'] .piede-retro) { color: #8df5db !important; border-color: #425153; }
-  :global(.imbarco .carta[data-stile='passing'] .codice span) { background: #e9f6f1; }
-  :global(.imbarco .carta[data-stile='passing'] .definizione) { background: none; font-family: var(--mono); font-size: 12.5px; }
-  /* Replay: carta editoriale, serif alto e metadati mono. Tre carte: crema, menta, senape */
-  :global(.imbarco .carta[data-stile='replay'] .faccia) { color: var(--rp-ink); background: var(--rp-carta); border-radius: 0; font-family: system-ui, sans-serif; }
-  :global(.imbarco .carta[data-stile='replay'] .arte70) { display: flex; flex-direction: column; justify-content: space-between; padding: 14px 12px; background: var(--rp-blocco); border-right: 1px solid var(--rp-linea); }
-  :global(.imbarco .carta[data-stile='replay'] .rp-seal) { position: relative; width: 33px; height: 33px; display: grid; place-items: center; border: 1px solid var(--rp-ink); border-radius: 50%; }
-  :global(.imbarco .carta[data-stile='replay'] .rp-seal::before) { content: ''; position: absolute; inset: 3px; border: 1px solid var(--rp-ink); border-radius: 50%; opacity: .45; }
-  :global(.imbarco .carta[data-stile='replay'] .rp-seal span) { font-family: var(--serif); font-size: 13px; line-height: 1; }
-  :global(.imbarco .carta[data-stile='replay'] .rp-ai) { display: block; font-family: var(--serif); font-weight: 400; font-size: 66px; line-height: .76; letter-spacing: -.035em; }
-  :global(.imbarco .carta[data-stile='replay'] .rp-terms) { display: block; margin-top: 8px; font-family: var(--mono); font-size: 7.5px; letter-spacing: .34em; text-transform: uppercase; }
-  :global(.imbarco .carta[data-stile='replay'] .rp-tab) { display: grid; gap: 3px; margin: 0; font-family: var(--mono); font-size: 7px; line-height: 1.3; letter-spacing: .1em; text-transform: uppercase; }
-  :global(.imbarco .carta[data-stile='replay'] .rp-tab div) { display: flex; justify-content: space-between; gap: 6px; padding-bottom: 2px; border-bottom: 1px solid var(--rp-linea); }
-  :global(.imbarco .carta[data-stile='replay'] .rp-tab dt) { margin: 0; opacity: .55; }
-  :global(.imbarco .carta[data-stile='replay'] .rp-tab dd) { margin: 0; font-weight: 700; }
-  :global(.imbarco .carta[data-stile='replay'] .banda) { background: transparent !important; box-shadow: inset 1px 0 var(--rp-linea), inset -1px 0 var(--rp-linea); }
-  :global(.imbarco .carta[data-stile='replay'] .banda span) { color: var(--rp-ink) !important; font-size: 8px; letter-spacing: .34em; }
-  :global(.imbarco .carta[data-stile='replay'] .corpo) { padding: 22px 24px; }
-  :global(.imbarco .carta[data-stile='replay'] .carta-dom) { padding: 0; background: none; border: 0; color: var(--rp-ink); }
-  :global(.imbarco .carta[data-stile='replay'] .domanda) { margin: 0 0 14px; font-family: var(--serif); font-weight: 400; font-size: 30px; line-height: .97; letter-spacing: -.015em; }
-  :global(.imbarco .carta[data-stile='replay'] .opzioni) { display: grid; gap: 0; margin-top: 2px; border-top: 1px solid var(--rp-linea); }
-  :global(.imbarco .carta[data-stile='replay'] .opzione) { min-height: 38px; padding: 9px 2px; border: 0; border-bottom: 1px solid var(--rp-linea); border-radius: 0; background: transparent; color: var(--rp-ink); font-size: 14px; line-height: 1.3; }
-  :global(.imbarco .carta[data-stile='replay'] .opzione span) { font-family: var(--mono); font-size: 8.5px; opacity: .5; }
-  :global(.imbarco .carta[data-stile='replay'] .opzione:hover:not(:disabled)), :global(.imbarco .carta[data-stile='replay'] .opzione.giusta) { background: var(--rp-ink); color: var(--rp-carta); }
-  :global(.imbarco .carta[data-stile='replay'] .opzione:hover:not(:disabled) span), :global(.imbarco .carta[data-stile='replay'] .opzione.giusta span) { color: var(--rp-carta) !important; opacity: .7; }
-  :global(.imbarco .carta[data-stile='replay'] .tagliando) { gap: 7px; padding: 20px 14px 16px; background: var(--rp-tinta); border-left: 1px solid var(--rp-linea); color: var(--rp-ink); }
-  :global(.imbarco .carta[data-stile='replay'] .tagliando .nome) { font-family: var(--serif); font-weight: 400; font-size: 28px; line-height: .9; letter-spacing: -.015em; text-transform: uppercase; }
-  :global(.imbarco .carta[data-stile='replay'] .tagliando .categoria) { margin-top: 2px; font-size: 7.5px; letter-spacing: .17em; opacity: .7; }
-  :global(.imbarco .carta[data-stile='replay'] .tagliando .metadati) { display: grid; gap: 0; margin-top: 6px; border-top: 1px solid var(--rp-linea); }
-  :global(.imbarco .carta[data-stile='replay'] .tagliando .livello), :global(.imbarco .carta[data-stile='replay'] .tagliando .citazione) { display: flex; justify-content: space-between; gap: 8px; margin: 0; padding: 4px 0; border-bottom: 1px solid var(--rp-linea); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; opacity: 1; }
-  :global(.imbarco .carta[data-stile='replay'] .tagliando .livello::before) { content: 'LEVEL'; opacity: .55; }
-  :global(.imbarco .carta[data-stile='replay'] .tagliando .citazione) { font-weight: 700; }
-  :global(.imbarco .carta[data-stile='replay'] .tagliando .citazione::before) { content: 'CITATION'; opacity: .55; font-weight: 400; }
-  :global(.imbarco .carta[data-stile='replay'] .seriale) { color: var(--rp-ink) !important; font-size: 8px; letter-spacing: .12em; }
-  :global(.imbarco .carta[data-stile='replay'] .codice span) { background: var(--rp-ink); }
-  :global(.imbarco .carta[data-stile='replay'] .grana) { opacity: .3; }
-  :global(.imbarco .carta[data-stile='replay'] .poster) { background: var(--rp-blocco); }
-  :global(.imbarco .carta[data-stile='replay'] .rp-copertina) { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 20px 22px; }
-  :global(.imbarco .carta[data-stile='replay'] .rp-parola) { max-width: 100%; font-family: var(--serif); font-weight: 400; font-size: var(--rp-size); line-height: .82; letter-spacing: -.02em; text-transform: uppercase; overflow-wrap: anywhere; }
-  :global(.imbarco .carta[data-stile='replay'] .rp-copertina .rp-tab) { max-width: 230px; }
-  :global(.imbarco .carta[data-stile='replay'] .pannello) { padding: 20px 24px 14px; background: var(--rp-pannello); color: var(--rp-ink); }
-  /* Il termine è già grande sulla copertina: il titolo del pannello resta solo per gli screen reader */
-  :global(.imbarco .carta[data-stile='replay'] .retro .titolo) { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
-  :global(.imbarco .carta[data-stile='replay'] .pannello .sotto) { font-family: var(--mono); font-size: 8px; letter-spacing: .16em; text-transform: uppercase; opacity: .6; }
-  :global(.imbarco .carta[data-stile='replay'] .corsivo) { margin: 2px 0 8px; font-family: var(--serif); font-style: italic; font-size: 19px; line-height: 1.05; }
-  :global(.imbarco .carta[data-stile='replay'] .definizione) { padding-right: 0; background: none; font-family: var(--serif); font-size: 16.5px; line-height: 1.3; }
-  :global(.imbarco .carta[data-stile='replay'] .definizione p) { margin-bottom: 12px; }
-  :global(.imbarco .carta[data-stile='replay'] .definizione ul) { padding-left: 14px; }
-  :global(.imbarco .carta[data-stile='replay'] .piede-retro) { padding-top: 5px; border-top: 1px solid var(--rp-linea); color: var(--rp-ink) !important; font-size: 8px; }
-  :global(.imbarco .carta[data-stile='replay'] .piede-retro .seriale) { font-size: 8px; }
-  /* Sfera: carta burro e un grappolo di sfere translucide, come un render. Davanti il grappolo, dietro due */
+  /* Koi, Passing minds: a pixel */
+  :global(.imbarco .carta[data-stile='koi'] .arte70 > canvas), :global(.imbarco .carta[data-stile='koi'] .poster > canvas), :global(.imbarco .carta[data-stile='passing'] .arte70 > canvas), :global(.imbarco .carta[data-stile='passing'] .poster > canvas) { image-rendering: pixelated; }
+  /* Sfera: il grappolo di sfere translucide */
   @keyframes sfbreathe {
     0% { transform: translate(-.9%, .5%) scale(1) rotate(-.7deg); }
     100% { transform: translate(1.5%, -1.4%) scale(1.045) rotate(.8deg); }
   }
-  :global(.imbarco .carta[data-stile='sfera'] .faccia) { color: var(--sf-ink); background: var(--sf-fondo); }
-  :global(.imbarco .carta[data-stile='sfera'] .arte70), :global(.imbarco .carta[data-stile='sfera'] .poster) { position: relative; overflow: hidden; background: var(--sf-fondo); }
-  :global(.imbarco .carta[data-stile='sfera'] .sf) { position: absolute; inset: 0; }
+  :global(.imbarco .carta[data-stile='sfera'] .sf) { position: absolute; inset: 0; color: var(--sf-ink); }
   :global(.imbarco .carta[data-stile='sfera'] .sf-livello) { position: absolute; inset: 0; animation: sfbreathe 11s ease-in-out infinite alternate; }
   :global(.imbarco .carta[data-stile='sfera'] .sf-livello svg) { display: block; width: 100%; height: 100%; }
-  /* Ogni sfera va per conto suo; i tre strati seguono l'inclinazione a velocità diverse, come il grappolo del video */
-  /* Il respiro di ogni sfera: deriva, si allunga e si schiaccia appena, come una sfera morbida */
   @keyframes sfderiva {
     0%, 100% { transform: translate(0, 0) scale(1, 1); }
     27% { transform: translate(calc(var(--ax, 0px) * -.72), calc(var(--ay, 0px) * .58)) scale(calc(1 + var(--sc, .04)), calc(1 - var(--sc, .04) * .55)); }
@@ -502,23 +346,18 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .carta[data-stile='sfera'] .sf-testa), :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { position: absolute; left: 9px; right: 9px; display: flex; justify-content: space-between; gap: 8px; font-family: var(--mono); font-size: 6.5px; line-height: 1.2; letter-spacing: .16em; text-transform: uppercase; opacity: .82; }
   :global(.imbarco .carta[data-stile='sfera'] .sf-testa) { top: 9px; }
   :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { bottom: 9px; }
-  :global(.imbarco .carta[data-stile='sfera'] .banda) { background: var(--sf-tinta) !important; box-shadow: inset 1px 0 var(--sf-linea), inset -1px 0 var(--sf-linea); }
-  :global(.imbarco .carta[data-stile='sfera'] .banda span), :global(.imbarco .carta[data-stile='sfera'] .sotto) { color: var(--sf-ink) !important; opacity: .8; }
-  :global(.imbarco .carta[data-stile='sfera'] .carta-dom) { padding: 0; background: none; color: var(--sf-ink); border: 0; }
-  :global(.imbarco .carta[data-stile='sfera'] .opzione) { border: 1.5px solid var(--sf-linea); border-radius: 0; color: var(--sf-ink); background: color-mix(in srgb, var(--sf-pannello) 75%, transparent); }
-  :global(.imbarco .carta[data-stile='sfera'] .opzione span) { color: #5c4cd4 !important; opacity: 1; font-weight: 700; }
-  :global(.imbarco .carta[data-stile='sfera'] .opzione:hover:not(:disabled)) { background: var(--sf-ink); color: var(--sf-fondo); }
-  :global(.imbarco .carta[data-stile='sfera'] .opzione:hover:not(:disabled) span) { color: #b9adff !important; }
-  :global(.imbarco .carta[data-stile='sfera'] .opzione.giusta) { background: var(--sf-ink); color: var(--sf-fondo); }
-  :global(.imbarco .carta[data-stile='sfera'] .tagliando) { background: var(--sf-pannello); border-left: 2px dashed var(--sf-linea); color: var(--sf-ink); }
-  :global(.imbarco .carta[data-stile='sfera'] .tagliando .nome) { font-family: var(--mono); font-weight: 700; font-size: 15px; line-height: 1.15; letter-spacing: -.02em; text-transform: uppercase; }
-  :global(.imbarco .carta[data-stile='sfera'] .seriale) { color: #5c4cd4 !important; }
-  :global(.imbarco .carta[data-stile='sfera'] .codice span) { background: var(--sf-ink); }
-  :global(.imbarco .carta[data-stile='sfera'] .pannello) { background: var(--sf-pannello); color: var(--sf-ink); }
-  :global(.imbarco .carta[data-stile='sfera'] .retro .titolo) { color: #4b3fc0 !important; }
-  :global(.imbarco .carta[data-stile='sfera'] .definizione) { background: none; font-size: 13px; line-height: 21px; }
-  :global(.imbarco .carta[data-stile='sfera'] .piede-retro) { color: #4b3fc0 !important; border-color: var(--sf-linea); }
-  :global(.imbarco .carta[data-stile='sfera'] .grana) { opacity: .45; }
+  /* Holo: dietro il poster è tutto lamina; se la lamina non c'è (niente WebGL) resta il termine su un arcobaleno */
+  :global(.imbarco .olo-poster) { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; background: conic-gradient(from 30deg, #c0b8b4, #ffa08c, #ffe23a, #6af84c, #10dbb8, #1a7aff, #7329ff, #170833, #eb0f1f, #c0b8b4); }
+  :global(.imbarco .olo-poster span) { font-family: var(--display); font-size: 44px; line-height: 1; text-transform: uppercase; color: #1b2340; text-align: center; overflow-wrap: anywhere; }
+  :global(.imbarco .lamina-poster .olo-poster span) { visibility: hidden; }
+  /* L'anteprima dei biglietti (?anteprima): una galleria al posto del gioco */
+  :global(body.anteprima .fondo3d), :global(body.anteprima main.aeroporto) { display: none; }
+  :global(.galleria-biglietti) { max-width: 1000px; margin: 0 auto; padding: 24px 20px 80px; display: grid; gap: 30px; }
+  :global(.galleria-testa h1) { margin: 0 0 6px; font-size: 22px; font-weight: 400; }
+  :global(.galleria-testa p) { margin: 0 0 12px; max-width: 760px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+  :global(.galleria-testa button) { margin-right: 8px; padding: 6px 14px; border: 1px solid var(--muted); border-radius: 4px; background: var(--bg); color: var(--fg); cursor: pointer; }
+  :global(.galleria-nota) { margin: 0 0 8px; font-size: 11px; letter-spacing: .08em; color: var(--muted); }
+  :global(.galleria-biglietti .imbarco) { position: relative; left: auto; bottom: auto; z-index: auto; width: 100%; transform: none; }
   :global(.imbarco .azioni) { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
   :global(.imbarco .azioni button) { padding: 6px 14px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--muted); cursor: pointer; }
   :global(.imbarco .azioni .prossimo), :global(.imbarco .azioni .gira) { color: var(--fg); border-color: var(--muted); }
@@ -526,7 +365,7 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .azioni button[hidden]) { display: none; }
   @media (prefers-reduced-motion: reduce) {
     :global(.imbarco .carta) { transition: none; }
-    :global(.imbarco .carta[data-stile='sfera'] .sf-livello), :global(.imbarco .carta[data-stile='sfera'] .sf-sfera), :global(.imbarco .carta[data-stile='veduta'] .vd-l svg) { animation: none; }
+    :global(.imbarco .carta[data-stile='sfera'] .sf-livello), :global(.imbarco .carta[data-stile='sfera'] .sf-sfera), :global(.imbarco .carta[data-stile='lime'] .fiore) { animation: none; }
   }
   @media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
     .fondo3d { top: 300px; }
@@ -554,7 +393,7 @@ import Base from '../../layouts/Base.astro';
     :global(.imbarco .carta-dom) { padding: 0; }
     :global(.imbarco .domanda) { font-size: 17px; }
     :global(.imbarco .opzione) { min-height: 48px; font-size: 16px; }
-    :global(.imbarco .tagliando) { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 8px 12px 10px; border-left: 0; border-top: 2px dashed rgb(23 22 27 / .4); }
+    :global(.imbarco .tagliando) { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 8px 12px 10px; border-left: 0; border-top: 2px dashed color-mix(in srgb, var(--inchiostro) 40%, transparent); }
     :global(.imbarco .tagliando .nome) { font-size: 15px; }
     :global(.imbarco .tagliando .categoria) { font-size: 8px; }
     :global(.imbarco .tagliando .coda) { display: flex; align-items: center; gap: 8px; margin: 0 0 0 auto; }
@@ -564,21 +403,10 @@ import Base from '../../layouts/Base.astro';
     :global(.imbarco .scorre) { flex: none; }
     :global(.imbarco .pannello) { padding: 12px 14px; }
     :global(.imbarco .retro .titolo) { font-size: 30px; }
-    /* Replay su telefono: la copertina diventa una riga, il termine sul retro resta leggibile */
-    :global(.imbarco .carta[data-stile='replay'] .arte70) { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border-right: 0; }
-    :global(.imbarco .carta[data-stile='replay'] .rp-seal) { width: 26px; height: 26px; flex: none; }
-    :global(.imbarco .carta[data-stile='replay'] .rp-marchio) { display: flex; align-items: baseline; gap: 6px; }
-    :global(.imbarco .carta[data-stile='replay'] .rp-ai) { font-size: 34px; }
-    :global(.imbarco .carta[data-stile='replay'] .rp-terms) { margin-top: 0; font-size: 6px; }
-    :global(.imbarco .carta[data-stile='replay'] .rp-tab) { width: 118px; flex: none; font-size: 5.5px; }
-    :global(.imbarco .carta[data-stile='replay'] .rp-copertina) { padding: 12px 14px; }
-    :global(.imbarco .carta[data-stile='replay'] .rp-parola) { font-size: clamp(22px, var(--rp-size), 32px); }
-    :global(.imbarco .carta[data-stile='replay'] .rp-copertina .rp-tab) { max-width: none; }
     /* Sfera: nei 76px di striscia i metadati restano piccoli */
     :global(.imbarco .carta[data-stile='sfera'] .sf-testa), :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { left: 8px; right: 8px; font-size: 5.5px; letter-spacing: .12em; }
     :global(.imbarco .carta[data-stile='sfera'] .sf-testa) { top: 6px; }
     :global(.imbarco .carta[data-stile='sfera'] .sf-piede) { bottom: 6px; }
-    :global(.imbarco .carta[data-stile='stampa'] .titolo-ascii) { height: 58px; }
     :global(.imbarco .definizione) { max-height: 30vh; }
     :global(.imbarco .azioni) { flex-wrap: wrap; }
     :global(.imbarco .azioni button) { flex: 1; min-height: 44px; }

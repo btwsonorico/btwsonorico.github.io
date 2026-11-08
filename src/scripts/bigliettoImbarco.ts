@@ -1,7 +1,9 @@
 import { dividi } from '../lib/glossario';
 import type { Partita, Volo } from '../lib/voli';
 import { timbro, tipo, type Livello } from './arteBiglietti';
-import { STILI, casoDa, disegnaAscii } from './stiliBiglietto';
+import { OLO, STILI, casoDa, disegnaAscii, pianoLamina } from './stiliBiglietto';
+import { laminaPer } from './laminaBiglietto';
+import { serie } from '../lib/voli';
 
 // La carta d'imbarco di AI terms. Ogni biglietto pesca uno stile a caso (src/scripts/stiliBiglietto.ts) e una variante;
 // la struttura è sempre la stessa. Lo stile di partenza è "70s Rapid": ogni sezione ha la sua carta piena e i
@@ -68,6 +70,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   const segnaAltro = () => scorre.classList.toggle('altro', definizione.scrollTop + definizione.clientHeight < definizione.scrollHeight - 4);
   definizione.addEventListener('scroll', segnaAltro, { passive: true });
   retro.append(quadro, pannello, ...strati());
+  const laminaF = laminaPer(fronte), laminaR = laminaPer(retro);
   carta.append(fronte, retro);
   biglietto.append(carta);
   const azioni = el('div', 'azioni'), gira = el('button', 'mono gira'), prossimo = el('button', 'mono prossimo'), chiudi = el('button', 'mono chiudi', 'close ×');
@@ -121,6 +124,8 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     foglie.forEach(g => g.setAttribute('gradientTransform', `translate(${sp.toFixed(3)} 0) rotate(${ang.toFixed(1)} .5 .5)`));
     // Le tele vive: circa 30 fotogrammi al secondo (le scene di caratteri si limitano da sole); con il movimento ridotto un fotogramma solo
     if (tele.length && t - ultimoAscii > 33) { ultimoAscii = t; tele.forEach(c => { if ((fermo && c.dataset.fatto) || !c.clientWidth || !c.clientHeight) return; disegnaAscii(c, t, ora.x, ora.y); c.dataset.fatto = '1'; }); }
+    // La lamina segue l'inclinazione a ogni fotogramma, solo sulla faccia che si vede
+    (carta.classList.contains('girata') ? laminaR : laminaF).disegna(ora.x, ora.y, fermo);
     anima = requestAnimationFrame(passo);
   };
   const avvia = () => { if (!anima) anima = requestAnimationFrame(passo); };
@@ -152,8 +157,15 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     salvaGiro();
     return ids.indexOf(id);
   };
+  let ultimaOlo = -1;
   const stileDi = (v: Volo) => {
     let x = sorteggio.get(v.seriale);
+    const sr = serie().ora;
+    if (!x && sr > 0 && sr % 5 === 0 && sr !== ultimaOlo) {
+      ultimaOlo = sr;
+      x = { stile: -1, seme: 1 + Math.floor(Math.random() * 2147483646) };
+      sorteggio.set(v.seriale, x);
+    }
     if (!x) {
       // Solo gli stili ammessi per questa sezione e questo livello
       const ammessi = STILI.map((_, k) => k).filter(k => STILI[k]!.ammesso?.(v.sezione, livelloDi(v)) ?? true);
@@ -163,9 +175,9 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     return x;
   };
   const disegnaStile = (v: Volo, sera: boolean) => {
-    const x = stileDi(v), st = STILI[x.stile]!, c = { sezione: v.sezione, livello: livelloDi(v), numero: String(v.indice + 1).padStart(2, '0'), termine: v.voce.termine, sera, r: casoDa(x.seme) };
-    const variabili = st.variabili(c), davanti = st.davanti(c), dietro = st.dietro(c);
-    return { st, variabili, davanti, dietro };
+    const x = stileDi(v), st = x.stile < 0 ? OLO : STILI[x.stile]!, c = { sezione: v.sezione, livello: livelloDi(v), numero: String(v.indice + 1).padStart(2, '0'), termine: v.voce.termine, sera, r: casoDa(x.seme) };
+    const variabili = st.variabili(c), davanti = st.davanti(c), dietro = st.dietro(c), lamina = pianoLamina(st, c);
+    return { st, variabili, davanti, dietro, lamina, numero: c.numero };
   };
   const p = o.partita, d = o.data, quando = `${String(d.getDate()).padStart(2, '0')} ${MESI[d.getMonth()]} ${d.getFullYear()}`;
   let corrente = -1, attesa = 0, opzioni: HTMLButtonElement[] = [];
@@ -184,12 +196,9 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     const t = p.tentativi[v.indice]!;
     const stileR = disegnaStile(v, t > 1);
     svg(quadro, stileR.dietro);
+    laminaR.metti({ pezzi: stileR.lamina.dietro, tinta: stileR.lamina.tinta, testo: v.voce.termine, numero: stileR.numero });
     esito.textContent = `${String(v.indice + 1).padStart(2, '0')} · ${t <= 1 ? 'cleared at the first try' : `cleared after ${t} tries`}`;
-    // Alcuni stili scrivono il termine in caratteri su una tela; il nome resta per chi legge con lo screen reader
-    if (stileR.st.titoloAscii) {
-      const tela = el('canvas', 'titolo-ascii'); tela.dataset.ascii = 'banner'; tela.dataset.testo = v.voce.termine.replace(/\s*\([^)]*\)/g, '').trim() || v.voce.termine; tela.setAttribute('aria-hidden', 'true');
-      termineR.replaceChildren(tela); termineR.setAttribute('aria-label', v.voce.termine);
-    } else { termineR.textContent = v.voce.termine; termineR.removeAttribute('aria-label'); }
+    termineR.textContent = v.voce.termine; termineR.removeAttribute('aria-label');
     foglie = [...scheda.querySelectorAll('.foglia-svg')];
     tele = [...scheda.querySelectorAll<HTMLCanvasElement>('canvas[data-ascii]')];
     sezioneR.textContent = `${v.nome}, ${v.voce.sotto.toLowerCase()}`;
@@ -270,6 +279,8 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       requestAnimationFrame(() => requestAnimationFrame(() => carta.classList.remove('subito')));
       svg(arte, ds.davanti);
       banda.className = 'banda';
+      laminaF.metti({ pezzi: ds.lamina.davanti, tinta: ds.lamina.tinta, numero: n });
+      carta.dataset.lamina = `${ds.lamina.davanti.join(' + ') || 'no foil'} · ${ds.lamina.tinta}`;
       motto.textContent = `${tp.motto} · ${n}`;
       nomeF.textContent = v.voce.termine;
       categoriaF.textContent = v.voce.sotto;
@@ -294,7 +305,7 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       p.timbri[i]!.forEach(t => metti(t, false));
       if (p.fatto[i]) retroDi(v); else {
         // Il retro della domanda precedente non deve determinare l'altezza della nuova carta.
-        quadro.replaceChildren(); definizione.replaceChildren(); termineR.replaceChildren();
+        quadro.replaceChildren(); definizione.replaceChildren(); termineR.replaceChildren(); laminaR.metti(null);
         sezioneR.textContent = esito.textContent = statoR.textContent = serialeR.textContent = '';
         termineR.removeAttribute('aria-label');
       }
