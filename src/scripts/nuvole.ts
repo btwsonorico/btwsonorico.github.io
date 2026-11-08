@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { DT as DT_AI, nuovoMondo, OGNI, PECORE as PECORE_AI, scegli } from '../lib/gregge';
-import TAPPE from '../data/gregge-tappe.json';
 import { casuale, mat, pezzo, sasso, linea, tono, terreno, puntiMorbidi, palco, curveLivello, benDistribuiti, SITO, type Palco } from './natura';
 
 // Una valle di colline vista da un drone, nello stile del sito: le colline sono curve di livello con un velo verde
@@ -474,7 +473,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   let pesiAI: Float32Array | null = null, attesaAI = 0, aiGioca = true;
   const mondoAI = nuovoMondo(1), bottoneAI = document.createElement('button');
   bottoneAI.type = 'button';
-  bottoneAI.textContent = 'take the dog back';
+  bottoneAI.textContent = 'try herding';
   bottoneAI.style.cssText = 'position:absolute;right:16px;bottom:72px;z-index:2;padding:4px 8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:12px var(--mono);cursor:pointer;pointer-events:auto';
   const caricaAI = async () => { pesiAI ??= new Float32Array(await (await fetch('/learn/gregge/rfine.bin')).arrayBuffer()); };
   // Il cane parte sempre con l'AI; sul computer si può riprendere. Su telefono guida sempre lei
@@ -485,7 +484,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
     await caricaAI();
     aiGioca = !aiGioca;
     cane.seduto = false;
-    bottoneAI.textContent = aiGioca ? 'take the dog back' : 'let the RL dog herd';
+    bottoneAI.textContent = aiGioca ? 'try herding' : 'let the AI herd';
   });
   const guidaAI = (dt: number) => {
     attesaAI -= dt;
@@ -535,7 +534,7 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   // Due righe: i record (a mano in questo browser; l'AI: la policy finale, migliore di 300 partite simulate dal centro) e il contatore
   // Due righe: i record (a mano in questo browser; l'AI: la policy finale, sempre lo stesso tempo) e il contatore
   const scriviConta = (dentro: number) => {
-    conta.textContent = `Best human ${gioco.record ? orologio(gioco.record) : '–'} · AI ${orologio(TAPPE.migliorAI)}
+    conta.textContent = `Best ${gioco.record ? orologio(gioco.record) : '–'}
 Sheep: ${dentro}/${PECORE}   ${orologio(gioco.tempo)}`;
   };
   conta.style.cssText = 'position:absolute;right:16px;bottom:8px;font:13px var(--mono);color:var(--fg);pointer-events:none;opacity:0;transition:opacity .6s;white-space:pre';
@@ -545,7 +544,7 @@ Sheep: ${dentro}/${PECORE}   ${orologio(gioco.tempo)}`;
   const bottoneSegui = document.createElement('button');
   bottoneSegui.type = 'button';
   bottoneSegui.textContent = 'follow the dog';
-  bottoneSegui.style.cssText = `position:absolute;left:16px;bottom:${p.telefono ? 10 : 72}px;z-index:2;padding:${p.telefono ? '9px 14px' : '4px 8px'};border:1px solid var(--line);background:var(--bg);color:var(--fg);font:${p.telefono ? 14 : 12}px var(--mono);cursor:pointer;pointer-events:auto`;
+  bottoneSegui.style.cssText = `position:absolute;right:16px;bottom:${p.telefono ? 52 : 112}px;z-index:2;padding:${p.telefono ? '9px 14px' : '4px 8px'};border:1px solid var(--line);background:var(--bg);color:var(--fg);font:${p.telefono ? 14 : 12}px var(--mono);cursor:pointer;pointer-events:auto`;
   bottoneSegui.addEventListener('pointerdown', e => e.stopPropagation());
   bottoneSegui.addEventListener('click', () => {
     segui = !segui;
