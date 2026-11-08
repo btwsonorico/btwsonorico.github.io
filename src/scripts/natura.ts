@@ -296,9 +296,13 @@ export function palco(el: HTMLElement, o: OpzioniPalco) {
   const telefono = window.innerWidth < 700;
   // Su telefono la scena costa meno: densità 1, niente antialias, circa 30 fotogrammi al secondo
   const renderer = new THREE.WebGLRenderer({ antialias: !telefono, alpha: true, powerPreference: telefono ? 'low-power' : 'default' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, telefono ? 1 : 2));
+  // Prova dello stile a pixel: ?pixel=2, 3 o 4 disegna la scena a mezza, un terzo o un quarto della risoluzione e la
+  // ingrandisce senza sfumare, come la pixel art
+  const pixel = Math.max(1, Math.min(6, Number(new URLSearchParams(location.search).get('pixel')) || 1));
+  renderer.setPixelRatio(pixel > 1 ? 1 / pixel : Math.min(window.devicePixelRatio, telefono ? 1 : 2));
   el.appendChild(renderer.domElement);
   renderer.domElement.style.display = 'block';
+  if (pixel > 1) renderer.domElement.style.imageRendering = 'pixelated';
   const scena = new THREE.Scene(), gruppo = new THREE.Group();
   scena.add(gruppo);
   const camera = new THREE.PerspectiveCamera(o.fov ?? 40, 1, 0.1, 80);
