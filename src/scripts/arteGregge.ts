@@ -197,20 +197,8 @@ function disegnaPrato(g: CanvasRenderingContext2D, d: number, k: Corsa, s: Stato
   }
   chiudi();
 
-  // Le scritte della pagina: chi gioca, e quante pecore sono dentro con il tempo
-  const finita = t >= k.durata && dentro === PECORE;
-  const fascia = g.createLinearGradient(0, scritte.y - 16, 0, scritte.y + 10);
-  fascia.addColorStop(0, FONDO); fascia.addColorStop(0.6, FONDO + 'd0'); fascia.addColorStop(1, FONDO + '00');
-  g.fillStyle = fascia;
-  g.fillRect(scritte.x - 8, scritte.y - 16, scritte.w + 16, 26);
-  g.font = `9px ${MONO}`;
-  g.textBaseline = 'alphabetic';
-  g.fillStyle = FG;
-  g.textAlign = 'left';
-  g.fillText(nome, scritte.x, scritte.y);
-  g.textAlign = 'right';
-  g.fillStyle = finita ? BLU : FG;
-  g.fillText(`${dentro}/${PECORE} · ${orologio(Math.min(t, k.durata))}${finita ? ' · done' : ''}`, scritte.x + scritte.w, scritte.y);
+  // Sul biglietto niente scritte né numeri: solo il prato
+  void nome; void scritte; void dentro; void orologio; void BLU; void FG; void MONO; void k.durata;
 }
 
 // --- Il video del retro: uno solo per tutte le tele, creato alla prima richiesta, muto e in loop
