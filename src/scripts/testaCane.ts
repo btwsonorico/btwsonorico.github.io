@@ -1,20 +1,17 @@
-// La testa del cane, in pixel art: un cucciolo visto di fronte (orecchie giù, muso chiaro, naso e occhi scuri, lingua).
-// Si usa sui prati del gregge: nella pagina /learn/reinforcement/ (greggeVista.ts) e nell'arte del biglietto (arteGregge.ts).
-// La bitmap è 11×10 più un bordo di un pixel del colore del fondo; si ingrandisce senza sfumare, a multipli interi di pixel del dispositivo.
-// O pelo, o orecchie (pelo più scuro), c muso, k occhi e naso, r lingua
+// La testa del cane, in pixel art a 8 bit: la sagoma di un cucciolo visto di fronte, tutta arancione, con le orecchie giù.
+// Occhi e naso sono buchi del colore del fondo. Si usa nella pagina /learn/reinforcement/ (greggeVista.ts) e nell'arte del
+// biglietto (arteGregge.ts). La bitmap ha un bordo di un pixel del colore del fondo; si ingrandisce senza sfumare.
+// O sagoma, k buco (occhi e naso)
 const DISEGNO = [
-  '.oo.....oo.',
-  'oooOOOOOooo',
-  'ooOOOOOOOoo',
-  'ooOkOOOkOoo',
-  'ooOOOOOOOoo',
-  '.oOOcccOOo.',
-  '..OcckccO..',
-  '..OcccccO..',
-  '...OcrcO...',
-  '....OOO....',
+  'OO.....OO',
+  'OOOOOOOOO',
+  'OOOOOOOOO',
+  'OOkOOOkOO',
+  '.OOOOOOO.',
+  '..OOkOO..',
+  '...OOO...',
 ];
-const LARGO = 13, ALTO = 12;
+const LARGO = 11, ALTO = 9;
 const sprite = new Map<string, HTMLCanvasElement>();
 
 function bitmap(colore: string, fondo: string) {
@@ -27,14 +24,10 @@ function bitmap(colore: string, fondo: string) {
   const pieno = (x: number, y: number) => (DISEGNO[y]?.[x] ?? '.') !== '.';
   // Il bordo: ogni cella vuota accanto a una piena; così la testa si stacca dalle pecore chiare
   g.fillStyle = fondo;
-  for (let y = -1; y <= DISEGNO.length; y++) for (let x = -1; x <= 11; x++) {
+  for (let y = -1; y <= DISEGNO.length; y++) for (let x = -1; x <= 9; x++) {
     if (!pieno(x, y) && (pieno(x - 1, y) || pieno(x + 1, y) || pieno(x, y - 1) || pieno(x, y + 1))) g.fillRect(x + 1, y + 1, 1, 1);
   }
-  const tinte: Record<string, string> = { O: colore, o: colore, c: '#ffe6cc', k: '#16191e', r: '#ff6f7d' };
-  DISEGNO.forEach((riga, y) => [...riga].forEach((ch, x) => { if (ch !== '.') { g.fillStyle = tinte[ch]!; g.fillRect(x + 1, y + 1, 1, 1); } }));
-  // Le orecchie: lo stesso arancio con un velo scuro
-  g.globalAlpha = 0.3; g.fillStyle = '#000';
-  DISEGNO.forEach((riga, y) => [...riga].forEach((ch, x) => { if (ch === 'o') g.fillRect(x + 1, y + 1, 1, 1); }));
+  DISEGNO.forEach((riga, y) => [...riga].forEach((ch, x) => { if (ch !== '.') { g.fillStyle = ch === 'k' ? fondo : colore; g.fillRect(x + 1, y + 1, 1, 1); } }));
   sprite.set(chiave, s);
   return s;
 }
