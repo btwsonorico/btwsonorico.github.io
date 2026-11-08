@@ -275,7 +275,10 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     p.tentativi[i]!++;
     // Il timbro cade in un punto a caso del lato con la domanda. Può cadere a cavallo del bordo: si stampa solo la parte
     // sulla carta, perché la faccia ritaglia tutto quello che esce
-    const t = { x: -4 + Math.random() * 76, y: -16 + Math.random() * 66, a: Math.round(Math.random() * 56 - 28), ok: giusto };
+    // Il timbro cade solo sulla parte con la domanda: l'arte e il tagliando con vite, combo e punti restano liberi
+    const W = fronte.offsetWidth || 1, H = fronte.offsetHeight || 1, lato = timbri.querySelector('.timbro')?.clientWidth || (W < 640 ? 128 : 176);
+    const x0 = corpo.offsetLeft - lato * 0.15, x1 = corpo.offsetLeft + corpo.offsetWidth - lato * 0.85, y0 = corpo.offsetTop - lato * 0.2, y1 = corpo.offsetTop + corpo.offsetHeight - lato * 0.8;
+    const t = { x: ((x0 + Math.random() * Math.max(0, x1 - x0)) / W) * 100, y: ((y0 + Math.random() * Math.max(0, y1 - y0)) / H) * 100, a: Math.round(Math.random() * 56 - 28), ok: giusto };
     p.timbri[i]!.push(t);
     if (giusto) {
       p.fatto[i] = true;

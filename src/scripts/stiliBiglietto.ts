@@ -88,7 +88,8 @@ const ACQUE = [
 ] as const;
 const koi: Stile = {
   id: 'koi', ascii: true,
-  davanti: c => `<canvas data-ascii="koi-uno" data-seme="${semeTela(c)}"></canvas>`,
+  // Davanti le stesse koi dello stagno: finché il biglietto non si gira, nello stagno c'è una koi sola
+  davanti: c => `<canvas data-ascii="koi-stagno" data-side="front" data-seme="${semeTela(c)}"></canvas>`,
   dietro: c => `<canvas data-ascii="koi-stagno" data-seme="${semeTela(c)}"></canvas>`,
   variabili: c => {
     const q = una(c, 'acqua', () => scegli(ACQUE, c.r));
@@ -248,7 +249,7 @@ export function disegnaAscii(c: HTMLCanvasElement, ora: number, tx: number, ty: 
   // Spiaggia e koi costano di più: la faccia che non si vede (il retro prima del giro, il davanti dopo) si ferma,
   // ma solo dopo il primo disegno, così anche con il movimento ridotto ogni faccia ha la sua immagine
   if (tipoT.startsWith('riva') || tipoT.startsWith('koi')) {
-    const retro = tipoT === 'riva-tramonto' || tipoT === 'koi-stagno', girata = !!c.closest('.girata');
+    const retro = tipoT === 'riva-tramonto' || (tipoT === 'koi-stagno' && c.dataset.side !== 'front'), girata = !!c.closest('.girata');
     if (c.dataset.fatto && (retro ? !girata && !!c.closest('.carta') : girata)) return;
   }
   if (tipoT === 'riva' || tipoT === 'riva-tramonto') return rivaTela(c, dt, dpr, tx, tipoT === 'riva-tramonto');
@@ -766,7 +767,7 @@ function stagnoPixel(c: HTMLCanvasElement, dt: number, dpr: number, tx: number, 
   s.tempo += dt;
   const t = s.tempo, r = s.r;
   // Il tempo dello stagno corre solo con il retro in vista: prima del giro c'è solo lei
-  if (c.closest('.girata')) {
+  if (c.closest('.girata') && c.dataset.side !== 'front') {
     if (s.fase === 'cresce') {
       s.visto += dt;
       if (s.pesci.length < Math.min(s.N, 1 + Math.floor(s.visto / 4))) {
