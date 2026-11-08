@@ -13,6 +13,8 @@ const build = new Date().toISOString().slice(0, 10);
 const pezzi = Astro.url.pathname.split('/').filter(Boolean).map(decodeURIComponent);
 // I tag di Knowledge stanno sotto /knowledge/t/, che non è una pagina: quel pezzo resta testo
 const SENZA_PAGINA = new Set(['/knowledge/t/']);
+// In Learn e nei suoi giochi l'intestazione non porta alle altre sezioni: si torna con il percorso (~/riccardomondi/learn)
+const conMenu = !Astro.url.pathname.startsWith('/learn');
 ---
 <!doctype html>
 <html lang={lang} data-theme="dark" data-cyber data-tono={tono}>
@@ -52,10 +54,12 @@ const SENZA_PAGINA = new Set(['/knowledge/t/']);
     <header class="barra">
       <span class="nome"><span class="percorso"><a href="/" class="io">~/riccardomondi</a>{pezzi.map((p, k) => { const dove = `/${pezzi.slice(0, k + 1).join('/')}/`; return <><span class="sep">/</span><wbr />{SENZA_PAGINA.has(dove) ? <span class="sep">{p}</span> : <a href={dove} class:list={{ qui: k === pezzi.length - 1 }}>{p}</a>}</>; })}<span class="cursore" aria-hidden="true">_</span></span><span class="wip" title="Work in progress: the site is still being built">wip</span></span>
       <nav>
-        <a href="/software/">software</a>
-        <a href="/advisory/">advisory</a>
-        <a href="/knowledge/">knowledge</a>
-        <a href="/learn/">learn</a>
+        {conMenu && <>
+          <a href="/software/">software</a>
+          <a href="/advisory/">advisory</a>
+          <a href="/knowledge/">knowledge</a>
+          <a href="/learn/">learn</a>
+        </>}
         <button type="button" class="cambia-tema" aria-label="Switch between light and dark mode">light</button>
       </nav>
     </header>
