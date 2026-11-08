@@ -1049,7 +1049,7 @@ function passingMinds(c: HTMLCanvasElement, ora: number) {
   const ww = c.width, hh = c.height, cw = c.clientWidth, ch = c.clientHeight;
   if (!ww || !hh || !cw || !ch) return;
   // Altezza di riferimento del robot in pixel CSS: il retro è inquadrato stretto sulla folla
-  const altezza = davanti ? Math.min(ch * .46, cw * .3) : Math.min(ch * .27, cw * .14);
+  const altezza = davanti ? Math.min(ch * .54, cw * .35) : Math.min(ch * .27, cw * .14);
   const scala = Math.max(1, Math.round(altezza / 30));
   const w = Math.max(1, Math.round(cw / scala)), h = Math.max(1, Math.round(ch / scala)), H0 = altezza / scala;
   let s = strati.get(c);

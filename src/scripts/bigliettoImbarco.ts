@@ -409,5 +409,4 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
       opzioni[0]?.focus({ preventScroll: true });
     },
   };
-}  };
 }
