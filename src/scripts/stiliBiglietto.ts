@@ -542,70 +542,155 @@ function prendiPrato(c:HTMLCanvasElement,w:number,h:number) {
   return im;
 }
 
-// Passing minds: figure pixelate originali. Un omino sul fronte e una folla sul retro.
-// Lo stato è condiviso dal seme fra le due tele dello stesso biglietto.
-type Persona = { x:number; z:number; vx:number; vz:number; heading:number; goal:number; cycle:number; speed:number; size:number; turn:number; hero:boolean };
-type ScenaFolla = { persone:Persona[]; ultimo:number; tick:number; r:()=>number };
-const sceneFolla = new Map<string, ScenaFolla>();
-const teleFolla = new WeakMap<HTMLCanvasElement, { canvas:HTMLCanvasElement; ctx:CanvasRenderingContext2D }>();
-const tau = Math.PI*2;
-function follaDi(c:HTMLCanvasElement):ScenaFolla {
-  const key=c.dataset.seme ?? '1';let state=sceneFolla.get(key);
-  if(state)return state;
-  const r=casoDa(Number(key)||1);
-  const persone:Persona[]=Array.from({length:115},(_,i)=>{
-    const hero=i===0,a=r()*tau,speed=hero?.047:.027+r()*.035,rad=Math.sqrt(r()),ang=r()*tau;
-    return {hero,x:hero?.32:.50+Math.cos(ang)*rad*.18,z:hero?.82:.27+Math.sin(ang)*rad*.10,vx:Math.cos(a)*speed,vz:Math.sin(a)*speed,heading:a,goal:a,cycle:r()*tau,speed,size:hero?2.1:.65+r()*.25,turn:.7+r()*3.5};
-  });
-  state={persone,ultimo:0,tick:0,r};sceneFolla.set(key,state);
-  if(sceneFolla.size>32){const first=sceneFolla.keys().next().value;if(first!==undefined)sceneFolla.delete(first);}
-  return state;
+// ---------------- Passing minds, motore: robot a pixel. Davanti uno solo, dietro la folla.
+// Ispirato alla clip "crowd control" di itsgalo: corpi a fil di ferro con il busto a rettangolo,
+// passo rigido a quattro pose, ombre a trattini sul terreno. Disegnato da zero, nessun frame incorporato.
+type Robot = { x: number; z: number; vx: number; vz: number; dir: number; meta: number; passo: number; vel: number; scala: number; timer: number; fermo: boolean; sguardo: number; timerSguardo: number; capo: boolean };
+// Ogni faccia ha il suo orologio: su desktop fronte e retro si disegnano nello stesso fotogramma
+type Folla = { robot: Robot[]; trattini: { x: number; z: number; l: number }[]; ultimo: { fronte: number; retro: number }; tick: { fronte: number; retro: number }; r: () => number };
+const folle = new Map<string, Folla>();
+const strati = new WeakMap<HTMLCanvasElement, { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D }>();
+const OTTAVO = Math.PI / 4;
+// Il robot ragiona in otto direzioni: le svolte sono a scatti di 45 gradi
+const aOttavi = (a: number) => Math.round(a / OTTAVO) * OTTAVO;
+function follaDi(c: HTMLCanvasElement): Folla {
+  const chiave = c.dataset.seme ?? '1';
+  let f = folle.get(chiave);
+  if (f) return f;
+  const r = casoDa(Number(chiave) || 1);
+  const robot: Robot[] = [];
+  const nuovo = (capo: boolean, x: number, z: number): Robot => {
+    const a = aOttavi(r() * Math.PI * 2);
+    return { x, z, vx: 0, vz: 0, dir: a, meta: a, passo: Math.floor(r() * 4), vel: capo ? .085 : .045 + r() * .035, scala: capo ? 1 : .86 + r() * .28, timer: r() * 2, fermo: r() < .3, sguardo: 0, timerSguardo: 0, capo };
+  };
+  robot.push(nuovo(true, .5, .55));
+  // La folla nasce come una massa centrale che riempie già l'inquadratura del retro
+  for (let i = 0; i < 72; i++) { const rad = Math.sqrt(r()), ang = r() * Math.PI * 2; robot.push(nuovo(false, .5 + Math.cos(ang) * rad * .36, .5 + Math.sin(ang) * rad * .33)); }
+  const trattini = Array.from({ length: 150 }, () => ({ x: .5 + (r() - .5) * .95, z: r(), l: .015 + r() * .05 }));
+  f = { robot, trattini, ultimo: { fronte: 0, retro: 0 }, tick: { fronte: -1, retro: -1 }, r };
+  folle.set(chiave, f);
+  if (folle.size > 32) { const prima = folle.keys().next().value; if (prima !== undefined) folle.delete(prima); }
+  return f;
 }
-function avanzaFolla(s:ScenaFolla,dt:number){
-  for(const p of s.persone){
-    p.turn-=dt;if(p.turn<=0){p.goal+=(s.r()-.5)*2.6;p.turn=1.2+s.r()*4;}
-    let vx=Math.cos(p.goal)*p.speed,vz=Math.sin(p.goal)*p.speed;
-    if(!p.hero){const dx=p.x-.5,dz=p.z-.27,dist=Math.hypot(dx/.32,dz/.19);if(dist>1){vx-=dx*.18*(dist-1);vz-=dz*.18*(dist-1);}}
-    for(const q of s.persone){if(q===p||q.hero!==p.hero)continue;const dx=p.x-q.x,dz=p.z-q.z,d2=dx*dx+dz*dz;if(d2<.0014&&d2>.0000001){const d=Math.sqrt(d2),f=(.037-d)/.037;vx+=dx/d*f*.065;vz+=dz/d*f*.065;}}
-    if(p.x<.065)vx+=(.065-p.x)*1.7;if(p.x>.935)vx-=(p.x-.935)*1.7;
-    const zmin=p.hero?.70:.04,zmax=p.hero?.90:.50;if(p.z<zmin)vz+=(zmin-p.z)*1.7;if(p.z>zmax)vz-=(p.z-zmax)*1.7;
-    const n=Math.hypot(vx,vz)||1,k=Math.min(1,dt*2);p.vx+=(vx/n*p.speed-p.vx)*k;p.vz+=(vz/n*p.speed-p.vz)*k;
-    p.x=Math.max(.01,Math.min(.99,p.x+p.vx*dt));p.z=Math.max(p.hero?.66:.01,Math.min(p.hero?.94:.54,p.z+p.vz*dt));
-    const target=Math.atan2(p.vz,p.vx),angle=Math.atan2(Math.sin(target-p.heading),Math.cos(target-p.heading));p.heading+=angle*Math.min(1,dt*5);p.cycle+=Math.hypot(p.vx,p.vz)*dt*40;
-  }
-}
-function passingMinds(c:HTMLCanvasElement,ora:number){
-  const state=follaDi(c),tick=Math.floor(ora/33);
-  if(state.tick!==tick){
-    const dt=state.ultimo?Math.min(.05,Math.max(0,(ora-state.ultimo)/1000)):0;state.ultimo=ora;state.tick=tick;
-    if(!document.hidden){
-      // Sul fronte si muove solo l'omino: la folla aspetta al centro fino al primo giro.
-      if(c.dataset.side==='front'){const tutti=state.persone;state.persone=tutti.filter(p=>p.hero);avanzaFolla(state,dt);state.persone=tutti;}
-      else avanzaFolla(state,dt);
+function muoviFolla(f: Folla, dt: number, capo: boolean) {
+  const gruppo = f.robot.filter(p => p.capo === capo), r = f.r;
+  const zMin = capo ? .25 : .04, zMax = capo ? .85 : .96;
+  for (const p of gruppo) {
+    p.timer -= dt;
+    if (p.timer <= 0) {
+      // Pausa o nuova direzione: i robot si fermano, si guardano intorno, ripartono di scatto
+      if (!p.fermo && r() < .32) { p.fermo = true; p.timer = .7 + r() * 1.4; }
+      else { p.fermo = false; p.meta = aOttavi(p.meta + (r() < .5 ? -1 : 1) * OTTAVO * (1 + Math.floor(r() * 2))); p.timer = 1.2 + r() * 3; }
     }
+    if (p.fermo) { p.timerSguardo -= dt; if (p.timerSguardo <= 0) { p.sguardo = (Math.floor(r() * 5) - 2) * OTTAVO; p.timerSguardo = .3 + r() * .45; } }
+    else p.sguardo = 0;
+    let tx = Math.cos(p.meta), tz = Math.sin(p.meta);
+    for (const q of gruppo) {
+      if (q === p) continue;
+      const dx = p.x - q.x, dz = p.z - q.z, d2 = dx * dx + dz * dz;
+      if (d2 < .0028 && d2 > 1e-7) { const d = Math.sqrt(d2), k = (.053 - d) / .053; tx += dx / d * k * 1.6; tz += dz / d * k * 1.6; }
+    }
+    // Un richiamo morbido verso il centro tiene la massa unita; ai bordi il robot gira verso il centro
+    const fuori = !capo && Math.hypot((p.x - .5) / .42, (p.z - .5) / .4) > 1;
+    if (fuori || p.x < .06 || p.x > .94 || p.z < zMin || p.z > zMax) { p.meta = aOttavi(Math.atan2(.5 - p.z, .5 - p.x)); p.fermo = false; tx = Math.cos(p.meta); tz = Math.sin(p.meta); }
+    const v = p.fermo ? 0 : p.vel, n = Math.hypot(tx, tz) || 1, k = Math.min(1, dt * 8);
+    p.vx += (tx / n * v - p.vx) * k; p.vz += (tz / n * v - p.vz) * k;
+    p.x = Math.max(.02, Math.min(.98, p.x + p.vx * dt)); p.z = Math.max(zMin - .02, Math.min(zMax + .02, p.z + p.vz * dt));
+    const sp = Math.hypot(p.vx, p.vz);
+    if (sp > .012) p.dir = Math.atan2(p.vz, p.vx);
+    // Quattro pose al passo, a scatti; da fermo i piedi tornano uniti
+    if (p.fermo && sp < .012) p.passo = Math.round(p.passo / 2) * 2;
+    else p.passo += dt * 6.5 * Math.min(1, sp / p.vel);
   }
-  const ww=c.width,hh=c.height;if(!ww||!hh)return;
-  let layer=teleFolla.get(c);if(!layer){const canvas=document.createElement('canvas');layer={canvas,ctx:canvas.getContext('2d')!};teleFolla.set(c,layer);}
-  const dpr=Math.min(2,devicePixelRatio||1),scale=Math.max(1,Math.min(2,Math.floor(c.clientWidth/240)));
-  const w=Math.max(1,Math.round(c.clientWidth/scale)),h=Math.max(1,Math.round(c.clientHeight/scale));
-  if(layer.canvas.width!==w||layer.canvas.height!==h){layer.canvas.width=w;layer.canvas.height=h;}
-  const g=layer.ctx;g.imageSmoothingEnabled=false;g.fillStyle='#010304';g.fillRect(0,0,w,h);
-  const isFront=c.dataset.side==='front',base=Math.min(19,w*.075,h*.115);
-  for(const p of state.persone.filter(a=>isFront?a.hero:!a.hero).sort((a,b)=>a.z-b.z)){
-    const depth=.48+p.z*.72,sc=base*depth*p.size,x=w*(.06+p.x*.88+(p.z-.5)*.10),y=h*(.31+p.z*.51),a=p.heading,walk=Math.sin(p.cycle),cw=Math.cos(a),sw=Math.sin(a);
-    const bob=Math.abs(walk)*sc*.035,forward=(l:number)=>[cw*l,sw*l*.48],side=(l:number)=>[-sw*l,cw*l*.48];
-    const pt=(l:number,r:number,up:number):[number,number]=>{const f=forward(l),s=side(r);return [x+f[0]!+s[0]!,y+f[1]!+s[1]!-up-bob];};
-    const hip=pt(0,0,sc*.55),neck=pt(0,0,sc*1.12),head=pt(0,0,sc*1.38),sL=pt(0,-sc*.16,sc*1.06),sR=pt(0,sc*.16,sc*1.06);
-    const kneeL=pt(walk*sc*.16,-sc*.08,sc*.28),kneeR=pt(-walk*sc*.16,sc*.08,sc*.28),footL=pt(walk*sc*.29,-sc*.09,Math.max(0,walk)*sc*.07),footR=pt(-walk*sc*.29,sc*.09,Math.max(0,-walk)*sc*.07);
-    const elbowL=pt(-walk*sc*.11,-sc*.23,sc*.79),elbowR=pt(walk*sc*.11,sc*.23,sc*.79),handL=pt(-walk*sc*.20,-sc*.21,sc*.56),handR=pt(walk*sc*.20,sc*.21,sc*.56);
-    const stroke=(pts:[number,number][])=>{g.beginPath();g.moveTo(Math.round(pts[0]![0])+.5,Math.round(pts[0]![1])+.5);for(const t of pts.slice(1))g.lineTo(Math.round(t[0])+.5,Math.round(t[1])+.5);g.stroke();};
-    g.strokeStyle='rgba(215,237,229,.15)';g.lineWidth=Math.max(.5,sc*.05);stroke([[x-sc*.35,y+sc*.07],[x+sc*.65,y+sc*.12]]);
-    g.lineCap='square';g.lineJoin='miter';g.strokeStyle='rgba(241,252,248,.92)';g.lineWidth=1;stroke([neck,hip,kneeL,footL]);stroke([hip,kneeR,footR]);stroke([sL,neck,sR]);stroke([sL,elbowL,handL]);stroke([sR,elbowR,handR]);
-    const hs=Math.max(3,Math.round(sc*.38)),yaw=Math.cos(p.heading),facing=Math.sin(p.heading);g.save();g.translate(Math.round(head[0]),Math.round(head[1]));
-    g.fillStyle='#eafff7';g.fillRect(-hs/2,-hs/2,hs,hs);g.fillStyle='#031410';g.fillRect(-hs/2+1,-hs/2+1,Math.max(1,hs-2),Math.max(1,hs-2));
-    g.fillStyle=facing<-.25?'#367a70':'#86ffd7';g.fillRect(Math.round(yaw*Math.max(1,hs*.20)),0,1,1);if(facing>=-.25){g.fillStyle='#d2ffef';g.fillRect(Math.round(yaw*Math.max(1,hs*.30)),-1,1,1);}g.restore();
+}
+// Linee e cerchi a pixel pieni, come nella pixel art: niente antialiasing
+function pixLinea(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number) {
+  x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let e = dx + dy;
+  for (let i = 0; i < 400; i++) {
+    g.fillRect(x0, y0, 1, 1);
+    if (x0 === x1 && y0 === y1) break;
+    const e2 = 2 * e;
+    if (e2 >= dy) { e += dy; x0 += sx; }
+    if (e2 <= dx) { e += dx; y0 += sy; }
   }
-  const out=c.getContext('2d');if(!out)return;out.setTransform(1,0,0,1,0,0);out.imageSmoothingEnabled=false;out.clearRect(0,0,ww,hh);out.drawImage(layer.canvas,0,0,ww,hh);void dpr;
+}
+function pixCerchio(g: CanvasRenderingContext2D, cx: number, cy: number, r: number, pieno: boolean) {
+  for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) {
+    const d = x * x + y * y;
+    if (pieno ? d <= r * r + r * .8 : (d <= r * r + r * .8 && d >= (r - 1) * (r - 1) + (r - 1) * .8)) g.fillRect(cx + x, cy + y, 1, 1);
+  }
+}
+function disegnaRobot(g: CanvasRenderingContext2D, p: Robot, sx: number, sy: number, H: number) {
+  const d = aOttavi(p.dir), cx = Math.cos(d), cz = Math.sin(d);
+  const posa = ((Math.floor(p.passo) % 4) + 4) % 4, passo = posa === 1 ? 1 : posa === 3 ? -1 : 0, giu = passo ? 1 : 0;
+  const x0 = Math.round(sx), y0 = Math.round(sy);
+  const anca = y0 - Math.round(H * .46) + giu, spalla = y0 - Math.round(H * .76) + giu, testa = y0 - Math.round(H * .88) + giu;
+  // Busto largo di fronte e di schiena, stretto di profilo
+  const mezzo = Math.max(1, Math.round(H * (.035 + .045 * Math.abs(cz))));
+  const px = Math.round(passo * H * .17 * cx), pz = Math.round(passo * H * .05 * cz);
+  // Ombra a trattino sul terreno, verso destra
+  g.fillStyle = 'rgba(110,210,190,.22)'; g.fillRect(x0 - 1, y0 + 1, Math.max(3, Math.round(H * .42)), 1);
+  g.fillStyle = '#eef8f4';
+  // Gambe dritte, senza ginocchio: si aprono e chiudono come compassi
+  pixLinea(g, x0 - Math.min(1, mezzo), anca, x0 - 1 + px, y0 + pz);
+  pixLinea(g, x0 + Math.min(1, mezzo), anca, x0 + 1 - px, y0 - pz);
+  // Busto a rettangolo
+  pixLinea(g, x0 - mezzo, spalla, x0 + mezzo, spalla); pixLinea(g, x0 - mezzo, anca, x0 + mezzo, anca);
+  pixLinea(g, x0 - mezzo, spalla, x0 - mezzo, anca); pixLinea(g, x0 + mezzo, spalla, x0 + mezzo, anca);
+  // Braccia rigide, in controfase con le gambe
+  const bx = Math.round(-px * .7), bz = Math.round(-pz * .7), mano = anca - Math.round(H * .04);
+  pixLinea(g, x0 - mezzo, spalla, x0 - mezzo - 1 + bx, mano + bz);
+  pixLinea(g, x0 + mezzo, spalla, x0 + mezzo + 1 - bx, mano - bz);
+  // Testa: cranio scuro con il contorno chiaro e la sfera di luce dentro.
+  // La sfera segue lo sguardo: al centro di fronte, sul lato di profilo, spenta quando il robot dà le spalle
+  const rt = Math.max(2, Math.round(H * .075));
+  pixLinea(g, x0, spalla, x0, testa + rt);
+  g.fillStyle = '#031410'; pixCerchio(g, x0, testa, rt, true);
+  g.fillStyle = '#eef8f4'; pixCerchio(g, x0, testa, rt, false);
+  const sguardo = d + p.sguardo, verso = Math.sin(sguardo), sx2 = x0 + Math.round(Math.cos(sguardo) * (rt - 1) * .65);
+  if (verso > -.35) {
+    const rs = Math.max(1, Math.round(rt * .45));
+    g.fillStyle = 'rgba(110,255,220,.28)'; g.fillRect(sx2 - rs - 1, testa - rs - 1, rs * 2 + 3, rs * 2 + 3);
+    g.fillStyle = '#62f3d2'; pixCerchio(g, sx2, testa, rs, true);
+    g.fillStyle = '#e8fff8'; g.fillRect(sx2, testa - (rs > 1 ? 1 : 0), 1, 1);
+  } else { g.fillStyle = '#2b6a60'; g.fillRect(sx2, testa, 1, 1); }
+}
+function passingMinds(c: HTMLCanvasElement, ora: number) {
+  const f = follaDi(c), davanti = c.dataset.side === 'front', tick = Math.floor(ora / 33);
+  const lato = davanti ? 'fronte' : 'retro';
+  if (f.tick[lato] !== tick) {
+    const dt = f.ultimo[lato] ? Math.min(.05, Math.max(0, (ora - f.ultimo[lato]) / 1000)) : 0;
+    f.ultimo[lato] = ora; f.tick[lato] = tick;
+    // Sul fronte cammina solo il capo: la folla aspetta al centro fino al primo giro del biglietto
+    if (!document.hidden) muoviFolla(f, dt, davanti);
+  }
+  const ww = c.width, hh = c.height, cw = c.clientWidth, ch = c.clientHeight;
+  if (!ww || !hh || !cw || !ch) return;
+  // Altezza di riferimento del robot in pixel CSS: il retro è inquadrato stretto sulla folla
+  const altezza = davanti ? Math.min(ch * .46, cw * .3) : Math.min(ch * .27, cw * .14);
+  const scala = Math.max(1, Math.round(altezza / 30));
+  const w = Math.max(1, Math.round(cw / scala)), h = Math.max(1, Math.round(ch / scala)), H0 = altezza / scala;
+  let s = strati.get(c);
+  if (!s) { const canvas = document.createElement('canvas'); s = { canvas, ctx: canvas.getContext('2d')! }; strati.set(c, s); }
+  if (s.canvas.width !== w || s.canvas.height !== h) { s.canvas.width = w; s.canvas.height = h; }
+  const g = s.ctx;
+  g.fillStyle = '#010304'; g.fillRect(0, 0, w, h);
+  const schermo = (x: number, z: number): [number, number, number] => davanti
+    ? [w * (.1 + x * .8), h * (.5 + (z - .25) / .6 * .42), H0 * (.85 + .3 * (z - .25) / .6)]
+    : [w * (.5 + (x - .5) * 1.04 * (.84 + .16 * z)), h * (.2 + z * .76), H0 * (.74 + .4 * z)];
+  // Trattini del terreno, fermi: danno il piano su cui camminano
+  g.fillStyle = '#10342e';
+  for (const t of f.trattini) { if (davanti && t.z < .3) continue; const [x, y] = schermo(t.x, t.z); g.fillRect(Math.round(x), Math.round(y) + 1, Math.max(2, Math.round(t.l * w)), 1); }
+  for (const p of f.robot.filter(p => p.capo === davanti).sort((a, b) => a.z - b.z)) {
+    const [x, y, H] = schermo(p.x, p.z);
+    disegnaRobot(g, p, x, y, H * p.scala);
+  }
+  const out = c.getContext('2d');
+  if (!out) return;
+  out.setTransform(1, 0, 0, 1, 0, 0); out.imageSmoothingEnabled = false;
+  out.clearRect(0, 0, ww, hh); out.drawImage(s.canvas, 0, 0, ww, hh);
 }
 
 // --- La notte: la scena di caratteri con la luna, le stelle, il lago e l'aereo bianco a pixel

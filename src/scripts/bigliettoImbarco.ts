@@ -125,18 +125,39 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
   };
   const avvia = () => { if (!anima) anima = requestAnimationFrame(passo); };
 
-  // --- Il sorteggio dello stile: uno per biglietto, mai lo stesso due volte di fila. Il seme tiene ferme le scelte
-  // della variante, così il retro e un biglietto riaperto combaciano con il davanti
+  // --- Il sorteggio dello stile a giro: ogni stile esce una volta, poi il mazzo si rimescola.
+  // Il giro resta nel browser, così continua anche ricaricando la pagina. Il seme tiene ferme
+  // le scelte della variante, così il retro e un biglietto riaperto combaciano con il davanti.
   const sorteggio = new Map<string, { stile: number; seme: number }>();
-  let ultimoStile = -1, variabiliMesse: string[] = [];
+  const CHIAVE_GIRO = 'ai-terms-stili-giro-v1';
+  let variabiliMesse: string[] = [];
+  const mescola = <T,>(a: T[]) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j]!, a[i]!]; } return a; };
+  const leggiGiro = (): { resto: string[]; ultimo: string } => {
+    try { const g = JSON.parse(localStorage.getItem(CHIAVE_GIRO) ?? 'null'); if (g && Array.isArray(g.resto)) return { resto: g.resto.filter((id: unknown) => typeof id === 'string'), ultimo: typeof g.ultimo === 'string' ? g.ultimo : '' }; } catch { /* giro nuovo */ }
+    return { resto: [], ultimo: '' };
+  };
+  let mazzo = leggiGiro();
+  const salvaGiro = () => { try { localStorage.setItem(CHIAVE_GIRO, JSON.stringify(mazzo)); } catch { /* resta in memoria */ } };
+  const prossimoStile = (ammessi: number[]) => {
+    const ids = STILI.map(st => st.id), validi = new Set(ids);
+    mazzo.resto = mazzo.resto.filter(id => validi.has(id));
+    if (!mazzo.resto.length) {
+      // Nuovo giro: tutti gli stili, mescolati; il primo non ripete l'ultimo del giro precedente.
+      mazzo.resto = mescola([...ids]);
+      if (mazzo.resto.length > 1 && mazzo.resto[0] === mazzo.ultimo) mazzo.resto.push(mazzo.resto.shift()!);
+    }
+    const pos = mazzo.resto.findIndex(id => ammessi.includes(ids.indexOf(id)));
+    const id = pos >= 0 ? mazzo.resto.splice(pos, 1)[0]! : ids[ammessi[Math.floor(Math.random() * ammessi.length)]!]!;
+    mazzo.ultimo = id;
+    salvaGiro();
+    return ids.indexOf(id);
+  };
   const stileDi = (v: Volo) => {
     let x = sorteggio.get(v.seriale);
     if (!x) {
-      // Solo gli stili ammessi per questa sezione e questo livello (70s Rapid esce solo in alcune sezioni)
-      const ammessi = STILI.map((st, k) => k).filter(k => STILI[k]!.ammesso?.(v.sezione, livelloDi(v)) ?? true), altri = ammessi.filter(k => k !== ultimoStile);
-      const pool = altri.length ? altri : ammessi, k = pool[Math.floor(Math.random() * pool.length)]!;
-      ultimoStile = k;
-      x = { stile: k, seme: 1 + Math.floor(Math.random() * 2147483646) };
+      // Solo gli stili ammessi per questa sezione e questo livello
+      const ammessi = STILI.map((_, k) => k).filter(k => STILI[k]!.ammesso?.(v.sezione, livelloDi(v)) ?? true);
+      x = { stile: prossimoStile(ammessi.length ? ammessi : STILI.map((_, k) => k)), seme: 1 + Math.floor(Math.random() * 2147483646) };
       sorteggio.set(v.seriale, x);
     }
     return x;
