@@ -7,16 +7,15 @@ import Base from '../../layouts/Base.astro';
 // dopo è sempre pronta. Quando l'aereo in pista riparte, il primo della fila atterra e un aereo nuovo si mette in fila.
 // Logica in src/lib/voli.ts, scena in src/scripts/aeroporto.ts, biglietto in src/scripts/bigliettoImbarco.ts
 ---
-<Base title="AI terms · Riccardo Mondi" description="A trivia game for the AI lexicon. Answer questions, keep your streak alive, and try to beat your high score." tono="neutro" largo>
+<Base title="AI terms · Riccardo Mondi" description="A trivia game about the AI lexicon." tono="neutro" largo>
   <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
   <main class="aeroporto">
     <h1>AI terms</h1>
-    <p class="sotto">A trivia game to learn the AI lexicon. Answer right in a row to build a combo and beat your high score.</p>
+    <p class="sotto">A trivia game about the AI lexicon.</p>
     <p class="mono punteggio"></p>
     <section class="pannello-gioco" aria-live="polite">
       <div class="stato-gioco inizio">
         <button type="button" class="mono grande avvia">Take off ✈</button>
-        <p class="mono piccolo dettaglio"></p>
       </div>
       <div class="stato-gioco in-gioco" hidden>
         <p class="mono titolo-stato"></p>
@@ -61,20 +60,19 @@ import Base from '../../layouts/Base.astro';
   // Gli aiuti: il pilota automatico (risponde giusto da solo), i punti doppi per qualche domanda; il premio della carta Holo
   let pilota = 0, doppi = 0, premioDa = false;
 
-  // La combo moltiplica i punti: ×1 la prima, poi +0,5 per ogni giusta di fila, fino a ×4.
-  // Al primo colpo 10 punti, al secondo 5, dopo 2
-  const molt = (c: number) => Math.min(4, 1 + Math.max(0, c - 1) * 0.5);
-  const base = (t: number) => (t <= 1 ? 10 : t === 2 ? 5 : 2);
+  // I punti stanno in due cifre: una giusta al primo colpo vale quanto la combo (1, 2, 3, 4, poi 5 al massimo);
+  // una giusta dopo un errore vale 1
+  const valore = (primo: boolean, c: number) => (primo ? Math.min(5, Math.max(1, c)) : 1);
   const record = () => primati().punti ?? 0;
-  const riassunto = () => `score ${punti} · combo ×${molt(combo).toFixed(1)} · best ${record()}`;
+  const riassunto = () => `score ${punti} · combo ${combo} · best ${record()}`;
   // Il punteggio come in un gioco: badge separati per punti, vite, combo e record
   const badge = (classe: string, testo: string, piccolo?: string) => { const b = document.createElement('span'); b.className = `hud ${classe}`; b.textContent = testo; if (piccolo) { const sm = document.createElement('small'); sm.textContent = piccolo; b.append(sm); } return b; };
   const scriviPunteggio = () => {
-    if (modo !== 'in-gioco') { punteggio.replaceChildren(badge('hud-best', `${record()}`, 'best')); return; }
+    if (modo !== 'in-gioco') { punteggio.replaceChildren(); return; }
     punteggio.replaceChildren(
       badge('hud-punti', `${punti}`, 'pts'),
       badge('hud-vite', cuori()),
-      badge(`hud-combo${combo > 1 ? ' attiva' : ''}`, `×${molt(combo).toFixed(1)}`, 'combo'),
+      badge(`hud-combo${combo > 1 ? ' attiva' : ''}`, `${combo}`, 'combo'),
       badge('hud-best', `${Math.max(record(), punti)}`, 'best'),
     );
   };
@@ -83,9 +81,9 @@ import Base from '../../layouts/Base.astro';
     scriviPunteggio();
     for (const [m, e] of Object.entries(stati)) e.hidden = m !== modo;
     const e = stati[modo];
-    if (modo === 'inizio') $('.dettaglio', e).textContent = `five lives · combos multiply your points · best ${record()}`;
+    if (modo === 'inizio') { /* solo il bottone per partire */ }
     else if (modo === 'in-gioco') {
-      $('.titolo-stato', e).textContent = `${punti} pts · ${cuori()}${combo > 1 ? ` · combo ×${molt(combo).toFixed(1)}` : ''}${doppi ? ` · 2× pts (${doppi})` : ''}${pilota ? ` · autopilot ${pilota}` : ''}`;
+      $('.titolo-stato', e).textContent = `${punti} pts · ${cuori()}${combo > 1 ? ` · combo ${combo}` : ''}${doppi ? ` · 2× pts (${doppi})` : ''}${pilota ? ` · autopilot ${pilota}` : ''}`;
       $('.dettaglio', e).textContent = ultimiPunti || 'answer at the first try to start a combo';
     } else {
       $('.titolo-stato', e).textContent = `Out of fuel · ${punti} pts`;
@@ -124,7 +122,7 @@ import Base from '../../layouts/Base.astro';
   function prova(i: number) { modo = 'inizio'; metti(nuovoVolo(i, recenti).voce); }
   const avvia = () => {
     vite = VITE; punti = 0; combo = 0; giuste = 0; domandeFatte = 0; pilota = 0; doppi = 0; premioDa = false; ultimiPunti = ''; modo = 'in-gioco';
-    fila = []; metti(aCaso(recenti), true); riempiFila(); scena.serie(0, record());
+    fila = []; metti(aCaso(recenti), true); riempiFila(); scena.serie(0, 0);
     scriviPunteggio(); scriviStato();
   };
   const fine = () => {
@@ -172,15 +170,15 @@ import Base from '../../layouts/Base.astro';
         scena.decolla(i);
         if (modo === 'in-gioco') {
           combo = primo ? combo + 1 : 0; migliorCombo = Math.max(migliorCombo, combo); giuste++;
-          const vinti = Math.round(base(p.tentativi[i]!) * molt(Math.max(1, combo))) * (doppi > 0 ? 2 : 1);
+          const vinti = valore(primo, combo) * (doppi > 0 ? 2 : 1);
           punti += vinti;
-          ultimiPunti = `+${vinti}${combo > 1 ? ` · combo ×${molt(combo).toFixed(1)}` : ''}${doppi > 0 ? ' · 2× pts' : ''}`;
+          ultimiPunti = `+${vinti}${combo > 1 ? ` · combo ${combo}` : ''}${doppi > 0 ? ' · 2× pts' : ''}`;
           if (doppi > 0) doppi--;
           // La carta Holo, se indovinata, fa scegliere un premio
           if (domandeFatte % 10 === 0) premioDa = true;
         }
       }
-      scena.serie(punti, Math.max(record(), punti));
+      scena.serie(punti, combo);
       scriviPunteggio(); scriviStato();
       if (modo === 'in-gioco' && vite <= 0) window.setTimeout(fine, 1300);
     },
@@ -197,7 +195,7 @@ import Base from '../../layouts/Base.astro';
   });
   void corrente;
   scriviPunteggio(); scriviStato();
-  scena.serie(0, record());
+  scena.serie(0, 0);
 </script>
 
 <style>
@@ -434,7 +432,11 @@ import Base from '../../layouts/Base.astro';
     :global(.imbarco .azioni button) { flex: 1; min-height: 44px; }
     /* Niente scroll: il biglietto riempie esattamente lo spazio sotto la scena. L'arte cresce o si stringe per far stare
        tutto; sul retro scorre solo la definizione, dentro il biglietto */
-    :global(body:has(.imbarco:not([hidden]))) { overflow: hidden; overscroll-behavior: none; }
+    /* Il gioco non scorre mai su telefono: la pagina sta ferma, si muove solo la definizione dentro il biglietto */
+    :global(html:has(.imbarco)), :global(body:has(.imbarco)) { overflow: hidden; height: 100%; overscroll-behavior: none; }
+    :global(body:has(.imbarco)) { position: fixed; inset: 0; width: 100%; }
+    :global(.imbarco) { touch-action: none; }
+    :global(.imbarco .definizione) { touch-action: pan-y; }
     :global(.imbarco) { overflow: hidden; }
     :global(.imbarco .biglietto) { flex: 1 1 auto; min-height: 0; margin-top: 0; display: flex; }
     :global(.imbarco .carta), :global(.imbarco .carta.girata) { display: flex; flex-direction: column; width: 100%; min-height: 0; }
