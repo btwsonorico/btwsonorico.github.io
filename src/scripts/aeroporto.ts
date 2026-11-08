@@ -649,11 +649,11 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   };
 
   // --- Gli aerei e i loro stati: attesa sul mare, arrivo e atterraggio, fermo sulla pista, decollo, giro con lo striscione
-  type Stato = 'attesa' | 'arrivo' | 'fermo' | 'decollo' | 'ritorno' | 'giro' | 'coda';
+  type Stato = 'attesa' | 'arrivo' | 'fermo' | 'decollo' | 'ritorno' | 'giro' | 'coda' | 'sosta';
   type Rotta = { curva: THREE.CatmullRomCurve3; lungo: number; s: number; veloce?: boolean; rapido?: boolean };
   type Aereo = {
     g: THREE.Group; elica: THREE.Group; ombra: THREE.Mesh; stato: Stato; rotta: Rotta | null; f: number; v: number;
-    rollio: number; via: boolean; fatto: boolean; coda: number; posto: number; scia: THREE.Vector3[]; striscione: ReturnType<typeof nuovoStriscione>; vista: number; prima: THREE.Vector3; dir: THREE.Vector3;
+    rollio: number; via: boolean; fatto: boolean; coda: number; posto: number; attesa: number; sosta: number; scia: THREE.Vector3[]; striscione: ReturnType<typeof nuovoStriscione>; vista: number; prima: THREE.Vector3; dir: THREE.Vector3;
   };
   const nuovaRotta = (punti: THREE.Vector3[]): Rotta => {
     const curva = new THREE.CatmullRomCurve3(punti, false, 'centripetal');
@@ -678,7 +678,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     const inizio = PERCORSI[i % PERCORSI.length]!.punto(f);
     g.position.copy(inizio);
     return {
-      g, elica, ombra, stato: 'giro', rotta: null, f, v: 0, rollio: 0, via: false, fatto, coda: 0, posto: 0,
+      g, elica, ombra, stato: 'giro', rotta: null, f, v: 0, rollio: 0, via: false, fatto, coda: 0, posto: 0, attesa: 0, sosta: -1,
       scia: Array.from({ length: 140 }, () => inizio.clone()), striscione: nuovoStriscione(o.termini[i] ?? '', t), vista: fatto ? 1 : 0, prima: inizio.clone(), dir: new THREE.Vector3(1, 0, 0),
     };
   });
@@ -686,13 +686,18 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   // dritta sull'asse della pista, in discesa costante fino all'hangar. Chi è già a ovest (in attesa) salta il sottovento
   // Due cerchi di attesa a ovest, uno sopra l'altro: il primo della fila gira basso, vicino alla finale; il secondo più in alto
   const CODE = [{ c: new THREE.Vector3(-6.9, 1.25, PZ - 2.5), r: 0.85, w: 0.6 }, { c: new THREE.Vector3(-7.9, 2.05, PZ - 3.7), r: 1.1, w: 0.45 }];
-  const rottaArrivo = (a: Aereo, rapido = true) => {
+  // Se si aspetta a rispondere, gli aerei in fila atterrano lo stesso e si mettono in fila sul raccordo accanto alla pista,
+  // dietro l'aereo fermo: il primo dopo 9 secondi di attesa, il secondo dopo altri 6
+  const SOSTE = [new THREE.Vector3(-0.35, SUOLO, PZ + 0.42), new THREE.Vector3(-1.15, SUOLO, PZ + 0.42)];
+  const rottaArrivo = (a: Aereo, rapido = true, fine: THREE.Vector3 = FERMO) => {
     const qui = a.g.position.clone(), avanti = qui.clone().add(a.dir.clone().setY(0).normalize().multiplyScalar(1.3));
     const circuito = [new THREE.Vector3(2.2, 1.6, PZ - 2.9), new THREE.Vector3(-3, 1.55, PZ - 2.9), new THREE.Vector3(-6.4, 1.45, PZ - 2.7)]
       .filter(q => qui.x > q.x + 1.2);
     return { ...nuovaRotta([qui, avanti, ...circuito, new THREE.Vector3(-8.6, 1.28, PZ - 1.4), new THREE.Vector3(-7.4, 1.06, PZ), new THREE.Vector3(-4.9, 0.66, PZ),
-      new THREE.Vector3(-2.5, SUOLO + 0.03, PZ), new THREE.Vector3(-1.1, SUOLO, PZ), FERMO.clone()]), rapido };
+      new THREE.Vector3(-2.5, SUOLO + 0.03, PZ), ...(fine === FERMO ? [new THREE.Vector3(-1.1, SUOLO, PZ)] : [new THREE.Vector3(fine.x - 0.9, SUOLO, PZ), new THREE.Vector3(fine.x - 0.35, SUOLO, PZ + 0.3)]), fine.clone()]), rapido };
   };
+  // Dal raccordo alla pista: un breve rullaggio fino al posto davanti all'hangar
+  const rottaRullaggio = (a: Aereo) => ({ ...nuovaRotta([a.g.position.clone(), new THREE.Vector3(a.g.position.x + 0.3, SUOLO, PZ + 0.25), new THREE.Vector3(Math.min(FERMO.x - 0.2, a.g.position.x + 0.7), SUOLO, PZ), FERMO.clone()]), rapido: true });
   // Decollo: verso est sulla pista, salita, poi si aggancia alla sua orbita
   const rottaDecollo = (a: Aereo, i: number) => {
     const uscita = [FERMO.clone(), new THREE.Vector3(1.6, SUOLO, PZ), new THREE.Vector3(2.8, SUOLO + 0.05, PZ), new THREE.Vector3(4.4, 0.6, PZ), new THREE.Vector3(6, 1.3, -0.3)];
@@ -755,7 +760,13 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
         const scarto = Math.atan2(Math.sin(posto - a.f), Math.cos(posto - a.f));
         a.f += (pr.w * pr.dir + THREE.MathUtils.clamp(scarto * 0.35, -0.12, 0.12)) * dt;
         a.g.position.copy(pr.punto(a.f));
+      } else if (a.stato === 'sosta') {
+        a.g.position.copy(SOSTE[a.sosta]!);
       } else if (a.stato === 'coda') {
+        a.attesa += dt;
+        // Aspetta troppo: scende e atterra, poi si ferma sul raccordo
+        const libera = SOSTE.findIndex((_, k) => !aerei.some(b => b !== a && b.sosta === k));
+        if (libera >= 0 && a.attesa > 9 + a.posto * 6 && libera <= a.posto) { a.sosta = libera; a.rotta = rottaArrivo(a, true, SOSTE[libera]!); a.stato = 'arrivo'; }
         const k = CODE[a.posto]!;
         a.coda += k.w * dt;
         tmp.set(k.c.x + Math.cos(a.coda) * k.r, k.c.y + Math.sin(a.coda * 2) * 0.05, k.c.z + Math.sin(a.coda) * k.r);
@@ -773,7 +784,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
         a.rotta.s += v * dt;
         a.g.position.copy(passo(a));
         if (a.rotta.s >= a.rotta.lungo) {
-          if (a.stato === 'arrivo') { a.stato = 'fermo'; a.rotta = null; }
+          if (a.stato === 'arrivo') { a.stato = a.sosta >= 0 ? 'sosta' : 'fermo'; a.rotta = null; if (a.sosta >= 0) a.dir.set(1, 0, 0); }
           else if (a.stato === 'decollo') { a.stato = 'giro'; a.rotta = null; }
           else { a.stato = 'giro'; a.rotta = null; }
         }
@@ -804,7 +815,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
       if (mosso > 0.004) { const vecchio = a.scia.pop()!; vecchio.copy(a.g.position); a.scia.unshift(vecchio); }
       // Lo striscione: dopo una risposta giusta, nel giro; e sugli aerei in fila, così si leggono le prossime domande.
       // Quando un aereo in fila comincia ad atterrare, lo striscione sparisce
-      const st = a.striscione, mostra = a.stato === 'coda' || (a.fatto && (a.stato === 'giro' || (a.stato === 'decollo' && h > 0.5)));
+      const st = a.striscione, mostra = a.stato === 'coda' || a.stato === 'sosta' || (a.stato === 'arrivo' && a.sosta >= 0) || (a.fatto && (a.stato === 'giro' || (a.stato === 'decollo' && h > 0.5)));
       a.vista = Math.max(0, Math.min(1, a.vista + (mostra ? dt : -dt * 2)));
       (st.nastro.material as THREE.MeshBasicMaterial).opacity = a.vista;
       (st.fune.material as THREE.LineBasicMaterial).opacity = a.vista * 0.8;
@@ -977,7 +988,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     if (s - tempoLista > 0.25) {
       tempoLista = s;
       const fasi = aerei.map((a): Fase => {
-        if (a.stato === 'ritorno' || a.stato === 'coda' || (a.stato === 'giro' && !a.fatto)) return 'holding';
+        if (a.stato === 'ritorno' || a.stato === 'coda' || a.stato === 'sosta' || (a.stato === 'giro' && !a.fatto)) return 'holding';
         if (a.stato === 'arrivo') return 'landing';
         if (a.stato === 'fermo') return a.fatto ? 'taking off' : 'boarding';
         if (a.stato === 'decollo') return 'taking off';
@@ -1005,16 +1016,18 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     // Il gioco: l'aereo della domanda atterra; il biglietto non lo aspetta
     atterra(i: number) {
       const a = aerei[i];
-      if (!a || a.stato === 'arrivo' || a.stato === 'fermo') return;
-      a.fatto = false; a.via = false;
-      a.rotta = rottaArrivo(a, true); a.stato = 'arrivo';
+      if (!a || a.stato === 'fermo' || (a.stato === 'arrivo' && a.sosta < 0)) return;
+      a.fatto = false; a.via = false; a.attesa = 0;
+      // Già sul raccordo: rulla fino alla pista; ancora in volo verso il raccordo: va dritto alla pista
+      if (a.stato === 'sosta') { a.sosta = -1; a.rotta = rottaRullaggio(a); a.stato = 'arrivo'; return; }
+      a.sosta = -1; a.rotta = rottaArrivo(a, true); a.stato = 'arrivo';
     },
     // Gli aerei delle prossime domande: in fila sui cerchi di attesa (posto 0 il primo, vicino alla finale; posto 1 il secondo)
     inAttesa(i: number, posto = 0) {
       const a = aerei[i];
-      if (!a || a.stato === 'arrivo' || a.stato === 'fermo') return;
+      if (!a || a.stato === 'arrivo' || a.stato === 'fermo' || a.stato === 'sosta') return;
       const k = CODE[Math.min(posto, CODE.length - 1)]!;
-      if (a.stato !== 'coda') { a.rotta = null; a.coda = Math.atan2(a.g.position.z - k.c.z, a.g.position.x - k.c.x); }
+      if (a.stato !== 'coda') { a.rotta = null; a.attesa = 0; a.coda = Math.atan2(a.g.position.z - k.c.z, a.g.position.x - k.c.x); }
       a.fatto = false; a.posto = Math.min(posto, CODE.length - 1); a.stato = 'coda';
     },
     // All'inizio del gioco: l'aereo è già fermo sulla pista, rivolto verso la direzione di decollo
@@ -1027,7 +1040,7 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
     },
     // Fine partita: chi è in attesa o sulla pista torna sulla sua orbita
     liberaTutti() {
-      aerei.forEach((a, k) => { if (a.stato === 'coda' || a.stato === 'fermo' || a.stato === 'arrivo') { a.rotta = rottaDecollo(a, k); a.stato = 'ritorno'; } });
+      aerei.forEach((a, k) => { if (a.stato === 'coda' || a.stato === 'fermo' || a.stato === 'arrivo' || a.stato === 'sosta') { if (a.stato === 'sosta') a.stato = 'arrivo'; a.sosta = -1; a.rotta = rottaDecollo(a, k); a.stato = 'ritorno'; } });
     },
     // Il termine è indovinato: l'aereo riparte e prende il suo percorso con lo striscione. Se sta ancora atterrando,
     // tocca la pista e riparte subito
