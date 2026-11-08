@@ -1,4 +1,5 @@
 import { avanza, DT, L, LATO_MAPPA, LIMITE, meta, N_AZIONI, N_AZIONI_P, nuovoMondo, OGNI, OSTACOLI, PECORE, RAGGIO, scegli, type Mondo, type Tipo } from '../lib/gregge';
+import { disegnaTestaCane } from './testaCane';
 
 // Vista del gregge, in isometria: due prati, lo stesso campo, lo stesso orologio. Guarda: due policy a confronto. Gioca: tu a sinistra, l'AI a destra.
 // Sui prati si vede quello che ogni cane legge: la differenza fra le due policy è tutta lì.
@@ -16,7 +17,7 @@ type Prato = { m: Mondo; chi: Tipo | 'tu'; pesi: Float32Array | null; caso: bool
 export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migliorAI: number) {
   const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
   const scrivi = (el: Element, t: string) => { if (el.textContent !== t) el.textContent = t; };
-  const FG = tono('--fg'), MUTED = tono('--muted'), LINE = tono('--line'), ARANCIO = tono('--arancio'), BLU = tono('--azzurro');
+  const FG = tono('--fg'), MUTED = tono('--muted'), LINE = tono('--line'), ARANCIO = tono('--arancio'), BLU = tono('--azzurro'), FONDO = tono('--bg') || '#0a0b0d';
   const tela = $<HTMLCanvasElement>('.tela-gregge'), c = tela.getContext('2d')!, pannello = $<HTMLElement>('.pannello'), bussola = $<HTMLCanvasElement>('.bussola'), cb = bussola.getContext('2d')!;
   const stato = $<HTMLElement>('.stato'), notaCampo = $<HTMLElement>('.nota-campo'), gioca = $<HTMLButtonElement>('.gioca'), pausa = $<HTMLButtonElement>('.pausa'), unPasso = $<HTMLButtonElement>('.un-passo'), vede = $<HTMLButtonElement>('.vede'), bestUomo = $<HTMLElement>('.best-uomo'), bestAI = $<HTMLElement>('.best-ai'), esito = $<HTMLElement>('.esito'), tagPunto = $<HTMLElement>('.tag-punto'), notaTel = $<HTMLElement>('.nota-tel');
   const bottoniCampo = radice.querySelectorAll<HTMLButtonElement>('[data-campo]'), bottoniTappa = radice.querySelectorAll<HTMLButtonElement>('[data-tappa]'), velocita = radice.querySelectorAll<HTMLButtonElement>('[data-vel]');
@@ -177,7 +178,7 @@ export function monta(radice: HTMLElement, tappe: Tappa[], campi: Campo[], migli
       const x = m.x[i]!, z = m.z[i]!, fuori = Math.hypot(x - m.gx, z - m.gz) >= RAGGIO, X = sx(x, z), Y = sy(x, z, 0.07);
       cose.push([x + z, () => { c.fillStyle = fuori ? FG : BLU; c.beginPath(); c.ellipse(X, Y, lato * 0.62, lato * 0.42, 0, 0, Math.PI * 2); c.fill(); }]);
     }
-    { const X = sx(m.cane.x, m.cane.z), Y = sy(m.cane.x, m.cane.z, 0.12); cose.push([m.cane.x + m.cane.z + 0.01, () => { c.fillStyle = ARANCIO; c.fillRect(X - 4, Y - 5, 8, 7); c.fillRect(X - 2, Y - 8, 4, 3); }]); }
+    { const X = sx(m.cane.x, m.cane.z), Y = sy(m.cane.x, m.cane.z, 0.12); cose.push([m.cane.x + m.cane.z + 0.01, () => disegnaTestaCane(c, X, Y + 2, 1, d, ARANCIO, FONDO)]); }
     cose.sort((a, b) => a[0] - b[0]).forEach(([, f]) => f());
   }
   function disegnaCurva() {
