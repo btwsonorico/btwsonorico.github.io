@@ -175,11 +175,12 @@ function disegnaMaschera(g: CanvasRenderingContext2D, faccia: HTMLElement, piano
       // Il sigillo sul tagliando, fra i dati e il codice; se lo spazio manca (telefono), sulla striscia dell'arte
       const t = q('.tagliando'), md = q('.metadati'), cd = q('.coda'), ar = q('.arte70');
       let cx = 0, cy = 0, r = 0;
-      if (t && md && cd && t.h > 150) { const su = md.y + md.h, giu = cd.y; cx = t.x + t.w / 2; cy = (su + giu) / 2; r = Math.min(38, (giu - su) / 2 - 6, t.w / 2 - 14); }
-      const co = q('.corpo');
-      const pa = q('.pannello');
-      if (r < 16 && pa && !t) { r = Math.min(30, pa.w * 0.12); cx = pa.x + pa.w - r - 12; cy = pa.y + r + 10; }
-      if (r < 16 && co) { r = 20; cx = co.x + co.w - r - 8; cy = co.y + r + 6; }
+      // Il sigillo sta in alto a destra nella parte della domanda: il tagliando resta libero per vite, combo e punti.
+      // Sulla carta bonus (senza domanda) sta in alto a destra sul pannello dei premi
+      const co = q('.corpo'), pa = q('.pannello');
+      void t; void md; void cd;
+      if (co) { r = Math.max(16, Math.min(26, co.w * 0.06)); cx = co.x + co.w - r - 8; cy = co.y + r + 8; }
+      else if (pa) { r = Math.min(30, pa.w * 0.12); cx = pa.x + pa.w - r - 12; cy = pa.y + r + 10; }
       void ar;
       if (r < 12) continue;
       g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
