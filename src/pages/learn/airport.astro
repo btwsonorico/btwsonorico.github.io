@@ -22,6 +22,13 @@ import Base from '../../layouts/Base.astro';
         <p class="mono piccolo dettaglio"></p>
         <button type="button" class="mono piccolo esci">stop</button>
       </div>
+      <div class="pausa-menu" hidden>
+        <div class="fine-carta" role="dialog" aria-labelledby="pausa-titolo">
+          <p class="mono fine-titolo pausa-titolo" id="pausa-titolo">Paused</p>
+          <button type="button" class="mono grande riprendi">Resume ✈</button>
+          <button type="button" class="mono esci-partita">quit the game</button>
+        </div>
+      </div>
       <div class="stato-gioco fine" hidden>
         <div class="fine-carta" role="dialog" aria-labelledby="fine-titolo">
           <p class="mono fine-titolo" id="fine-titolo">Game over</p>
@@ -88,6 +95,7 @@ import Base from '../../layouts/Base.astro';
   const cuori = () => '♥'.repeat(Math.max(0, vite)) + '♡'.repeat(Math.max(0, VITE - vite));
   const scriviStato = () => {
     scriviPunteggio();
+    tastoPausa.hidden = modo !== 'in-gioco';
     for (const [m, e] of Object.entries(stati)) e.hidden = m !== modo;
     const e = stati[modo];
     if (modo === 'inizio') { /* solo il bottone per partire */ }
@@ -149,6 +157,15 @@ import Base from '../../layouts/Base.astro';
   };
   document.querySelectorAll('.avvia').forEach(b => b.addEventListener('click', avvia));
   document.querySelectorAll('.esci').forEach(b => b.addEventListener('click', fine));
+  // La pausa: un tasto ⏸ nella barra in alto, solo in partita. Apre il menu con «resume» e «quit the game»
+  const tastoPausa = document.createElement('button');
+  tastoPausa.type = 'button'; tastoPausa.className = 'mono tasto-pausa'; tastoPausa.textContent = '⏸'; tastoPausa.setAttribute('aria-label', 'pause the game'); tastoPausa.hidden = true;
+  document.querySelector('.barra nav')?.prepend(tastoPausa);
+  // Il menu sta nel body: su telefono, in partita, il pannello del gioco è nascosto
+  const menuPausa = $('.pausa-menu'); document.body.append(menuPausa);
+  tastoPausa.addEventListener('click', () => { menuPausa.hidden = false; $<HTMLButtonElement>('.riprendi', menuPausa).focus(); });
+  $('.riprendi').addEventListener('click', () => { menuPausa.hidden = true; });
+  $('.esci-partita').addEventListener('click', () => { menuPausa.hidden = true; fine(); });
   $('.copia').addEventListener('click', async e => {
     const b = e.currentTarget as HTMLButtonElement, testo = `AI terms ✈ ${punti} pts · ${giuste} cleared · best combo ${migliorCombo}\nhttps://btwsonorico.github.io/learn/airport/`;
     try { await navigator.clipboard.writeText(testo); b.textContent = 'copied ✓'; } catch { b.textContent = 'copy failed'; }
@@ -159,6 +176,7 @@ import Base from '../../layouts/Base.astro';
     data: adesso, voli, partita: p, riassunto,
     // La combo decide la lamina del biglietto: niente a 0, argento a 1, oro a 2, arcobaleno da 3
     serie: () => combo,
+    senzaChiudi: () => modo === 'in-gioco',
     arcade: () => (modo === 'in-gioco' ? { vite, viteMax: VITE, combo, punti } : null),
     // Sotto il biglietto: il pilota automatico prima di rispondere; dopo la carta Holo, i tre premi da scegliere
     extra: fatto => {
@@ -261,6 +279,13 @@ import Base from '../../layouts/Base.astro';
   :global(.imbarco .arcade .ar-combo.c3 b) { color: #ea6a12; }
   :global(.imbarco .arcade .ar-combo.c4 b) { color: #e0307a; }
   /* La fine partita: una carta arcade al centro dello schermo, sopra la scena */
+  :global(.pausa-menu[hidden]) { display: none !important; }
+  :global(.pausa-menu:not([hidden])) { position: fixed; inset: 0; z-index: 7; display: grid; place-items: center; padding: 20px; background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(3px); }
+  .pausa-titolo { color: var(--fg) !important; }
+  :global(.pausa-menu button) { width: 100%; padding: 8px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); font: 13px var(--mono); cursor: pointer; }
+  :global(.pausa-menu button.grande) { padding: 14px; border: 0; background: var(--fg); color: var(--bg); font-size: 18px; }
+  :global(.tasto-pausa) { padding: 0 8px; border: 1px solid var(--line); background: none; color: var(--fg); font: inherit; cursor: pointer; margin-right: 8px; }
+  :global(.tasto-pausa[hidden]) { display: none; }
   .pannello-gioco .fine:not([hidden]) { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; padding: 20px; background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(3px); animation: appare .35s ease-out; }
   @keyframes appare { from { opacity: 0; } }
   .fine-carta { width: min(360px, 100%); display: grid; gap: 12px; padding: 22px 20px; border: 2px solid var(--fg); box-shadow: inset 0 0 0 3px var(--bg), inset 0 0 0 4px var(--line), 6px 6px 0 color-mix(in srgb, var(--fg) 25%, transparent); background: var(--bg); text-align: center; }
@@ -522,5 +547,6 @@ import Base from '../../layouts/Base.astro';
     :global(.imbarco .scorre) { flex: 1 1 auto; min-height: 0; }
     :global(.imbarco .definizione) { max-height: none; }
     :global(.imbarco .azioni) { flex: none; margin: 10px 0 0; }
+    :global(.imbarco .azioni[hidden]) { display: none; }
   }
 </style>

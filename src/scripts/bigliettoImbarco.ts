@@ -40,6 +40,8 @@ export type OpzioniImbarco = {
   // Bottoni in più sotto il biglietto (aiuti e premi), decisi dal gioco: si riscrivono a ogni cambio
   extra?: (fatto: boolean) => { testo: string; classe?: string; fai: () => void }[];
   // Il contatore arcade sul tagliando: vite e combo grandi, punti piccoli. Senza, il tagliando resta com'era
+  // Vero quando il gioco ha la sua pausa: il bottone «close» sotto il biglietto sparisce
+  senzaChiudi?: () => boolean;
   arcade?: () => { vite: number; viteMax: number; combo: number; punti: number } | null;
 };
 
@@ -253,6 +255,9 @@ export function nuovoImbarco(contenitore: HTMLElement, o: OpzioniImbarco) {
     prossimo.textContent = o.testoProssimo?.() ?? 'next flight →';
     scriviArcade();
     extra.replaceChildren(...(o.extra?.(fatto) ?? []).map(x => { const b = el('button', `mono ${x.classe ?? ''}`, x.testo); b.type = 'button'; b.addEventListener('click', x.fai); return b; }));
+    chiudi.hidden = !!o.senzaChiudi?.();
+    // Senza bottoni la riga sparisce, e il biglietto prende tutto lo spazio fino al fondo dello schermo
+    azioni.hidden = gira.hidden && prossimo.hidden && chiudi.hidden && !extra.childElementCount;
   };
   const rispondi = (b: HTMLButtonElement) => {
     const i = corrente, v = o.voli[i]!;

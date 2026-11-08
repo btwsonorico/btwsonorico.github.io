@@ -152,7 +152,7 @@ const sfera: Stile = {
 
 // ---------------- Holo: la carta rara, ogni 10 domande. In arcobaleno, argento o oro, con una nota di colore. Davanti una rosetta incisa a inchiostro, con le
 // linee guilloché e il sigillo in lamina; dietro il poster tutto in lamina, con il termine inciso. Non entra nel mazzo
-const OLO_TINTE = ['iride', 'argento', 'oro'] as const, OLO_COLORI = ['#e2566b', '#1f9a8a', '#6a4fd0', '#d48a12'] as const;
+const OLO_TINTE = ['iride', 'argento', 'oro', 'cobalto', 'smeraldo', 'rubino', 'camaleonte'] as const, OLO_COLORI = ['#e2566b', '#1f9a8a', '#6a4fd0', '#d48a12'] as const;
 const rosetta = () => {
   let linee = '';
   for (let k = 0; k < 18; k++) {
@@ -222,7 +222,8 @@ export type PianoBiglietto = { davanti: Pezzo[]; dietro: Pezzo[]; tinta: Tinta }
 const ORDINE_LAMINA: Pezzo[] = ['simboli', 'filo', 'banda', 'sigillo', 'guilloche'];
 export function pianoLamina(st: Stile, c: Contesto, combo = 0): PianoBiglietto {
   const k = una(c, 'tinta-lamina', () => c.r());
-  const tinta: Tinta = k < 0.42 ? 'argento' : k < 0.84 ? 'oro' : 'iride';
+  // Argento e oro comuni; cobalto, smeraldo, rubino e camaleonte meno; l'arcobaleno raro
+  const tinta: Tinta = k < 0.32 ? 'argento' : k < 0.62 ? 'oro' : k < 0.695 ? 'cobalto' : k < 0.77 ? 'smeraldo' : k < 0.845 ? 'rubino' : k < 0.92 ? 'camaleonte' : 'iride';
   if (st.id === 'olo') { const t = una(c, 'olo-tinta', () => scegli(OLO_TINTE, c.r)); return { davanti: ['guilloche', 'sigillo'], dietro: ['poster'], tinta: t }; }
   return { davanti: ORDINE_LAMINA.slice(0, Math.max(0, Math.min(combo, ORDINE_LAMINA.length))), dietro: [], tinta };
 }
