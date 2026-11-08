@@ -1,9 +1,9 @@
-import { CORSA, DATI, LATO_FRECCE, MONDO, N_FRECCE, SCALA } from '../data/diffusione-stella';
+import { CORSA, DATI, LATO_FRECCE, MONDO, N_FRECCE, SCALA, SCALA_E } from '../data/diffusione-stella';
 
 // L'arte «diffusione» dei biglietti di AI terms, presa da /learn/diffusion. Nessun modello gira qui.
-// Davanti: il training. I dati veri della stella (registrati) stanno sul piano; tante linee arancioni partono da punti della
-// forma e salgono a scatti fino alla loro posizione sporcata, come il bottone «train» della pagina: è il rumore che la rete
-// impara a togliere. Il rumore è finto ma fatto con la stessa ricetta della pagina (stessa curva, passo dopo passo).
+// Davanti: il training. I dati veri della stella stanno sul piano. Una o due linee arancioni alla volta partono da un punto
+// della forma e salgono fino alla sua posizione sporcata: è il rumore che la rete impara a togliere. Sono campioni veri del
+// training, registrati uno ogni 50 passi (punto, livello t, rumore usato, errore del passo), rigiocati in ordine e in loop.
 // Dietro: l'inference. Una corsa vera da 300 punti, registrata una volta (scripts/registra-diffusione.mjs): il rumore puro
 // scende sul piano e forma la stella, le frecce mostrano dove la rete manda i punti. A ogni frame si interpola fra due passi.
 
@@ -13,8 +13,9 @@ const FONDO = '#0a0b0d', FG = '#e6eaf0', MUTED = '#7a828d', RETE = '#1f242c', BL
 const PIATTO = 0.6, ALTEZZA = 1.1, MAGLIE = 12;
 // Il ciclo dietro, in secondi: rumore fermo, discesa, stella ferma, rumore che torna
 const FERMO = 0.8, DISCESA = 4.6, STELLA = 2.6, RITORNO = 1.6, CICLO = FERMO + DISCESA + STELLA + RITORNO;
-// Davanti: la curva del rumore della pagina (src/lib/spirale.ts, T = 50), la vita di una linea in secondi, i passi di training finti al secondo
-const T = 50, SALTO = 5, VITA = 2.8, PASSI_AL_SECONDO = 260, FINE = 8000;
+// Davanti: la curva del rumore della pagina (src/lib/spirale.ts, T = 50). Ogni linea, in secondi: si disegna, resta, si spegne.
+// Una nuova ogni PASSO secondi
+const T = 50, DISEGNO = 0.6, TIENI = 0.8, SPEGNI = 0.5, VITA = DISEGNO + TIENI + SPEGNI, PASSO = 1.1;
 const abar = Array.from({ length: T + 1 }, (_, t) => Math.max(1e-3, Math.cos(((t / T + 0.008) / 1.008) * Math.PI / 2) ** 2 / Math.cos((0.008 / 1.008) * Math.PI / 2) ** 2));
 const quota = (t: number) => Math.sqrt(1 - abar[t]!);
 
@@ -22,25 +23,14 @@ export const CARTA_DIFFUSIONE = { carta: '#eef2f7', inchiostro: '#10161f', accen
 
 // --- I dati: base64 → byte con segno, una volta sola
 const daB64 = (s: string) => { const b = atob(s), a = new Int8Array(b.length); for (let i = 0; i < b.length; i++) a[i] = (b.charCodeAt(i) << 24) >> 24; return a; };
-let decodificati: { dati: Int8Array; punti: Int8Array; frecce: Int8Array } | null = null;
-const dati = () => (decodificati ??= { dati: daB64(DATI.punti), punti: daB64(CORSA.punti), frecce: daB64(CORSA.frecce) });
+let decodificati: { dati: Int8Array; campioni: Int8Array; punti: Int8Array; frecce: Int8Array } | null = null;
+const dati = () => (decodificati ??= { dati: daB64(DATI.punti), campioni: daB64(DATI.campioni), punti: daB64(CORSA.punti), frecce: daB64(CORSA.frecce) });
 
 // Lo stato di ogni tela: solo il contesto e il font letto una volta
 const stati = new WeakMap<HTMLCanvasElement, { g: CanvasRenderingContext2D; mono: string }>();
 
 const liscia = (u: number) => u * u * (3 - 2 * u);
 const fra = (u: number, a: number, b: number) => Math.min(1, Math.max(0, (u - a) / (b - a)));
-
-// Un caso ripetibile da un seme: la stessa linea si ridisegna uguale a ogni frame
-function caso(seme: number) {
-  let s = seme | 0;
-  return () => {
-    s = (s + 0x6d2b79f5) | 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 // La proiezione del piano inclinato in un riquadro: centro, scala, giro
 type Piano = { cx: number; cy: number; S: number; co: number; si: number };
@@ -89,18 +79,17 @@ function davanti(g: CanvasRenderingContext2D, w: number, h: number, tempo: numbe
     g.fillRect(a - lato / 2, b - lato / 2, lato, lato);
   }
   g.globalAlpha = 1;
-  // Le linee del rumore: ognuna nasce, sale passo dopo passo fino al suo livello t, resta un attimo e si spegne. Più linee
-  // sfasate nel tempo: la tela piccola del telefono ne prende meno
-  const linee = w * h < 90000 ? 4 : 6, punta = Math.max(3, p.S * 0.06), anello = Math.max(3, p.S * 0.05);
+  // I campioni veri del training, in ordine: uno nuovo ogni PASSO secondi, ognuno vive DISEGNO + TIENI + SPEGNI. Al massimo due insieme
+  const nc = d.campioni.length / 6, ora = Math.floor(tempo / PASSO), punta = Math.max(3, p.S * 0.06), anello = Math.max(3, p.S * 0.05);
   g.lineJoin = g.lineCap = 'round';
-  for (let s = 0; s < linee; s++) {
-    const t0 = tempo + (s * VITA) / linee, giri = Math.floor(t0 / VITA), u = t0 / VITA - giri, r = caso(giri * 7919 + s * 104729 + 17);
-    const i = Math.floor(r() * n) * 2, x0 = d.dati[i]! * SCALA, y0 = d.dati[i + 1]! * SCALA, t = SALTO * (1 + Math.floor(r() * (T / SALTO)));
-    const visti = SALTO * Math.round(liscia(fra(u, 0.04, 0.55)) * (t / SALTO)), luce = fra(u, 0, 0.06) * (1 - liscia(fra(u, 0.72, 1)));
-    if (luce <= 0.01) continue;
-    // Il cammino del rumore, come nella pagina: a ogni passo il punto si restringe un po' e prende un po' di rumore.
-    // Qui un tratto vale 5 passi della pagina (stessa ricetta, passi più lunghi): con tante linee insieme si legge meglio
-    let x = x0, y = y0;
+  for (let k = ora - Math.ceil(VITA / PASSO) + 1; k <= ora; k++) {
+    const u = tempo - k * PASSO;
+    if (u < 0 || u >= VITA) continue;
+    const o = (((k % nc) + nc) % nc) * 6, x0 = d.campioni[o]! * SCALA, y0 = d.campioni[o + 1]! * SCALA, t = d.campioni[o + 2]!, e0 = d.campioni[o + 3]! * SCALA_E, e1 = d.campioni[o + 4]! * SCALA_E;
+    // Quanto della linea si vede (in passi di rumore, anche fra due passi) e quanta luce ha
+    const v = liscia(fra(u, 0, DISEGNO)) * t, luce = fra(u, 0, 0.12) * (1 - liscia(fra(u, DISEGNO + TIENI, VITA)));
+    // La posizione a ogni livello s, con lo stesso rumore vero: √ābar·x0 + √(1−ābar)·e. Al livello t è il punto che la rete ha visto
+    const a = (s: number) => { const k0 = Math.floor(s), q = s - k0, ab = abar[k0]! + (abar[Math.min(k0 + 1, T)]! - abar[k0]!) * q, sa = Math.sqrt(ab), sb = Math.sqrt(1 - ab); return proietta(p, sa * x0 + sb * e0, sa * y0 + sb * e1, sb); };
     const [ax, ay] = proietta(p, x0, y0);
     g.globalAlpha = luce;
     // Il punto vero, cerchiato
@@ -108,19 +97,15 @@ function davanti(g: CanvasRenderingContext2D, w: number, h: number, tempo: numbe
     g.lineWidth = 1;
     g.beginPath(); g.ellipse(ax, ay, anello, anello * PIATTO, 0, 0, Math.PI * 2); g.stroke();
     g.strokeStyle = ARANCIO;
-    g.lineWidth = 1.3;
+    g.lineWidth = 1.5;
     g.beginPath();
     g.moveTo(ax, ay);
-    for (let k = SALTO; k <= visti; k += SALTO) {
-      const beta = 1 - abar[k]! / abar[k - SALTO]!, sq = Math.sqrt(1 - beta), rb = Math.sqrt(beta);
-      const e0 = Math.sqrt(-2 * Math.log(1 - r())) * Math.cos(2 * Math.PI * r()), e1 = Math.sqrt(-2 * Math.log(1 - r())) * Math.cos(2 * Math.PI * r());
-      x = sq * x + rb * e0; y = sq * y + rb * e1;
-      const [a, b] = proietta(p, x, y, quota(k));
-      g.lineTo(a, b);
-    }
+    for (let s = 1; s < v; s++) { const [qx, qy] = a(s); g.lineTo(qx, qy); }
+    const [qx, qy] = a(v);
+    g.lineTo(qx, qy);
     g.stroke();
     // L'ombra sul piano dice quanto è alto; la punta arancione è la posizione sporcata
-    const [ox, oy] = proietta(p, x, y), [qx, qy] = proietta(p, x, y, quota(visti));
+    const ab = abar[Math.floor(v)]! + (abar[Math.min(Math.floor(v) + 1, T)]! - abar[Math.floor(v)]!) * (v - Math.floor(v)), [ox, oy] = proietta(p, Math.sqrt(ab) * x0 + Math.sqrt(1 - ab) * e0, Math.sqrt(ab) * y0 + Math.sqrt(1 - ab) * e1);
     g.fillStyle = MUTED;
     g.globalAlpha = luce * 0.6;
     g.fillRect(ox - punta * 0.35, oy - punta * 0.35, punta * 0.7, punta * 0.7);
@@ -129,10 +114,10 @@ function davanti(g: CanvasRenderingContext2D, w: number, h: number, tempo: numbe
     g.fillRect(qx - punta / 2, qy - punta / 2, punta, punta);
   }
   g.globalAlpha = 1;
-  // Una riga in mono: il contatore del training, che ricomincia
-  const passo = Math.floor(tempo * PASSI_AL_SECONDO) % FINE;
+  // Una riga in mono: il passo e l'errore veri del campione più nuovo
+  const o = (((ora % nc) + nc) % nc) * 6, passo = ((((ora % nc) + nc) % nc) + 1) * DATI.ogni;
   g.fillStyle = MUTED;
-  g.fillText(`training · step ${passo.toLocaleString('en-US')} of ${FINE.toLocaleString('en-US')}`, w / 2, riga);
+  g.fillText(`training · step ${passo.toLocaleString('en-US')} · loss ${(d.campioni[o + 5]! / 100).toFixed(2)}`, w / 2, riga);
 }
 
 // --- Dietro: l'inference

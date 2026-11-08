@@ -66,14 +66,15 @@ import Base from '../../layouts/Base.astro';
   const record = () => primati().punti ?? 0;
   const riassunto = () => `score ${punti} · combo ${combo} · best ${record()}`;
   // Il punteggio come in un gioco: badge separati per punti, vite, combo e record
-  const badge = (classe: string, testo: string, piccolo?: string) => { const b = document.createElement('span'); b.className = `hud ${classe}`; b.textContent = testo; if (piccolo) { const sm = document.createElement('small'); sm.textContent = piccolo; b.append(sm); } return b; };
+  // Il punteggio come in un cabinato arcade: quattro riquadri, etichetta piccola sopra e numero grande sotto
+  const badge = (classe: string, etichetta: string, valore: string) => { const b = document.createElement('div'); b.className = `hud ${classe}`; const sm = document.createElement('small'); sm.textContent = etichetta; const v = document.createElement('b'); v.textContent = valore; b.append(sm, v); return b; };
   const scriviPunteggio = () => {
-    if (modo !== 'in-gioco') { punteggio.replaceChildren(); return; }
+    if (modo === 'inizio') { punteggio.replaceChildren(badge('hud-best', 'best', String(record()).padStart(2, '0'))); return; }
     punteggio.replaceChildren(
-      badge('hud-punti', `${punti}`, 'pts'),
-      badge('hud-vite', cuori()),
-      badge(`hud-combo${combo > 1 ? ' attiva' : ''}`, `${combo}`, 'combo'),
-      badge('hud-best', `${Math.max(record(), punti)}`, 'best'),
+      badge('hud-punti', 'score', String(punti).padStart(2, '0')),
+      badge('hud-vite', 'lives', cuori()),
+      badge(`hud-combo${combo > 1 ? ' attiva' : ''}`, 'combo', `x${combo}`),
+      badge('hud-best', 'best', String(Math.max(record(), punti)).padStart(2, '0')),
     );
   };
   const cuori = () => '♥'.repeat(Math.max(0, vite)) + '♡'.repeat(Math.max(0, VITE - vite));
@@ -213,13 +214,17 @@ import Base from '../../layouts/Base.astro';
   .aeroporto > * { max-width: 400px; margin: 0 0 var(--s1); }
   h1 { font-size: 33px; font-weight: 400; line-height: 1.1; }
   .sotto { color: var(--muted); }
-  .punteggio { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
-  .punteggio :global(.hud) { display: inline-flex; align-items: baseline; gap: 4px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: color-mix(in srgb, var(--bg) 72%, transparent); backdrop-filter: blur(6px); color: var(--fg); }
-  .punteggio :global(.hud small) { font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-  .punteggio :global(.hud-punti) { font-size: 17px; font-weight: 700; color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
-  .punteggio :global(.hud-vite) { color: #ff6b81; letter-spacing: .08em; }
-  .punteggio :global(.hud-combo.attiva) { color: #ffd84a; border-color: #ffd84a88; }
-  .pannello-gioco { pointer-events: auto; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--bg) 86%, transparent); }
+  /* Il pannello arcade: riquadri a bordo doppio, etichette maiuscole piccole, numeri grandi nel font a pixel del sito */
+  .punteggio { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 360px; font-family: var(--mono); }
+  .punteggio :global(.hud) { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px 10px; border: 2px solid var(--fg); box-shadow: inset 0 0 0 2px var(--bg), inset 0 0 0 3px var(--line); background: color-mix(in srgb, var(--bg) 80%, transparent); image-rendering: pixelated; }
+  .punteggio :global(.hud small) { font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+  .punteggio :global(.hud b) { font-weight: 400; font-size: 34px; line-height: 1; color: var(--fg); letter-spacing: .04em; }
+  .punteggio :global(.hud-punti b) { color: #ffd84a; text-shadow: 3px 3px 0 #a3561a; }
+  .punteggio :global(.hud-vite b) { color: #ff5a6e; font-size: 24px; letter-spacing: .12em; line-height: 34px; }
+  .punteggio :global(.hud-combo.attiva) { border-color: #6fe3ff; }
+  .punteggio :global(.hud-combo.attiva b) { color: #6fe3ff; }
+  .pannello-gioco { pointer-events: auto; max-width: 360px; }
+  .pannello-gioco .in-gioco { display: none; }
   .stato-gioco > * { margin: 0 0 8px; }
   .stato-gioco > *:last-child { margin-bottom: 0; }
   .pannello-gioco button { padding: 6px 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg); font-size: 12px; cursor: pointer; }
@@ -404,7 +409,13 @@ import Base from '../../layouts/Base.astro';
     :global(body:has(.imbarco:not([hidden]))) .fondo3d { top: 0; bottom: auto; height: 34vh; height: 34dvh; }
     :global(body:has(.imbarco:not([hidden]))) .aeroporto > :not(.punteggio) { display: none; }
     /* In partita, su telefono, i badge stanno in alto sopra la scena, nello spazio lasciato dai link */
-    :global(body:has(.imbarco:not([hidden]))) .punteggio { position: fixed; top: 52px; left: 10px; right: 10px; z-index: 4; justify-content: center; }
+    /* Su telefono i quattro riquadri stanno in fila, piccoli, sopra la scena */
+    .punteggio { grid-template-columns: repeat(4, 1fr); gap: 5px; max-width: none; }
+    .punteggio :global(.hud) { padding: 5px 6px 6px; align-items: center; }
+    .punteggio :global(.hud small) { font-size: 8px; letter-spacing: .14em; }
+    .punteggio :global(.hud b) { font-size: 22px; }
+    .punteggio :global(.hud-vite b) { font-size: 12px; letter-spacing: 0; line-height: 22px; }
+    :global(body:has(.imbarco:not([hidden]))) .punteggio { position: fixed; top: 52px; left: 10px; right: 10px; z-index: 4; }
     :global(.imbarco) { top: 30vh; top: 30dvh; }
     :global(.imbarco .fronte > :not(.arte70):not(.strato):not(.timbri)) { grid-column: 1 / -1; }
     :global(.imbarco .banda span) { writing-mode: horizontal-tb; rotate: 0deg; font-size: 8px; }

@@ -20,18 +20,32 @@ const { abar, aggiornaMedia, allena, conMedia, gauss, indietro, nuovoModello, st
 
 // Le stesse impostazioni della pagina (src/scripts/spiraleVista.ts)
 const N_DATI = 1024, GRUPPO = 64, FINE = 8000, MONDO = 1.65, T_FRECCE_MAX = 44;
-// Cosa si registra. Davanti (training): 480 punti dei dati della stella. Dietro (inference): una corsa da 300 punti in 25 passi, con le frecce
-const N_DATI_ARTE = 480, N_CORSA = 300, PASSI_CORSA = 25, N_FRECCE = 10;
+// Cosa si registra. Davanti (training): 480 punti dei dati della stella e un campione vero ogni 50 passi (160 in tutto). Dietro (inference): una corsa da 300 punti in 25 passi, con le frecce
+const N_DATI_ARTE = 480, OGNI = 50, SCALA_E = 4.5 / 127, N_CORSA = 300, PASSI_CORSA = 25, N_FRECCE = 10;
 // Un byte con segno per coordinata: da -3 a 3, un gradino ogni 0,024 circa
 const SCALA = 3 / 127;
+const byte = v => Math.max(-127, Math.min(127, Math.round(v / SCALA)));
 const LATO = (2 * MONDO) / N_FRECCE;
 
 // --- Training, come il bottone «train» della pagina
 const dati = stella(N_DATI), m = nuovoModello(), media = conMedia(m);
 const via = performance.now();
 let somma = 0;
+// I campioni del training: ogni OGNI passi si ascoltano i primi 6 numeri a caso del passo. Sono il primo punto del gruppo:
+// indice, livello t, poi due gauss da due numeri ciascuno (src/lib/spirale.ts, allena). Il training resta identico: i numeri
+// sono gli stessi, solo letti. Per campione: x0, y0 del punto vero, t, il rumore e0, e1, l'errore del passo × 100. Tutto in int8
+const casoVero = Math.random, campioni = new Int8Array((FINE / OGNI) * 6);
 for (let k = 0; k < FINE; k++) {
-  somma += allena(m, dati, GRUPPO, 3e-3 * (1 - m.passi / FINE) + 1e-4, T);
+  const registra = (k + 1) % OGNI === 0, letti = [];
+  if (registra) Math.random = () => { const r = casoVero(); if (letti.length < 6) letti.push(r); return r; };
+  const errore = allena(m, dati, GRUPPO, 3e-3 * (1 - m.passi / FINE) + 1e-4, T);
+  Math.random = casoVero;
+  somma += errore;
+  if (registra) {
+    const i = Math.floor(letti[0] * N_DATI), t = 1 + Math.floor(letti[1] * T), g = (a, b) => Math.sqrt(-2 * Math.log(1 - a)) * Math.cos(2 * Math.PI * b);
+    const e = [byte(dati[i * 2]), byte(dati[i * 2 + 1]), t, Math.max(-127, Math.min(127, Math.round(g(letti[2], letti[3]) / SCALA_E))), Math.max(-127, Math.min(127, Math.round(g(letti[4], letti[5]) / SCALA_E))), Math.min(127, Math.round(errore * 100))];
+    campioni.set(e, ((k + 1) / OGNI - 1) * 6);
+  }
   aggiornaMedia(m, media);
   if ((k + 1) % 1000 === 0) { console.log(`passo ${k + 1} · errore ${(somma / 1000).toFixed(3)}`); somma = 0; }
 }
@@ -40,7 +54,6 @@ console.log(`training: ${((performance.now() - via) / 1000).toFixed(1)} s · sul
 // --- Inference: i tempi come in pagina, da T a 0 in parti uguali
 const tempiDi = passi => [...Array.from({ length: passi }, (_, k) => Math.round(T - (k * T) / passi)), 0];
 const quota = t => Math.sqrt(1 - abar[t]);
-const byte = v => Math.max(-127, Math.min(127, Math.round(v / SCALA)));
 
 // Una corsa: per ogni passo, tutte le posizioni. frame 0 è il rumore puro
 function corsa(n, passi) {
@@ -93,8 +106,10 @@ export const MONDO = ${MONDO};
 export const N_FRECCE = ${N_FRECCE};
 export const LATO_FRECCE = ${LATO};
 
-// Davanti (training): ${N_DATI_ARTE} punti dei dati veri della stella, x/y
-export const DATI = { n: ${N_DATI_ARTE}, punti: '${b64(datiArte)}' };
+// Davanti (training): ${N_DATI_ARTE} punti dei dati veri della stella, x/y. CAMPIONI: un campione vero del training ogni ${OGNI} passi,
+// 6 byte ciascuno: x0, y0 (× SCALA), t (livello di rumore, 1–${T}), e0, e1 (il rumore usato, × SCALA_E), errore del passo (× 0,01)
+export const SCALA_E = ${SCALA_E};
+export const DATI = { n: ${N_DATI_ARTE}, punti: '${b64(datiArte)}', ogni: ${OGNI}, campioni: '${b64(campioni)}' };
 
 // Dietro (inference): una corsa da ${N_CORSA} punti in ${PASSI_CORSA} passi. QUOTE: il rumore rimasto a ogni frame, da 1 a 0
 export const CORSA = {
