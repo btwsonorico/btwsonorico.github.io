@@ -476,11 +476,15 @@ export function monta(el: HTMLElement, risorse: Risorsa[] = []) {
   const mondoAI = nuovoMondo(1), bottoneAI = document.createElement('button');
   bottoneAI.type = 'button';
   bottoneAI.textContent = 'try herding';
-  bottoneAI.style.cssText = 'position:absolute;left:16px;bottom:8px;z-index:2;padding:4px 8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:12px var(--mono);cursor:pointer;pointer-events:auto';
+  bottoneAI.style.cssText = 'padding:6px 10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font:12px var(--mono);cursor:pointer;pointer-events:auto';
   const caricaAI = async () => { pesiAI ??= new Float32Array(await (await fetch('/learn/gregge/rfine.bin')).arrayBuffer()); };
   // Il cane parte sempre con l'AI; sul computer si può riprendere. Su telefono guida sempre lei
   caricaAI();
-  if (!p.telefono) el.appendChild(bottoneAI);
+  // I tasti stanno insieme in una riga in basso a destra: «try herding» (solo su computer) e «follow the dog»
+  const tasti = document.createElement('div');
+  tasti.style.cssText = 'position:absolute;right:16px;bottom:8px;z-index:2;display:flex;gap:8px;pointer-events:auto';
+  el.appendChild(tasti);
+  if (!p.telefono) tasti.appendChild(bottoneAI);
   bottoneAI.addEventListener('pointerdown', e => e.stopPropagation());
   bottoneAI.addEventListener('click', async () => {
     await caricaAI();
@@ -546,7 +550,7 @@ Sheep: ${dentro}/${PECORE}   ${orologio(gioco.tempo)}`;
   const bottoneSegui = document.createElement('button');
   bottoneSegui.type = 'button';
   bottoneSegui.textContent = 'follow the dog';
-  bottoneSegui.style.cssText = `position:absolute;right:16px;bottom:8px;z-index:2;padding:${p.telefono ? '9px 14px' : '4px 8px'};border:1px solid var(--line);background:var(--bg);color:var(--fg);font:${p.telefono ? 14 : 12}px var(--mono);cursor:pointer;pointer-events:auto`;
+  bottoneSegui.style.cssText = `padding:${p.telefono ? '9px 14px' : '6px 10px'};border:1px solid var(--line);background:var(--bg);color:var(--fg);font:${p.telefono ? 14 : 12}px var(--mono);cursor:pointer;pointer-events:auto`;
   bottoneSegui.addEventListener('pointerdown', e => e.stopPropagation());
   bottoneSegui.addEventListener('click', () => {
     segui = !segui;
@@ -555,7 +559,7 @@ Sheep: ${dentro}/${PECORE}   ${orologio(gioco.tempo)}`;
     nomi.forEach(n => { n.style.visibility = segui ? 'hidden' : ''; });
     mongolfiere.forEach(m => { m.o.visible = !segui; });
   });
-  el.appendChild(bottoneSegui);
+  tasti.appendChild(bottoneSegui);
   const centroGregge = new THREE.Vector3();
   const smonta = p.distruggi;
   p.distruggi = () => { conta.remove(); bottoneAI.remove(); nomi.forEach(a => a.remove()); smonta(); };

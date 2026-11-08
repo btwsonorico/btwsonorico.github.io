@@ -46,6 +46,8 @@ const RISORSE = [
   .lista a:hover { color: var(--bg); background: var(--fg); text-decoration: none; }
   .lista span { display: block; width: fit-content; background: color-mix(in srgb, var(--bg) 78%, transparent); }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
+  /* Il piede non deve coprire i tasti della scena in basso */
+  :global(.piede) { pointer-events: none; }
   /* Etichette come nella home, ognuna nel colore del suo pallone. Il nome di una mongolfiera è un link */
   .scena3d :global(.etichetta) {
     position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;

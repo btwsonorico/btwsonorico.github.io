@@ -39,9 +39,11 @@ const stati = new WeakMap<HTMLCanvasElement, { g: CanvasRenderingContext2D; mono
 // --- Il piano, come piano() della pagina, in un riquadro: in alto resta la riga delle frecce
 type Riquadro = { x: number; y: number; w: number; h: number };
 type Piano = { S: number; cx: number; cy: number; co: number; si: number };
+// Sul biglietto solo il quadrato, più vicino che sulla pagina: la stella riempie la tela, i bordi della griglia possono uscire
+const ZOOM = 1.45;
 function piano(r: Riquadro): Piano {
-  const S = Math.min(r.w / (2 * MONDO * Math.SQRT2 * 0.92), (r.h - 24) / (2 * MONDO * Math.SQRT2 * PIATTO + ALTEZZA * 1.2));
-  return { S, cx: r.x + r.w / 2, cy: r.y + r.h / 2 + 12 + (S * ALTEZZA) / 3, co: Math.cos(GIRO), si: Math.sin(GIRO) };
+  const S = ZOOM * Math.min(r.w / (2 * MONDO * Math.SQRT2 * 0.92), r.h / (2 * MONDO * Math.SQRT2 * PIATTO + ALTEZZA * 0.7));
+  return { S, cx: r.x + r.w / 2, cy: r.y + r.h / 2 + (S * ALTEZZA) / 4, co: Math.cos(GIRO), si: Math.sin(GIRO) };
 }
 const P = (p: Piano, x: number, y: number, h = 0): [number, number] => [p.cx + p.S * (x * p.co + y * p.si), p.cy - p.S * ((-x * p.si + y * p.co) * PIATTO + h * ALTEZZA)];
 const punto = (g: CanvasRenderingContext2D, p: Piano, x: number, y: number, h: number, lato: number) => { const [a, b] = P(p, x, y, h); g.fillRect(a - lato / 2, b - lato / 2, lato, lato); };
@@ -72,7 +74,7 @@ function frecce(g: CanvasRenderingContext2D, p: Piano, f: Int8Array, o: number, 
   g.fillStyle = MUTED;
   g.textAlign = 'center';
   g.textBaseline = 'alphabetic';
-  testo(g, `arrows at ${Math.round(quota(t) * 100)}% noise: where points get sent`, p.cx, r.y + 12, 11, r.w - 8, mono);
+  void t; void mono; void r;
 }
 
 // Un testo in mono della misura della pagina, più piccolo solo se non ci sta
@@ -131,10 +133,8 @@ function davanti(g: CanvasRenderingContext2D, w: number, h: number, tempo: numbe
   // Prima del clic i passi sono 0; dopo la fine restano 8.000 e il racconto sparisce
   const passi = e <= 0 ? 0 : Math.min(fine, Math.floor((e / TRAINING.durata) * fine)), inMoto = e > 0 && passi < fine;
   // Dove stanno il piano e il pannello: a sinistra se la tela è larga, come la pagina sul desktop; sotto se è alta, come sul telefono
-  const largo = w / h > 1.5, pw = largo ? Math.round(w * 0.42) : w - 16, ph = largo ? 0 : Math.min(84, Math.round(h * 0.27));
-  // Sulla tela alta il piano prende solo l'altezza che gli serve, e piano e pannello stanno insieme al centro
-  const serve = 24 + (w / (2 * MONDO * Math.SQRT2 * 0.92)) * (2 * MONDO * Math.SQRT2 * PIATTO + ALTEZZA * 1.2), hp = largo ? h : Math.min(h - ph, serve), su = largo ? 0 : Math.round((h - ph - hp) / 2);
-  const rp: Riquadro = largo ? { x: pw + 8, y: 0, w: w - pw - 12, h } : { x: 0, y: su, w, h: hp };
+  // Solo il quadrato, su tutta la tela: niente pannello, niente scritte
+  const rp: Riquadro = { x: 0, y: 0, w, h };
   const p = piano(rp);
   griglia(g, p);
   // Il racconto in corso: uno nuovo ogni 1,1 s, finché il training va
@@ -153,18 +153,7 @@ function davanti(g: CanvasRenderingContext2D, w: number, h: number, tempo: numbe
     frecce(g, p, d.frecce, k * NF, T_ALLENA, mono, rp);
   }
   if (ir >= 0) racconto(g, p, ir, (e - TRAINING.racconti[ir]![0]!) / TRAINING.racconto, mono);
-  // Il pannello: la riga dei passi, poi la curva
-  const storia = Math.floor(passi / 100), buoni = passi >= 500 ? TRAINING.buoni[Math.floor(passi / 500) - 1]! : -1;
-  const riga = passi ? `${passi.toLocaleString('en')} steps${storia ? ` · error ${TRAINING.storia[storia - 1]!.toFixed(2)}` : ''}${buoni >= 0 ? ` · on shape ${buoni}%` : ''}` : '';
-  const px = Math.max(8, Math.min(12, Math.round(pw / 26))), alto = Math.min(54, largo ? h * 0.4 : ph - px - 10);
-  g.font = `${px}px ${mono}`;
-  const linee = riga ? righe(g, riga, pw) : [], blocco = Math.max(1, largo ? 2 : 1) * (px + 4) + 4 + alto;
-  const x0 = 8, y0 = largo ? Math.round((h - blocco) / 2) : su + hp + 2;
-  g.fillStyle = MUTED;
-  g.textAlign = 'left';
-  g.textBaseline = 'alphabetic';
-  linee.forEach((l, i) => g.fillText(l, x0, y0 + px + i * (px + 4)));
-  curva(g, { x: x0, y: y0 + blocco - alto, w: pw, h: alto }, storia, mono);
+  void passi;
 }
 
 // Un racconto, come la pagina: f va da 0 a 1 in 1,1 s
@@ -202,10 +191,7 @@ function racconto(g: CanvasRenderingContext2D, p: Piano, ir: number, f0: number,
       g.setLineDash([3, 3]);
       g.beginPath(); g.moveTo(gx, gy); g.lineTo(vx, vy); g.stroke();
       g.setLineDash([]);
-      g.font = `12px ${mono}`;
-      g.textAlign = 'left';
-      g.textBaseline = 'alphabetic';
-      g.fillText(`error ${errore!.toFixed(2)}`, (gx + vx) / 2 + 8, (gy + vy) / 2 - 8);
+      void errore; void mono;
     }
   }
   g.lineWidth = 1;
@@ -214,7 +200,7 @@ function racconto(g: CanvasRenderingContext2D, p: Piano, ir: number, f0: number,
 // --- Dietro: l'inference
 function dietro(g: CanvasRenderingContext2D, w: number, h: number, tempo: number, mono: string) {
   const d = dati(), e = (tempo * 1000) % CICLO_DIETRO, { n, passi: np, durata, tempi, quote, scale } = INFERENCE, sale = e < durata;
-  const px = Math.max(8, Math.min(12, Math.round(w / 30))), rp: Riquadro = { x: 0, y: 0, w, h: h - px - 8 }, p = piano(rp);
+  const rp: Riquadro = { x: 0, y: 0, w, h }, p = piano(rp);
   griglia(g, p);
   // Come la pagina: al passo k i punti vanno dal fotogramma k − 1 al fotogramma k, in 3,2 s / 20 ciascuno. A fine discesa restano fermi
   const k = sale ? Math.min(np, Math.floor((e / durata) * np) + 1) : np, u = sale ? Math.min(1, Math.max(0, (e / durata) * np - (k - 1))) : 1;
@@ -227,11 +213,7 @@ function dietro(g: CanvasRenderingContext2D, w: number, h: number, tempo: number
     const ax = d.punti[o0 + i]! * s0, ay = d.punti[o0 + i + 1]! * s0;
     punto(g, p, ax + (d.punti[o1 + i]! * s1 - ax) * u, ay + (d.punti[o1 + i + 1]! * s1 - ay) * u, hh, 3);
   }
-  // La lettura della pagina sotto «generate»
-  g.fillStyle = FG;
-  g.textAlign = 'center';
-  g.textBaseline = 'alphabetic';
-  testo(g, sale ? `step ${k} of ${np} · ${Math.round(quote[k]! * 100)}% noise left` : 'finished', w / 2, h - 6, px, w - 16, mono);
+  void mono;
 }
 
 // Disegna tutta la tela, fondo compreso. «tempo» in secondi; la tela ha già le misure giuste in pixel del dispositivo

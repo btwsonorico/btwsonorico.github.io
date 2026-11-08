@@ -76,7 +76,8 @@ import Base from '../../layouts/Base.astro';
   const badge = (classe: string, etichetta: string, valore: string) => { const b = document.createElement('div'); b.className = `hud ${classe}`; const sm = document.createElement('small'); sm.textContent = etichetta; const v = document.createElement('b'); v.textContent = valore; b.append(sm, v); return b; };
   const scriviPunteggio = () => {
     // Il contatore della partita sta sul tagliando del biglietto; qui resta solo il record, sotto il bottone per partire
-    if (modo !== 'fine') { punteggio.replaceChildren(...(modo === 'inizio' ? [badge('hud-best', 'best', String(record()).padStart(2, '0'))] : [])); return; }
+    // Prima di partire solo il bottone «Take off»: niente record qui
+    if (modo !== 'fine') { punteggio.replaceChildren(); return; }
     punteggio.replaceChildren(
       badge('hud-punti', 'score', String(punti).padStart(2, '0')),
       badge('hud-vite', 'lives', cuori()),
