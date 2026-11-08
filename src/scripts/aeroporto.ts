@@ -686,18 +686,19 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
   // dritta sull'asse della pista, in discesa costante fino all'hangar. Chi è già a ovest (in attesa) salta il sottovento
   // Due cerchi di attesa a ovest, uno sopra l'altro: il primo della fila gira basso, vicino alla finale; il secondo più in alto
   const CODE = [{ c: new THREE.Vector3(-6.9, 1.25, PZ - 2.5), r: 0.85, w: 0.6 }, { c: new THREE.Vector3(-7.9, 2.05, PZ - 3.7), r: 1.1, w: 0.45 }];
-  // Se si aspetta a rispondere, gli aerei in fila atterrano lo stesso e si mettono in fila sul raccordo accanto alla pista,
-  // dietro l'aereo fermo: il primo dopo 9 secondi di attesa, il secondo dopo altri 6
-  const SOSTE = [new THREE.Vector3(-0.35, SUOLO, PZ + 0.42), new THREE.Vector3(-1.15, SUOLO, PZ + 0.42)];
+  // Se si aspetta a rispondere, gli aerei in fila atterrano lo stesso e si mettono in coda sulla pista, uno dietro l'altro
+  // alle spalle dell'aereo fermo: il primo dopo 9 secondi di attesa, il secondo dopo altri 6
+  const SOSTE = [new THREE.Vector3(-0.35, SUOLO, PZ), new THREE.Vector3(-1.15, SUOLO, PZ)];
   const rottaArrivo = (a: Aereo, rapido = true, fine: THREE.Vector3 = FERMO) => {
     const qui = a.g.position.clone(), avanti = qui.clone().add(a.dir.clone().setY(0).normalize().multiplyScalar(1.3));
     const circuito = [new THREE.Vector3(2.2, 1.6, PZ - 2.9), new THREE.Vector3(-3, 1.55, PZ - 2.9), new THREE.Vector3(-6.4, 1.45, PZ - 2.7)]
       .filter(q => qui.x > q.x + 1.2);
     return { ...nuovaRotta([qui, avanti, ...circuito, new THREE.Vector3(-8.6, 1.28, PZ - 1.4), new THREE.Vector3(-7.4, 1.06, PZ), new THREE.Vector3(-4.9, 0.66, PZ),
-      new THREE.Vector3(-2.5, SUOLO + 0.03, PZ), ...(fine === FERMO ? [new THREE.Vector3(-1.1, SUOLO, PZ)] : [new THREE.Vector3(fine.x - 0.9, SUOLO, PZ), new THREE.Vector3(fine.x - 0.35, SUOLO, PZ + 0.3)]), fine.clone()]), rapido };
+      new THREE.Vector3(-2.5, SUOLO + 0.03, PZ), new THREE.Vector3((fine === FERMO ? -1.1 : fine.x - 0.9), SUOLO, PZ), fine.clone()]), rapido };
   };
   // Dal raccordo alla pista: un breve rullaggio fino al posto davanti all'hangar
-  const rottaRullaggio = (a: Aereo) => ({ ...nuovaRotta([a.g.position.clone(), new THREE.Vector3(a.g.position.x + 0.3, SUOLO, PZ + 0.25), new THREE.Vector3(Math.min(FERMO.x - 0.2, a.g.position.x + 0.7), SUOLO, PZ), FERMO.clone()]), rapido: true });
+  // Avanzare in coda sulla pista: dritto, fino al posto davanti (l'hangar o il primo posto della coda)
+  const rottaRullaggio = (a: Aereo, fine: THREE.Vector3 = FERMO) => ({ ...nuovaRotta([a.g.position.clone(), new THREE.Vector3((a.g.position.x + fine.x) / 2, SUOLO, PZ), fine.clone()]), rapido: true });
   // Decollo: verso est sulla pista, salita, poi si aggancia alla sua orbita
   const rottaDecollo = (a: Aereo, i: number) => {
     const uscita = [FERMO.clone(), new THREE.Vector3(1.6, SUOLO, PZ), new THREE.Vector3(2.8, SUOLO + 0.05, PZ), new THREE.Vector3(4.4, 0.6, PZ), new THREE.Vector3(6, 1.3, -0.3)];
@@ -762,6 +763,8 @@ export function monta(el: HTMLElement, o: OpzioniAeroporto) {
         a.g.position.copy(pr.punto(a.f));
       } else if (a.stato === 'sosta') {
         a.g.position.copy(SOSTE[a.sosta]!);
+        // Se il posto davanti si è liberato, avanza
+        if (a.sosta > 0 && !aerei.some(b => b !== a && b.sosta === a.sosta - 1)) { a.sosta--; a.rotta = rottaRullaggio(a, SOSTE[a.sosta]!); a.stato = 'arrivo'; }
       } else if (a.stato === 'coda') {
         a.attesa += dt;
         // Aspetta troppo: scende e atterra, poi si ferma sul raccordo
