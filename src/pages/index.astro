@@ -83,6 +83,10 @@ const PAGINE = [
   window.addEventListener('error', e => { if (radice.dataset.intro && String(e.filename).includes('intro')) { delete radice.dataset.intro; intro?.remove(); } });
   // Il mondo 3D: bosco (Software), stagno (Advisory), stormo (Knowledge), cervi (Learn). Si scarica dopo il primo disegno: il testo appare subito
   setTimeout(() => import('../scripts/mondo').then(m => m.monta(document.querySelector<HTMLElement>('.scena3d')!)), 30);
+  // Zoom libero con rotella e dita: la scena dice quando è da vicino, e il testo lascia il posto
+  window.addEventListener('grafo:zoomato', e => {
+    document.documentElement.toggleAttribute('data-zoomato', (e as CustomEvent<{ libero: boolean }>).detail.libero);
+  });
   // Passare sopra una sezione nella lista accende la sua parte del mondo, come nelle liste delle altre pagine
   document.querySelectorAll<HTMLElement>('[data-sezione]').forEach(a => {
     a.addEventListener('mouseenter', () => window.dispatchEvent(new CustomEvent('grafo:evidenzia', { detail: a.dataset.sezione })));
@@ -134,6 +138,11 @@ const PAGINE = [
   /* Il mondo copre tutta la finestra; la barra e la scritta della build gli stanno sopra */
   .fondo3d { position: fixed; inset: 0; z-index: 0; }
   .scena3d { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
+  /* Da vicino la scena passa sotto il testo: su computer il testo sparisce e torna con la vista intera. Sul telefono sta già sotto la scena */
+  @media (min-width: 641px) {
+    :global(html[data-zoomato]) .about { opacity: 0; }
+    :global(html[data-zoomato]) .about a { pointer-events: none; }
+  }
   /* Etichette del mondo: come nelle scene di bosco e laghetto, nel colore della loro sezione */
   .scena3d :global(.etichetta) {
     position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;

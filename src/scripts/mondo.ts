@@ -464,6 +464,7 @@ export function monta(el: HTMLElement) {
     // Mai di lato: la vista resta sempre un po' dall'alto, così sotto il prato non si vedono i pesci
     inclinazione: [0.16, 0.3],
     giuMax: 0,
+    zoomLibero: true,
     puntatore: nuovoPuntatore,
     zona,
     dopo: nasce,

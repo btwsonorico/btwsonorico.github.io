@@ -45,6 +45,8 @@ interface Opzioni {
   puntatore?: (raggio: THREE.Raycaster | null) => void;
   // Clic che non prende nessun punto (per esempio un sasso lanciato nello stagno): riceve il raggio dalla camera
   clicVuoto?: (raggio: THREE.Raycaster) => void;
+  // Zoom libero con rotella, pinch del trackpad e due dita, verso il punto indicato. Si torna indietro allo stesso modo
+  zoomLibero?: boolean;
 }
 
 const css = (el: HTMLElement, nome: string) => new THREE.Color(getComputedStyle(el).getPropertyValue(nome).trim());
@@ -158,7 +160,7 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     }
     return best;
   };
-  const locale = (e: PointerEvent) => { const b = el.getBoundingClientRect(); return new THREE.Vector2(e.clientX - b.left, e.clientY - b.top); };
+  const locale = (e: MouseEvent) => { const b = el.getBoundingClientRect(); return new THREE.Vector2(e.clientX - b.left, e.clientY - b.top); };
 
   el.addEventListener('pointerdown', e => {
     const m = locale(e);
@@ -221,13 +223,65 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
   }
   // Zoom: la camera si avvicina piano a un punto (per esempio la competenza aperta nella lista) e lo segue mentre la scena gira.
   // Un clic nel vuoto della scena, o chiudere la voce, riporta la vista intera.
-  let zoomId: string | null = null, zoom = 1;
+  let zoomId: string | null = null, zoom = 1, zoomVoluto = 1, miraLibera = false;
   const miraOra = o.mira.clone(), miraVoluta = new THREE.Vector3(), base = new THREE.Vector3();
+  // La pagina può sapere su cosa è la vista (la home nasconde il testo durante lo zoom libero)
+  const avvisaZoom = () => window.dispatchEvent(new CustomEvent('grafo:zoomato', { detail: { id: zoomId, libero: miraLibera } }));
   function zoomSu(id: string | null) {
     zoomId = id && punti.some(p => p.id === id) ? id : null;
+    miraLibera = false;
+    zoomVoluto = zoomId ? 0.5 : 1;
     fermo = zoomId ? 600 : 0;
+    avvisaZoom();
   }
   window.addEventListener('grafo:zoom', e => zoomSu((e as CustomEvent<string | null>).detail));
+
+  // Zoom libero: la prima volta che ci si avvicina, la mira va sul punto del suolo indicato e gira insieme alla scena.
+  // Tornati alla vista intera, la mira torna al suo posto
+  const puntoLibero = new THREE.Object3D();
+  if (o.zoomLibero) {
+    gruppo.add(puntoLibero);
+    const suolo = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), inversa = new THREE.Matrix4(), colpito = new THREE.Vector3();
+    const cambiaZoom = (fattore: number, x: number, y: number) => {
+      zoomVoluto = THREE.MathUtils.clamp(zoomVoluto * fattore, 0.2, 1);
+      if (zoomVoluto >= 0.995) { zoomSu(null); return; }
+      if (zoomId || miraLibera) return;
+      raggio.setFromCamera(new THREE.Vector2((x / w) * 2 - 1, -(y / h) * 2 + 1), camera);
+      gruppo.updateMatrixWorld();
+      const nelGruppo = raggio.ray.clone().applyMatrix4(inversa.copy(gruppo.matrixWorld).invert());
+      const dentro = nelGruppo.intersectPlane(suolo, colpito) && (!o.entra || colpito.length() < o.entra.raggio);
+      if (dentro) puntoLibero.position.copy(colpito); else puntoLibero.position.set(0, 0, 0);
+      miraLibera = true;
+      fermo = 600;
+      avvisaZoom();
+    };
+    el.addEventListener('wheel', e => {
+      // Se la pagina scorre (finestra bassa o stretta), la rotella la fa scorrere. Il pinch del trackpad arriva con ctrl
+      if (!e.ctrlKey && document.documentElement.scrollHeight > window.innerHeight + 1) return;
+      e.preventDefault();
+      const m = locale(e);
+      cambiaZoom(Math.exp(e.deltaY * (e.ctrlKey ? 0.01 : 0.0016)), m.x, m.y);
+    }, { passive: false });
+    // Due dita sul telefono. Un dito solo resta alla rotazione e allo scroll della pagina
+    const dita = (e: TouchEvent) => {
+      const [a, b] = [e.touches[0]!, e.touches[1]!], r = el.getBoundingClientRect();
+      return { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), x: (a.clientX + b.clientX) / 2 - r.left, y: (a.clientY + b.clientY) / 2 - r.top };
+    };
+    let distanzaDita = 0;
+    el.addEventListener('touchstart', e => {
+      if (e.touches.length !== 2) return;
+      ruota = false; mosso = 99;
+      distanzaDita = dita(e).d;
+    }, { passive: true });
+    el.addEventListener('touchmove', e => {
+      if (e.touches.length !== 2) return;
+      e.preventDefault();
+      mosso = 99; ruota = false;
+      const q = dita(e);
+      if (distanzaDita > 0 && q.d > 0) cambiaZoom(distanzaDita / q.d, q.x, q.y);
+      distanzaDita = q.d;
+    }, { passive: false });
+  }
   el.addEventListener('pointerleave', () => { sopra = -1; o.puntatore?.(null); });
   window.addEventListener('grafo:evidenzia', e => {
     const id = (e as CustomEvent<string | null>).detail ?? '';
@@ -304,11 +358,13 @@ export function vista(el: HTMLElement, gruppo: THREE.Group, punti: Punto[], o: O
     gruppo.rotation.set(rotX, rotY, 0);
     // Zoom morbido: la mira scivola verso il punto scelto e la camera si avvicina, con la stessa direzione di sempre
     const pz = zoomId ? punti.find(p => p.id === zoomId) : null;
-    if (pz) { gruppo.updateMatrixWorld(); pz.ancora.getWorldPosition(miraVoluta); } else miraVoluta.copy(o.mira);
-    if (zoomId && !ruota) fermo = Math.max(fermo, 2);
+    if (pz) { gruppo.updateMatrixWorld(); pz.ancora.getWorldPosition(miraVoluta); }
+    else if (miraLibera) { gruppo.updateMatrixWorld(); puntoLibero.getWorldPosition(miraVoluta); }
+    else miraVoluta.copy(o.mira);
+    if ((zoomId || miraLibera) && !ruota) fermo = Math.max(fermo, 2);
     const k = ridotto ? 1 : 0.06;
     miraOra.lerp(miraVoluta, k);
-    zoom += ((pz ? 0.5 : 1) - zoom) * k;
+    zoom += (zoomVoluto - zoom) * k;
     camera.position.copy(base).sub(o.mira).multiplyScalar(zoom).add(miraOra);
     camera.lookAt(miraOra);
 
