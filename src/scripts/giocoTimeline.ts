@@ -5,7 +5,7 @@ import { monta as montaReef } from './barriera';
 // senza data: lo metti prima, dopo o in mezzo a quelli già messi, poi la data si scopre. Se il posto è sbagliato, la carta va
 // comunque al posto giusto, in arancio: così la linea resta sempre in ordine e il pesce dopo si confronta con date vere.
 // La scheda del pesce si trascina nella linea, o si tocca una fessura. Punteggio, pausa e fine partita sono le carte arcade
-// di AI terms (src/pages/learn/airport.astro). Il record resta in questo browser.
+// di AI terms (src/pages/learn/airport.astro).
 
 type Evento = { id: string; titolo: string; chi: string; anno: number; data: string; t: number; kind: string; tipo: string; perche: string };
 type Messo = Evento & { esito: 'primo' | 'giusta' | 'sbagliata' };
@@ -21,8 +21,6 @@ export function monta(radice: HTMLElement, scena: HTMLElement) {
 
   let mano: Evento[] = [], messi: Messo[] = [], allAmo: Evento | null = null, rilascia: (() => void) | null = null;
   let fase: 'lancia' | 'piazza' | 'fine' = 'lancia', giuste = 0, nuovo = '', serie = 0, serieMax = 0;
-  const CHIAVE = 'misc-timeline-record';
-  const record = () => { try { return Number(localStorage.getItem(CHIAVE) ?? 0); } catch { return 0; } };
 
   // Sette eventi a caso, con anni tutti diversi: così ogni posto ha una sola risposta giusta
   function nuovaPartita() {
@@ -79,15 +77,11 @@ export function monta(radice: HTMLElement, scena: HTMLElement) {
     if (messi.length === PESCI) {
       fase = 'fine';
       stato.textContent = ok ? `Right: ${e.data}.` : `Not quite: it was ${e.data}.`;
-      // La carta di fine partita: il numero grande, i numeri della partita, il record
-      const prima = record(), nuovoRecord = giuste > prima;
-      if (nuovoRecord) { try { localStorage.setItem(CHIAVE, String(giuste)); } catch { /* niente */ } }
+      // La carta di fine partita: il numero grande e i numeri della partita
       $<HTMLElement>('.fine-titolo').textContent = giuste === fatte ? 'Perfect line' : 'Line complete';
       $<HTMLElement>('.fine-numero').textContent = `${giuste}/${fatte}`;
       $<HTMLElement>('.fine-giuste').textContent = String(giuste);
       $<HTMLElement>('.fine-serie').textContent = String(serieMax);
-      $<HTMLElement>('.fine-best').textContent = String(Math.max(prima, giuste));
-      $<HTMLElement>('.fine-record').hidden = !nuovoRecord;
       $<HTMLElement>('.commento').textContent = giuste === fatte ? 'You know your AI history.' : 'Close it to read your line: the orange cards moved to their real place.';
       setTimeout(() => { fine.hidden = false; $<HTMLButtonElement>('.ancora').focus({ preventScroll: true }); }, 900);
     } else {
@@ -101,7 +95,7 @@ export function monta(radice: HTMLElement, scena: HTMLElement) {
     const pezzi: HTMLElement[] = [];
     const posto = (i: number) => {
       const b = document.createElement('button');
-      b.type = 'button'; b.className = 'posto'; b.textContent = '+';
+      b.type = 'button'; b.className = 'posto';
       const prima = messi[i - 1], dopo = messi[i];
       b.setAttribute('aria-label', !prima ? `Put it before ${dopo!.titolo}` : !dopo ? `Put it after ${prima.titolo}` : `Put it between ${prima.titolo} and ${dopo.titolo}`);
       b.dataset.i = String(i);
@@ -126,20 +120,20 @@ export function monta(radice: HTMLElement, scena: HTMLElement) {
     });
     if (fase === 'piazza') pezzi.push(posto(messi.length));
     linea.replaceChildren(...pezzi);
-    // Il punteggio: pesci, giuste, serie e record, come i riquadri di AI terms
+    // Il punteggio: pesci, giuste e serie, come i riquadri di AI terms
     const riquadro = (classe: string, etichetta: string, valore: string) => { const d = document.createElement('div'); d.className = `hud ${classe}`; const sm = document.createElement('small'); sm.textContent = etichetta; const v = document.createElement('b'); v.textContent = valore; d.append(sm, v); return d; };
     conto.replaceChildren(
       riquadro('hud-pesci', 'fish', `${Math.min(PESCI, messi.length + (allAmo ? 1 : 0))}/${PESCI}`),
       riquadro('hud-giuste', 'right', String(giuste)),
       riquadro(`hud-serie${serie > 1 ? ' attiva' : ''}`, 'streak', `x${serie}`),
-      riquadro('hud-best', 'best', String(Math.max(record(), fase === 'fine' ? giuste : 0))),
     );
     // La carta nuova, o i posti, al centro della striscia
     const centro = linea.querySelector<HTMLElement>('.nuova') ?? linea.querySelector<HTMLElement>('.posto');
     if (centro) striscia.scrollTo({ left: centro.offsetLeft - striscia.clientWidth / 2 + centro.offsetWidth / 2, behavior: 'smooth' });
   }
 
-  // Trascinare la scheda del pesce nella linea: una copia segue il dito; la fessura sotto si allarga; lasciandola lì, è messa
+  // Trascinare la scheda del pesce nella linea: una copia segue il dito; la fessura sotto si apre larga quanto una scheda, per
+  // dire che il pesce può andare lì; lasciandola lì, è messa
   const scheda = preso.querySelector<HTMLElement>('.corpo')!;
   let fantasma: HTMLElement | null = null, sopra: HTMLElement | null = null, scorri = 0;
   const posa = (x: number, y: number) => {
@@ -156,13 +150,13 @@ export function monta(radice: HTMLElement, scena: HTMLElement) {
     e.preventDefault(); scheda.setPointerCapture(e.pointerId);
     fantasma = scheda.cloneNode(true) as HTMLElement; fantasma.classList.add('fantasma');
     fantasma.querySelectorAll('.perche, .chi, .aiuto, .lenza').forEach(x => x.remove());
-    radice.append(fantasma); preso.classList.add('in-volo'); posa(e.clientX, e.clientY); scorriLinea();
+    radice.append(fantasma); preso.classList.add('in-volo'); linea.classList.add('trascino'); posa(e.clientX, e.clientY); scorriLinea();
   });
   scheda.addEventListener('pointermove', e => { if (fantasma) posa(e.clientX, e.clientY); });
   const lascia = () => {
     if (!fantasma) return;
     const dove = sopra?.dataset.i;
-    fantasma.remove(); fantasma = null; sopra?.classList.remove('sopra'); sopra = null; preso.classList.remove('in-volo');
+    fantasma.remove(); fantasma = null; sopra?.classList.remove('sopra'); sopra = null; preso.classList.remove('in-volo'); linea.classList.remove('trascino');
     if (dove !== undefined) piazza(Number(dove));
   };
   scheda.addEventListener('pointerup', lascia);

@@ -48,12 +48,10 @@ const eventi = (await getCollection('timeline', e => !e.data.draft)).map(e => ({
       <div class="fine-carta" role="dialog" aria-labelledby="fine-titolo">
         <button type="button" class="mono fine-chiudi" aria-label="close">✕</button>
         <p class="mono fine-titolo" id="fine-titolo">Line complete</p>
-        <p class="mono fine-record" hidden>new record ★</p>
         <p class="mono fine-punti"><small>in the right place</small><b class="fine-numero">0/6</b></p>
         <dl class="mono fine-dati">
           <div><dt>right</dt><dd class="fine-giuste">0</dd></div>
           <div><dt>best streak</dt><dd class="fine-serie">0</dd></div>
-          <div><dt>best</dt><dd class="fine-best">0</dd></div>
         </dl>
         <p class="commento"></p>
         <button type="button" class="mono grande ancora">Fish again 🎣</button>
@@ -124,7 +122,6 @@ const eventi = (await getCollection('timeline', e => !e.data.draft)).map(e => ({
   .preso[hidden] { display: none; }
   /* La scheda mentre la trascini: segue il dito, un po' inclinata */
   .gioco :global(.corpo.fantasma) { position: fixed; z-index: 9; width: 220px; pointer-events: none; transform: translate(-50%, -60%) rotate(-3deg); box-shadow: 0 12px 30px rgb(0 0 0 / .35); }
-  .linea :global(.posto.sopra) { width: 64px; background: color-mix(in srgb, var(--fg) 14%, transparent); border-color: var(--fg); border-style: solid; }
 
   /* Il punteggio come in AI terms: riquadri a bordo doppio, etichetta piccola sopra e numero grande sotto */
   .punteggio { display: flex; flex-wrap: wrap; gap: 8px; max-width: 440px; }
@@ -148,11 +145,10 @@ const eventi = (await getCollection('timeline', e => !e.data.draft)).map(e => ({
   .fine-carta .fine-chiudi { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; padding: 0; font-size: 16px; }
   .fine-titolo { font-size: 26px; letter-spacing: .08em; text-transform: uppercase; color: #ff5a6e; }
   .pausa-titolo { color: var(--fg); }
-  .fine-record { font-size: 13px; letter-spacing: .2em; text-transform: uppercase; color: #ffd84a; }
   .fine-punti { display: grid; gap: 2px; }
   .fine-punti small { font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--muted); }
   .fine-punti b { font-weight: 400; font-size: 64px; line-height: 1; color: #ffd84a; text-shadow: 4px 4px 0 #a3561a; }
-  .fine-dati { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .fine-dati { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
   .fine-dati div { padding: 6px 4px; border: 1px solid var(--line); }
   .fine-dati dt { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
   .fine-dati dd { margin: 2px 0 0; font-size: 22px; }
@@ -171,9 +167,12 @@ const eventi = (await getCollection('timeline', e => !e.data.draft)).map(e => ({
   .linea :global(.nuova) { animation: entra .5s cubic-bezier(.3, 1.4, .5, 1); }
   .linea :global(.nuova.sbagliata) { animation: entra .5s cubic-bezier(.3, 1.4, .5, 1), scuoti .5s .5s; }
   .linea :global(.nota) { font-family: var(--mono); font-size: 10px; color: var(--arancio); }
-  /* Il posto dove mettere il pesce: una fessura che si allarga quando c'è un pesce all'amo */
-  .linea :global(.posto) { display: flex; align-items: center; justify-content: center; width: 34px; border: 1px dashed var(--muted); background: none; color: var(--fg); font-family: var(--mono); font-size: 18px; cursor: pointer; transition: background .15s, width .2s; }
-  .linea :global(.posto:hover), .linea :global(.posto:focus-visible) { width: 56px; background: color-mix(in srgb, var(--fg) 10%, transparent); border-color: var(--fg); outline: none; }
+  /* Il posto dove mettere il pesce: una fessura sottile fra le schede. Trascinando la scheda le fessure si vedono meglio, e
+     quella sotto il dito si apre larga quanto una scheda: lì il pesce può andare */
+  .linea :global(.posto) { width: 12px; padding: 0; border: 1px dashed color-mix(in srgb, var(--muted) 70%, transparent); background: none; cursor: pointer; transition: width .22s cubic-bezier(.3, 1.3, .5, 1), background .15s, border-color .15s; }
+  .linea :global(.posto:hover), .linea :global(.posto:focus-visible) { width: 22px; border-color: var(--fg); outline: none; }
+  .linea.trascino :global(.posto) { width: 18px; border-color: var(--fg); }
+  .linea :global(.posto.sopra), .linea.trascino :global(.posto.sopra) { width: 150px; border-style: solid; border-color: var(--fg); background: color-mix(in srgb, var(--fg) 10%, transparent); }
   @keyframes entra { from { transform: translateY(14px) scale(.9); opacity: 0; } }
   @keyframes scuoti { 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
   @media (prefers-reduced-motion: reduce) { .preso, .fine, .pausa-menu, .linea :global(.nuova), .gioco :global(.pesce) { animation: none !important; } }
@@ -190,6 +189,7 @@ const eventi = (await getCollection('timeline', e => !e.data.draft)).map(e => ({
     .linea { justify-content: flex-start; }
     .linea :global(.corpo) { width: 150px; padding: 9px 11px; }
     .linea :global(.corpo h2) { font-size: 14px; }
-    .linea :global(.posto) { width: 44px; }
+    .linea :global(.posto) { width: 16px; }
+    .linea :global(.posto.sopra), .linea.trascino :global(.posto.sopra) { width: 120px; }
   }
 </style>
