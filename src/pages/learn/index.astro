@@ -47,9 +47,9 @@ const SEZIONI = ['try', 'play', 'read'] as const;
   .learn a { pointer-events: auto; }
   .learn > * { width: fit-content; max-width: 420px; }
   h1 { margin: 0 0 var(--s1); font-size: 33px; font-weight: 400; }
-  .sotto { margin: 0 0 var(--s3); color: var(--muted); background: color-mix(in srgb, var(--bg) 78%, transparent); }
+  .sotto { margin: 0 0 var(--s3); color: var(--muted); }
   .lista { margin: 0 0 var(--s2); padding: 0; list-style: none; }
-  .lista .titolo-sezione { display: block; margin: var(--s1) 0 2px; font-size: 13px; color: var(--muted); background: color-mix(in srgb, var(--bg) 78%, transparent); }
+  .lista .titolo-sezione { display: block; margin: var(--s1) 0 2px; font-size: 13px; color: var(--muted); }
   .lista li { display: flex; align-items: baseline; gap: var(--s1); margin-bottom: 4px; }
   /* I colori delle mongolfiere (uguali a src/scripts/nuvole.ts), in tema scuro e chiaro */
   .lista li { --c: var(--fg); }
@@ -58,7 +58,7 @@ const SEZIONI = ['try', 'play', 'read'] as const;
   :global(:root[data-theme='light']) .lista li[data-colore='rosso'] { --c: #e0352a; } :global(:root[data-theme='light']) .lista li[data-colore='giallo'] { --c: #a8880f; } :global(:root[data-theme='light']) .lista li[data-colore='rosa'] { --c: #b3155c; }
   .lista a { padding: 0 5px; margin-left: -5px; font-size: 13px; line-height: 1.6; color: var(--c); text-decoration-color: var(--c); }
   .lista a:hover { color: var(--bg); background: var(--c); text-decoration: none; }
-  .lista span { font-size: 12px; line-height: 1.4; color: var(--muted); width: fit-content; background: color-mix(in srgb, var(--bg) 78%, transparent); }
+  .lista span { font-size: 12px; line-height: 1.4; color: var(--muted); width: fit-content; }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
   /* Il piede non deve coprire i tasti della scena in basso */
   :global(.piede) { pointer-events: none; }
@@ -66,7 +66,7 @@ const SEZIONI = ['try', 'play', 'read'] as const;
   .scena3d :global(.etichetta) {
     position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;
     padding: 1px 5px; font-family: var(--mono); font-size: 11px; color: var(--accent);
-    background: color-mix(in srgb, var(--bg) 78%, transparent); transition: opacity .15s;
+    transition: opacity .15s;
   }
   .scena3d :global(.nome-pallone) { pointer-events: auto; text-decoration: none; will-change: transform; }
   .scena3d :global(.nome-pallone[data-tono="lilla"]) { --accent: #b79ce6; }
