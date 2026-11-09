@@ -29,7 +29,7 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
   <main class="tl" data-eventi={JSON.stringify(datiJs)} data-oggi={oggi}>
     <header class="testa">
       <h1>AI timeline</h1>
-      <p><span class="solo-tel">From the first artificial neuron to today.</span><span class="solo-pc">Scroll or use the arrow keys.</span> <a class="mono gioca" href="/learn/timeline-game/">play: put 7 events in order →</a></p>
+      <p><span class="solo-tel">From the first artificial neuron to today.</span><span class="solo-pc">Scroll or use the arrow keys.</span> <a class="mono gioca" href="/learn/fishing-timeline/">play: fishing timeline →</a></p>
       <div class="filtri filtri-testa" role="group" aria-label="Kinds of event">
         {Object.entries(TIPI).map(([k, nome]) => <button type="button" class="tipo mono" data-kind={k} aria-pressed="true">{nome}</button>)}
       </div>

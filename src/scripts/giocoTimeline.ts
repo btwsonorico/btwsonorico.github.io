@@ -1,6 +1,6 @@
 import { monta as montaReef } from './barriera';
 
-// Il gioco della timeline (src/pages/learn/timeline-game.astro). Una partita sono 7 pesci, cioè 7 eventi della storia dell'AI con
+// Fishing timeline, il gioco della timeline (src/pages/learn/fishing-timeline.astro; il nome gioca su fishing line, la lenza). Una partita sono 7 pesci, cioè 7 eventi della storia dell'AI con
 // anni tutti diversi. Si lancia l'amo nel reef; il primo pesce va sulla linea da solo, con la sua data. Ogni pesce dopo arriva
 // senza data: lo metti prima, dopo o in mezzo a quelli già messi, poi la data si scopre. Se il posto è sbagliato, la carta va
 // comunque al posto giusto, in arancio: così la linea resta sempre in ordine e il pesce dopo si confronta con date vere.
@@ -174,7 +174,7 @@ export function monta(radice: HTMLElement, scena: HTMLElement) {
   $('.fine-chiudi').addEventListener('click', () => { fine.hidden = true; stato.textContent = 'Read your line. Press ⏸ for a new game.'; });
   $('.copia').addEventListener('click', async e => {
     const b = e.currentTarget as HTMLButtonElement;
-    try { await navigator.clipboard.writeText(`Timeline game 🎣 ${giuste}/${messi.length - 1} in the right place · best streak ${serieMax}\nhttps://btwsonorico.github.io/learn/timeline-game/`); b.textContent = 'copied ✓'; } catch { b.textContent = 'copy failed'; }
+    try { await navigator.clipboard.writeText(`Fishing timeline 🎣 ${giuste}/${messi.length - 1} in the right place · best streak ${serieMax}\nhttps://btwsonorico.github.io/learn/fishing-timeline/`); b.textContent = 'copied ✓'; } catch { b.textContent = 'copy failed'; }
     setTimeout(() => { b.textContent = 'copy result'; }, 1800);
   });
   $<HTMLButtonElement>('.ancora').addEventListener('click', nuovaPartita);

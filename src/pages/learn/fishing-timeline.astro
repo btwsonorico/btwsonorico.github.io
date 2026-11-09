@@ -14,11 +14,11 @@ const eventi = (await getCollection('timeline', e => !e.data.draft)).map(e => ({
   t: e.data.year + ((e.data.month ?? 6.5) - 0.5) / 12,
 }));
 ---
-<Base title="Timeline game · Riccardo Mondi" description="Fish seven moments of AI history out of a reef and put them in the right order." tono="neutro" largo>
+<Base title="Fishing timeline · Riccardo Mondi" description="Fish seven moments of AI history out of a reef and put them in the right order." tono="neutro" largo>
   <div class="fondo3d"><div class="scena3d" aria-hidden="true"></div></div>
   <main class="gioco" data-eventi={JSON.stringify(eventi)}>
     <header class="testa">
-      <h1>Timeline game</h1>
+      <h1>Fishing timeline</h1>
       <p class="sotto">Fish seven moments of AI history and put them in order.</p>
       <p class="mono stato" aria-live="polite">Tap the water to cast.</p>
       <div class="mono punteggio" aria-label="Score"></div>
