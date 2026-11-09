@@ -1,35 +1,39 @@
-// Il movimento delle immagini ASCII della timeline: la rivelazione a caratteri quando una figura diventa attiva e la rotazione
-// degli oggetti 3D, a circa 15 fotogrammi al secondo. Un solo ciclo, attivo solo se almeno una figura è in movimento.
+// Il movimento delle immagini della timeline, a circa 25 fotogrammi al secondo: il wireframe si disegna linea per linea, poi gira
+// e le sue parti si muovono; la foto in caratteri si rivela. Un solo ciclo, attivo solo se almeno una figura è in movimento. Le figure fuori vista non costano.
 // Con il movimento ridotto le immagini restano ferme. Al passaggio del mouse (o a un tocco) si vede la foto vera, dove c'è.
-import { fotogrammaArte, perIlTema } from '../lib/arteTimeline';
+import { perIlTema } from '../lib/arteTimeline';
+import { disegna, scena, type Scena } from '../lib/arteWire';
 
-const DURATA_RIVELAZIONE = 700, PASSO = 66, RUMORE = '.:-+*#';
-type Stato = { pre: HTMLElement; nome: string; rotante: boolean; base: string; inizio: number; soglie: Float32Array; angolo: number };
+const DURATA_RIVELAZIONE = 700, PASSO = 40, RUMORE = '.:-+*#';
+type Stato = { inizio: number; angolo: number; finita: boolean; pre?: HTMLElement; base?: string; soglie?: Float32Array; g?: CanvasRenderingContext2D; s?: Scena; colore?: string };
 
 export function creaArti(figure: HTMLElement[]) {
   const ridotto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const chiaro = document.documentElement.dataset.theme === 'light';
   const attive = new Map<HTMLElement, Stato>();
   let inCiclo = false, ultimo = 0;
+  const tela = (f: HTMLElement) => f.querySelector('canvas')?.getContext('2d') ?? null;
 
-  // Il tema si legge qui: foto e oggetti 3D nel tema chiaro hanno la rampa rovesciata. Gli schemi non cambiano
   figure.forEach(f => {
-    const pre = f.querySelector('pre')!;
-    if (f.dataset.rotante !== undefined) pre.textContent = fotogrammaArte(f.dataset.simbolo!, 0.6, chiaro);
-    else if (f.classList.contains('con-foto')) pre.textContent = perIlTema(pre.textContent ?? '', chiaro);
-    // Un tocco mostra la foto o la toglie: sul telefono non c'è il passaggio del mouse
-    if (f.classList.contains('con-foto')) f.addEventListener('click', () => f.classList.toggle('foto-vista'));
+    const pre = f.querySelector('pre'), g = tela(f), s = scena(f.dataset.simbolo!);
+    // Il wireframe è già disegnato, fermo: serve col movimento ridotto e prima che la figura diventi attiva
+    if (g && s) disegna(g, s, 0.6, getComputedStyle(f).color);
+    // Foto: nel tema chiaro la rampa è rovesciata. Un tocco la mostra o la toglie: sul telefono non c'è il passaggio del mouse
+    if (pre && f.classList.contains('con-foto')) {
+      pre.textContent = perIlTema(pre.textContent ?? '', chiaro);
+      f.addEventListener('click', () => f.classList.toggle('foto-vista'));
+    }
   });
 
-  function testo(s: Stato, t: number) {
-    const base = s.rotante ? fotogrammaArte(s.nome, s.angolo, chiaro) : s.base, p = (t - s.inizio) / DURATA_RIVELAZIONE;
+  function testoPre(s: Stato, p: number) {
+    const base = s.base!;
     if (p >= 1) return base;
     // Ogni carattere appare alla sua soglia; poco prima è un carattere a caso
     let esce = '';
     for (let i = 0; i < base.length; i++) {
       const ch = base[i]!;
       if (ch === '\n' || ch === ' ') { esce += ch; continue; }
-      const q = p - s.soglie[i]!;
+      const q = p - s.soglie![i]!;
       esce += q > 0.12 ? ch : q > 0 ? RUMORE[Math.floor(Math.random() * RUMORE.length)] : ' ';
     }
     return esce;
@@ -40,18 +44,27 @@ export function creaArti(figure: HTMLElement[]) {
     if (t - ultimo < PASSO) return;
     const passo = Math.min(200, t - ultimo); ultimo = t;
     for (const [f, s] of attive) {
-      s.angolo += passo * 0.00045;
-      s.pre.textContent = testo(s, t);
-      // Rivelazione finita e nessuna rotazione: la figura non chiede più lavoro
-      if (!s.rotante && t - s.inizio >= DURATA_RIVELAZIONE) attive.delete(f);
+      const p = (t - s.inizio) / DURATA_RIVELAZIONE;
+      if (s.g && s.s) {
+        s.angolo += passo * 0.00055;
+        disegna(s.g, s.s, s.angolo, s.colore!, Math.min(1, p), (t - s.inizio) / 1000);
+      } else if (s.pre) {
+        s.pre.textContent = testoPre(s, p);
+        // Rivelazione finita: la foto ferma non chiede più lavoro
+        if (p >= 1) attive.delete(f);
+      }
     }
   }
   return {
     avvia(f: HTMLElement) {
       if (ridotto || attive.has(f)) return;
-      const pre = f.querySelector('pre')!, base = pre.textContent ?? '', soglie = new Float32Array(base.length);
-      for (let i = 0; i < soglie.length; i++) soglie[i] = Math.random() * 0.82;
-      attive.set(f, { pre, nome: f.dataset.simbolo!, rotante: f.dataset.rotante !== undefined, base, inizio: performance.now(), soglie, angolo: 0.6 });
+      const inizio = performance.now(), g = tela(f), s = scena(f.dataset.simbolo!), pre = f.querySelector('pre');
+      if (g && s) attive.set(f, { inizio, angolo: 0.6, finita: false, g, s, colore: getComputedStyle(f).color });
+      else if (pre) {
+        const base = pre.textContent ?? '', soglie = new Float32Array(base.length);
+        for (let i = 0; i < soglie.length; i++) soglie[i] = Math.random() * 0.82;
+        attive.set(f, { inizio, angolo: 0, finita: false, pre, base, soglie });
+      }
       if (!inCiclo) { inCiclo = true; requestAnimationFrame(ciclo); }
     },
     ferma(f: HTMLElement) { attive.delete(f); f.classList.remove('foto-vista'); },

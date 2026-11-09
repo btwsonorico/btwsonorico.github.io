@@ -2,10 +2,11 @@
 import { getCollection } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import { arte } from '../../lib/arteTimeline';
+import { ALTEZZA, LARGHEZZA } from '../../lib/arteWire';
 
 // AI timeline: la storia dell'AI su una linea del tempo. Su computer lo scroll verso il basso fa scorrere la linea verso
 // destra. La scheda al centro è aperta e mostra tutto; quelle ai lati, al massimo due per lato, mostrano data e titolo.
-// I 12 eventi essenziali hanno un'immagine ASCII accanto alla scheda (src/lib/arteTimeline.ts).
+// I 12 eventi essenziali hanno un'immagine accanto alla scheda: wireframe molto pixelato (src/lib/arteWire.ts), o foto in caratteri.
 // Durante lo scroll le schede si piegano come un foglio di carta. Su telefono la linea diventa una lista verticale, con una
 // striscia in basso che dice anno e posizione. Gli eventi sono note in src/content/timeline; il movimento e i controlli
 // sono in src/scripts/timelineVista.ts.
@@ -57,9 +58,9 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
           </article>
         ))}
         {eventi.map((e, i) => e.arte && (
-          <figure class:list={['arte', 'arte-pc', { 'con-foto': e.arte.foto }]} data-i={i} data-kind={e.kind} data-simbolo={e.simbolo} data-rotante={e.arte.rotante ? '' : undefined}>
+          <figure class:list={['arte', 'arte-pc', { 'con-foto': e.arte.foto }]} data-i={i} data-kind={e.kind} data-simbolo={e.simbolo}>
             <div class="arte-immagine">
-              <pre aria-hidden="true">{e.arte.righe}</pre>
+              {e.arte.righe ? <pre aria-hidden="true">{e.arte.righe}</pre> : <canvas width={LARGHEZZA} height={ALTEZZA} aria-hidden="true"></canvas>}
               {e.arte.foto && <img src={e.arte.foto.src} alt={e.arte.foto.alt} loading="lazy" decoding="async" />}
             </div>
             <figcaption class="mono">{e.arte.didascalia}</figcaption>
@@ -78,9 +79,9 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
           <h2>{e.title}</h2>
           <p class="perche">{e.perche}</p>
           {e.arte && (
-            <figure class:list={['arte', 'arte-v', { 'con-foto': e.arte.foto }]} data-simbolo={e.simbolo} data-rotante={e.arte.rotante ? '' : undefined}>
+            <figure class:list={['arte', 'arte-v', { 'con-foto': e.arte.foto }]} data-simbolo={e.simbolo}>
               <div class="arte-immagine">
-                <pre aria-hidden="true">{e.arte.righe}</pre>
+                {e.arte.righe ? <pre aria-hidden="true">{e.arte.righe}</pre> : <canvas width={LARGHEZZA} height={ALTEZZA} aria-hidden="true"></canvas>}
                 {e.arte.foto && <img src={e.arte.foto.src} alt={e.arte.foto.alt} loading="lazy" decoding="async" />}
               </div>
               <figcaption class="mono">{e.arte.didascalia}</figcaption>
@@ -192,7 +193,9 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
 
   .tipo-k { color: var(--muted); }
   .tipo-k::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--k); vertical-align: 1px; }
-  /* L'immagine ASCII: testo in Departure Mono, nel colore della categoria, senza riquadro. Nitida a 11 px */
+  /* L'immagine, nel colore della categoria e senza riquadro. Il wireframe è una tela di 130x116 pixel ingrandita 3 volte, senza sfumature.
+     La foto è testo in Departure Mono, nitida a 11 px */
+  .arte canvas { display: block; width: 390px; height: 348px; image-rendering: pixelated; }
   .arte { margin: 0; color: var(--k, var(--fg)); }
   .arte-pc { width: max-content; transform-origin: 0 0; pointer-events: none; }
   .arte-pc.con-foto { pointer-events: auto; cursor: pointer; }
@@ -249,6 +252,7 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
     /* 56 colonne devono stare nella voce: il carattere si adatta alla larghezza del telefono */
     .arte-v { margin: 10px 0; width: max-content; max-width: 100%; }
     .arte-v pre { font-size: min(8.25px, calc((100vw - 60px) / 33.6)); line-height: min(8.25px, calc((100vw - 60px) / 33.6)); }
+    .arte-v canvas { width: 260px; max-width: calc(100vw - 60px); height: auto; }
     .arte-v.con-foto { cursor: pointer; }
     .piu summary { display: inline-block; padding: 6px 12px 6px 0; font-size: 12px; color: var(--muted); cursor: pointer; list-style: none; }
     .piu summary::-webkit-details-marker { display: none; }
