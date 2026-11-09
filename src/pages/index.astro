@@ -120,10 +120,11 @@ const PAGINE = [
   .about > .link { display: flex; gap: var(--s2); margin-bottom: calc(var(--s3) + var(--s1)); }
   .link a { color: var(--accent); }
   /* Nomi e descrizioni in due colonne allineate */
-  .pagine ul { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px var(--s2); margin: 0; padding: 0; list-style: none; }
-  .pagine li { display: contents; }
-  .pagine li a { justify-self: start; padding: 0 5px; margin-left: -5px; font-size: 13px; line-height: 1.6; color: var(--fg); }
-  .pagine li span { align-self: center; font-size: 12px; line-height: 1.4; }
+  /* Come in Learn: la nota segue subito il nome */
+  .pagine ul { margin: 0; padding: 0; list-style: none; }
+  .pagine li { display: flex; align-items: baseline; gap: var(--s1); margin-bottom: 4px; }
+  .pagine li a { padding: 0 5px; margin-left: -5px; font-size: 13px; line-height: 1.6; color: var(--fg); }
+  .pagine li span { font-size: 12px; line-height: 1.4; color: var(--muted); }
   /* Al passaggio, la sezione diventa un riquadro nel suo colore, come la sua etichetta accesa nel mondo */
   .pagine li a[data-tono]:hover { color: var(--bg); background: var(--accent); text-decoration: none; }
   /* Learn non ha un colore suo: il riquadro è nel colore del testo, bianco in dark mode */

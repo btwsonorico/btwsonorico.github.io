@@ -56,7 +56,7 @@ const SEZIONI = ['try', 'play', 'read'] as const;
   .lista li[data-colore='rosso'] { --c: #ff4a3d; } .lista li[data-colore='arancio'] { --c: #e08a3a; } .lista li[data-colore='giallo'] { --c: #e6c229; }
   .lista li[data-colore='verde'] { --c: #6fa646; } .lista li[data-colore='azzurro'] { --c: #5fb6d9; } .lista li[data-colore='lilla'] { --c: #b79ce6; } .lista li[data-colore='rosa'] { --c: #ff7ab8; }
   :global(:root[data-theme='light']) .lista li[data-colore='rosso'] { --c: #e0352a; } :global(:root[data-theme='light']) .lista li[data-colore='giallo'] { --c: #a8880f; } :global(:root[data-theme='light']) .lista li[data-colore='rosa'] { --c: #b3155c; }
-  .lista a { padding: 0 5px; margin-left: -5px; font-size: 13px; line-height: 1.6; color: var(--c); text-decoration-color: var(--c); }
+  .lista a { padding: 0 5px; margin-left: -5px; font-size: 13px; line-height: 1.6; color: var(--fg); text-decoration-color: var(--c); }
   .lista a:hover { color: var(--bg); background: var(--c); text-decoration: none; }
   .lista span { font-size: 12px; line-height: 1.4; color: var(--muted); width: fit-content; }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
