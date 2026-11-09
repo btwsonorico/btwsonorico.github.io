@@ -10,16 +10,20 @@ import { nuovaScheda } from './schedaGlossario';
 // Banchi di pesciolini nuotano insieme e scappano dal puntatore; un clic sull'acqua fa cadere il mangime.
 // Con l'opzione pesca la scena è il glossario: un banco per sezione, vista più da lontano; un clic lancia l'amo e tira su
 // un pesce a caso, cioè una definizione. Con l'amo in acqua i pesci non scappano più: si avvicinano, curiosi.
+// Con l'opzione gioco la pesca è la stessa, ma il pesce preso lo usa la pagina (per esempio il gioco della timeline,
+// src/scripts/giocoTimeline.ts): la scena chiede se si può lanciare e, a pesce tirato su, passa alla pagina il modo per rilasciarlo.
+export type Gioco = { puo: () => boolean; preso: (rilascia: () => void) => void };
 
 const LATO = 3, ACQUA = 4.8;
 const SU = new THREE.Vector3(0, 1, 0);
 
-export function monta(el: HTMLElement, opzioni: { pesca?: boolean } = {}) {
+export function monta(el: HTMLElement, opzioni: { pesca?: boolean; gioco?: Gioco } = {}) {
+  const pesca = !!opzioni.pesca || !!opzioni.gioco;
   const r = casuale(11);
   const chiaro = tema();
   const p = palco(el, {
-    camera: opzioni.pesca ? new THREE.Vector3(0, 4.8, 12.8) : new THREE.Vector3(0, 3.6, 9.6), mira: new THREE.Vector3(0, 1.9, 0), giro: 0.02, inclina: [-0.12, 0.3], aggiorna, clic,
-    scena: opzioni.pesca ? 'pesca' : 'barriera', toni: [getComputedStyle(document.documentElement).getPropertyValue('--azzurro').trim(), chiaro ? '#8f8272' : '#a89a88', chiaro ? '#e0352a' : '#ff4a3d'],
+    camera: pesca ? new THREE.Vector3(0, 4.8, 12.8) : new THREE.Vector3(0, 3.6, 9.6), mira: new THREE.Vector3(0, 1.9, 0), giro: 0.02, inclina: [-0.12, 0.3], aggiorna, clic,
+    scena: pesca ? 'pesca' : 'barriera', toni: [getComputedStyle(document.documentElement).getPropertyValue('--azzurro').trim(), chiaro ? '#8f8272' : '#a89a88', chiaro ? '#e0352a' : '#ff4a3d'],
   });
   const g = p.gruppo;
 
@@ -269,8 +273,8 @@ export function monta(el: HTMLElement, opzioni: { pesca?: boolean } = {}) {
   const SEZIONI = new Set(VOCI.map(v => v.indiceSezione)).size;
   const TINTE_BANCHI = TINTE_SEZIONI;
   // Pesca: tanti banchi quante sezioni del glossario, stesso numero di pesci in tutto
-  const quanti = opzioni.pesca ? Array.from({ length: SEZIONI }, () => Math.round((p.telefono ? 140 : 272) / SEZIONI)) : p.telefono ? [58, 46, 36] : [112, 90, 70];
-  const banchi: Banco[] = (opzioni.pesca ? quanti.map((_, b) => TINTE_BANCHI[b % TINTE_BANCHI.length]!) : ['#d9ecf2', '#f7cf4f', '#f0603f']).map((c, b) => {
+  const quanti = pesca ? Array.from({ length: SEZIONI }, () => Math.round((p.telefono ? 140 : 272) / SEZIONI)) : p.telefono ? [58, 46, 36] : [112, 90, 70];
+  const banchi: Banco[] = (pesca ? quanti.map((_, b) => TINTE_BANCHI[b % TINTE_BANCHI.length]!) : ['#d9ecf2', '#f7cf4f', '#f0603f']).map((c, b) => {
     const n = quanti[b]!, mesh = new THREE.InstancedMesh(geoPesce, matSito('#ffffff', { side: THREE.DoubleSide, grezzo: true, opacity: 0.85, fili: 0 }), n);
     const pos = new Float32Array(n * 3), vel = new Float32Array(n * 3), scala = new Float32Array(n);
     const base = colore(c);
@@ -391,7 +395,7 @@ export function monta(el: HTMLElement, opzioni: { pesca?: boolean } = {}) {
   const gancio = new THREE.Line(new THREE.BufferGeometry().setFromPoints(Array.from({ length: 12 }, (_, q) => { const a = (q / 11) * Math.PI * 1.25; return new THREE.Vector3(Math.sin(a) * 0.05, -0.05 + Math.cos(a) * 0.05 - (q === 0 ? 0 : 0), 0); }).concat([new THREE.Vector3(0, 0.08, 0)]).reverse()), matAmo);
   lenza.visible = gancio.visible = false;
   lenza.frustumCulled = gancio.frustumCulled = false;
-  if (opzioni.pesca) g.add(lenza, gancio);
+  if (pesca) g.add(lenza, gancio);
   let presi = new Set<string>();
   try { presi = new Set(JSON.parse(localStorage.getItem('misc-pesca-presi') ?? '[]') as string[]); } catch { /* niente */ }
   const conta = document.createElement('p');
@@ -409,6 +413,8 @@ export function monta(el: HTMLElement, opzioni: { pesca?: boolean } = {}) {
   }) : null;
   if (opzioni.pesca) { el.parentElement!.appendChild(conta); scriviConta(); }
   function lancia() {
+    // Nel gioco il pesce preso lo rilascia la pagina, e si lancia solo quando la pagina è pronta
+    if (opzioni.gioco && (amo.stato !== 'fermo' || !opzioni.gioco.puo())) return;
     if (amo.stato === 'mostra') {
       if (scheda && !scheda.stato.risposto) return;
       rilascia();
@@ -451,6 +457,7 @@ export function monta(el: HTMLElement, opzioni: { pesca?: boolean } = {}) {
       if (amo.t >= 1) {
         amo.stato = 'mostra';
         scheda?.mostra(amo.voce!);
+        opzioni.gioco?.preso(rilascia);
         scriviConta();
       }
     } else amo.pos.y = QUOTA_MOSTRA + Math.sin(s * 1.3) * 0.03;
@@ -465,7 +472,7 @@ export function monta(el: HTMLElement, opzioni: { pesca?: boolean } = {}) {
   // Clic nell'acqua: una manciata di mangime cade dall'alto e i banchi vengono a mangiare
   const pianoAcqua = new THREE.Plane(SU, -ACQUA), dove = new THREE.Vector3();
   function clic(raggio: THREE.Raycaster) {
-    if (opzioni.pesca) { lancia(); return; }
+    if (pesca) { lancia(); return; }
     const toccata = meduse.find(m => raggio.ray.distanceToPoint(m.o.position) < 0.3 + m.scala * 0.12);
     if (toccata) { toccata.v.y += 0.9; return; }
     if (!raggio.ray.intersectPlane(pianoAcqua, dove) || Math.abs(dove.x) > LATO - 0.2 || Math.abs(dove.z) > LATO - 0.2) return;
