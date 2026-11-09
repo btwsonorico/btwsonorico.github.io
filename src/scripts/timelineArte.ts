@@ -2,7 +2,7 @@
 // e le sue parti si muovono; la foto in caratteri si rivela. Un solo ciclo, attivo solo se almeno una figura è in movimento. Le figure fuori vista non costano.
 // Con il movimento ridotto le immagini restano ferme. Al passaggio del mouse (o a un tocco) si vede la foto vera, dove c'è.
 import { perIlTema } from '../lib/arteTimeline';
-import { disegna, scena, type Scena } from '../lib/arteWire';
+import { disegna, scena, tempoFermo, type Scena } from '../lib/arteWire';
 
 const DURATA_RIVELAZIONE = 700, PASSO = 40, RUMORE = '.:-+*#';
 type Stato = { inizio: number; angolo: number; finita: boolean; pre?: HTMLElement; base?: string; soglie?: Float32Array; g?: CanvasRenderingContext2D; s?: Scena; colore?: string };
@@ -17,7 +17,7 @@ export function creaArti(figure: HTMLElement[]) {
   figure.forEach(f => {
     const pre = f.querySelector('pre'), g = tela(f), s = scena(f.dataset.simbolo!);
     // Il wireframe è già disegnato, fermo: serve col movimento ridotto e prima che la figura diventi attiva
-    if (g && s) disegna(g, s, 0.6, getComputedStyle(f).color);
+    if (g && s) disegna(g, s, 0.6, getComputedStyle(f).color, 1, tempoFermo(f.dataset.simbolo!));
     // Foto: nel tema chiaro la rampa è rovesciata. Un tocco la mostra o la toglie: sul telefono non c'è il passaggio del mouse
     if (pre && f.classList.contains('con-foto')) {
       pre.textContent = perIlTema(pre.textContent ?? '', chiaro);

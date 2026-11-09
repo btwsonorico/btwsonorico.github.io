@@ -7,6 +7,7 @@ who: "Jared Kaplan and colleagues, OpenAI"
 source: "https://arxiv.org/abs/2001.08361"
 peso: 2
 perche: "Progress now looks like a matter of money and compute, and the race starts."
+simbolo: scaling
 checked: false
 ---
 The error of a language model falls in a smooth, predictable way as model size, data and compute grow. The result pushes labs to build much larger models.

@@ -1,4 +1,4 @@
-// La grafica dei 12 eventi essenziali della timeline (/learn/timeline/). Due tipi: la foto d'archivio resa in caratteri, nel
+// La grafica degli eventi della timeline (/learn/timeline/). Due tipi: la foto d'archivio resa in caratteri, nel
 // font del sito, e il wireframe molto pixelato per tutto il resto (le scene sono in src/lib/arteWire.ts).
 // Niente DOM: il file serve sia nella build sia nel browser.
 import foto from './arteFoto.json';
@@ -17,14 +17,25 @@ const DIDASCALIE: Record<string, string> = {
   neurone: 'The idea, after McCulloch and Pitts.',
   turing: 'The imitation game, as Turing proposed it.',
   backprop: 'The idea, simplified.',
-  scacchi: 'Kasparov resigned game six. The position shown is illustrative.',
+  scacchi: 'The real moves of game six. The king falling is symbolic: Kasparov resigned.',
   alexnet: 'Illustrative cat. Numbers: top-5 error in the 2012 challenge.',
-  go: 'Move 37 of game two. Small board, illustrative position.',
-  attenzione: 'The idea of attention, simplified.',
-  proteina: 'Illustrative chain, not a real structure.',
-  chat: 'Reported estimate for ChatGPT.',
+  go: 'The real moves 1 to 37 of game two. The odds are the ones DeepMind reported.',
+  attenzione: 'The 2017 encoder, with illustrative weights. Models like GPT look only at earlier words.',
+  proteina: 'The start of ubiquitin as input. Illustrative chain. Dotted: the lab shape.',
+  chat: 'UBS estimates from Similarweb data. TikTok and Instagram: Sensor Tower.',
   ragionamento: 'The idea, simplified.',
-  'pesi-aperti': 'DeepSeek-R1, released with open weights.',
+  'pesi-aperti': 'The price line is a drawing. The fall and the loss are as reported by Bloomberg.',
+  eliza: 'The sample dialogue in the paper by Weizenbaum, 1966.',
+  xor: 'A single-layer perceptron draws one line. XOR needs more.',
+  word2vec: 'The famous example. The positions are a drawing.',
+  gan: 'The idea, with an illustrative cat.',
+  resnet: 'The idea: the trouble with deep networks, and the shortcut.',
+  diffusione: 'The idea, with an illustrative cat. 1000 steps as in the 2020 paper.',
+  scaling: 'The shape of the result. The points are a drawing.',
+  rischio: 'The four levels of the AI Act, each with one example.',
+  deepmind: 'The DeepMind logo in pixels. Trademark of its owner.',
+  openai: 'The OpenAI logo in pixels. Trademark of OpenAI.',
+  anthropic: 'The Anthropic logo in pixels. Trademark of Anthropic.',
 };
 
 // L'immagine di un evento, dal campo simbolo della sua nota
