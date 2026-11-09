@@ -49,7 +49,8 @@ const SEZIONI = ['try', 'play', 'read'] as const;
   h1 { margin: 0 0 var(--s1); font-size: 33px; font-weight: 400; }
   .sotto { margin: 0 0 var(--s3); color: var(--muted); }
   .lista { margin: 0 0 var(--s2); padding: 0; list-style: none; }
-  .lista .titolo-sezione { display: block; margin: var(--s1) 0 2px; font-size: 13px; color: var(--muted); }
+  .lista .titolo-sezione:first-child { margin-top: 0; }
+  .lista .titolo-sezione { display: block; margin: var(--s3) 0 var(--s1); font-size: 13px; color: var(--muted); }
   .lista li { display: flex; align-items: baseline; gap: var(--s1); margin-bottom: 4px; }
   /* I colori delle mongolfiere (uguali a src/scripts/nuvole.ts), in tema scuro e chiaro */
   .lista li { --c: var(--fg); }
