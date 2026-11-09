@@ -2,10 +2,11 @@
 title: "InstructGPT: learning from human feedback"
 year: 2022
 month: 3
-kind: research
+kind: idea
 who: "Long Ouyang and colleagues, OpenAI"
 source: "https://arxiv.org/abs/2203.02155"
 peso: 2
+perche: "A model that only continues text becomes one that follows instructions."
 checked: false
 ---
 People rank the answers of the model, and the model is trained to give the answers people prefer. This method, RLHF, makes models follow instructions much better, even when they are smaller.

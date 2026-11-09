@@ -3,12 +3,13 @@ import { getCollection } from 'astro:content';
 import Base from '../../layouts/Base.astro';
 import { simbolo } from '../../lib/simboliTimeline';
 
-// AI timeline: la storia dell'AI su una linea del tempo, nello stile di Knowledge. Su computer lo scroll verso il basso fa
-// scorrere la linea verso destra; ogni punto ha la sua scheda (e, se è un evento essenziale, il suo simbolo a filo) che segue
-// lo scroll con un po' di ritardo. Su telefono la linea diventa verticale. Gli eventi sono note in src/content/timeline;
-// il movimento e i controlli sono in src/scripts/timelineVista.ts.
+// AI timeline: la storia dell'AI su una linea del tempo. Su computer lo scroll verso il basso fa scorrere la linea verso
+// destra. La scheda al centro è aperta e mostra tutto; quelle ai lati, al massimo due per lato, mostrano data e titolo.
+// Durante lo scroll le schede si piegano come un foglio di carta. Su telefono la linea diventa una lista verticale, con una
+// striscia in basso che dice anno e posizione. Gli eventi sono note in src/content/timeline; il movimento e i controlli
+// sono in src/scripts/timelineVista.ts.
 const MESI = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const TIPI: Record<string, string> = { research: 'research', system: 'systems', company: 'companies', society: 'society' };
+const TIPI: Record<string, string> = { idea: 'ideas', model: 'models', world: 'world' };
 const eventi = (await getCollection('timeline', e => !e.data.draft))
   .sort((a, b) => a.data.year - b.data.year || (a.data.month ?? 6.5) - (b.data.month ?? 6.5))
   .map(e => ({
@@ -22,12 +23,14 @@ const daControllare = eventi.filter(e => !e.checked).length;
 const datiJs = eventi.map(e => ({ t: e.t, k: e.kind, p: e.peso, s: !!e.svg }));
 const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
 ---
-<Base title="AI timeline · Riccardo Mondi" description="The history of artificial intelligence on one line, from the first artificial neuron to today. Filter by kind, choose the level of detail, zoom from decades to months." tono="neutro" largo>
+<Base title="AI timeline · Riccardo Mondi" description="The history of artificial intelligence on one line, from the first artificial neuron to today, and why each step matters." tono="neutro" largo>
   <main class="tl" data-eventi={JSON.stringify(datiJs)} data-oggi={oggi}>
     <header class="testa">
       <h1>AI timeline</h1>
       <p>From the first artificial neuron to today, in {eventi.length} events. <span class="solo-pc">Scroll to travel in time.</span></p>
-      <p class="mono bozza">{daControllare ? `${daControllare} of ${eventi.length} events are drafts: dates and facts are being checked.` : 'All events checked.'}</p>
+      <div class="filtri filtri-testa" role="group" aria-label="Kinds of event">
+        {Object.entries(TIPI).map(([k, nome]) => <button type="button" class="tipo mono" data-kind={k} aria-pressed="true">{nome}</button>)}
+      </div>
     </header>
 
     <!-- Computer: la linea orizzontale. La pista è alta quanto la linea è lunga; dentro, il palco resta fermo sullo schermo -->
@@ -37,14 +40,19 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
           <svg class="asse" aria-hidden="true"></svg>
           {eventi.map((e, i) => <button type="button" class="punto" data-i={i} data-peso={e.peso} data-kind={e.kind} aria-label={`${e.data}: ${e.title}`}></button>)}
         </div>
-        <div class="cursore" aria-hidden="true"><span class="mono quando"></span></div>
+        <div class="anno-grande mono" aria-hidden="true"></div>
         {eventi.map((e, i) => (
           <article class="scheda" data-i={i} data-peso={e.peso} data-kind={e.kind}>
-            <p class="mono riga"><span>{e.data}</span><span class="tipo-k">{TIPI[e.kind]}</span></p>
-            <h2>{e.title}</h2>
-            <p class="chi">{e.who}</p>
-            <p class="testo">{e.testo}</p>
-            <a class="mono fonte" href={e.source} target="_blank" rel="noopener">source ↗</a>
+            <div class="corpo">
+              <p class="mono riga"><span>{e.data}</span><span class="tipo-k">{TIPI[e.kind]}</span></p>
+              <h2>{e.title}</h2>
+              <div class="apri"><div class="apri-dentro">
+                <p class="perche">{e.perche}</p>
+                <p class="chi">{e.who}</p>
+                <p class="testo">{e.testo}</p>
+                <a class="mono fonte" href={e.source} target="_blank" rel="noopener">source ↗</a>
+              </div></div>
+            </div>
           </article>
         ))}
         {eventi.map((e, i) => e.svg && <figure class="scheda-simbolo" data-i={i} data-kind={e.kind} set:html={e.svg} />)}
@@ -52,43 +60,37 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
       </div>
     </div>
 
-    <!-- Telefono: la stessa storia su una linea verticale -->
+    <!-- Telefono: la stessa storia su una lista verticale; il dettaglio si apre a richiesta, così la lista non salta mentre scorre -->
     <ol class="verticale">
       {eventi.map((e, i) => (
         <li data-i={i} data-peso={e.peso} data-kind={e.kind}>
           <span class="punto-v" aria-hidden="true"></span>
-          <article class="scheda-v">
-            <p class="mono riga"><span>{e.data}</span><span class="tipo-k">{TIPI[e.kind]}</span></p>
-            <h2>{e.title}</h2>
+          <p class="mono riga"><span>{e.data}</span><span class="tipo-k">{TIPI[e.kind]}</span></p>
+          <h2>{e.title}</h2>
+          <p class="perche">{e.perche}</p>
+          {e.svg && <figure class="simbolo-v" set:html={e.svg} />}
+          <details class="piu">
+            <summary class="mono">more</summary>
             <p class="chi">{e.who}</p>
             <p class="testo">{e.testo}</p>
             <a class="mono fonte" href={e.source} target="_blank" rel="noopener">source ↗</a>
-            {e.svg && <figure class="simbolo-v" set:html={e.svg} />}
-          </article>
+          </details>
         </li>
       ))}
     </ol>
 
     <section class="fine">
-      <p>Each event is a short note with its source. The essential view keeps twelve turning points; the full view adds companies, smaller steps and debates. Most notes are still drafts: if you spot a wrong date or name, <a href="mailto:rmondi99@gmail.com">tell me</a>.</p>
+      <p>Each event is a short note with its source. The larger points are the twelve turning points. {daControllare > 0 && <>{daControllare} of {eventi.length} notes are still drafts: if you spot a wrong date or name, <a href="mailto:rmondi99@gmail.com">tell me</a>.</>}</p>
     </section>
 
-    <!-- La barra in basso: tipi, livello di dettaglio, scala del tempo, e la minimappa con la densità degli eventi -->
+    <!-- La barra in basso: la minimappa con gli eventi per anno e, su computer, il bottone dei filtri. Su telefono anche l'anno -->
     <nav class="controlli mono" aria-label="Timeline controls">
-      <canvas class="densita" aria-label="Events per year. Click to jump to a year"></canvas>
-      <div class="righe">
-        <div class="gruppo" role="group" aria-label="Kinds of event">
+      <span class="anno-v" aria-hidden="true"></span>
+      <canvas class="densita" aria-label="Events per year. Click or drag to move to a year"></canvas>
+      <div class="menu solo-pc">
+        <button type="button" class="apri-filtri" aria-expanded="false">filters</button>
+        <div class="filtri pop" role="group" aria-label="Kinds of event" hidden>
           {Object.entries(TIPI).map(([k, nome]) => <button type="button" class="tipo" data-kind={k} aria-pressed="true">{nome}</button>)}
-        </div>
-        <div class="gruppo" role="group" aria-label="Level of detail">
-          <button type="button" data-livello="1" aria-pressed="false">essential</button>
-          <button type="button" data-livello="2" aria-pressed="true">standard</button>
-          <button type="button" data-livello="3" aria-pressed="false">all</button>
-        </div>
-        <div class="gruppo solo-pc" role="group" aria-label="Time scale">
-          <button type="button" data-scala="decades" aria-pressed="false">decades</button>
-          <button type="button" data-scala="years" aria-pressed="true">years</button>
-          <button type="button" data-scala="months" aria-pressed="false">months</button>
         </div>
       </div>
     </nav>
@@ -101,46 +103,68 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
 </script>
 
 <style>
-  /* I colori delle categorie: i toni del sito, e il lilla di reef */
-  .tl { padding: 4px 24px 0; --c-research: var(--azzurro); --c-system: var(--verde); --c-company: var(--arancio); --c-society: #b79ce6; }
-  :global([data-theme="light"]) .tl { --c-society: #6a4bb0; }
-  .tl [data-kind="research"] { --k: var(--c-research); }
-  .tl [data-kind="system"] { --k: var(--c-system); }
-  .tl [data-kind="company"] { --k: var(--c-company); }
-  .tl [data-kind="society"] { --k: var(--c-society); }
+  /* I colori delle categorie: i toni del sito. Sulla pagina compaiono solo come piccoli segni */
+  .tl { padding: 4px 24px 0; --c-idea: var(--azzurro); --c-model: var(--verde); --c-world: var(--arancio); }
+  .tl [data-kind="idea"] { --k: var(--c-idea); }
+  .tl [data-kind="model"] { --k: var(--c-model); }
+  .tl [data-kind="world"] { --k: var(--c-world); }
   .testa { max-width: 620px; padding-bottom: var(--s2); }
   h1 { margin: 0 0 var(--s1); font-size: 33px; font-weight: 400; }
   .testa p { margin: 0; color: var(--muted); }
-  .bozza { margin-top: 6px !important; font-size: 11px; }
+  .filtri-testa { display: none; }
 
   /* --- Computer: la pista e il palco fermo */
-  .pista { position: relative; }
+  /* La pista va da bordo a bordo: il centro del palco è il centro dello schermo */
+  .pista { position: relative; margin: 0 -24px; }
   .palco { position: sticky; top: 0; height: 100vh; overflow: hidden; }
   .mondo { position: absolute; left: 0; top: 0; height: 100%; will-change: transform; }
   .asse { position: absolute; left: 0; top: 0; height: 100%; overflow: visible; pointer-events: none; }
-  .asse :global(.linea) { stroke: var(--fg); stroke-width: 1; }
+  .asse :global(.linea) { stroke: var(--muted); stroke-width: 1; }
   .asse :global(.tacca) { stroke: var(--line); stroke-width: 1; }
   .asse :global(.tacca.decennio) { stroke: var(--muted); }
   .asse :global(text) { fill: var(--muted); font-family: var(--mono); font-size: 11px; }
   .asse :global(text.decennio) { fill: var(--fg); }
   .asse :global(.oggi) { stroke: var(--fg); stroke-dasharray: 2 3; }
-  .punto { position: absolute; top: 0; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; padding: 0; border: 1.5px solid var(--k, var(--fg)); border-radius: 50%; background: var(--bg); cursor: pointer; transition: background .2s, transform .2s; }
-  .punto[data-peso="1"] { width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; }
+
+  /* I punti: i 12 essenziali sono più grandi e pieni, gli altri piccoli e vuoti */
+  .punto { position: absolute; top: 0; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; padding: 0; border: 1.5px solid var(--k, var(--fg)); border-radius: 50%; background: var(--bg); cursor: pointer; transition: background .2s, transform .2s; }
+  .punto[data-peso="1"] { width: 15px; height: 15px; margin: -7.5px 0 0 -7.5px; background: color-mix(in srgb, var(--k) 45%, var(--bg)); }
   .punto:hover, .punto.attivo { background: var(--k, var(--fg)); transform: scale(1.3); }
-  .punto[data-peso="1"] { background: color-mix(in srgb, var(--k) 35%, var(--bg)); }
   .punto[hidden] { display: none; }
-  .cursore { position: absolute; left: 50%; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--line); pointer-events: none; }
-  .quando { position: absolute; left: 8px; font-size: 11px; color: var(--fg); white-space: nowrap; }
+
+  /* L'anno grande: resta fermo in alto a sinistra e cambia con lo scroll */
+  .anno-grande { position: absolute; left: 24px; top: 14px; z-index: 110; font-size: clamp(44px, 6vw, 76px); line-height: 1; color: var(--fg); white-space: nowrap; pointer-events: none; }
+
   .scheda, .scheda-simbolo { position: absolute; left: 0; top: 0; margin: 0; transform-origin: 50% 100%; will-change: transform, opacity; visibility: hidden; }
-  .scheda { width: 260px; padding: 12px 14px; border: 1px solid var(--line); border-top: 2px solid var(--k, var(--line)); background: var(--bg); }
-  .scheda.attiva { border-color: var(--k); box-shadow: 0 0 0 1px color-mix(in srgb, var(--k) 30%, transparent); }
-  .tipo-k { color: var(--k); }
-  /* Il simbolo non sta in un riquadro: fluttua accanto alla sua scheda, nel colore della categoria */
+  .scheda { width: 380px; cursor: pointer; }
+  .scheda.attiva { cursor: default; }
+  .corpo { position: relative; box-sizing: border-box; padding: 11px 14px; border: 1px solid var(--line); background: var(--bg); }
+  .scheda.attiva .corpo { border-color: var(--muted); }
+  /* Durante la piega si vede il foglio a strisce; da ferma torna la scheda vera, con il testo nitido */
+  .scheda.piega > .corpo { opacity: 0; }
+
+  /* La scheda aperta: la riga del dettaglio si allarga da 0 alla sua altezza */
+  .apri { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .24s ease-out; }
+  .apri-dentro { min-height: 0; overflow: hidden; visibility: hidden; opacity: 0; transition: opacity .24s, visibility .24s; }
+  .attiva .apri { grid-template-rows: 1fr; }
+  .attiva .apri-dentro { visibility: visible; opacity: 1; max-height: var(--alt-dettaglio, 400px); overflow-y: auto; scrollbar-width: thin; }
+
+  /* Il foglio: le strisce della scheda, disposte su una curva in 3D */
+  .tl :global(.foglio) { position: absolute; inset: 0; display: none; perspective: 800px; perspective-origin: 50% 50%; }
+  .tl :global(.scheda.piega > .foglio) { display: block; }
+  .tl :global(.striscia) { position: absolute; left: 0; top: 0; height: 100%; overflow: hidden; transform-origin: 0 50%; }
+  .tl :global(.striscia > .corpo) { position: absolute; top: 0; }
+  .tl :global(.ombra) { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+
+  .tipo-k { color: var(--muted); }
+  .tipo-k::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--k); vertical-align: 1px; }
+  /* Il simbolo non sta in un riquadro: fluttua accanto alla scheda aperta, nel colore della categoria */
   .scheda-simbolo { width: 130px; padding: 0; color: var(--k, var(--fg)); transform-origin: 0 50%; pointer-events: none; }
   .riga { display: flex; justify-content: space-between; gap: 8px; margin: 0 0 6px; font-size: 11px; color: var(--muted); }
-  .scheda h2, .scheda-v h2 { margin: 0 0 4px; font-size: 15px; font-weight: 400; line-height: 1.3; color: var(--fg); }
-  .chi { margin: 0 0 6px; font-size: 12px; color: var(--muted); }
-  .testo { margin: 0 0 8px; font-size: 13px; line-height: 1.5; color: var(--fg); }
+  .scheda h2, .verticale h2 { margin: 0; font-size: 16px; font-weight: 400; line-height: 1.3; color: var(--fg); }
+  .perche { margin: 8px 0 10px; font-size: 14px; line-height: 1.4; color: var(--fg); }
+  .chi { margin: 0 0 4px; font-size: 12px; color: var(--muted); }
+  .testo { margin: 0 0 6px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
   .fonte { font-size: 11px; color: var(--muted); }
   .fonte:hover { color: var(--fg); }
   .stelo { position: absolute; left: 0; top: 0; width: 0; border-left: 1px solid var(--line); pointer-events: none; }
@@ -154,40 +178,49 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
   .tl :global(.simbolo .pieno-tenue) { fill: currentColor; fill-opacity: .22; }
   .tl :global(.disegnato .simbolo .tratteggio) { stroke-dasharray: .04 .035; }
 
-  /* --- Telefono: la linea verticale, nascosta su computer */
+  /* --- Telefono: la lista verticale, nascosta su computer */
   .verticale { display: none; }
 
-  .fine { max-width: 620px; padding: var(--s3) 0 160px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+  .fine { max-width: 620px; padding: var(--s3) 0 96px; color: var(--muted); font-size: 13px; line-height: 1.6; }
 
-  /* --- La barra in basso */
-  .controlli { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; padding: 6px 24px 10px; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px); font-size: 12px; }
-  .densita { display: block; width: 100%; height: 26px; cursor: pointer; }
-  .righe { display: flex; flex-wrap: wrap; gap: 6px 24px; margin-top: 6px; }
-  .gruppo { display: flex; flex-wrap: wrap; gap: 4px; }
-  .gruppo button { padding: 3px 9px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
-  .gruppo button:hover { border-color: var(--fg); color: var(--fg); }
-  .gruppo button[aria-pressed="true"] { border-color: var(--fg); color: var(--fg); }
-  .gruppo button.tipo::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--k); vertical-align: 1px; }
-  .gruppo button.tipo[aria-pressed="true"] { border-color: var(--k); }
-  .gruppo button.tipo[aria-pressed="false"]::before { background: transparent; box-shadow: inset 0 0 0 1px var(--k); }
+  /* --- La barra in basso: la minimappa e i filtri */
+  .controlli { position: fixed; left: 0; right: 0; bottom: 0; z-index: 120; display: flex; align-items: center; gap: 16px; padding: 6px 24px 8px; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px); font-size: 12px; }
+  .anno-v { display: none; }
+  .densita { display: block; flex: 1; min-width: 0; height: 38px; cursor: pointer; touch-action: none; }
+  .menu { position: relative; flex: none; }
+  .apri-filtri, .filtri button { padding: 4px 10px; border: 1px solid var(--line); background: var(--bg); color: var(--muted); font: inherit; cursor: pointer; }
+  .apri-filtri:hover, .apri-filtri[aria-expanded="true"], .filtri button:hover { border-color: var(--fg); color: var(--fg); }
+  .pop { position: absolute; right: 0; bottom: calc(100% + 6px); display: flex; flex-direction: column; gap: 4px; }
+  .pop[hidden] { display: none; }
+  .filtri button { text-align: left; white-space: nowrap; }
+  .filtri button[aria-pressed="true"] { color: var(--fg); }
+  .filtri button.tipo::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--k); vertical-align: 1px; }
+  .filtri button.tipo[aria-pressed="false"]::before { background: transparent; box-shadow: inset 0 0 0 1px var(--k); }
 
   @media (max-width: 700px) {
     .tl { padding: 0 16px; }
     h1 { font-size: 26px; }
     .solo-pc { display: none !important; }
+    .filtri-testa { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--s1); font-size: 12px; }
+    .filtri-testa button { padding: 6px 10px; }
     .pista { display: none; }
-    .verticale { display: block; position: relative; margin: var(--s2) 0 0; padding: 0 0 0 22px; list-style: none; border-left: 1px solid var(--fg); margin-left: 6px; }
+    .verticale { display: block; margin: var(--s2) 0 0 6px; padding: 0 0 0 20px; list-style: none; border-left: 1px solid var(--line); }
     .verticale li { position: relative; margin: 0 0 var(--s3); }
     .verticale li[hidden] { display: none; }
-    .punto-v { position: absolute; left: -28.5px; top: 4px; width: 11px; height: 11px; border: 1.5px solid var(--k); border-radius: 50%; background: var(--bg); }
-    .verticale li[data-peso="1"] .punto-v { background: var(--k); }
-    .scheda-v { border-top: 2px solid var(--k) !important; }
-    .simbolo-v { color: var(--k) !important; }
-    .scheda-v { padding: 10px 12px; border: 1px solid var(--line); opacity: .35; transform: translateX(10px) scale(.97); transition: opacity .5s, transform .5s; }
-    .scheda-v.vista { opacity: 1; transform: none; }
-    .simbolo-v { width: 150px; margin: 8px 0 0; color: var(--fg); }
-    .controlli { padding: 4px 16px 8px; }
-    .densita { height: 18px; }
-    .gruppo button { padding: 6px 8px; }
+    .punto-v { position: absolute; left: -24.5px; top: 3px; width: 9px; height: 9px; border: 1.5px solid var(--k); border-radius: 50%; background: var(--bg); }
+    .verticale li[data-peso="1"] .punto-v { left: -27px; top: 0; width: 14px; height: 14px; background: color-mix(in srgb, var(--k) 45%, var(--bg)); }
+    .verticale h2 { font-size: 17px; }
+    .verticale li[data-peso="1"] h2 { font-size: 20px; }
+    .perche { font-size: 15px; margin: 6px 0; }
+    .simbolo-v { width: 120px; margin: 10px 0; color: var(--k); }
+    .piu summary { display: inline-block; padding: 6px 12px 6px 0; font-size: 12px; color: var(--muted); cursor: pointer; list-style: none; }
+    .piu summary::-webkit-details-marker { display: none; }
+    .piu summary::after { content: " +"; }
+    .piu[open] summary::after { content: " −"; }
+    .testo { font-size: 14px; }
+    .fine { padding-bottom: 90px; }
+    .controlli { gap: 10px; padding: 6px 16px 8px; }
+    .anno-v { display: block; flex: none; min-width: 3.4em; font-size: 20px; color: var(--fg); }
+    .densita { height: 34px; }
   }
 </style>

@@ -123,8 +123,9 @@ const glossario = defineCollection({
 });
 
 // Timeline: un file Markdown per evento della storia dell'AI, in src/content/timeline. La pagina della timeline lo legge;
-// kind decide il filtro (ricerca, sistemi e modelli, aziende, società). checked: false = bozza ancora da controllare
-export const TIPI_EVENTO = ['research', 'system', 'company', 'society'] as const;
+// kind decide il filtro: idea (cosa si scopre), model (cosa si costruisce), world (cosa succede intorno: aziende, leggi, inverni).
+// perche: una frase sola sul perché l'evento conta, è il filo della storia. checked: false = bozza ancora da controllare
+export const TIPI_EVENTO = ['idea', 'model', 'world'] as const;
 const timeline = defineCollection({
   loader: glob({ pattern: '*.md', base: './src/content/timeline' }),
   schema: z.object({
@@ -134,7 +135,8 @@ const timeline = defineCollection({
     kind: z.enum(TIPI_EVENTO, fuoriLista('Tipo di evento', TIPI_EVENTO)),
     who: z.string(),
     source: z.string().url(),
-    // Importanza: 1 essenziale, 2 standard, 3 solo nella vista completa. simbolo: il disegno a filo di un evento essenziale
+    perche: z.string(),
+    // Importanza: 1 essenziale (punto più grande sulla linea), 2 e 3 gli altri. simbolo: il disegno a filo di un evento essenziale
     peso: z.number().int().min(1).max(3).default(2),
     simbolo: z.string().optional(),
     checked: z.boolean().default(false),
