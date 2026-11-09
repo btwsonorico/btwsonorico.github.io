@@ -3,14 +3,16 @@ import Base from '../../layouts/Base.astro';
 
 // Learn: la valle è il menu. Reef è tolto per ora (la pagina resta in /learn/ai-terms/). Ogni mongolfiera porta a una risorsa, la stessa lista sta anche nel testo. L'ordine è un crescendo di difficoltà; il tono lega ogni pagina al suo pallone
 // Tre sezioni, divise per cosa fa chi visita: play (giochi con un punteggio), try (modelli veri da toccare), read (da consultare)
+// I colori seguono l'arcobaleno lungo tutta la lista: rosso, arancio, giallo, verde, azzurro, lilla, rosa. Il tono è anche
+// il colore della mongolfiera
 const RISORSE = [
-  { nome: 'AI terms', href: '/learn/airport/', nota: 'trivia on the AI lexicon', tono: 'rosso', sezione: 'play' },
-  { nome: 'neural network', href: '/learn/neural-network/', nota: 'teach it to draw', tono: 'giallo', sezione: 'try' },
-  { nome: 'reinforcement learning', href: '/learn/reinforcement/', nota: 'a dog learns to herd', tono: 'verde', sezione: 'try' },
-  { nome: 'diffusion model', href: '/learn/diffusion/', nota: 'from noise to a shape', tono: 'azzurro', sezione: 'try' },
-  { nome: 'decision model', href: '/learn/decision/', nota: 'a smart home in plain words', tono: 'lilla', sezione: 'try' },
-  { nome: 'text-to-speech model', href: '/learn/t2s/', nota: 'a voice in your browser', tono: 'rosa', sezione: 'try' },
-  { nome: 'AI timeline', href: '/learn/timeline/', nota: 'AI history, 1943 to today', tono: 'arancio', sezione: 'read' },
+  { nome: 'neural network', href: '/learn/neural-network/', nota: 'teach it to draw', tono: 'rosso', sezione: 'try' },
+  { nome: 'reinforcement learning', href: '/learn/reinforcement/', nota: 'a dog learns to herd', tono: 'arancio', sezione: 'try' },
+  { nome: 'diffusion model', href: '/learn/diffusion/', nota: 'from noise to a shape', tono: 'giallo', sezione: 'try' },
+  { nome: 'decision model', href: '/learn/decision/', nota: 'a smart home in plain words', tono: 'verde', sezione: 'try' },
+  { nome: 'text-to-speech model', href: '/learn/t2s/', nota: 'a voice in your browser', tono: 'azzurro', sezione: 'try' },
+  { nome: 'AI terms', href: '/learn/airport/', nota: 'trivia on the AI lexicon', tono: 'lilla', sezione: 'play' },
+  { nome: 'AI timeline', href: '/learn/timeline/', nota: 'AI history, 1943 to today', tono: 'rosa', sezione: 'read' },
 ];
 const SEZIONI = ['try', 'play', 'read'] as const;
 ---
@@ -19,11 +21,11 @@ const SEZIONI = ['try', 'play', 'read'] as const;
   <main class="learn" data-risorse={JSON.stringify(RISORSE.map(({ nome, href, tono }) => ({ nome, href, tono })))}>
     <h1>Learn</h1>
     <p class="sotto">AI concepts you can touch. Pick a balloon.</p>
-    <!-- Una sola griglia per tutte le sezioni: le descrizioni stanno tutte sulla stessa colonna -->
+    <!-- Ogni voce è una riga: il nome nel colore della sua mongolfiera, la nota subito dopo -->
     <ul class="lista">
       {SEZIONI.map(sz => <>
         <li class="mono titolo-sezione">/{sz}</li>
-        {RISORSE.filter(r => r.sezione === sz).map(r => <li><a href={r.href} data-risorsa={r.nome}>{r.nome}</a><span class="mono">{r.nota}</span></li>)}
+        {RISORSE.filter(r => r.sezione === sz).map(r => <li data-colore={r.tono}><a href={r.href} data-risorsa={r.nome}>{r.nome}</a><span class="mono">{r.nota}</span></li>)}
       </>)}
     </ul>
   </main>
@@ -46,12 +48,17 @@ const SEZIONI = ['try', 'play', 'read'] as const;
   .learn > * { width: fit-content; max-width: 420px; }
   h1 { margin: 0 0 var(--s1); font-size: 33px; font-weight: 400; }
   .sotto { margin: 0 0 var(--s3); color: var(--muted); background: color-mix(in srgb, var(--bg) 78%, transparent); }
-  .lista { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px var(--s2); margin: 0 0 var(--s2); padding: 0; list-style: none; }
-  .lista .titolo-sezione { display: block; grid-column: 1 / -1; margin: var(--s1) 0 2px; font-size: 13px; color: var(--muted); background: color-mix(in srgb, var(--bg) 78%, transparent); }
-  .lista li { display: contents; }
-  .lista a { justify-self: start; padding: 0 5px; margin-left: -5px; font-size: 13px; line-height: 1.6; color: var(--fg); }
-  .lista a:hover { color: var(--bg); background: var(--fg); text-decoration: none; }
-  .lista span { align-self: center; font-size: 12px; line-height: 1.4; color: var(--muted); width: fit-content; background: color-mix(in srgb, var(--bg) 78%, transparent); }
+  .lista { margin: 0 0 var(--s2); padding: 0; list-style: none; }
+  .lista .titolo-sezione { display: block; margin: var(--s1) 0 2px; font-size: 13px; color: var(--muted); background: color-mix(in srgb, var(--bg) 78%, transparent); }
+  .lista li { display: flex; align-items: baseline; gap: var(--s1); margin-bottom: 4px; }
+  /* I colori delle mongolfiere (uguali a src/scripts/nuvole.ts), in tema scuro e chiaro */
+  .lista li { --c: var(--fg); }
+  .lista li[data-colore='rosso'] { --c: #ff4a3d; } .lista li[data-colore='arancio'] { --c: #e08a3a; } .lista li[data-colore='giallo'] { --c: #e6c229; }
+  .lista li[data-colore='verde'] { --c: #6fa646; } .lista li[data-colore='azzurro'] { --c: #5fb6d9; } .lista li[data-colore='lilla'] { --c: #b79ce6; } .lista li[data-colore='rosa'] { --c: #ff7ab8; }
+  :global(:root[data-theme='light']) .lista li[data-colore='rosso'] { --c: #e0352a; } :global(:root[data-theme='light']) .lista li[data-colore='giallo'] { --c: #a8880f; } :global(:root[data-theme='light']) .lista li[data-colore='rosa'] { --c: #b3155c; }
+  .lista a { padding: 0 5px; margin-left: -5px; font-size: 13px; line-height: 1.6; color: var(--c); text-decoration-color: var(--c); }
+  .lista a:hover { color: var(--bg); background: var(--c); text-decoration: none; }
+  .lista span { font-size: 12px; line-height: 1.4; color: var(--muted); width: fit-content; background: color-mix(in srgb, var(--bg) 78%, transparent); }
   :global(.barra), :global(.piede) { position: relative; z-index: 1; }
   /* Il piede non deve coprire i tasti della scena in basso */
   :global(.piede) { pointer-events: none; }
