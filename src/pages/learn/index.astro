@@ -4,7 +4,7 @@ import Base from '../../layouts/Base.astro';
 // Learn: la valle è il menu. Reef è tolto per ora (la pagina resta in /learn/ai-terms/). Ogni mongolfiera porta a una risorsa, la stessa lista sta anche nel testo. L'ordine è un crescendo di difficoltà; il tono lega ogni pagina al suo pallone
 // Tre sezioni, divise per cosa fa chi visita: play (giochi con un punteggio), try (modelli veri da toccare), read (da consultare)
 // I colori seguono l'arcobaleno lungo tutta la lista: rosso, arancio, giallo, verde, azzurro, lilla, rosa. Il tono è anche
-// il colore della mongolfiera
+// il colore della mongolfiera. Il gioco della timeline ha un colore suo, acqua, fuori dall'arcobaleno: è un pesce del reef
 const RISORSE = [
   { nome: 'neural network', href: '/learn/neural-network/', nota: 'teach it to draw', tono: 'rosso', sezione: 'try' },
   { nome: 'reinforcement learning', href: '/learn/reinforcement/', nota: 'a dog learns to herd', tono: 'arancio', sezione: 'try' },
@@ -12,6 +12,7 @@ const RISORSE = [
   { nome: 'decision model', href: '/learn/decision/', nota: 'a smart home in plain words', tono: 'verde', sezione: 'try' },
   { nome: 'text-to-speech model', href: '/learn/t2s/', nota: 'a voice in your browser', tono: 'azzurro', sezione: 'try' },
   { nome: 'AI terms', href: '/learn/airport/', nota: 'trivia on the AI lexicon', tono: 'lilla', sezione: 'play' },
+  { nome: 'timeline game', href: '/learn/timeline-game/', nota: 'fish AI history, put it in order', tono: 'acqua', sezione: 'play' },
   { nome: 'AI timeline', href: '/learn/timeline/', nota: 'AI history, 1943 to today', tono: 'rosa', sezione: 'read' },
 ];
 const SEZIONI = ['try', 'play', 'read'] as const;
@@ -55,8 +56,8 @@ const SEZIONI = ['try', 'play', 'read'] as const;
   /* I colori delle mongolfiere (uguali a src/scripts/nuvole.ts), in tema scuro e chiaro */
   .lista li { --c: var(--fg); }
   .lista li[data-colore='rosso'] { --c: #ff4a3d; } .lista li[data-colore='arancio'] { --c: #e08a3a; } .lista li[data-colore='giallo'] { --c: #e6c229; }
-  .lista li[data-colore='verde'] { --c: #6fa646; } .lista li[data-colore='azzurro'] { --c: #5fb6d9; } .lista li[data-colore='lilla'] { --c: #b79ce6; } .lista li[data-colore='rosa'] { --c: #ff7ab8; }
-  :global(:root[data-theme='light']) .lista li[data-colore='rosso'] { --c: #e0352a; } :global(:root[data-theme='light']) .lista li[data-colore='giallo'] { --c: #a8880f; } :global(:root[data-theme='light']) .lista li[data-colore='rosa'] { --c: #b3155c; }
+  .lista li[data-colore='verde'] { --c: #6fa646; } .lista li[data-colore='azzurro'] { --c: #5fb6d9; } .lista li[data-colore='lilla'] { --c: #b79ce6; } .lista li[data-colore='rosa'] { --c: #ff7ab8; } .lista li[data-colore='acqua'] { --c: #3fd1c4; }
+  :global(:root[data-theme='light']) .lista li[data-colore='acqua'] { --c: #1f9e98; } :global(:root[data-theme='light']) .lista li[data-colore='rosso'] { --c: #e0352a; } :global(:root[data-theme='light']) .lista li[data-colore='giallo'] { --c: #a8880f; } :global(:root[data-theme='light']) .lista li[data-colore='rosa'] { --c: #b3155c; }
   .lista a { padding: 0 5px; margin-left: -5px; font-size: 13px; line-height: 1.6; color: var(--fg); text-decoration-color: var(--c); }
   .lista a:hover { color: var(--bg); background: var(--c); text-decoration: none; }
   .lista span { font-size: 12px; line-height: 1.4; color: var(--muted); width: fit-content; }
@@ -72,6 +73,8 @@ const SEZIONI = ['try', 'play', 'read'] as const;
   .scena3d :global(.nome-pallone) { pointer-events: auto; text-decoration: none; will-change: transform; }
   .scena3d :global(.nome-pallone[data-tono="lilla"]) { --accent: #b79ce6; }
   :global([data-theme="light"]) .scena3d :global(.nome-pallone[data-tono="lilla"]) { --accent: #6a4bb0; }
+  .scena3d :global(.nome-pallone[data-tono="acqua"]) { --accent: #3fd1c4; }
+  :global([data-theme="light"]) .scena3d :global(.nome-pallone[data-tono="acqua"]) { --accent: #1f9e98; }
   .scena3d :global(.nome-pallone[data-tono="giallo"]) { --accent: #e6c229; }
   :global([data-theme="light"]) .scena3d :global(.nome-pallone[data-tono="giallo"]) { --accent: #8f7300; }
   .scena3d :global(.nome-pallone[data-tono="grigio"]) { --accent: var(--fg); }
