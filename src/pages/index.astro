@@ -61,7 +61,7 @@ const PAGINE = [
       <a href="https://www.linkedin.com/in/riccardo-mondi-7717181aa/" rel="me">linkedin</a>
     </p>
     <nav class="pagine" aria-label="All pages">
-      <p class="mono titoletto">pages</p>
+      <p class="mono titoletto">/pages</p>
       <ul>
         {PAGINE.map(p => <li><a href={p.href} data-sezione={`sezione:${p.nome}`} data-tono={TONI[p.nome]}>{p.nome}</a><span class="mono">{p.nota}</span></li>)}
       </ul>
