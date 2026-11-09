@@ -1,10 +1,11 @@
 ---
 import { getCollection } from 'astro:content';
 import Base from '../../layouts/Base.astro';
-import { simbolo } from '../../lib/simboliTimeline';
+import { arte } from '../../lib/arteTimeline';
 
 // AI timeline: la storia dell'AI su una linea del tempo. Su computer lo scroll verso il basso fa scorrere la linea verso
 // destra. La scheda al centro è aperta e mostra tutto; quelle ai lati, al massimo due per lato, mostrano data e titolo.
+// I 12 eventi essenziali hanno un'immagine ASCII accanto alla scheda (src/lib/arteTimeline.ts).
 // Durante lo scroll le schede si piegano come un foglio di carta. Su telefono la linea diventa una lista verticale, con una
 // striscia in basso che dice anno e posizione. Gli eventi sono note in src/content/timeline; il movimento e i controlli
 // sono in src/scripts/timelineVista.ts.
@@ -17,17 +18,17 @@ const eventi = (await getCollection('timeline', e => !e.data.draft))
     data: e.data.month ? `${MESI[e.data.month - 1]} ${e.data.year}` : String(e.data.year),
     // Posizione nel tempo: l'anno più la metà del mese (o metà anno se il mese non c'è)
     t: e.data.year + ((e.data.month ?? 6.5) - 0.5) / 12,
-    svg: simbolo(e.data.simbolo),
+    arte: arte(e.data.simbolo),
   }));
 const daControllare = eventi.filter(e => !e.checked).length;
-const datiJs = eventi.map(e => ({ t: e.t, k: e.kind, p: e.peso, s: !!e.svg }));
+const datiJs = eventi.map(e => ({ t: e.t, k: e.kind, p: e.peso, s: !!e.arte }));
 const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
 ---
 <Base title="AI timeline · Riccardo Mondi" description="The history of artificial intelligence on one line, from the first artificial neuron to today, and why each step matters." tono="neutro" largo>
   <main class="tl" data-eventi={JSON.stringify(datiJs)} data-oggi={oggi}>
     <header class="testa">
       <h1>AI timeline</h1>
-      <p>From the first artificial neuron to today, in {eventi.length} events. <span class="solo-pc">Scroll to travel in time.</span></p>
+      <p><span class="solo-tel">From the first artificial neuron to today.</span><span class="solo-pc">Scroll or use the arrow keys.</span></p>
       <div class="filtri filtri-testa" role="group" aria-label="Kinds of event">
         {Object.entries(TIPI).map(([k, nome]) => <button type="button" class="tipo mono" data-kind={k} aria-pressed="true">{nome}</button>)}
       </div>
@@ -55,7 +56,15 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
             </div>
           </article>
         ))}
-        {eventi.map((e, i) => e.svg && <figure class="scheda-simbolo" data-i={i} data-kind={e.kind} set:html={e.svg} />)}
+        {eventi.map((e, i) => e.arte && (
+          <figure class:list={['arte', 'arte-pc', { 'con-foto': e.arte.foto }]} data-i={i} data-kind={e.kind} data-simbolo={e.simbolo} data-rotante={e.arte.rotante ? '' : undefined}>
+            <div class="arte-immagine">
+              <pre aria-hidden="true">{e.arte.righe}</pre>
+              {e.arte.foto && <img src={e.arte.foto.src} alt={e.arte.foto.alt} loading="lazy" decoding="async" />}
+            </div>
+            <figcaption class="mono">{e.arte.didascalia}</figcaption>
+          </figure>
+        ))}
         <span class="stelo" aria-hidden="true"></span>
       </div>
     </div>
@@ -68,7 +77,15 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
           <p class="mono riga"><span>{e.data}</span><span class="tipo-k">{TIPI[e.kind]}</span></p>
           <h2>{e.title}</h2>
           <p class="perche">{e.perche}</p>
-          {e.svg && <figure class="simbolo-v" set:html={e.svg} />}
+          {e.arte && (
+            <figure class:list={['arte', 'arte-v', { 'con-foto': e.arte.foto }]} data-simbolo={e.simbolo} data-rotante={e.arte.rotante ? '' : undefined}>
+              <div class="arte-immagine">
+                <pre aria-hidden="true">{e.arte.righe}</pre>
+                {e.arte.foto && <img src={e.arte.foto.src} alt={e.arte.foto.alt} loading="lazy" decoding="async" />}
+              </div>
+              <figcaption class="mono">{e.arte.didascalia}</figcaption>
+            </figure>
+          )}
           <details class="piu">
             <summary class="mono">more</summary>
             <p class="chi">{e.who}</p>
@@ -91,6 +108,7 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
         <button type="button" class="apri-filtri" aria-expanded="false">filters</button>
         <div class="filtri pop" role="group" aria-label="Kinds of event" hidden>
           {Object.entries(TIPI).map(([k, nome]) => <button type="button" class="tipo" data-kind={k} aria-pressed="true">{nome}</button>)}
+          <p class="nota">The larger points are the twelve turning points. {daControllare > 0 && <>{daControllare} of {eventi.length} notes are still drafts: if you spot a wrong date or name, <a href="mailto:rmondi99@gmail.com">tell me</a>.</>}</p>
         </div>
       </div>
     </nav>
@@ -114,9 +132,25 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
   .filtri-testa { display: none; }
 
   /* --- Computer: la pista e il palco fermo */
-  /* La pista va da bordo a bordo: il centro del palco è il centro dello schermo */
-  .pista { position: relative; margin: 0 -24px; }
-  .palco { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+  /* La pagina è la linea: niente sopra e niente sotto. Il palco è fermo a tutto schermo e la pista dà solo la lunghezza dello
+     scroll, così il primo scroll muove già la linea. Stessa condizione di telefono() in timelineVista.ts */
+  @media (min-width: 701px) and (min-height: 501px) {
+    :global(html:has(.tl)) { scrollbar-width: none; overscroll-behavior: none; }
+    :global(html:has(.tl)::-webkit-scrollbar) { display: none; }
+    :global(body:has(.tl)) { min-height: 0; display: block; }
+    :global(body:has(.tl) .piede) { display: none; }
+    :global(body.largo:has(.tl) .barra) { position: fixed; top: 0; left: 0; right: 0; z-index: 130; padding: 16px 24px; pointer-events: none; }
+    :global(body:has(.tl) .barra a), :global(body:has(.tl) .barra button) { pointer-events: auto; }
+    .tl { padding: 0; }
+    /* Il titolo sta sotto le schede: una scheda aperta alta lo copre, ma le lettere non finiscono sopra il suo testo */
+    .testa { position: fixed; left: 24px; top: 48px; z-index: 0; max-width: 300px; padding: 0; pointer-events: none; }
+    .testa h1 { margin: 0 0 2px; font-size: 22px; }
+    .testa p { font-size: 11px; line-height: 1.5; }
+    .solo-tel { display: none; }
+    .fine { display: none; }
+  }
+  .pista { position: relative; }
+  .palco { position: fixed; inset: 0; overflow: hidden; }
   .mondo { position: absolute; left: 0; top: 0; height: 100%; will-change: transform; }
   .asse { position: absolute; left: 0; top: 0; height: 100%; overflow: visible; pointer-events: none; }
   .asse :global(.linea) { stroke: var(--muted); stroke-width: 1; }
@@ -133,10 +167,10 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
   .punto[hidden] { display: none; }
 
   /* L'anno grande: resta fermo in alto a sinistra e cambia con lo scroll */
-  .anno-grande { position: absolute; left: 24px; top: 14px; z-index: 110; font-size: clamp(44px, 6vw, 76px); line-height: 1; color: var(--fg); white-space: nowrap; pointer-events: none; }
+  .anno-grande { position: absolute; left: 24px; top: 92px; z-index: 95; font-size: clamp(44px, 6vw, 76px); line-height: 1; color: var(--fg); white-space: nowrap; pointer-events: none; }
 
-  .scheda, .scheda-simbolo { position: absolute; left: 0; top: 0; margin: 0; transform-origin: 50% 100%; will-change: transform, opacity; visibility: hidden; }
-  .scheda { width: 380px; cursor: pointer; }
+  .scheda, .arte-pc { position: absolute; left: 0; top: 0; margin: 0; transform-origin: 50% 100%; will-change: transform, opacity; visibility: hidden; }
+  .scheda { width: 420px; cursor: pointer; }
   .scheda.attiva { cursor: default; }
   .corpo { position: relative; box-sizing: border-box; padding: 11px 14px; border: 1px solid var(--line); background: var(--bg); transition: border-color .35s; }
   .scheda.attiva .corpo { border-color: var(--muted); }
@@ -146,7 +180,7 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
   /* La scheda aperta: il dettaglio ha già la sua forma e viene scoperto dall'alto, così il testo non va a capo mentre si apre.
      --h e --a arrivano dal movimento (timelineVista.ts): altezza scoperta e opacità */
   .apri { height: var(--h, 0px); overflow: hidden; }
-  .apri-dentro { max-height: var(--alt-dettaglio, 400px); overflow-y: auto; scrollbar-width: thin; visibility: hidden; opacity: var(--a, 0); }
+  .apri-dentro { max-height: var(--alt-dettaglio, 400px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; visibility: hidden; opacity: var(--a, 0); }
   .mostra .apri-dentro { visibility: visible; }
 
   /* Il foglio: le strisce della scheda, disposte su una curva in 3D */
@@ -158,8 +192,16 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
 
   .tipo-k { color: var(--muted); }
   .tipo-k::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--k); vertical-align: 1px; }
-  /* Il simbolo non sta in un riquadro: fluttua accanto alla scheda aperta, nel colore della categoria */
-  .scheda-simbolo { width: 130px; padding: 0; color: var(--k, var(--fg)); transform-origin: 0 50%; pointer-events: none; }
+  /* L'immagine ASCII: testo in Departure Mono, nel colore della categoria, senza riquadro. Nitida a 11 px */
+  .arte { margin: 0; color: var(--k, var(--fg)); }
+  .arte-pc { width: max-content; transform-origin: 0 0; pointer-events: none; }
+  .arte-pc.con-foto { pointer-events: auto; cursor: pointer; }
+  .arte-immagine { position: relative; }
+  .arte pre { margin: 0; font-family: var(--mono); font-size: 11px; line-height: 11px; white-space: pre; user-select: none; }
+  .arte img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .25s; pointer-events: none; }
+  .arte.foto-vista img { opacity: 1; }
+  @media (hover: hover) { .arte.con-foto:hover img { opacity: 1; } }
+  .arte figcaption { margin-top: 6px; font-size: 11px; line-height: 1.4; color: var(--muted); }
   .riga { display: flex; justify-content: space-between; gap: 8px; margin: 0 0 6px; font-size: 11px; color: var(--muted); }
   .scheda h2, .verticale h2 { margin: 0; font-size: 16px; font-weight: 400; line-height: 1.3; color: var(--fg); }
   .perche { margin: 8px 0 10px; font-size: 14px; line-height: 1.4; color: var(--fg); }
@@ -168,15 +210,6 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
   .fonte { font-size: 11px; color: var(--muted); }
   .fonte:hover { color: var(--fg); }
   .stelo { position: absolute; left: 0; top: 0; width: 0; border-left: 1px solid var(--line); pointer-events: none; }
-
-  /* I simboli si disegnano: ogni linea ha lunghezza 1, il trattino scorre da 1 a 0 */
-  .tl :global(.simbolo) { display: block; width: 100%; height: auto; }
-  .tl :global(.simbolo *) { stroke-dasharray: 1 1; stroke-dashoffset: 1; transition: stroke-dashoffset 1.4s ease-out; }
-  .tl :global(.disegnato .simbolo *) { stroke-dashoffset: 0; }
-  .tl :global(.simbolo .tenue) { opacity: .45; }
-  .tl :global(.simbolo .pieno) { fill: currentColor; }
-  .tl :global(.simbolo .pieno-tenue) { fill: currentColor; fill-opacity: .22; }
-  .tl :global(.disegnato .simbolo .tratteggio) { stroke-dasharray: .04 .035; }
 
   /* --- Telefono: la lista verticale, nascosta su computer */
   .verticale { display: none; }
@@ -193,11 +226,12 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
   .pop { position: absolute; right: 0; bottom: calc(100% + 6px); display: flex; flex-direction: column; gap: 4px; }
   .pop[hidden] { display: none; }
   .filtri button { text-align: left; white-space: nowrap; }
+  .nota { width: 240px; margin: 4px 0 0; padding: 8px 10px; border: 1px solid var(--line); background: var(--bg); font-size: 11px; line-height: 1.5; color: var(--muted); }
   .filtri button[aria-pressed="true"] { color: var(--fg); }
   .filtri button.tipo::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--k); vertical-align: 1px; }
   .filtri button.tipo[aria-pressed="false"]::before { background: transparent; box-shadow: inset 0 0 0 1px var(--k); }
 
-  @media (max-width: 700px) {
+  @media (max-width: 700px), (max-height: 500px) {
     .tl { padding: 0 16px; }
     h1 { font-size: 26px; }
     .solo-pc { display: none !important; }
@@ -212,7 +246,10 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
     .verticale h2 { font-size: 17px; }
     .verticale li[data-peso="1"] h2 { font-size: 20px; }
     .perche { font-size: 15px; margin: 6px 0; }
-    .simbolo-v { width: 120px; margin: 10px 0; color: var(--k); }
+    /* 56 colonne devono stare nella voce: il carattere si adatta alla larghezza del telefono */
+    .arte-v { margin: 10px 0; width: max-content; max-width: 100%; }
+    .arte-v pre { font-size: min(8.25px, calc((100vw - 60px) / 33.6)); line-height: min(8.25px, calc((100vw - 60px) / 33.6)); }
+    .arte-v.con-foto { cursor: pointer; }
     .piu summary { display: inline-block; padding: 6px 12px 6px 0; font-size: 12px; color: var(--muted); cursor: pointer; list-style: none; }
     .piu summary::-webkit-details-marker { display: none; }
     .piu summary::after { content: " +"; }

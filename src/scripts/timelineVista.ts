@@ -8,6 +8,8 @@
 // La posizione di un evento è il suo tempo per la scala scelta; due punti non scendono mai sotto una distanza minima,
 // così gli anni affollati (dal 2012 in poi) si allargano da soli. Su telefono la linea è verticale e si scorre normalmente.
 
+import { creaArti } from './timelineArte';
+
 type Evento = { t: number; k: string; p: number; s: boolean };
 const SCALA_INIZIALE = 80, SCALA_MIN = 10, SCALA_MAX = 900;
 const INIZIO = 1940;
@@ -15,6 +17,7 @@ const MAX_RANGO = 2;              // quante schede restano visibili per lato
 const OPACITA = [1, 0.6, 0.28];   // quanto si vede una scheda, per distanza in eventi dalla centrale
 const STRISCE = 14;               // quante strisce fanno il foglio (numero pari: la striscia a metà è il centro)
 const VEL_PIENA = 700, VEL_CHIUSA = 2400; // sotto la prima velocità (px/s) la scheda si apre tutta, sopra la seconda resta chiusa
+const GAP_ARTE = 16;              // px fra la scheda aperta e la sua immagine ASCII
 const DURATA_VIAGGIO = 620;       // ms per andare a una scheda con le frecce o con un clic
 
 export function monta(radice: HTMLElement) {
@@ -25,10 +28,12 @@ export function monta(radice: HTMLElement) {
   const asse = radice.querySelector<SVGSVGElement>('.asse')!, annoGrande = radice.querySelector<HTMLElement>('.anno-grande')!, stelo = radice.querySelector<HTMLElement>('.stelo')!;
   const annoV = radice.querySelector<HTMLElement>('.anno-v')!, barra = radice.querySelector<HTMLElement>('.controlli')!;
   const punti = $$<HTMLButtonElement>('.punto'), schede = $$<HTMLElement>('.scheda'), righeV = $$<HTMLElement>('.verticale li');
-  const simboli = new Map($$<HTMLElement>('.scheda-simbolo').map(f => [+f.dataset.i!, f]));
+  const simboli = new Map($$<HTMLElement>('.arte-pc').map(f => [+f.dataset.i!, f]));
+  const arti = creaArti($$<HTMLElement>('.arte'));
   const densita = radice.querySelector<HTMLCanvasElement>('.densita')!;
   const ridotto = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const telefono = () => window.innerWidth <= 700;
+  // Telefono: stretto, o girato di lato (troppo basso per la linea). Stessa condizione del CSS della pagina
+  const telefono = () => window.innerWidth <= 700 || window.innerHeight <= 500;
   // La larghezza senza la barra di scorrimento: il centro dello schermo è il centro di questa
   const larghezzaPagina = () => document.documentElement.clientWidth;
   const limita = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
@@ -39,7 +44,8 @@ export function monta(radice: HTMLElement) {
   const visibile = (e: Evento) => tipi.has(e.k);
 
   // --- Disposizione: x di ogni evento visibile, con una distanza minima che cresce con la scala
-  let xs = new Float64Array(eventi.length), visibili: number[] = [], larghezza = 0, margine = 0, lineaY = 0, misureS: number[] = [];
+  // inizioX e fineX: quanta linea è passata quando il primo e l'ultimo evento sono al centro. Lo scroll va solo da uno all'altro
+  let xs = new Float64Array(eventi.length), visibili: number[] = [], larghezza = 0, margine = 0, lineaY = 0, misureS: { larg: number; alt: number }[] = [], inizioX = 0, fineX = 0;
   // Per ogni scheda: larghezza, altezza da chiusa, altezza del dettaglio. Si leggono una volta: l'apertura le usa a ogni fotogramma
   let misure: { larg: number; chiusa: number; dettaglio: number }[] = [];
   const distanzaMinima = () => Math.min(240, 60 + pxAnno * 1.3);
@@ -48,7 +54,7 @@ export function monta(radice: HTMLElement) {
       const apri = sc.querySelector<HTMLElement>(':scope > .corpo .apri')!, dentro = apri.firstElementChild as HTMLElement;
       return { larg: sc.offsetWidth, chiusa: sc.offsetHeight - apri.offsetHeight, dettaglio: dentro.offsetHeight };
     });
-    misureS = eventi.map((_, i) => simboli.get(i)?.offsetWidth ?? 0);
+    misureS = eventi.map((_, i) => { const f = simboli.get(i); return { larg: f?.offsetWidth ?? 0, alt: f?.offsetHeight ?? 0 }; });
   };
   function disponi() {
     margine = larghezzaPagina() / 2;
@@ -58,10 +64,12 @@ export function monta(radice: HTMLElement) {
     for (const i of visibili) { const x = Math.max(margine + (eventi[i]!.t - INIZIO) * pxAnno, prima + gap); xs[i] = x; prima = x; }
     const fineOggi = xDiAnno(oggi);
     larghezza = Math.max(fineOggi, prima) + margine;
-    pista.style.height = `${larghezza - margine * 2 + window.innerHeight}px`;
+    inizioX = (xs[visibili[0] ?? 0] ?? margine) - margine;
+    fineX = (xs[visibili[visibili.length - 1] ?? 0] ?? margine) - margine;
+    pista.style.height = `${fineX - inizioX + window.innerHeight}px`;
     lineaY = Math.round((window.innerHeight - barra.offsetHeight) * 0.5);
     // Quanto può crescere il dettaglio: la scheda aperta non deve uscire dallo schermo o finire sotto la barra
-    const spazio = Math.min(lineaY - 34, window.innerHeight - barra.offsetHeight - lineaY - 66 - 8);
+    const spazio = Math.min(lineaY - 34, window.innerHeight - barra.offsetHeight - lineaY - 46 - 8);
     radice.style.setProperty('--alt-dettaglio', `${Math.max(90, spazio - 76)}px`);
     disegnaAsse();
     // Le misure delle schede si leggono qui, una volta: leggerle a ogni fotogramma costringe il browser a ricalcolare tutto
@@ -155,16 +163,19 @@ export function monta(radice: HTMLElement) {
 
   // --- Le molle delle schede: posizione e velocità sullo schermo, una per scheda e una per simbolo.
   // y è il bordo verso la linea, o l'opacità, s la scala, b la piega, a quanto è aperta (da 0 a 1)
-  type Molla = { x: number; v: number; y: number; o: number; s: number; b: number; bv: number; a: number; av: number; aScritta: number; vista: boolean };
-  const nuovaMolla = (): Molla => ({ x: NaN, v: 0, y: NaN, o: 0, s: 0.7, b: 0, bv: 0, a: 0, av: 0, aScritta: 0, vista: false });
+  type Molla = { x: number; v: number; y: number; o: number; s: number; b: number; bv: number; a: number; av: number; aScritta: number; vista: boolean; rivelata: boolean };
+  const nuovaMolla = (): Molla => ({ x: NaN, v: 0, y: NaN, o: 0, s: 0.7, b: 0, bv: 0, a: 0, av: 0, aScritta: 0, vista: false, rivelata: false });
   const molle = eventi.map(nuovaMolla), molleS = eventi.map(nuovaMolla);
-  let scroll = 0, scrollPrima = 0, velocita = 0, attivo = -1, prima = performance.now();
+  // scrollPrima vuoto: alla prima lettura la velocità resta 0, così nessun salto della linea sembra uno scroll veloce
+  let scroll = 0, scrollPrima = NaN, velocita = 0, attivo = -1, prima = performance.now();
 
   function posizione() {
-    // Quanta linea è passata: lo scroll dentro la pista, da 0 alla lunghezza della linea
+    // Quanta linea è passata: lo scroll della pagina, dal primo all'ultimo evento
     const r = pista.getBoundingClientRect();
-    return Math.min(Math.max(-r.top, 0), Math.max(0, larghezza - margine * 2));
+    return inizioX + limita(-r.top, 0, Math.max(0, fineX - inizioX));
   }
+  // Da una posizione sulla linea allo scroll della pagina che la porta al centro dello schermo
+  const topDiX = (x: number) => window.scrollY + pista.getBoundingClientRect().top + (x - margine - inizioX);
   // Apre o chiude una scheda: una sola scrittura sulla scheda, che vale anche per le copie del foglio
   function impostaApertura(i: number, a: number, dettaglio: number) {
     const sc = schede[i]!;
@@ -176,7 +187,7 @@ export function monta(radice: HTMLElement) {
   // --- Il viaggio verso una scheda, con le frecce o con un clic: parte piano e arriva piano. Una nuova pressione lo riprende
   // da dove è, verso la scheda dopo. La rotella, il dito o il mouse sulla barra lo interrompono
   let viaggio: { da: number; a: number; inizio: number; indice: number; inCorsa: boolean } | null = null;
-  const topDiScheda = (i: number) => window.scrollY + pista.getBoundingClientRect().top + (xs[i]! - margine);
+  const topDiScheda = (i: number) => topDiX(xs[i]!);
   function viaggia(i: number) {
     if (ridotto) { window.scrollTo({ top: topDiScheda(i), behavior: 'instant' as ScrollBehavior }); return; }
     viaggio = { da: window.scrollY, a: topDiScheda(i), inizio: performance.now(), indice: i, inCorsa: viaggio !== null };
@@ -196,7 +207,8 @@ export function monta(radice: HTMLElement) {
       pxAnno += (pxVoluto - pxAnno) * (ridotto ? 1 : Math.min(1, dt * 7));
       if (Math.abs(pxVoluto - pxAnno) < 0.02) pxAnno = pxVoluto;
       disponi();
-      window.scrollTo({ top: window.scrollY + pista.getBoundingClientRect().top + (xDiAnno(centro) - margine), behavior: 'instant' as ScrollBehavior });
+      window.scrollTo({ top: topDiX(xDiAnno(centro)), behavior: 'instant' as ScrollBehavior });
+      scrollPrima = NaN;
     }
     if (viaggio) {
       const p = limita((ora - viaggio.inizio) / DURATA_VIAGGIO, 0, 1);
@@ -206,7 +218,9 @@ export function monta(radice: HTMLElement) {
       if (p >= 1) viaggio = null;
     }
     scroll = posizione();
-    velocita +=((scroll - scrollPrima) / Math.max(dt, 0.001) - velocita) * Math.min(1, dt * 8);
+    // La velocità è una media lenta: le tacche della rotella non si vedono come colpi sul foglio
+    if (Number.isNaN(scrollPrima)) scrollPrima = scroll;
+    velocita += ((scroll - scrollPrima) / Math.max(dt, 0.001) - velocita) * Math.min(1, dt * 4.5);
     scrollPrima = scroll;
     mondo.style.transform = `translate3d(${-scroll}px,0,0)`;
     const W = larghezzaPagina(), cx = W / 2, centroX = scroll + margine;
@@ -226,6 +240,8 @@ export function monta(radice: HTMLElement) {
     // Quanto si apre la scheda attiva: del tutto da lenti, per niente da veloci, e nel mezzo una via di mezzo
     const aperturaVoluta = 1 - limita((Math.abs(velocita) - VEL_PIENA) / (VEL_CHIUSA - VEL_PIENA), 0, 1);
     const rango = new Map(visibili.map((i, k) => [i, k])), kAttivo = rango.get(attivo) ?? 0;
+    // Mentre un'immagine è aperta le schede più lontane spariscono: lo spazio accanto alla scheda è suo
+    const aperturaArte = simboli.has(attivo) ? molle[attivo]!.a : 0;
     const passoO = Math.min(1, dt * 9), passoY = ridotto ? 1 : Math.min(1, dt * 11);
     eventi.forEach((_, i) => {
       const sc = schede[i]!, fs = simboli.get(i), m = molle[i]!, ms = molleS[i]!;
@@ -234,16 +250,16 @@ export function monta(radice: HTMLElement) {
       const dentro = kr !== undefined && lontano < 1.15 && r <= MAX_RANGO;
       if (!dentro && m.o < 0.02) {
         if (m.vista) { sc.style.visibility = 'hidden'; togliFoglio(i); impostaApertura(i, 0, 0); m.vista = false; }
-        if (fs && ms.vista) { fs.style.visibility = 'hidden'; ms.vista = false; }
+        if (fs && ms.vista) { fs.style.visibility = 'hidden'; arti.ferma(fs); ms.vista = false; }
         m.x = ms.x = m.y = NaN; m.o = ms.o = 0; m.s = 0.7; m.b = m.bv = m.a = m.av = m.aScritta = 0;
         return;
       }
       if (Number.isNaN(m.x)) { m.x = meta; m.v = 0; ms.x = meta; ms.v = 0; }
-      // Molla: rigidità un po' diversa per ogni scheda, così non si muovono tutte insieme
-      const k = 120 + (i % 5) * 14, smorza = 2 * Math.sqrt(k) * 0.82;
+      // Molla senza rimbalzi, uguale per tutte le schede: arrivano con un piccolo ritardo e si fermano senza oscillare
+      const k = 150, smorza = 2 * Math.sqrt(k), kS = 70, smorzaS = 2 * Math.sqrt(kS);
       if (ridotto) { m.x = meta; ms.x = meta; } else {
         m.v += ((meta - m.x) * k - m.v * smorza) * dt; m.x += m.v * dt;
-        ms.v += ((meta - ms.x) * k * 0.45 - ms.v * smorza * 0.68) * dt; ms.x += ms.v * dt;
+        ms.v += ((meta - ms.x) * kS - ms.v * smorzaS) * dt; ms.x += ms.v * dt;
       }
       // Quanto è vicina al centro: la scheda aperta è piena, le vicine sono tenui e più piccole
       const d = Math.min(1, Math.abs(m.x - cx) / (W * 0.5));
@@ -251,7 +267,8 @@ export function monta(radice: HTMLElement) {
       // Scala e opacità seguono piano: quando una scheda diventa quella centrale cresce, non scatta
       m.s = ridotto ? 0.62 + 0.38 * vicino : m.s + (0.62 + 0.38 * vicino - m.s) * Math.min(1, dt * 7);
       const scala = m.s;
-      m.o += ((dentro ? (OPACITA[r] ?? 0) * Math.min(1, (1 - d) * 2.5) : 0) - m.o) * passoO;
+      const opacitaVoluta = (OPACITA[r] ?? 0) * (r >= 2 ? 1 - aperturaArte : 1) * Math.min(1, (1 - d) * 2.5);
+      m.o += ((dentro ? opacitaVoluta : 0) - m.o) * passoO;
 
       // L'apertura: una molla senza rimbalzi, che parte piano e arriva piano
       const apriVoluta = i === attivo ? aperturaVoluta : 0;
@@ -260,15 +277,16 @@ export function monta(radice: HTMLElement) {
         m.av += ((apriVoluta - m.a) * kA - m.av * 2 * Math.sqrt(kA)) * dt; m.a = limita(m.a + m.av * dt, 0, 1);
         if (Math.abs(apriVoluta - m.a) < 0.002 && Math.abs(m.av) < 0.01) { m.a = apriVoluta; m.av = 0; }
       }
-      const { larg = 380, chiusa = 70, dettaglio = 0 } = misure[i] ?? {};
+      const { larg = 420, chiusa = 70, dettaglio = 0 } = misure[i] ?? {};
       const alt = chiusa + m.a * dettaglio;
       if (m.a !== m.aScritta) { impostaApertura(i, m.a, dettaglio); m.aScritta = m.a; }
-      if (i === attivo && m.a > 0.5) simboli.get(i)?.classList.add('disegnato');
-      const giro = limita((m.x - cx) / (W * 0.5), -1, 1) * -14;
+      // Con un'immagine, scheda e immagine fanno gruppo intorno al punto: la scheda va a sinistra e il suo gambo resta attaccato
+      const spostamento = fs ? Math.min(larg / 2 - 24, ((misureS[i]?.larg ?? 0) + GAP_ARTE) / 2) * m.a : 0;
+      const giro = limita((m.x - cx) / (W * 0.5), -1, 1) * -10;
       // Sopra o sotto la linea, alternando un evento sì e uno no; fra due vicini dallo stesso lato, due quote diverse.
       // Sotto la linea si parte dopo gli anni dell'asse
       const rg = kr ?? 0, sopra = rg % 2 === 0, quota = i === attivo ? 0 : (rg >> 1) % 2;
-      const stacco = (sopra ? 26 : 58) + quota * 38;
+      const stacco = (sopra ? 26 : 46) + quota * 38;
       // y0: il bordo della scheda verso la linea. Si muove piano, così il cambio di quota non salta. La scheda cresce
       // allontanandosi dalla linea: altezza e posizione vengono dallo stesso calcolo, quindi quel bordo resta fermo
       const y0Voluta = sopra ? lineaY - stacco : lineaY + stacco;
@@ -278,11 +296,11 @@ export function monta(radice: HTMLElement) {
       sc.style.opacity = m.o.toFixed(3);
       sc.style.zIndex = String(i === attivo ? 100 : Math.round(vicino * 90));
       sc.style.transformOrigin = sopra ? '50% 100%' : '50% 0';
-      sc.style.transform = `translate3d(${(m.x - larg / 2).toFixed(2)}px, ${yAlto.toFixed(2)}px, 0) perspective(700px) rotateY(${giro.toFixed(2)}deg) scale(${scala.toFixed(3)})`;
+      sc.style.transform = `translate3d(${(m.x - larg / 2 - spostamento).toFixed(2)}px, ${yAlto.toFixed(2)}px, 0) perspective(700px) rotateY(${giro.toFixed(2)}deg) scale(${scala.toFixed(3)})`;
 
-      // La piega: una molla poco smorzata, così il foglio oscilla appena e torna piatto. Solo vicino al centro
+      // La piega: una molla senza rimbalzi, così il foglio si curva e torna piatto senza oscillare. Solo vicino al centro
       const piegabile = !ridotto && r <= 1;
-      m.bv += (((piegabile ? piegaVoluta : 0) - m.b) * 70 - m.bv * 9.5) * dt; m.b += m.bv * dt;
+      m.bv += (((piegabile ? piegaVoluta : 0) - m.b) * 60 - m.bv * 2 * Math.sqrt(60)) * dt; m.b += m.bv * dt;
       if (piegabile && Math.abs(m.b) > 0.012) piega(i, m.b, larg);
       else if (sc.classList.contains('piega')) sc.classList.remove('piega');
 
@@ -290,17 +308,20 @@ export function monta(radice: HTMLElement) {
         const a = Math.min(y0, lineaY) + (sopra ? 0 : 6), b = Math.max(y0, lineaY) - (sopra ? 6 : 0);        stelo.style.transform = `translate3d(${(xs[i]! - scroll).toFixed(2)}px, ${a}px, 0)`; stelo.style.height = `${b - a}px`;
       }
       if (fs) {
-        // Il simbolo accompagna solo la scheda aperta: segue con una molla più morbida e ondeggia piano
-        ms.o += ((i === attivo ? m.a : 0) - ms.o) * passoO;
+        // L'immagine accompagna solo la scheda aperta, accanto a lei e dallo stesso lato della linea. Compare quando la scheda
+        // si apre, e il suo testo si rivela una volta per ogni apertura
+        ms.o += ((i === attivo ? m.a * m.a : 0) - ms.o) * passoO;
+        if (i === attivo && m.a > 0.35) { if (!ms.rivelata) { ms.rivelata = true; fs.classList.remove('foto-vista'); arti.avvia(fs); } }
+        else if (i !== attivo && ms.rivelata) { ms.rivelata = false; arti.ferma(fs); }
         if (ms.o < 0.02) { if (ms.vista) { fs.style.visibility = 'hidden'; ms.vista = false; } return; }
-        const sw = misureS[i] ?? 130, ondeggia = ridotto ? 0 : Math.sin(ora / 1100 + i) * 5;
-        // Sull'angolo esterno della scheda, lontano dalla linea, senza uscire dallo schermo o finire sulla barra
-        const bordoFuori = sopra ? y0 - alt : y0 + alt, maxY = window.innerHeight - barra.offsetHeight - sw * 0.5;
-        const xs2 = ms.x + larg / 2 - sw * 0.12, yMezzo = limita(bordoFuori + (sopra ? -1 : 1) * sw * 0.2, sw * 0.42, maxY);
+        const { larg: sw = 370, alt: sh = 350 } = misureS[i] ?? {};
+        // Se manca spazio l'immagine si rimpicciolisce: non esce dallo schermo e non finisce sulla barra
+        const sopraLinea = y0 - 24, sottoLinea = window.innerHeight - barra.offsetHeight - y0 - 8, destra = W - (m.x - spostamento + larg / 2 + GAP_ARTE) - 12;
+        const sf = limita(Math.min((sopra ? sopraLinea : sottoLinea) / sh, destra / sw), 0.35, 1);
         fs.style.visibility = 'visible'; ms.vista = true;
         fs.style.opacity = ms.o.toFixed(3);
         fs.style.zIndex = '101';
-        fs.style.transform = `translate3d(${(xs2 - sw / 2).toFixed(2)}px, ${(yMezzo - sw * 0.38 + ondeggia).toFixed(2)}px, 0) rotateZ(${(Math.sin(ora / 1700 + i) * 2).toFixed(2)}deg)`;
+        fs.style.transform = `translate3d(${(m.x - spostamento + larg / 2 + GAP_ARTE).toFixed(2)}px, ${(sopra ? y0 - sh * sf : y0).toFixed(2)}px, 0) scale(${sf.toFixed(3)})`;
       }
     });
     disegnaDensita();
@@ -354,7 +375,7 @@ export function monta(radice: HTMLElement) {
       li?.scrollIntoView({ behavior: liscio && !ridotto ? 'smooth' : 'instant', block: 'center' });
       return;
     }
-    window.scrollTo({ top: window.scrollY + pista.getBoundingClientRect().top + (xDiAnno(a) - margine), behavior: liscio && !ridotto ? 'smooth' : 'instant' as ScrollBehavior });
+    window.scrollTo({ top: topDiX(xDiAnno(a)), behavior: liscio && !ridotto ? 'smooth' : 'instant' as ScrollBehavior });
   }
   const annoDelPuntatore = (e: PointerEvent) => {
     const r = densita.getBoundingClientRect();
@@ -392,7 +413,8 @@ export function monta(radice: HTMLElement) {
     disponi();
     righeV.forEach((li, i) => { li.hidden = !visibile(eventi[i]!); });
     apriFiltri.textContent = tipi.size === 3 ? 'filters' : `filters ${tipi.size}/3`;
-    if (!telefono()) window.scrollTo({ top: window.scrollY + pista.getBoundingClientRect().top + (xDiAnno(centro) - margine), behavior: 'instant' as ScrollBehavior });
+    if (!telefono()) window.scrollTo({ top: topDiX(xDiAnno(centro)), behavior: 'instant' as ScrollBehavior });
+    scrollPrima = NaN;
     disegnaDensita();
   }
   const bottoniTipo = $$<HTMLButtonElement>('button.tipo');
@@ -403,26 +425,37 @@ export function monta(radice: HTMLElement) {
     bottoniTipo.filter(x => x.dataset.kind === k).forEach(x => x.setAttribute('aria-pressed', String(tipi.has(k))));
     applicaFiltri();
   }));
-  // Ctrl + rotella, e il pinch sul trackpad (che arriva come ctrl + rotella), allargano o stringono la scala
+  // Ctrl + rotella, e il pinch sul trackpad (che arriva come ctrl + rotella), allargano o stringono la scala.
+  // Lo swipe laterale del trackpad muove la linea come lo scroll verso il basso
   window.addEventListener('wheel', e => {
-    if (!e.ctrlKey || telefono()) return;
-    e.preventDefault();
-    pxVoluto = limita(pxVoluto * Math.exp(-e.deltaY * 0.004), SCALA_MIN, SCALA_MAX);
+    if (telefono()) return;
+    if (e.ctrlKey) {
+      e.preventDefault();
+      pxVoluto = limita(pxVoluto * Math.exp(-e.deltaY * 0.004), SCALA_MIN, SCALA_MAX);
+    } else if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      e.preventDefault();
+      window.scrollBy({ top: e.deltaX, behavior: 'instant' as ScrollBehavior });
+    }
   }, { passive: false });
 
-  // --- Telefono: l'evento che passa a metà schermo dà l'anno e la posizione nella striscia. Il simbolo si disegna quando entra
+  // --- Telefono: l'evento che passa a metà schermo dà l'anno e la posizione nella striscia. L'immagine si rivela quando entra
+  // e ruota solo finché si vede
   const ioCentro = new IntersectionObserver(voci => voci.forEach(v => {
     if (!v.isIntersecting) return;
     annoTelefono = eventi[+(v.target as HTMLElement).dataset.i!]!.t;
     annoV.textContent = String(Math.floor(annoTelefono));
     disegnaDensita();
   }), { rootMargin: '-45% 0px -55% 0px' });
-  const ioSimbolo = new IntersectionObserver(voci => voci.forEach(v => { if (v.isIntersecting) v.target.classList.add('disegnato'); }), { rootMargin: '0px 0px -15% 0px' });
-  righeV.forEach(li => { ioCentro.observe(li); const f = li.querySelector('.simbolo-v'); if (f) ioSimbolo.observe(f); });
+  const ioArte = new IntersectionObserver(voci => voci.forEach(v => {
+    if (!telefono()) return;
+    const f = v.target as HTMLElement;
+    if (v.isIntersecting) arti.avvia(f); else arti.ferma(f);
+  }), { rootMargin: '0px 0px -15% 0px' });
+  righeV.forEach(li => { ioCentro.observe(li); const f = li.querySelector<HTMLElement>('.arte-v'); if (f) ioArte.observe(f); });
   annoV.textContent = String(Math.floor(annoTelefono));
 
   // Si legge la posizione di adesso: quella dell'ultimo fotogramma può essere vecchia, e riporterebbe all'inizio
-  window.addEventListener('resize', () => { const c = annoDiX(posizione() + margine); disponi(); if (!telefono()) vaiAnno(c, false); disegnaDensita(); });
+  window.addEventListener('resize', () => { const c = annoDiX(posizione() + margine); disponi(); if (!telefono()) vaiAnno(c, false); scrollPrima = NaN; disegnaDensita(); });
   disponi();
   // Le misure delle schede cambiano quando arriva il font mono: si rileggono
   document.fonts?.ready.then(() => { leggiMisure(); ultimoDisegno = ''; disegnaDensita(); });
