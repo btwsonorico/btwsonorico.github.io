@@ -3,8 +3,8 @@ import { AGISCI, applica, dividi, INTENTI, leggi, NOMI, QUANTI, statoIniziale, t
 import { montaCasa, type Vista } from './casaScena';
 
 // Vista dei decision model. In cima la casa: un comando in inglese o in italiano passa per quattro decisioni (lingua, intento,
-// quanto spingere, etichetta di ogni parola) e la casa fa quello che il modello ha scelto. Sotto, un secondo modello con la stessa
-// forma su due dataset veri: Banking77 e CLINC150. Le risposte possibili sono testo: cambiano da un compito all'altro.
+// quanto spingere, etichetta di ogni parola) e la casa fa quello che il modello ha scelto. Sotto, lo stesso modello sceglie fra
+// risposte scritte da chi guarda (src/pages/learn/decision.astro, PROVE). Le risposte possibili sono testo: cambiano da un compito all'altro.
 
 const stile = getComputedStyle(document.documentElement), tono = (n: string) => stile.getPropertyValue(n).trim();
 const COLORE_TAG: Record<string, string> = { STANZA: '--arancio', COLORE: '--azzurro', NUMERO: '--verde' };
@@ -26,25 +26,67 @@ function aCaso(pulsante: HTMLButtonElement, area: HTMLTextAreaElement, dopo: () 
 function montaCasaVista(radice: HTMLElement, d: Decisore) {
   const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
   const et: Etichette = { casa: etichette(d, d.meta.compiti.casa!.etichette), lingua: etichette(d, d.meta.compiti.lingua!.etichette), quanto: etichette(d, d.meta.compiti.quanto!.etichette) };
-  const area = $<HTMLTextAreaElement>('.comando'), traccia = $<HTMLElement>('.passi'), risposte = $<HTMLElement>('.ultima'), tastoStoria = $<HTMLButtonElement>('.apri-storia');
+  const area = $<HTMLTextAreaElement>('.comando'), risposte = $<HTMLElement>('.ultima');
   let stato: Stato = statoIniziale(), dove: Stanza = 'soggiorno', ultimo: string | null = null;
   const storia: Stato[] = [];
-  const vista: Vista = montaCasa($<HTMLElement>('.scena-casa'), $<HTMLElement>('.etichette'), s => { dove = s; vista.dove(s); vista.fuoco(s, 6); dovEl.textContent = NOMI[s].en; });
-  const dovEl = $<HTMLElement>('.dove');
+  // Un clic su una stanza la sceglie: i comandi senza stanza vanno lì. Si vede dal bordo arancio del pavimento
+  const vista: Vista = montaCasa($<HTMLElement>('.scena-casa'), $<HTMLElement>('.etichette'), s => { dove = s; vista.dove(s); if (document.activeElement !== area) vista.fuoco(s, 6); });
   vista.imposta(stato);
 
-  // La history è chiusa: si apre col suo tasto. Sotto i tasti resta sempre la risposta dell'ultimo comando
-  const scriviTasto = () => { const aperta = !traccia.hidden, n = traccia.children.length; tastoStoria.disabled = !n; tastoStoria.setAttribute('aria-expanded', String(aperta)); tastoStoria.textContent = `${aperta ? 'hide' : 'show'} the model's decisions${n ? ` (${n})` : ''}`; };
-  tastoStoria.addEventListener('click', () => { traccia.hidden = !traccia.hidden; scriviTasto(); });
-  scriviTasto();
-  // La risposta copia le frasi del comando dalla history. Se il modello chiede, i tasti della scelta stanno anche qui
+  // All'apertura la casella ha un comando a caso, non ancora mandato: lo mandi con send, o lo cambi
+  const tastoCaso = $<HTMLButtonElement>('.a-caso'), frasi = JSON.parse(tastoCaso.dataset.frasi ?? '[]') as string[];
+  if (frasi.length) area.value = frasi[Math.floor(Math.random() * frasi.length)]!;
+  // Il cursore nella casella alza il tetto e mostra la casa da vicino; fuori dalla casella il tetto si richiude
+  area.addEventListener('focus', () => vista.scrive(true));
+  area.addEventListener('blur', () => vista.scrive(false));
+  // Col mouse, un clic sulla casa, su send o sugli esempi non toglie il cursore dalla casella: il tetto resta alzato
+  const conMouse = window.matchMedia('(hover: hover)').matches;
+  for (const q of ['.scena-casa', '.invia', '.a-caso', '.esempi']) $<HTMLElement>(q).addEventListener('mousedown', e => { if (conMouse && document.activeElement === area) e.preventDefault(); });
+  // Gli esempi scrivono la frase nella casella, senza mandarla
+  radice.querySelectorAll<HTMLButtonElement>('.esempio').forEach(b => b.addEventListener('click', () => { area.value = b.textContent ?? ''; area.focus(); leggiOra(); }));
+
+  // Mentre scrivi il modello legge già, come i modelli della banca e dell'assistente qui sotto: per ogni pezzo del comando,
+  // le tre risposte più probabili e le parole accese quanto contano per la scelta. Una parola conta quanto la scelta scende
+  // se la togli. La casa non fa niente finché non premi send
+  const vivo = $<HTMLElement>('.dal-vivo'), cc = d.meta.compiti.casa!, cl = d.meta.compiti.lingua!;
+  function leggiOra() {
+    const pezzi = dividi(area.value).slice(0, 4);
+    if (!pezzi.length) { vivo.replaceChildren(); return; }
+    vivo.replaceChildren(crea('p', 'titoletto', 'live, before you send: what the model reads'));
+    for (const pz of pezzi) {
+      const ws = parole(pz), p = decidi(d, ws, et.casa, cc.temperatura), ordine = p.map((_, k) => k).sort((a, b) => p[b]! - p[a]!), prima = ordine[0]!;
+      const pl = decidi(d, ws, et.lingua, cl.temperatura), lingua = d.meta.nomi.lingua![pl.indexOf(Math.max(...pl))] === 'it' ? 'it' : 'en';
+      const riga = crea('p', 'parole');
+      ws.forEach((w, i) => {
+        const sp = crea('span', '', w);
+        if (ws.length > 1) {
+          const senza = decidi(d, ws.filter((_, k) => k !== i), et.casa, cc.temperatura)[prima]!, peso = Math.max(0, Math.min(1, (p[prima]! - senza) / Math.max(0.05, p[prima]!)));
+          if (peso > 0.12) { sp.style.color = tono('--arancio'); sp.style.opacity = String(0.45 + peso * 0.55); }
+        }
+        riga.append(i ? ' ' : '', sp);
+      });
+      const barre = crea('div', 'barre');
+      ordine.slice(0, 3).forEach((k, j) => { const nome = d.meta.nomi.casa![k]!, b = barra(barre, j ? tono('--muted') : tono('--arancio')); b.n.textContent = INTENTI[nome]?.[lingua] ?? nome; b.pieno.style.width = pc(p[k]!); b.num.textContent = pc(p[k]!); });
+      vivo.append(riga, barre);
+    }
+  }
+  let attesa = 0;
+  area.addEventListener('input', () => { clearTimeout(attesa); attesa = window.setTimeout(leggiOra, 80); });
+  leggiOra();
+
+  // Sotto la casella resta sempre l'ultimo comando: per ogni pezzo, le parole, la scelta del modello e le due alternative con
+  // le percentuali, la decisione e la risposta della casa. Se il modello chiede, i tasti della scelta stanno anche qui.
+  // Sopra le barre, la lingua e quanto spingere. Non c'è una history: si vede solo l'ultimo comando
   function riassumi(gruppo: HTMLElement) {
     risposte.replaceChildren(crea('p', 'detto', `> ${gruppo.dataset.testo}`));
     gruppo.querySelectorAll<HTMLElement>('.passo').forEach(a => {
+      const pezzo = crea('div', `pezzo ${[...a.classList].filter(c => c !== 'passo').join(' ')}`);
+      for (const q of ['.frase', '.chip', '.barre', '.decisione']) { const x = a.querySelector(q); if (x) pezzo.append(x.cloneNode(true)); }
       const testo = a.querySelector('.risposta')?.textContent;
-      if (testo) risposte.append(crea('p', a.classList.contains('niente') || a.classList.contains('rifiuta') ? 'risposta niente' : 'risposta', testo));
+      if (testo) pezzo.append(crea('p', a.classList.contains('niente') || a.classList.contains('rifiuta') ? 'risposta niente' : 'risposta', testo));
       const scelte = a.querySelector('.scelte');
-      if (scelte) { const copia = crea('div', 'scelte'); scelte.querySelectorAll('button').forEach(b => { const c = crea('button', '', b.textContent ?? ''); c.type = 'button'; c.addEventListener('click', () => { b.click(); riassumi(gruppo); }); copia.append(c); }); risposte.append(copia); }
+      if (scelte) { const copia = crea('div', 'scelte'); scelte.querySelectorAll('button').forEach(b => { const c = crea('button', '', b.textContent ?? ''); c.type = 'button'; c.addEventListener('click', () => { b.click(); riassumi(gruppo); }); copia.append(c); }); pezzo.append(copia); }
+      risposte.append(pezzo);
     });
   }
 
@@ -86,7 +128,7 @@ function montaCasaVista(radice: HTMLElement, d: Decisore) {
   function invia() {
     const testo = area.value.trim();
     if (!testo) return;
-    vista.azzera();
+    vista.azzera(); clearTimeout(attesa); vivo.replaceChildren();
     const gruppo = crea('div', 'comando-fatto');
     gruppo.dataset.testo = testo;
     gruppo.append(crea('p', 'detto', `> ${testo}`));
@@ -112,47 +154,42 @@ function montaCasaVista(radice: HTMLElement, d: Decisore) {
       if (altri && letti.length > 1 && q.decisione === 'rifiuta' && (q.prime[0]!.p < AGISCI || q.stanze.length > 0)) q.decisione = 'contesto';
       gruppo.append(scheda(q));
     }
-    traccia.prepend(gruppo);
-    while (traccia.children.length > 6) traccia.lastElementChild!.remove();
     riassumi(gruppo);
-    scriviTasto();
   }
   $<HTMLButtonElement>('.invia').addEventListener('click', invia);
   area.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); invia(); } });
   // Il tasto a caso scrive soltanto la frase. Il comando parte col tasto send, come all'apertura della pagina
-  aCaso($<HTMLButtonElement>('.a-caso'), area, () => {});
+  aCaso(tastoCaso, area, () => { leggiOra(); if (conMouse) area.focus(); });
 }
 
-// --- Banking77 e CLINC150: lo stesso modello con altre risposte possibili
-function montaCompito(radice: HTMLElement, d: Decisore, nome: string) {
+// --- Opzioni libere: le risposte le scrive chi guarda, su un campo noto (banca, assistente) o nuovo. Il modello le legge come
+// testo, come gli intenti della casa, e sceglie per ogni frase. Così si vede quanto si trasferisce quello che ha imparato.
+// Qui le percentuali non sono calibrate: non ci sono frasi per regolare la temperatura, quindi vale 1
+function montaOpzioni(radice: HTMLElement, d: Decisore) {
   const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
-  const c = d.meta.compiti[nome]!, nomi = d.meta.nomi[nome]!.map(x => x.replace(/_/g, ' ')), et = etichette(d, c.etichette);
-  const area = $<HTMLTextAreaElement>('.messaggio'), righe = $<HTMLElement>('.parole'), esito = $<HTMLElement>('.esito'), barre = $<HTMLElement>('.barre');
-  const voci = Array.from({ length: 5 }, () => barra(barre));
-  const oos = nomi.indexOf('oos');
-  const pulsante = $<HTMLButtonElement>('.a-caso');
-  pulsante.dataset.frasi = JSON.stringify(d.meta.esempi[nome] ?? []);
+  const opz = $<HTMLTextAreaElement>('.opzioni'), frasi = $<HTMLTextAreaElement>('.frasi'), corpo = $<HTMLElement>('tbody'), caso = $<HTMLElement>('.caso');
+  const prove = JSON.parse(opz.dataset.prove ?? '{}') as Record<string, { opzioni: string[]; frasi: string[] }>;
+  const pronti = [...radice.querySelectorAll<HTMLButtonElement>('.pronto')];
+  const righe = (t: string, n: number) => [...new Set(t.split('\n').map(x => x.trim()).filter(Boolean))].slice(0, n);
   function aggiorna() {
-    const ws = parole(area.value);
-    if (!ws.length) { esito.textContent = 'write something'; righe.replaceChildren(); voci.forEach(v => { v.n.textContent = ''; v.pieno.style.width = '0'; v.num.textContent = ''; }); return; }
-    const p = decidi(d, ws, et, c.temperatura), ordine = p.map((_, k) => k).sort((a, b) => p[b]! - p[a]!), prima = ordine[0]!;
-    const fuori = oos >= 0 && (prima === oos || (c.soglia !== null && p[prima]! < c.soglia));
-    voci.forEach((v, k) => { const i = ordine[k]!; v.n.textContent = i === oos ? 'out of scope' : nomi[i]!; v.pieno.style.width = pc(p[i]!); v.num.textContent = pc(p[i]!); });
-    esito.textContent = fuori ? `out of scope: no intent passes ${pc(c.soglia ?? 0)}, so it hands over to a person` : `${nomi[prima]}, ${pc(p[prima]!)}`;
-    // Ogni parola si accende quanto la scelta scende se la si toglie. Il testo si scrive sempre come testo, mai come HTML
-    righe.replaceChildren(...ws.flatMap((w, i) => {
-      const s = crea('span', '', w);
-      if (ws.length > 1) {
-        const senza = decidi(d, ws.filter((_, k) => k !== i), et, c.temperatura)[prima]!, peso = Math.max(0, Math.min(1, (p[prima]! - senza) / Math.max(0.05, p[prima]!)));
-        if (peso > 0.12) { s.style.color = tono('--arancio'); s.style.opacity = String(0.45 + peso * 0.55); }
-      }
-      return i ? [' ', s] : [s];
+    const op = righe(opz.value, 15), fr = righe(frasi.value, 12);
+    if (op.length < 2) { corpo.replaceChildren(); caso.textContent = 'write at least two answers, one per line'; return; }
+    const et = etichette(d, op), dubbio = 2 / op.length;
+    corpo.replaceChildren(...fr.filter(f => parole(f).length).map(f => {
+      const p = decidi(d, parole(f), et, 1), ordine = p.map((_, k) => k).sort((a, b) => p[b]! - p[a]!), [a, b] = [ordine[0]!, ordine[1]!];
+      const riga = crea('tr', p[a]! < dubbio ? 'incerto' : ''), scelta = crea('td', 'scelta', op[a]!), seconda = crea('td', 'seconda-scelta', op[b]!);
+      const barra = crea('span', 'mini'); barra.style.width = pc(p[a]!);
+      scelta.append(crea('span', 'num', pc(p[a]!)), barra); seconda.append(crea('span', 'num', pc(p[b]!)));
+      riga.append(crea('td', '', f), scelta, seconda);
+      return riga;
     }));
+    caso.textContent = `${op.length} answers: a random pick is right ${pc(1 / op.length)} of the time. Grey rows: the model is not sure, its best answer is below ${pc(dubbio)}.`;
   }
+  const metti = (n: string) => { const q = prove[n]; if (!q) return; opz.value = q.opzioni.join('\n'); frasi.value = q.frasi.join('\n'); pronti.forEach(b => b.classList.toggle('scelto', b.dataset.prova === n)); aggiorna(); };
+  pronti.forEach(b => b.addEventListener('click', () => metti(b.dataset.prova!)));
   let attesa = 0;
-  area.addEventListener('input', () => { clearTimeout(attesa); attesa = window.setTimeout(aggiorna, 60); });
-  aCaso(pulsante, area, aggiorna);
-  aggiorna();
+  for (const t of [opz, frasi]) t.addEventListener('input', () => { pronti.forEach(b => b.classList.remove('scelto')); clearTimeout(attesa); attesa = window.setTimeout(aggiorna, 120); });
+  metti(Object.keys(prove)[0]!);
 }
 
 export async function monta(radice: HTMLElement) {
@@ -160,9 +197,11 @@ export async function monta(radice: HTMLElement) {
     const [meta, bin] = await Promise.all([fetch(`/learn/decisore-${nome}.json`).then(r => r.json() as Promise<Meta>), fetch(`/learn/decisore-${nome}.bin`).then(r => r.arrayBuffer())]);
     return carica(meta, bin);
   };
-  // Prima la casa, poi il modello delle demo business
-  try { montaCasaVista(radice.querySelector<HTMLElement>('[data-casa]')!, await scarica('casa')); }
-  catch (e) { console.error(e); radice.querySelectorAll('[data-casa] .passi').forEach(x => { x.textContent = 'could not load the model'; }); }
-  try { const d = await scarica('banca'); for (const el of radice.querySelectorAll<HTMLElement>('[data-compito]')) montaCompito(el, d, el.dataset.compito!); }
-  catch (e) { console.error(e); radice.querySelectorAll('[data-compito] .esito').forEach(x => { x.textContent = 'could not load the model'; }); }
+  // Un solo modello, scaricato una volta: guida la casa e sceglie fra le risposte della tabella
+  let d: Decisore;
+  try { d = await scarica('tutto'); }
+  catch (e) { console.error(e); radice.querySelectorAll('[data-casa] .ultima, [data-opzioni] .caso').forEach(x => { x.textContent = 'could not load the model'; }); return; }
+  montaCasaVista(radice.querySelector<HTMLElement>('[data-casa]')!, d);
+  const tua = radice.querySelector<HTMLElement>('[data-opzioni]');
+  if (tua) montaOpzioni(tua, d);
 }

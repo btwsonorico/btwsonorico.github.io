@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { casuale, curveLivello, puntiMorbidi, palco, SITO, tema, type Palco } from './natura';
+import { casuale, curveLivello, linea, mat, pezzo, puntiMorbidi, palco, sasso, SITO, tema, type Palco } from './natura';
 import { CASSE, DENTRO, NOMI, STANZE, type Stanza, type Stato } from '../lib/casa';
 
 // La casa di /learn/decision/: una casetta tonda e simpatica su un'isola, come la mappa di AI terms (src/scripts/aeroporto.ts).
-// Forme piene con ombre a bande, come in un cartone. La casa ha il tetto: a riposo è chiusa. Quando arriva un comando il tetto
-// si alza, i muri si abbassano e la vista si avvicina alla cosa comandata, con lo stesso movimento di «follow the dog»
-// (src/scripts/nuvole.ts). Poi la vista torna larga e il tetto si richiude. Se il comando riguarda il giardino, il tetto resta giù.
+// Il terreno, gli alberi e le nuvole sono quelli di AI terms: veli tenui, curve di livello, forme a filo. La casa e le cose
+// giocattolo sono piene, con ombre a bande, come in un cartone. La casa ha il tetto: a riposo è chiusa. Quando scrivi un comando
+// il tetto si alza, i muri si abbassano e la vista si avvicina un poco. Il tetto si alza anche col mouse sulla casa. Quando arriva un comando la vista va sulla cosa comandata,
+// con lo stesso movimento di «follow the dog» (src/scripts/nuvole.ts). Se il comando riguarda il giardino, il tetto resta giù.
 // Gli oggetti che il decision model comanda hanno il bordo arancio, si accendono quando lavorano e fanno un piccolo salto:
 // lampade e lanterne, tapparelle, stufa, ventilatore, casse, TV, robot aspirapolvere, tosaerba, macchina del caffè e timer.
 // In casa vive un gatto bianco e nero: gira per le stanze, si siede, si lecca, si stira, dorme nei suoi posti e scappa dal robot.
@@ -56,6 +57,8 @@ export type Vista = {
   comando: (intento: string, stanza: Stanza | null, fatto: boolean) => void;
   // Un comando nuovo: toglie le viste ancora in coda
   azzera: () => void;
+  // Il cursore entra o esce dalla casella del comando: il tetto si alza o si richiude
+  scrive: (v: boolean) => void;
   dove: (s: Stanza) => void;
 };
 type Fuoco = { chiave: string; punto: (v: THREE.Vector3) => void; zoom: number; aperto: boolean; durata: number };
@@ -132,7 +135,7 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
     riva.push(a);
   }
   const rivaA = (t: number) => { const f = ((t / (Math.PI * 2)) * ANGOLI % ANGOLI + ANGOLI) % ANGOLI, i = Math.floor(f), j = (i + 1) % ANGOLI; return riva[i]! + (riva[j]! - riva[i]!) * (f - i); };
-  const ERBA = new THREE.Color('#79c257'), ERBA2 = new THREE.Color('#8fd166'), SABBIA = new THREE.Color('#f6e3b4'), cTmp = new THREE.Color();
+  const ERBA = new THREE.Color(chiaro ? '#7cc35c' : '#6fa646'), SABBIA = new THREE.Color(chiaro ? '#f2dfb0' : '#efe0b8'), cTmp = new THREE.Color();
   const velo = (() => {
     const geo = new THREE.RingGeometry(0.001, 1, ANGOLI, 56).rotateX(-Math.PI / 2);
     const q = geo.attributes.position as THREE.BufferAttribute, colori: number[] = [];
@@ -140,15 +143,14 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
       const x = q.getX(i), z = q.getZ(i), t = Math.atan2(z, x), u = Math.hypot(x, z) * 0.998, rr = u * rivaA(t);
       const X = Math.cos(t) * rr, Z = CZ + Math.sin(t) * rr;
       q.setXYZ(i, X, Math.max(0, altezza(X, Z)) - 0.006, Z);
-      const macchie = Math.sin(X * 1.1 + Z * 0.6) + Math.sin(Z * 1.5 - X * 0.5);
       const b = scarto(t), limite = 0.935 + 0.012 * Math.sin(t * 9) - 0.12 * Math.exp(-(b * b) / (2 * 0.26 * 0.26));
-      cTmp.copy(ERBA).lerp(ERBA2, liscio(macchie, 0.25, 0.65) * 0.8).lerp(SABBIA, liscio(u, limite - 0.009, limite + 0.009));
+      cTmp.copy(ERBA).lerp(SABBIA, liscio(u, limite - 0.009, limite + 0.009));
       colori.push(cTmp.r, cTmp.g, cTmp.b);
     }
     geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
     geo.computeVertexNormals();
-    const o = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true }));
-    casa.add(o);
+    const o = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: chiaro ? 0.66 : 0.7, depthWrite: false }));
+    o.renderOrder = -1; casa.add(o);
     return o;
   })();
   const fili = (punti: number[], colore: THREE.ColorRepresentation, op: number) => {
@@ -159,33 +161,30 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
   };
   {
     const { minori, maggiori } = curveLivello(altezza, 8, 130, 0.13, 2.2, 4, 0.07);
-    fili(minori, '#4f9a3c', 0.55);
-    fili(maggiori, '#3f8a30', 0.85);
+    fili(minori, ERBA, chiaro ? 0.55 : 0.4);
+    fili(maggiori, ERBA, chiaro ? 0.9 : 0.8);
     const punti: number[] = [];
     for (let x = -7; x <= 7; x += 0.34) for (let z = -6; z <= 7; z += 0.34) if (forma(x, z) < 0.9 && fuoriRett(x, z, -3.3, 3.3, -3.7, 2.5) > 0) punti.push(x, altezza(x, z) + 0.008, z);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(punti, 3));
-    casa.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: '#2f6b24', size: 0.028, transparent: true, opacity: 0.4 })));
+    casa.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: C.muted, size: 0.025, transparent: true, opacity: 0.6 })));
   }
   {
-    const vert: number[] = [], indici: number[] = [], colori: number[] = [], strati: number[] = [];
-    const sopra = new THREE.Color('#b08a5e'), sotto = new THREE.Color('#6d5540');
+    const vert: number[] = [], indici: number[] = [], strati: number[] = [], TERRA = chiaro ? '#a88a6a' : '#8f7a62';
     for (let k = 0; k <= ANGOLI; k++) {
       const t = (k / ANGOLI) * Math.PI * 2, rr = rivaA(t), c = Math.cos(t), s = Math.sin(t);
       vert.push(c * rr, -0.005, CZ + s * rr, c * rr * 0.92, -0.62, CZ + s * rr * 0.92);
-      colori.push(sopra.r, sopra.g, sopra.b, sotto.r, sotto.g, sotto.b);
       if (k < ANGOLI) indici.push(k * 2, k * 2 + 1, k * 2 + 2, k * 2 + 1, k * 2 + 3, k * 2 + 2);
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(vert, 3));
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
     geo.setIndex(indici);
-    casa.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+    { const f = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: TERRA, transparent: true, opacity: chiaro ? 0.18 : 0.08, side: THREE.DoubleSide, depthWrite: false })); f.renderOrder = -3; casa.add(f); }
     for (const [y0, f] of [[-0.17, 0.975], [-0.36, 0.95]] as const) for (let k = 0; k < ANGOLI; k++) {
       const t0 = (k / ANGOLI) * Math.PI * 2, t1 = ((k + 1) / ANGOLI) * Math.PI * 2, w = (t: number) => y0 + Math.sin(t * 11 + y0 * 40) * 0.03;
       strati.push(Math.cos(t0) * rivaA(t0) * f, w(t0), CZ + Math.sin(t0) * rivaA(t0) * f, Math.cos(t1) * rivaA(t1) * f, w(t1), CZ + Math.sin(t1) * rivaA(t1) * f);
     }
-    fili(strati, '#5a4633', 0.6);
+    fili(strati, TERRA, 0.4);
   }
   const pavimenti = new Map<THREE.Object3D, Stanza>([[velo, 'giardino']]);
 
@@ -334,10 +333,10 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
   }
   const fiancoTetto = new THREE.Vector3();
   const CAMINO = new THREE.Vector3(1.75, 1.86, -2.1);
-  // La sagoma della casa: passandoci sopra col mouse il tetto si alza
+  // La sagoma della casa: col mouse sopra il tetto si alza
   const sagoma = new THREE.Mesh(new THREE.BoxGeometry(6.6, MURO + PAV + 1.1, 6.1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
   sagoma.position.set(0, (MURO + PAV + 1.1) / 2, -0.6); casa.add(sagoma);
-  const conMouse = window.matchMedia('(hover: hover)').matches;
+  let topoFino = 0;
 
   // --- Luci: una lampada per stanza, tre lanterne in giardino. Sul pavimento, una pozza di luce del suo colore
   const lampade = new Map<Stanza, { ogg: Oggetto[]; punti: THREE.Vector3[] }>(STANZE.map(s => [s, { ogg: [], punti: [] }]));
@@ -438,26 +437,29 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
   scatola(0.42, 0.3, 0.34, 0.58, PAV, -2.6, '#7fc8b8', 0.05); tubo(0.15, 0.1, 0.05, 0.58, PAV + 0.3, -2.6, BIANCO, casa, 0.02);
   lampada('bagno', ['mirror light', 'luce dello specchio'], 0.42, PAV + 0.5, -2.6, o => { const a = parte(o, new THREE.TorusGeometry(0.15, 0.024, 8, 26), GIALLO, 0, 0.16, 0); a.rotation.y = Math.PI / 2; const v = sol(new THREE.CircleGeometry(0.135, 24), '#d7eef8', 0.004, 0.16, 0, o.g); v.rotation.y = Math.PI / 2; });
 
-  // --- Giardino: alberi tondi da cartone, colli coi pini, sassi, fiori, il vialetto, lo stagno con la papera, il pontile con la barca
-  const VERDI = ['#5fb548', '#4fa644', '#72c257'];
+  // --- Giardino: alberi a filo come quelli di AI terms (il tronco è un filo, la chioma sono palle o coni con un riempimento tenue),
+  // sassi, fiori, il vialetto, lo stagno con la papera, il pontile con la barca
   const chiome: { g: THREE.Group; fase: number }[] = [];
-  const alberello = (x: number, z: number, alto: number, k: number, frutti?: string) => {
-    const g = new THREE.Group(); g.position.set(x, altezza(x, z) - 0.01, z); g.rotation.y = r() * 6; casa.add(g);
-    tubo(0.07 * alto, 0.12 * alto, alto * 0.6, 0, 0, 0, LEGNO2, g, 0.02);
-    const c = VERDI[k % 3]!, q = alto * 0.42;
-    for (const [dx, dy, dz, f] of [[0, 0.82, 0, 1], [0.32, 0.66, 0.1, 0.72], [-0.3, 0.68, -0.12, 0.75], [0.04, 0.68, 0.34, 0.68], [-0.04, 0.7, -0.34, 0.66]] as const) palla(q * f, dx * alto, dy * alto, dz * alto, c, g);
-    if (frutti) for (let j = 0; j < 6; j++) { const a = j * 1.05 + 0.4, y = alto * (0.62 + (j % 3) * 0.11); palla(0.042, Math.cos(a) * q * 1.05, y, Math.sin(a) * q * 1.05, frutti, g); }
-    chiome.push({ g, fase: r() * 6 });
+  const verdi = [mat('#6fa646'), mat('#5f9c45'), mat('#4f8a3c')], fusto = linea(chiaro ? '#3a332c' : '#e8e6e0', 0.7);
+  const albero = (x: number, z: number, h: number, k: number, f = Math.floor(r() * 2)) => {
+    const ob = new THREE.Group(), m = verdi[k % 3]!;
+    ob.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, h * (f === 2 ? 0.3 : 0.55), 0)]), fusto));
+    if (f === 0) {
+      const larga = h * 0.26;
+      for (const [px, py, pz, k2] of [[0, h * 0.55 + larga * 0.7, 0, 1], [larga * 0.6, h * 0.55 + larga * 0.45, 0.04, 0.7], [-larga * 0.55, h * 0.55 + larga * 0.45, -0.03, 0.7]] as const) ob.add(pezzo(new THREE.IcosahedronGeometry(larga * k2, 1), m, px, py, pz));
+    } else if (f === 1) {
+      const larga = h * 0.28;
+      ob.add(pezzo(new THREE.IcosahedronGeometry(larga, 0), m, 0, h * 0.6 + larga * 0.5, 0));
+      for (const a of [0.5, 2.6]) ob.add(pezzo(new THREE.IcosahedronGeometry(larga * 0.62, 0), m, Math.cos(a) * larga, h * 0.62, Math.sin(a) * larga));
+    } else for (let q = 0; q < 3; q++) {
+      const ff = q / 3, alto = h * 0.42;
+      ob.add(pezzo(new THREE.ConeGeometry(h * 0.26 * (1 - ff * 0.45), alto, 7), m, 0, h * 0.25 + ff * h * 0.45 + alto / 2, 0));
+    }
+    ob.position.set(x, altezza(x, z), z); ob.rotation.y = r() * Math.PI;
+    casa.add(ob); chiome.push({ g: ob, fase: r() * 6 });
   };
-  const pino = (x: number, z: number, alto: number) => {
-    const g = new THREE.Group(); g.position.set(x, altezza(x, z) - 0.01, z); casa.add(g);
-    tubo(0.05, 0.08, alto * 0.25, 0, 0, 0, LEGNO2, g);
-    for (let q = 0; q < 3; q++) { const f = 1 - q * 0.26; sol(new THREE.ConeGeometry(alto * 0.27 * f, alto * 0.46, 16), '#3f9a5a', 0, alto * (0.38 + q * 0.23), 0, g); }
-    palla(alto * 0.05, 0, alto * 0.94, 0, '#3f9a5a', g);
-    chiome.push({ g, fase: r() * 6 });
-  };
-  ([[-4.5, 1.2, 1.5, 0, ROSSO], [-5.5, -0.6, 1.25, 1], [-4.2, -3.9, 1.3, 2, '#f7a13c'], [-2.3, -4.8, 1.2, 0], [1.6, -5.0, 1.1, 1, ROSSO], [4.1, -1.0, 1.35, 2], [5.3, 2.6, 1.05, 0, '#f7a13c'], [-5.3, 4.9, 0.95, 1], [5.4, -0.8, 1.0, 1]] as [number, number, number, number, string?][]).forEach(([x, z, a, k, f]) => alberello(x, z, a, k, f));
-  ([[4.9, -3.6, 1.0], [4.2, -3.2, 0.72], [5.6, -3.0, 0.8], [-5.1, -3.3, 0.95], [-5.8, -2.6, 0.7], [0.1, -5.5, 0.8], [-0.9, -5.4, 0.62]] as const).forEach(([x, z, a]) => pino(x, z, a));
+  ([[-4.5, 1.2, 1.5, 0], [-5.5, -0.6, 1.25, 1], [-4.2, -3.9, 1.3, 2], [-2.3, -4.8, 1.2, 0], [1.6, -5.0, 1.1, 1], [4.1, -1.0, 1.35, 2], [5.3, 2.6, 1.05, 0], [-5.3, 4.9, 0.95, 1], [5.4, -0.8, 1.0, 1]] as const).forEach(([x, z, a, k]) => albero(x, z, a * 1.15, k));
+  ([[4.9, -3.6, 1.0], [4.2, -3.2, 0.72], [5.6, -3.0, 0.8], [-5.1, -3.3, 0.95], [-5.8, -2.6, 0.7], [0.1, -5.5, 0.8], [-0.9, -5.4, 0.62]] as const).forEach(([x, z, a], k) => albero(x, z, a * 1.2, k, 2));
   // Sassi tondi e ciuffi di fiori
   for (const [x, z, q] of [[-3.7, 2.9, 0.16], [3.6, 3.0, 0.0], [-6.0, 1.0, 0.2], [6.0, -0.4, 0.17], [-1.9, 6.0, 0.17], [2.4, 6.0, 0.13], [-3.3, 5.9, 0.12]] as const) if (q) { const o = palla(q, x, altezza(x, z) + q * 0.3, z, '#b7b2a8', casa, 0.65, 0.85); o.rotation.y = x; }
   {
@@ -542,9 +544,10 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
   for (const v of [-1, 1]) { palla(0.024, v * 0.055, 0.065, 0.125, BIANCO, robot); palla(0.012, v * 0.055, 0.067, 0.145, SCURO, robot); }
   let percorso: THREE.Vector3[] = [], stanzaRobot: Stanza = 'soggiorno';
 
-  // --- Il gatto: forme piene e lisce, come il cane di /learn/. Bianco e nero: pelo nero, petto, muso, zampe e punta della coda
-  // bianchi, gli occhi gialli. Il corpo è fatto di tre ovali (petto, ventre, fianchi) che si piegano nelle curve;
-  // la coda è una catena con un'onda che scorre dalla base alla punta.
+  // --- Il gatto: forme piene e lisce, come il cane di /learn/, ma snello: schiena lunga, zampe alte e sottili, testa piccola,
+  // coda lunga e fine. Bianco e nero: pelo nero, petto, muso, zampe e punta della coda bianchi, gli occhi gialli.
+  // Il corpo è fatto di ovali lunghi che si sovrappongono (petto, ventre, fianchi): camminando petto e fianchi ondeggiano
+  // in versi opposti, così la schiena si piega come quella dei cervi. La coda è una catena con un'onda dalla base alla punta.
   const nero = nuovoToon('#2b2b33'), bianco = nuovoToon('#fbf7ee');
   const occhi = new THREE.MeshBasicMaterial({ color: '#e8e05a', transparent: true, opacity: 1 });
   const ovale = (mm: THREE.Material, rx: number, ry: number, rz: number, x: number, y: number, z: number, padre: THREE.Object3D) => {
@@ -552,50 +555,51 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
     g.scale.set(rx, ry, rz); g.position.set(x, y, z); padre.add(g);
     return g;
   };
-  const ALTO = 0.15;
+  const ALTO = 0.165;
   const gatto = new THREE.Group(); gatto.scale.setScalar(1.25); casa.add(gatto);
   // Il corpo guarda verso +z. corpo: l'altezza e l'inclinazione; petto e fianchi si girano un po' per piegare la schiena
   const corpo = new THREE.Group(); corpo.position.y = ALTO; gatto.add(corpo);
-  const ventre = ovale(nero, 0.068, 0.066, 0.1, 0, 0, 0, corpo);
-  const petto = new THREE.Group(); petto.position.z = 0.07; corpo.add(petto);
-  ovale(nero, 0.066, 0.07, 0.075, 0, 0.005, 0.02, petto);
-  ovale(bianco, 0.045, 0.055, 0.04, 0, -0.022, 0.07, petto);
-  const fianchi = new THREE.Group(); fianchi.position.z = -0.07; corpo.add(fianchi);
-  ovale(nero, 0.07, 0.07, 0.08, 0, 0.004, -0.03, fianchi);
-  // Collo e testa: il collo ruota sul petto, la testa in cima al collo. La testa è grande, come nei cartoni
-  const collo = new THREE.Group(); collo.position.set(0, 0.04, 0.08); petto.add(collo);
-  ovale(nero, 0.036, 0.045, 0.04, 0, 0.03, 0.02, collo);
-  { const c = sol(new THREE.TorusGeometry(0.036, 0.009, 8, 20), ROSSO, 0, 0.02, 0.02, collo); c.rotation.x = Math.PI / 2; }
-  const testa = new THREE.Group(); testa.position.set(0, 0.075, 0.05); collo.add(testa);
-  ovale(nero, 0.074, 0.064, 0.066, 0, 0, 0, testa);
-  ovale(bianco, 0.04, 0.027, 0.03, 0, -0.022, 0.05, testa);
-  ovale(bianco, 0.024, 0.034, 0.012, 0, 0.014, 0.058, testa);
-  ovale(toon(ROSA), 0.008, 0.006, 0.005, 0, -0.012, 0.08, testa);
+  const ventre = ovale(nero, 0.04, 0.042, 0.115, 0, -0.004, 0, corpo);
+  const petto = new THREE.Group(); petto.position.z = 0.065; corpo.add(petto);
+  ovale(nero, 0.043, 0.05, 0.07, 0, 0.004, 0.015, petto);
+  ovale(bianco, 0.028, 0.04, 0.03, 0, -0.018, 0.058, petto);
+  const fianchi = new THREE.Group(); fianchi.position.z = -0.065; corpo.add(fianchi);
+  ovale(nero, 0.046, 0.05, 0.075, 0, 0.006, -0.025, fianchi);
+  // Collo e testa: il collo sale dal petto, inclinato in avanti; la testa piccola in cima, col muso a punta
+  const collo = new THREE.Group(); collo.position.set(0, 0.03, 0.065); petto.add(collo);
+  { const c = ovale(nero, 0.025, 0.045, 0.028, 0, 0.03, 0.012, collo); c.rotation.x = 0.45; }
+  { const c = sol(new THREE.TorusGeometry(0.026, 0.006, 8, 20), ROSSO, 0, 0.022, 0.012, collo); c.rotation.x = Math.PI / 2 - 0.45; }
+  const testa = new THREE.Group(); testa.position.set(0, 0.07, 0.035); collo.add(testa);
+  ovale(nero, 0.048, 0.042, 0.048, 0, 0, 0, testa);
+  ovale(nero, 0.03, 0.026, 0.03, 0, -0.012, 0.032, testa);
+  ovale(bianco, 0.024, 0.017, 0.022, 0, -0.018, 0.044, testa);
+  ovale(bianco, 0.012, 0.024, 0.008, 0, 0.008, 0.046, testa);
+  ovale(toon(ROSA), 0.006, 0.005, 0.004, 0, -0.01, 0.064, testa);
   const orecchie = [-1, 1].map(lato => {
-    const o = new THREE.Group(); o.position.set(lato * 0.044, 0.05, -0.005); testa.add(o);
-    o.add(new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.055, 14), nero));
-    o.rotation.z = -lato * 0.28;
-    const e = new THREE.Mesh(geoPalla, occhi); e.scale.set(0.013, 0.015, 0.008); e.position.set(lato * 0.033, 0.008, 0.058); testa.add(e);
+    const o = new THREE.Group(); o.position.set(lato * 0.028, 0.034, -0.004); testa.add(o);
+    o.add(new THREE.Mesh(new THREE.ConeGeometry(0.017, 0.042, 14).translate(0, 0.016, 0), nero));
+    o.rotation.z = -lato * 0.32;
+    const e = new THREE.Mesh(geoPalla, occhi); e.scale.set(0.011, 0.008, 0.005); e.position.set(lato * 0.021, 0.008, 0.042); e.rotation.set(-0.2, lato * 0.5, lato * 0.25); testa.add(e);
     return o;
   });
-  // Le zampe: anca, coscia, ginocchio, stinco e la zampetta bianca. Passo a quattro tempi, come i cervi
-  const ZAMPE_GATTO = [{ x: -0.042, z: -0.1, fase: 0, davanti: false }, { x: -0.042, z: 0.1, fase: 0.25, davanti: true }, { x: 0.042, z: -0.1, fase: 0.5, davanti: false }, { x: 0.042, z: 0.1, fase: 0.75, davanti: true }];
-  const geoCoscia = new THREE.CapsuleGeometry(0.018, 0.05, 4, 10), geoStinco = new THREE.CapsuleGeometry(0.012, 0.05, 4, 10);
+  // Le zampe: lunghe e sottili, con anca, coscia, ginocchio, stinco e la zampetta bianca. Passo a quattro tempi, come i cervi
+  const ZAMPE_GATTO = [{ x: -0.03, z: -0.095, fase: 0, davanti: false }, { x: -0.028, z: 0.095, fase: 0.25, davanti: true }, { x: 0.03, z: -0.095, fase: 0.5, davanti: false }, { x: 0.028, z: 0.095, fase: 0.75, davanti: true }];
+  const geoCosciaD = new THREE.CapsuleGeometry(0.017, 0.055, 4, 10), geoCosciaA = new THREE.CapsuleGeometry(0.013, 0.06, 4, 10), geoStinco = new THREE.CapsuleGeometry(0.0085, 0.065, 4, 8);
   const zampe = ZAMPE_GATTO.map(q => {
     const anca = new THREE.Group(); anca.position.set(q.x, ALTO, q.z); gatto.add(anca);
-    anca.add(new THREE.Mesh(geoCoscia, nero).translateY(-0.04));
-    const ginocchio = new THREE.Group(); ginocchio.position.y = -0.078; anca.add(ginocchio);
-    ginocchio.add(new THREE.Mesh(geoStinco, nero).translateY(-0.035));
-    ovale(bianco, 0.017, 0.011, 0.022, 0, -0.07, 0.006, ginocchio);
+    anca.add(new THREE.Mesh(q.davanti ? geoCosciaA : geoCosciaD, nero).translateY(-0.04));
+    const ginocchio = new THREE.Group(); ginocchio.position.y = -0.082; anca.add(ginocchio);
+    ginocchio.add(new THREE.Mesh(geoStinco, nero).translateY(-0.04));
+    ovale(bianco, 0.012, 0.008, 0.017, 0, -0.08, 0.005, ginocchio);
     return { ...q, anca, ginocchio };
   });
-  // La coda: nove pezzi, ognuno figlio del precedente; la punta è bianca
-  const coda: THREE.Group[] = [];
+  // La coda: quattordici pezzi fini, ognuno figlio del precedente; la punta è bianca
+  const coda: THREE.Group[] = [], PEZZI_CODA = 14, kc = 9 / PEZZI_CODA;
   {
     let padre: THREE.Object3D = fianchi;
-    for (let k = 0; k < 9; k++) {
-      const g = new THREE.Group(); g.position.set(0, k ? 0.026 : 0.035, k ? 0 : -0.095); padre.add(g);
-      ovale(k > 6 ? bianco : nero, 0.013 - k * 0.0004, 0.018, 0.013 - k * 0.0004, 0, 0.013, 0, g);
+    for (let k = 0; k < PEZZI_CODA; k++) {
+      const g = new THREE.Group(); g.position.set(0, k ? 0.019 : 0.03, k ? 0 : -0.092); padre.add(g);
+      ovale(k > PEZZI_CODA - 3 ? bianco : nero, 0.0095 - k * 0.0002, 0.013, 0.0095 - k * 0.0002, 0, 0.0095, 0, g);
       coda.push(g); padre = g;
     }
   }
@@ -630,13 +634,19 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
   const vitaFumo = Array.from({ length: FUMO }, (_, i) => i / FUMO);
   const polvere = Array.from({ length: POLVERE }, (_, i) => { const t = (i / POLVERE) * Math.PI * 2; return { x: Math.cos(t) * 3.7, z: -0.6 + Math.sin(t) * 3.5, a: t, v: 1 }; });
 
-  // --- Nuvole tonde e piene, sempre dietro l'isola, così non coprono mai la casa: vanno piano avanti e indietro
-  const matNuvola = nuovoToon('#f4f6fa', { fog: false });
-  const nuvole = Array.from({ length: 5 }, (_, i) => {
-    const g = new THREE.Group(); casa.add(g);
-    const n = 3 + (i % 3);
-    for (let k = 0; k < n; k++) { const q = new THREE.Mesh(geoPalla, matNuvola); const f = 0.32 + r() * 0.26; q.scale.set(f, f * 0.7, f * 0.85); q.position.set((k - (n - 1) / 2) * 0.42, r() * 0.1, (r() - 0.5) * 0.3); g.add(q); }
-    return { g, a: -2.9 + i * 0.44, raggio: 9 + r() * 2, y: 2.2 + r() * 1.6, v: 0.09 + r() * 0.06, fase: r() * 6 };
+  // --- Nuvole a filo come quelle di AI terms: sbuffi tenui che il vento porta piano; al bordo del cielo svaniscono e rinascono
+  const VENTO = new THREE.Vector3(1, 0, 0.35).normalize(), RAGGIO_CIELO = 12;
+  const nuvole = Array.from({ length: 7 }, () => {
+    const g = new THREE.Group(), m = mat('#8a8f96', { opacity: 0.05, fili: 0.22 }), fili0 = m.userData.linea as THREE.LineBasicMaterial;
+    const n = 3 + Math.floor(r() * 5), largo = 0.5 + r() * 0.7;
+    for (let i = 0; i < n; i++) {
+      const t = n > 1 ? i / (n - 1) - 0.5 : 0, d = (0.2 + r() * 0.28) * (1 - Math.abs(t) * 0.6);
+      g.add(pezzo(sasso(d, r, 1), m, t * largo * 2 + (r() - 0.5) * 0.2, (r() - 0.2) * 0.16 + (0.5 - Math.abs(t)) * 0.12, (r() - 0.5) * 0.45));
+    }
+    const a = r() * Math.PI * 2, dd = Math.sqrt(r()) * RAGGIO_CIELO * 0.95;
+    g.position.set(Math.cos(a) * dd, 4.6 + r() * 1.4, CZ + Math.sin(a) * dd); g.rotation.y = r() * Math.PI; g.scale.setScalar(0.5 + r() * 0.45);
+    casa.add(g);
+    return { g, m, fili0, vel: 0.08 + r() * 0.08, vista: 0 };
   });
   // Due farfalle sul prato
   const farfalle = [ROSA, GIALLO].map((c, i) => {
@@ -665,14 +675,16 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
   const luci = new Map<Stanza, { v: number; c: THREE.Color }>(STANZE.map(s => [s, { v: 0, c: new THREE.Color('#ffd9a6') }]));
   const tapp = new Map<Stanza, number>(STANZE.map(s => [s, 1]));
   let percorsoTosa: THREE.Vector3[] = [];
-  // Il tetto: 0 chiuso, 1 alzato, con una molla che lo fa rimbalzare. topoFino: fin quando il mouse tiene aperto
-  let tetto = 0, velTetto = 0, schiaccia = 0, topoFino = 0, sfumaTetto = 1;
+  // Il tetto: 0 chiuso, 1 alzato, con una molla che lo fa rimbalzare. scrive: il cursore è nella casella del comando
+  let tetto = 0, velTetto = 0, schiaccia = 0, sfumaTetto = 1, scrive = false, zoomScelto = 1;
+  // Mentre scrivi la vista guarda la casa un po' più da vicino
+  const MIRA_CASA = new THREE.Vector3(0, 0.3, -0.35), ZOOM_CASA = 0.74;
   // Le viste in coda: una per ogni pezzo del comando. attuale è quella sullo schermo
   const coda2Fuochi: Fuoco[] = [];
   let attuale: Fuoco | null = null, attualeFino = 0, vicino = false;
   const ora = () => performance.now() / 1000;
 
-  function azzera() { coda2Fuochi.length = 0; if (attuale) { attuale = null; p.zoom(1); } }
+  function azzera() { coda2Fuochi.length = 0; attuale = null; }
   function accoda(f: Fuoco) {
     const ultimo = coda2Fuochi[coda2Fuochi.length - 1] ?? attuale;
     // Due pezzi sulla stessa cosa: una vista sola, un po' più lunga
@@ -825,15 +837,17 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
     const amp = THREE.MathUtils.clamp(g.vel / 0.25, 0, 1.4), giro2 = Math.PI * 2 * g.passo;
     const accuccia = g.salto ? Math.max(0, 1 - Math.abs(g.salto.t - 0.25) / 0.25) : 0;
     // Il corpo: sale e scende due volte per passo; seduto alza il petto; sdraiato tocca terra e respira
-    corpo.position.y = ALTO - 0.085 * P.sdraio - 0.03 * P.sedere - 0.04 * accuccia + Math.sin(giro2 * 2) * 0.004 * amp;
+    corpo.position.y = ALTO - 0.112 * P.sdraio - 0.04 * P.sedere - 0.045 * accuccia + Math.sin(giro2 * 2) * 0.005 * amp;
     corpo.rotation.x = -0.5 * P.sedere + 0.3 * P.stira;
-    corpo.rotation.z = Math.sin(giro2 * 2 + 0.6) * 0.02 * amp;
-    ventre.scale.y = 0.066 * (1 + P.sdraio * 0.05 * Math.sin(s * 1.6));
+    corpo.rotation.z = Math.sin(giro2 + 0.6) * 0.035 * amp;
+    ventre.scale.y = 0.042 * (1 + P.sdraio * 0.06 * Math.sin(s * 1.6));
     // La schiena si piega: nelle curve petto e fianchi vanno in versi opposti; camminando i fianchi ondeggiano;
     // dormendo il gatto si acciambella
     const curva = THREE.MathUtils.clamp(g.giro * 0.22, -0.4, 0.4);
-    petto.rotation.y = curva + 0.55 * P.sdraio;
-    fianchi.rotation.y = -curva * 0.8 + Math.sin(giro2) * 0.06 * amp - 0.55 * P.sdraio;
+    const ondeggia = Math.sin(giro2) * amp * (1 - P.sdraio);
+    petto.rotation.y = curva - ondeggia * 0.07 + 0.6 * P.sdraio;
+    fianchi.rotation.y = -curva * 0.9 + ondeggia * 0.13 - 0.6 * P.sdraio;
+    petto.rotation.z = -ondeggia * 0.05; fianchi.rotation.z = ondeggia * 0.06;
     // Le zampe: l'anca va avanti e indietro, il ginocchio si piega solo nella fase di volo. Sedute, quelle dietro sono
     // raccolte; sdraiate, tutte piegate sotto il corpo; stirandosi, quelle davanti vanno avanti
     zampe.forEach((z, i) => {
@@ -848,7 +862,7 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
     // Collo e testa: un piccolo cenno a ogni passo; si guarda intorno da fermo; giù per mangiare; appoggiata dormendo;
     // piegata sulla zampa mentre si lecca
     collo.rotation.x = morbido(collo.rotation.x, Math.sin(giro2 * 2 + 0.4) * 0.06 * amp + 0.95 * P.testaGiu + 0.5 * P.sedere * (1 - P.lecca) + 0.55 * P.sdraio + 0.7 * P.lecca, dt * 3);
-    collo.rotation.y = morbido(collo.rotation.y, curva * 1.2 + 0.5 * P.sdraio, dt * 3);
+    collo.rotation.y = morbido(collo.rotation.y, curva * 1.3 + ondeggia * 0.08 + 0.5 * P.sdraio, dt * 3);
     testa.rotation.y = morbido(testa.rotation.y, (g.fare === 'cammina' ? 0 : g.sguardo) * (1 - P.sdraio) * (1 - P.lecca) + P.lecca * 0.4, dt * 2.2);
     testa.rotation.x = morbido(testa.rotation.x, P.lecca * (0.4 + Math.sin(s * 8) * 0.15) - 0.3 * P.sedere * (1 - P.lecca), dt * 4);
     orecchie.forEach((o, n) => { o.rotation.x = (n === (Math.floor(s) % 2) ? 0.6 : 0) * g.orecchio; });
@@ -857,9 +871,9 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
     // seduta o sdraiata si avvolge intorno al corpo; quando ha paura è gonfia e dritta
     const avvolta = Math.max(P.sedere, P.sdraio), ferma = (1 - Math.min(1, amp * 2)) * (1 - avvolta), alta = Math.min(1, amp * 2) * (1 - avvolta);
     coda.forEach((c, i) => {
-      const t = i / coda.length, onda = Math.sin(s * (g.paura > 0 ? 7 : 1.7) - i * 0.6);
-      c.rotation.x = i === 0 ? -0.75 * alta - 2.3 * avvolta - 1.7 * ferma - (g.paura > 0 ? 0.5 : 0) : alta * (t > 0.6 ? 0.28 : 0.05) + ferma * 0.12 + avvolta * 0.05;
-      c.rotation.z = (i === 0 ? 0 : avvolta * (0.33 + P.sdraio * 0.06)) + onda * (0.05 + t * 0.14) * (1 - P.sdraio * 0.7);
+      const t = i / coda.length, onda = Math.sin(s * (g.paura > 0 ? 7 : 1.7) + giro2 * 0.5 - i * 0.42);
+      c.rotation.x = i === 0 ? -0.8 * alta - 2.3 * avvolta - 1.7 * ferma - (g.paura > 0 ? 0.5 : 0) : (alta * (t > 0.65 ? 0.34 : 0.02) + ferma * 0.13 + avvolta * 0.05) * kc;
+      c.rotation.z = ((i === 0 ? 0 : avvolta * (0.33 + P.sdraio * 0.06)) + onda * (0.07 + t * 0.2) * (1 - P.sdraio * 0.7)) * (i ? kc : 1);
       c.scale.setScalar(g.paura > 0 ? 1.45 : 1);
     });
   }
@@ -970,22 +984,24 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
     // Vista sulla cosa comandata: come «follow the dog», la mira scivola verso la cosa e la camera si avvicina.
     // Le viste di uno stesso comando passano una alla volta; finita l'ultima, la vista torna larga
     const t0 = ora();
-    if (attuale && t0 > attualeFino) { const fine = !coda2Fuochi.length; attuale = null; if (fine) p.zoom(1); }
+    if (attuale && t0 > attualeFino) attuale = null;
     if (!attuale && coda2Fuochi.length) {
       attuale = coda2Fuochi.shift()!;
       attualeFino = t0 + (coda2Fuochi.length ? Math.min(attuale.durata, 3.4) : attuale.durata);
       vicino = false;
     }
     // Prima si alza il tetto, poi la vista si avvicina: così si capisce che cosa succede
-    if (attuale && !vicino && (!attuale.aperto || tetto > 0.6 || pp.ridotto)) { vicino = true; p.zoom(attuale.zoom); }
-    if (attuale && vicino) attuale.punto(tmp2); else tmp2.copy(MIRA0);
+    if (attuale && !vicino && (!attuale.aperto || tetto > 0.6 || pp.ridotto)) vicino = true;
+    const zoomOra = attuale && vicino ? attuale.zoom : scrive && (tetto > 0.6 || pp.ridotto) ? ZOOM_CASA : 1;
+    if (zoomOra !== zoomScelto) { zoomScelto = zoomOra; p.zoom(zoomOra); }
+    if (attuale && vicino) attuale.punto(tmp2); else if (scrive) tmp2.copy(MIRA_CASA); else tmp2.copy(MIRA0);
     const km = pp.ridotto ? 1 : Math.min(1, dt * 1.5);
     MIRA.x += (tmp2.x - MIRA.x) * km; MIRA.y += (tmp2.y - MIRA.y) * km; MIRA.z += (tmp2.z - MIRA.z) * km;
     tastoLargo.style.opacity = attuale ? '1' : '0'; tastoLargo.style.pointerEvents = attuale ? 'auto' : 'none';
 
     // Il tetto. Si alza per la vista su una cosa in casa, col mouse sulla casa, o finché il robot pulisce
-    if (conMouse && pp.raggio && pp.raggio.intersectObject(sagoma, false).length) topoFino = t0 + 0.5;
-    const aperto = (attuale ? attuale.aperto : false) || t0 < topoFino || percorso.length > 0;
+    if (pp.raggio && pp.raggio.intersectObject(sagoma, false).length) topoFino = t0 + 0.6;
+    const aperto = (attuale ? attuale.aperto : scrive) || t0 < topoFino || percorso.length > 0;
     if (pp.ridotto) tetto = aperto ? 1 : 0;
     else {
       velTetto += ((aperto ? 1 : 0) - tetto) * 13 * dt - velTetto * 4.8 * dt;
@@ -1002,7 +1018,7 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
     tettoG.scale.set(1 + schiaccia * 0.035, 1 - Math.sin(schiaccia * Math.PI) * 0.1, 1 + schiaccia * 0.035);
     guscio.scale.y = 1 - 0.62 * liscio(su, 0.05, 0.75);
     // Da vicino il tetto non deve coprire: sfuma mentre sale, e resta visibile solo nella vista larga
-    const voluta = attuale && vicino && attuale.zoom < 0.8 ? 1 - liscio(su, 0.25, 0.75) : 1 - liscio(su, 0.7, 1) * 0.12;
+    const voluta = attuale && vicino && attuale.zoom < 0.8 ? 1 - liscio(su, 0.25, 0.75) : scrive ? 1 - liscio(su, 0.45, 1) * 0.7 : 1 - liscio(su, 0.7, 1) * 0.12;
     sfumaTetto += (voluta - sfumaTetto) * (pp.ridotto ? 1 : Math.min(1, dt * 7));
     for (const m of Object.values(M_TETTO)) m.opacity = sfumaTetto;
     tettoG.visible = sfumaTetto > 0.01;
@@ -1025,7 +1041,17 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
 
     // Il mare, le nuvole, la papera, le farfalle, la barca, gli alberi al vento
     ondeMare(s);
-    for (const n of nuvole) { const a = n.a + Math.sin(s * n.v + n.fase) * 0.22; n.g.position.set(Math.cos(a) * n.raggio, n.y + Math.sin(s * 0.2 + n.fase) * 0.1, CZ + Math.sin(a) * n.raggio * 0.85); n.g.rotation.y = -a + Math.PI / 2; }
+    for (const n of nuvole) {
+      n.g.position.addScaledVector(VENTO, dt * n.vel);
+      const lontano = Math.hypot(n.g.position.x, n.g.position.z - CZ);
+      if (lontano > RAGGIO_CIELO && n.g.position.x * VENTO.x + (n.g.position.z - CZ) * VENTO.z > 0) {
+        const a = Math.atan2(n.g.position.z - CZ, n.g.position.x) + Math.PI + (r() - 0.5) * 1.2;
+        n.g.position.set(Math.cos(a) * RAGGIO_CIELO * 0.98, 4.6 + r() * 1.4, CZ + Math.sin(a) * RAGGIO_CIELO * 0.98); n.vista = 0;
+      }
+      n.vista = Math.min(1, n.vista + dt / 4);
+      const vis = liscio(n.vista, 0, 1) * (1 - liscio(lontano, RAGGIO_CIELO * 0.8, RAGGIO_CIELO)) * ((attuale && vicino) || scrive ? 0.25 : 1);
+      n.m.opacity = 0.05 * vis; n.fili0.opacity = 0.22 * vis;
+    }
     { const a = s * 0.22; papera.position.set(STAGNO.x + Math.cos(a) * 0.6, 0.02 + Math.sin(s * 2.2) * 0.006, STAGNO.z + Math.sin(a) * 0.42); papera.rotation.y = Math.atan2(-Math.sin(a) * 0.6, Math.cos(a) * 0.42); }
     for (const f of farfalle) {
       const t = s * 0.35 + f.fase;
@@ -1076,5 +1102,6 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
     comando,
     azzera,
     dove: s => { dove = s; },
+    scrive: v => { scrive = v; },
   };
 }
