@@ -138,16 +138,16 @@ const ora = new Date(), oggi = ora.getFullYear() + ora.getMonth() / 12;
   .scheda, .scheda-simbolo { position: absolute; left: 0; top: 0; margin: 0; transform-origin: 50% 100%; will-change: transform, opacity; visibility: hidden; }
   .scheda { width: 380px; cursor: pointer; }
   .scheda.attiva { cursor: default; }
-  .corpo { position: relative; box-sizing: border-box; padding: 11px 14px; border: 1px solid var(--line); background: var(--bg); }
+  .corpo { position: relative; box-sizing: border-box; padding: 11px 14px; border: 1px solid var(--line); background: var(--bg); transition: border-color .35s; }
   .scheda.attiva .corpo { border-color: var(--muted); }
   /* Durante la piega si vede il foglio a strisce; da ferma torna la scheda vera, con il testo nitido */
   .scheda.piega > .corpo { opacity: 0; }
 
-  /* La scheda aperta: la riga del dettaglio si allarga da 0 alla sua altezza */
-  .apri { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .24s ease-out; }
-  .apri-dentro { min-height: 0; overflow: hidden; visibility: hidden; opacity: 0; transition: opacity .24s, visibility .24s; }
-  .attiva .apri { grid-template-rows: 1fr; }
-  .attiva .apri-dentro { visibility: visible; opacity: 1; max-height: var(--alt-dettaglio, 400px); overflow-y: auto; scrollbar-width: thin; }
+  /* La scheda aperta: il dettaglio ha già la sua forma e viene scoperto dall'alto, così il testo non va a capo mentre si apre.
+     --h e --a arrivano dal movimento (timelineVista.ts): altezza scoperta e opacità */
+  .apri { height: var(--h, 0px); overflow: hidden; }
+  .apri-dentro { max-height: var(--alt-dettaglio, 400px); overflow-y: auto; scrollbar-width: thin; visibility: hidden; opacity: var(--a, 0); }
+  .mostra .apri-dentro { visibility: visible; }
 
   /* Il foglio: le strisce della scheda, disposte su una curva in 3D */
   .tl :global(.foglio) { position: absolute; inset: 0; display: none; perspective: 800px; perspective-origin: 50% 50%; }
