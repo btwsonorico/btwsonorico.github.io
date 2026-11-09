@@ -32,7 +32,7 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
 
       <div class="casa">
         <div class="palco">
-          <div class="scena-casa" aria-label="A small house on a round island of grass: lamps, lanterns, blinds, a stove, a fan, speakers, a TV, a coffee machine, a timer, a robot vacuum and a lawn mower. It changes with your commands"></div>
+          <div class="scena-casa" aria-label="A small round cottage on an island, with a red roof that lifts when you give a command. Inside and around it: lamps, lanterns, blinds, a stove, a fan, speakers, a TV, a coffee machine, a timer, a robot vacuum and a lawn mower. It changes with your commands"></div>
           <div class="etichette" aria-hidden="true"></div>
         </div>
 
@@ -43,8 +43,10 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
             <button type="button" class="invia">send</button>
             <button type="button" class="a-caso" data-frasi={JSON.stringify(COMANDI)}>random command</button>
           </div>
-          <p class="nota">Commands without a room go to the <span class="dove">living room</span>. Click a room to pick it. The orange things are what the model controls: hover them to see their names.</p>
-          <div class="passi" aria-live="polite"></div>
+          <p class="nota">Commands without a room go to the <span class="dove">living room</span>. Click the house to pick a room. Things with an orange outline are what the model controls.<span class="con-mouse"> Hover the house to lift its roof and read their names.</span></p>
+          <div class="ultima" aria-live="polite"></div>
+          <button type="button" class="apri-storia" aria-expanded="false" disabled>show the model's decisions</button>
+          <div class="passi" hidden></div>
         </div>
       </div>
     </section>
@@ -97,14 +99,13 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
   .casa > .pannello { order: -1; }
   .palco { position: relative; height: max(460px, calc(100vh - 150px)); overflow: hidden; }
   /* Di notte il riquadro della casa si scurisce: --notte va da 0 a 1 e lo scrive la scena */
-  .scena-casa { position: absolute; inset: 0; }
+  .scena-casa { position: absolute; inset: 0; -webkit-mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent), linear-gradient(transparent, #000 3%, #000 97%, transparent); -webkit-mask-composite: source-in; mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent), linear-gradient(transparent, #000 3%, #000 97%, transparent); mask-composite: intersect; }
   .etichette { position: absolute; inset: 0; pointer-events: none; }
-  .etichette :global(span) { position: absolute; left: 0; top: 0; font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; transition: opacity .3s; }
-  .etichette :global(.etichetta-stanza.qui) { color: var(--fg); }
+  .etichette :global(span) { position: absolute; left: 0; top: 0; padding: 1px 8px; border-radius: 999px; background: var(--bg); font-family: var(--mono); font-size: 11px; color: var(--fg); white-space: nowrap; opacity: 0; transition: opacity .3s; }
   .etichette :global(.etichetta-stanza.qui) { color: var(--arancio); }
   .etichette :global(.etichetta-gradi), .etichette :global(.etichetta-timer) { color: var(--arancio); }
-  .etichette :global(.etichetta-zzz) { color: var(--muted); letter-spacing: 2px; }
-  .etichette :global(.etichetta-oggetto) { padding: 1px 6px; border: 1px solid var(--arancio); background: var(--bg); color: var(--arancio); transition: opacity .15s; }
+  .etichette :global(.etichetta-zzz) { letter-spacing: 2px; }
+  .etichette :global(.etichetta-oggetto) { border: 1px solid var(--arancio); color: var(--arancio); transition: opacity .15s; }
 
   .pannello { min-width: 0; font-size: 13px; color: var(--fg); }
   .titolino { display: block; margin-bottom: 8px; color: var(--fg); font-size: 14px; }
@@ -119,7 +120,17 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
   .pulsanti .a-caso { margin-top: 0; }
   .nota { margin: var(--s1) 0 var(--s2); color: var(--muted); font-size: 12px; }
   .dove { color: var(--arancio); }
-  .passi { display: flex; flex-direction: column; gap: var(--s2); max-height: calc(100vh - 420px); min-height: 200px; overflow-y: auto; }
+  @media (hover: none) { .con-mouse { display: none; } }
+  /* L'ultima risposta resta in vista. La history sta sotto il suo tasto: chiusa finché non la apri */
+  .ultima:empty { display: none; }
+  .ultima { margin-bottom: var(--s1); padding-left: 10px; border-left: 2px solid var(--arancio); }
+  .ultima :global(.detto) { margin: 0 0 4px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+  .ultima :global(.risposta) { margin: 2px 0 0; font-size: 14px; color: var(--fg); }
+  .ultima :global(.niente) { color: var(--muted); }
+  .apri-storia { padding: 0; border: 0; background: none; color: var(--fg); font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .apri-storia:disabled { display: none; }
+  .passi { display: flex; flex-direction: column; gap: var(--s2); margin-top: var(--s1); max-height: calc(100vh - 480px); min-height: 200px; overflow-y: auto; }
+  .passi[hidden] { display: none; }
   .passi :global(.comando-fatto) { border-left: 1px solid var(--line); padding-left: 10px; }
   .passi :global(.detto) { margin: 0 0 6px; color: var(--fg); }
   .passi :global(.passo) { margin: 0 0 10px; }
@@ -130,7 +141,9 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
   .passi :global(.passo.chiedi .decisione) { color: var(--arancio); }
   .passi :global(.risposta) { margin: 2px 0 0; font-size: 14px; color: var(--fg); }
   .passi :global(.niente .risposta) { color: var(--muted); }
-  .scelte { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .ultima :global(.scelte), .scelte { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .ultima :global(.scelte button) { padding: 5px 12px; border: 1px solid var(--muted); background: var(--bg); color: var(--fg); font: inherit; font-size: 13px; cursor: pointer; }
+  .ultima :global(.scelte button:hover) { border-color: var(--fg); }
   /* Le barre nascono dallo script: lo stile le raggiunge con :global */
   .rn :global(.barra-voce) { display: grid; grid-template-columns: minmax(96px, 150px) minmax(0, 1fr) 40px; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 12px; }
   .rn :global(.barra-voce .nome) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -168,6 +181,7 @@ const COMANDI = ['turn on the kitchen light and close the blinds', 'make the bed
     .palco { height: 86vw; min-height: 300px; }
     .a-caso, .invia { padding: 10px; }
     .pulsanti > * { flex: 1; }
+    .apri-storia { padding: 8px 0; font-size: 14px; }
     .comando, .messaggio { font-size: 16px; }
   }
 </style>

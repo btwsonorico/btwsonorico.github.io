@@ -26,18 +26,32 @@ function aCaso(pulsante: HTMLButtonElement, area: HTMLTextAreaElement, dopo: () 
 function montaCasaVista(radice: HTMLElement, d: Decisore) {
   const $ = <E extends Element>(q: string) => radice.querySelector<E>(q)!;
   const et: Etichette = { casa: etichette(d, d.meta.compiti.casa!.etichette), lingua: etichette(d, d.meta.compiti.lingua!.etichette), quanto: etichette(d, d.meta.compiti.quanto!.etichette) };
-  const area = $<HTMLTextAreaElement>('.comando'), traccia = $<HTMLElement>('.passi');
+  const area = $<HTMLTextAreaElement>('.comando'), traccia = $<HTMLElement>('.passi'), risposte = $<HTMLElement>('.ultima'), tastoStoria = $<HTMLButtonElement>('.apri-storia');
   let stato: Stato = statoIniziale(), dove: Stanza = 'soggiorno', ultimo: string | null = null;
   const storia: Stato[] = [];
   const vista: Vista = montaCasa($<HTMLElement>('.scena-casa'), $<HTMLElement>('.etichette'), s => { dove = s; vista.dove(s); vista.fuoco(s, 6); dovEl.textContent = NOMI[s].en; });
   const dovEl = $<HTMLElement>('.dove');
   vista.imposta(stato);
 
+  // La history è chiusa: si apre col suo tasto. Sotto i tasti resta sempre la risposta dell'ultimo comando
+  const scriviTasto = () => { const aperta = !traccia.hidden, n = traccia.children.length; tastoStoria.disabled = !n; tastoStoria.setAttribute('aria-expanded', String(aperta)); tastoStoria.textContent = `${aperta ? 'hide' : 'show'} the model's decisions${n ? ` (${n})` : ''}`; };
+  tastoStoria.addEventListener('click', () => { traccia.hidden = !traccia.hidden; scriviTasto(); });
+  scriviTasto();
+  // La risposta copia le frasi del comando dalla history. Se il modello chiede, i tasti della scelta stanno anche qui
+  function riassumi(gruppo: HTMLElement) {
+    risposte.replaceChildren(crea('p', 'detto', `> ${gruppo.dataset.testo}`));
+    gruppo.querySelectorAll<HTMLElement>('.passo').forEach(a => {
+      const testo = a.querySelector('.risposta')?.textContent;
+      if (testo) risposte.append(crea('p', a.classList.contains('niente') || a.classList.contains('rifiuta') ? 'risposta niente' : 'risposta', testo));
+      const scelte = a.querySelector('.scelte');
+      if (scelte) { const copia = crea('div', 'scelte'); scelte.querySelectorAll('button').forEach(b => { const c = crea('button', '', b.textContent ?? ''); c.type = 'button'; c.addEventListener('click', () => { b.click(); riassumi(gruppo); }); copia.append(c); }); risposte.append(copia); }
+    });
+  }
 
   function esegui(q: Passo, scheda: HTMLElement) {
     const e = applica(stato, q, dove, storia, performance.now() / 1000);
     stato = e.stato; vista.imposta(stato);
-    if (e.fuoco) vista.fuoco(e.fuoco);
+    vista.comando(q.intento, e.fuoco, e.fatto);
     if (e.fatto && q.intento !== 'annulla') ultimo = q.intento;
     scheda.querySelector('.risposta')!.textContent = e.messaggio;
     scheda.classList.toggle('niente', !e.fatto);
@@ -60,7 +74,7 @@ function montaCasaVista(radice: HTMLElement, d: Decisore) {
       const scelte = crea('div', 'scelte');
       q.prime.slice(0, 2).filter(x => x.nome !== 'fuori').forEach(x => {
         const b = crea('button', '', INTENTI[x.nome]?.[q.lingua] ?? x.nome); b.type = 'button';
-        b.addEventListener('click', () => { scelte.remove(); esegui({ ...q, intento: x.nome, decisione: 'agisci' }, s); });
+        b.addEventListener('click', () => { scelte.remove(); vista.azzera(); esegui({ ...q, intento: x.nome, decisione: 'agisci' }, s); const g = s.closest<HTMLElement>('.comando-fatto'); if (g) riassumi(g); });
         scelte.append(b);
       });
       s.append(scelte);
@@ -72,7 +86,9 @@ function montaCasaVista(radice: HTMLElement, d: Decisore) {
   function invia() {
     const testo = area.value.trim();
     if (!testo) return;
+    vista.azzera();
     const gruppo = crea('div', 'comando-fatto');
+    gruppo.dataset.testo = testo;
     gruppo.append(crea('p', 'detto', `> ${testo}`));
     // Nello stesso comando, un pezzo senza stanza vale per la stanza del pezzo prima: "accendi la luce in camera e chiudi le tapparelle"
     let stanzePrima: Stanza[] = [];
@@ -98,12 +114,13 @@ function montaCasaVista(radice: HTMLElement, d: Decisore) {
     }
     traccia.prepend(gruppo);
     while (traccia.children.length > 6) traccia.lastElementChild!.remove();
+    riassumi(gruppo);
+    scriviTasto();
   }
   $<HTMLButtonElement>('.invia').addEventListener('click', invia);
   area.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); invia(); } });
-  aCaso($<HTMLButtonElement>('.a-caso'), area, invia);
-  // All'apertura la casa esegue il comando già scritto, così si vede subito una decisione
-  invia();
+  // Il tasto a caso scrive soltanto la frase. Il comando parte col tasto send, come all'apertura della pagina
+  aCaso($<HTMLButtonElement>('.a-caso'), area, () => {});
 }
 
 // --- Banking77 e CLINC150: lo stesso modello con altre risposte possibili

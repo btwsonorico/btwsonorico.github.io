@@ -1,15 +1,19 @@
 import * as THREE from 'three';
-import { casuale, mat, pezzo, sasso, terreno, puntiMorbidi, palco, SITO, tema, tono, type Palco } from './natura';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
+import { casuale, curveLivello, puntiMorbidi, palco, SITO, tema, type Palco } from './natura';
 import { CASSE, DENTRO, NOMI, STANZE, type Stanza, type Stato } from '../lib/casa';
 
-// La casa di /learn/decision/, nello stile della home e del laghetto: tutto a filo, con un riempimento tenue.
-// Una casetta senza tetto su un prato rotondo. La struttura e i mobili sono linee grigie leggere; gli oggetti che il decision
-// model comanda sono arancio, il colore di Learn, e si accendono quando lavorano: lampade e lanterne, tapparelle, stufa,
-// ventilatore, casse, TV, robot aspirapolvere, tosaerba, macchina del caffè e timer. Passandoci sopra si legge cosa sono.
+// La casa di /learn/decision/: una casetta tonda e simpatica su un'isola, come la mappa di AI terms (src/scripts/aeroporto.ts).
+// Forme piene con ombre a bande, come in un cartone. La casa ha il tetto: a riposo è chiusa. Quando arriva un comando il tetto
+// si alza, i muri si abbassano e la vista si avvicina alla cosa comandata, con lo stesso movimento di «follow the dog»
+// (src/scripts/nuvole.ts). Poi la vista torna larga e il tetto si richiude. Se il comando riguarda il giardino, il tetto resta giù.
+// Gli oggetti che il decision model comanda hanno il bordo arancio, si accendono quando lavorano e fanno un piccolo salto:
+// lampade e lanterne, tapparelle, stufa, ventilatore, casse, TV, robot aspirapolvere, tosaerba, macchina del caffè e timer.
 // In casa vive un gatto bianco e nero: gira per le stanze, si siede, si lecca, si stira, dorme nei suoi posti e scappa dal robot.
 // La scena mostra soltanto lo stato della casa (src/lib/casa.ts): quello che succede lo decide il modello.
 
-const PAV = 0.12, MURO = 0.55, SP = 0.1;
+const PAV = 0.12, MURO = 1.05, SP = 0.14;
 type Box = { x0: number; x1: number; z0: number; z1: number };
 export const PIANTA: Record<Exclude<Stanza, 'giardino'>, Box> = {
   soggiorno: { x0: -3.1, x1: 0.3, z0: -0.6, z1: 2.3 },
@@ -17,93 +21,231 @@ export const PIANTA: Record<Exclude<Stanza, 'giardino'>, Box> = {
   camera: { x0: -3.1, x1: 0.3, z0: -3.5, z1: -0.6 },
   bagno: { x0: 0.3, x1: 3.1, z0: -3.5, z1: -0.6 },
 };
-const centro = (s: Stanza) => { if (s === 'giardino') return new THREE.Vector3(2.4, 0, 3.9); const b = PIANTA[s]; return new THREE.Vector3((b.x0 + b.x1) / 2, 0, (b.z0 + b.z1) / 2); };
+const centro = (s: Stanza) => { if (s === 'giardino') return new THREE.Vector3(1.8, 0, 3.9); const b = PIANTA[s]; return new THREE.Vector3((b.x0 + b.x1) / 2, 0, (b.z0 + b.z1) / 2); };
 const quota = (s: Stanza) => (s === 'giardino' ? 0 : PAV);
 // Porte fra le stanze e verso il giardino: il robot e il gatto passano da qui
 const PORTE: [Stanza, Stanza, number, number][] = [['soggiorno', 'cucina', 0.3, 1.15], ['soggiorno', 'camera', -0.25, -0.6], ['cucina', 'bagno', 0.9, -0.6], ['camera', 'bagno', 0.3, -1.3], ['soggiorno', 'giardino', -0.1, 2.3]];
 const BASE_ROBOT = new THREE.Vector3(-0.75, PAV + 0.02, 2.0);
 const stanzaDi = (x: number, z: number): Stanza => DENTRO.find(s => { const b = PIANTA[s as keyof typeof PIANTA]; return x >= b.x0 && x <= b.x1 && z >= b.z0 && z <= b.z1; }) ?? 'giardino';
 
-export type Vista = { imposta: (s: Stato) => void; fuoco: (s: Stanza | null, durata?: number) => void; dove: (s: Stanza) => void };
+// L'isola: un ovale morbido con la riva un po' irregolare e una baia davanti, dove arriva il vialetto. forma() vale 1 sulla riva
+const RX = 7.0, RZ = 6.4, CZ = 0.5, BAIA = 1.55;
+const scarto = (t: number) => Math.abs(Math.atan2(Math.sin(t - BAIA), Math.cos(t - BAIA)));
+const forma = (x: number, z0: number) => {
+  const z = z0 - CZ, t = Math.atan2(z, x), b = scarto(t), k = (1 + 0.05 * Math.sin(3 * t + 1) + 0.035 * Math.sin(5 * t + 2)) * (1 - 0.075 * Math.exp(-(b * b) / (2 * 0.3 * 0.3)));
+  return Math.pow(Math.pow(Math.abs(x) / RX, 2.4) + Math.pow(Math.abs(z) / RZ, 2.4), 1 / 2.4) / k;
+};
+// I colli stanno dietro e di lato: la casa e il giardino restano in piano
+const COLLI = [[-5.0, -3.4, 1.15, 1.05], [4.9, -3.6, 1.45, 1.15], [0.2, -5.3, 0.75, 0.95], [-5.5, 2.0, 0.42, 0.65], [5.7, 0.9, 0.5, 0.7]] as const;
+const fuoriRett = (x: number, z: number, x0: number, x1: number, z0: number, z1: number) => Math.hypot(Math.max(x0 - x, 0, x - x1), Math.max(z0 - z, 0, z - z1));
+const altezza = (x: number, z: number) => {
+  const e = forma(x, z);
+  if (e >= 1) return -0.04;
+  let h = 0;
+  for (const [cx, cz, alto, largo] of COLLI) h += alto * Math.exp(-((x - cx) ** 2 + (z - cz) ** 2) / (2 * largo * largo));
+  const piano = Math.min(fuoriRett(x, z, -3.5, 3.5, -3.9, 2.7), fuoriRett(x, z, -5.2, 4.9, 2.3, 7.5));
+  return h * THREE.MathUtils.smoothstep(piano, 0.15, 1.5) * (1 - THREE.MathUtils.smoothstep(e, 0.78, 1));
+};
+const liscio = THREE.MathUtils.smoothstep;
+
+export type Vista = {
+  imposta: (s: Stato) => void;
+  // Vista su una stanza scelta col clic
+  fuoco: (s: Stanza, durata?: number) => void;
+  // Vista sulla cosa che un comando ha mosso. I pezzi di uno stesso comando si mostrano uno dopo l'altro
+  comando: (intento: string, stanza: Stanza | null, fatto: boolean) => void;
+  // Un comando nuovo: toglie le viste ancora in coda
+  azzera: () => void;
+  dove: (s: Stanza) => void;
+};
+type Fuoco = { chiave: string; punto: (v: THREE.Vector3) => void; zoom: number; aperto: boolean; durata: number };
 
 export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: Stanza) => void): Vista {
   const r = casuale(21), chiaro = tema();
+  // Il punto che la camera guarda: fermo sull'isola, o sulla cosa comandata. Si muove come in «follow the dog»
+  const MIRA0 = new THREE.Vector3(0, 0.3, 0.9), MIRA = MIRA0.clone();
   const p = palco(el, {
-    camera: new THREE.Vector3(0, 9.6, 12.6), mira: new THREE.Vector3(0, -0.3, 0.6), fov: 34, giro: 0.01, inclina: [-0.28, 0.2], zoom: [0.55, 1.3], nebbia: [1.6, 3],
+    camera: new THREE.Vector3(8.1, 11.6, 17.2), mira: MIRA, fov: 34, giro: 0.008, inclina: [-0.3, 0.22], zoom: [0.22, 1.3], nebbia: [1.6, 3],
     aggiorna, clic, scena: 'casa', toni: SITO,
   });
   const casa = new THREE.Group();
   p.gruppo.add(casa);
   const C = p.colori;
 
-  // --- Materiali a filo. Tutti si attenuano di notte: si tiene l'opacità di partenza
-  const scuri: { m: THREE.Material & { opacity: number }; base: number }[] = [];
-  const m = (c: THREE.ColorRepresentation, riempi: number, fili: number) => {
-    const x = mat(c, { opacity: riempi * (chiaro ? 1.3 : 1), fili });
-    scuri.push({ m: x, base: x.opacity });
-    const l = x.userData.linea as THREE.LineBasicMaterial | undefined;
-    if (l) scuri.push({ m: l, base: l.opacity });
-    return x;
-  };
-  const M = {
-    muro: m('#6a6a6a', 0.07, 0.6), mobile: m('#6a6a6a', 0.04, 0.42), pavimento: m('#6a6a6a', 0.035, 0.28), verde: m(C.verde, 0.16, 0.6), foglie: m(C.verde, 0.12, 0.5),
-    acqua: m(C.azzurro, 0.1, 0.45), tronco: m('#8a5a2b', 0.1, 0.5),
-  };
-  const scatola = (w: number, h: number, d: number, x: number, y0: number, z: number, mm: THREE.Material, g: THREE.Object3D = casa) => { const o = pezzo(new THREE.BoxGeometry(w, h, d), mm, x, y0 + h / 2, z); g.add(o); return o; };
-  const tubo = (ra: number, rb: number, h: number, x: number, y0: number, z: number, mm: THREE.Material, lati = 10, g: THREE.Object3D = casa) => { const o = pezzo(new THREE.CylinderGeometry(ra, rb, h, lati), mm, x, y0 + h / 2, z); g.add(o); return o; };
-  const luminoso = (c: THREE.ColorRepresentation, op = 0) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: op, depthWrite: false });
+  // --- Luce e materiali: colori pieni con tre bande d'ombra, come in un cartone
+  p.scena.add(new THREE.AmbientLight('#ffffff', 1.65));
+  const sole = new THREE.DirectionalLight('#fff4e0', 1.75); sole.position.set(5, 9, 6); p.scena.add(sole);
+  const bande = new THREE.DataTexture(new Uint8Array([120, 185, 255]), 3, 1, THREE.RedFormat);
+  bande.minFilter = bande.magFilter = THREE.NearestFilter; bande.needsUpdate = true;
+  const nuovoToon = (c: THREE.ColorRepresentation, extra: THREE.MeshToonMaterialParameters = {}) => new THREE.MeshToonMaterial({ color: c, gradientMap: bande, ...extra });
+  const tinte = new Map<string, THREE.MeshToonMaterial>();
+  const toon = (c: string) => tinte.get(c) ?? tinte.set(c, nuovoToon(c)).get(c)!;
+  const CREMA = '#fff1d6', BIANCO = '#fdfaf2', LEGNO = '#c98f58', LEGNO2 = '#a56c3d', TEAL = '#3fb5a8', ROSSO = '#e8604c', GIALLO = '#f7cf4f', LILLA = '#b79ce0', ROSA = '#f5a6b8', CIELO = '#7cc7e8', GRIGIO = '#8f8c88', SCURO = '#3a3640';
 
-  // --- Oggetti comandabili: arancio, ognuno col suo materiale, così si accende da solo. Una scatola invisibile serve per il passaggio del mouse
-  type Oggetto = { nome: [string, string]; m: THREE.MeshBasicMaterial; l: THREE.LineBasicMaterial; presa: THREE.Mesh; attivo: number; colore: THREE.Color | null };
+  const sol = (geo: THREE.BufferGeometry, m: THREE.Material | string, x = 0, y = 0, z = 0, g: THREE.Object3D = casa) => { const o = new THREE.Mesh(geo, typeof m === 'string' ? toon(m) : m); o.position.set(x, y, z); g.add(o); return o; };
+  const rbox = (w: number, h: number, d: number, rr = 0.04) => new RoundedBoxGeometry(w, h, d, 3, Math.min(rr, Math.min(w, h, d) * 0.49));
+  // Un cilindro con gli spigoli tondi. Parte da y = 0
+  const botte = (ra: number, rb: number, h: number, rr = 0.02) => {
+    const q = Math.min(rr, h * 0.49, Math.min(ra, rb) * 0.9), pt = [new THREE.Vector2(0.0001, 0)];
+    for (let k = 0; k <= 4; k++) { const a = (k / 4) * Math.PI / 2; pt.push(new THREE.Vector2(rb - q + Math.sin(a) * q, q - Math.cos(a) * q)); }
+    for (let k = 0; k <= 4; k++) { const a = (k / 4) * Math.PI / 2; pt.push(new THREE.Vector2(ra - q + Math.cos(a) * q, h - q + Math.sin(a) * q)); }
+    pt.push(new THREE.Vector2(0.0001, h));
+    return new THREE.LatheGeometry(pt, 18);
+  };
+  const scatola = (w: number, h: number, d: number, x: number, y0: number, z: number, c: string, rr = 0.04, g: THREE.Object3D = casa) => sol(rbox(w, h, d, rr), c, x, y0 + h / 2, z, g);
+  const tubo = (ra: number, rb: number, h: number, x: number, y0: number, z: number, c: string, g: THREE.Object3D = casa, rr = 0.02) => sol(botte(ra, rb, h, rr), c, x, y0, z, g);
+  const geoPalla = new THREE.SphereGeometry(1, 20, 14);
+  const palla = (ra: number, x: number, y: number, z: number, c: string, g: THREE.Object3D = casa, sy = 1, sz = 1) => { const o = sol(geoPalla, c, x, y, z, g); o.scale.set(ra, ra * sy, ra * sz); return o; };
+  const luminoso = (c: THREE.ColorRepresentation, op = 0) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide });
+
+  // --- Oggetti comandabili: colori vivi e un bordo arancio. Una scatola invisibile serve per il passaggio del mouse.
+  // Il bordo è la stessa forma, gonfiata lungo le normali e vista dal retro
+  type Oggetto = { nome: [string, string]; g: THREE.Group; presa: THREE.Mesh; mats: THREE.MeshToonMaterial[]; bordo: THREE.ShaderMaterial; attivo: number; prima: number; colore: THREE.Color | null; pop: number; dentro: boolean };
   const oggetti: Oggetto[] = [];
-  function oggetto(nome: [string, string], x: number, y: number, z: number, w: number, h: number, d: number) {
-    const mm = mat(C.arancio, { opacity: chiaro ? 0.12 : 0.08, fili: 0.85 }), l = mm.userData.linea as THREE.LineBasicMaterial;
+  const nuovoBordo = () => new THREE.ShaderMaterial({
+    uniforms: { colore: { value: C.arancio.clone() }, spess: { value: 0.012 } }, side: THREE.BackSide,
+    vertexShader: 'uniform float spess; void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4(position + normal * spess, 1.0); }',
+    fragmentShader: 'uniform vec3 colore; void main() { gl_FragColor = vec4(colore, 1.0); }',
+  });
+  function oggetto(nome: [string, string], x: number, base: number, z: number, w: number, h: number, d: number, padre: THREE.Object3D = casa, dentro = true) {
+    const g = new THREE.Group(); g.position.set(x, base, z); padre.add(g);
     const presa = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
-    presa.position.set(x, y, z); casa.add(presa);
-    const o: Oggetto = { nome, m: mm, l, presa, attivo: 0, colore: null };
+    presa.position.y = h / 2; g.add(presa);
+    const o: Oggetto = { nome, g, presa, mats: [], bordo: nuovoBordo(), attivo: 0, prima: 0, colore: null, pop: 0, dentro };
     oggetti.push(o);
     return o;
   }
-
-  // --- Il prato: dischi tenui e la griglia di punti, come gli altri mondi del sito, con i fili d'erba
-  terreno(casa, C.verde, 5.8, () => 0, true);
-  {
-    const erba: number[] = [];
-    for (let k = 0; k < 170; k++) {
-      const a = r() * Math.PI * 2, d = 3.6 + r() * 2.1, x = Math.cos(a) * d, z = 0.3 + Math.sin(a) * d;
-      if (Math.abs(x) < 3.3 && z > -3.7 && z < 2.5) continue;
-      const h = 0.06 + r() * 0.08;
-      for (const dx of [-0.04, 0, 0.04]) erba.push(x, 0, z, x + dx, h * (dx === 0 ? 1.3 : 1), z + dx * 0.5);
-    }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(erba, 3));
-    const l = new THREE.LineBasicMaterial({ color: C.verde, transparent: true, opacity: 0.5 }); scuri.push({ m: l, base: 0.5 });
-    casa.add(new THREE.LineSegments(g, l));
+  function parte(o: Oggetto, geo: THREE.BufferGeometry, c: string, x = 0, y = 0, z = 0, padre: THREE.Object3D = o.g) {
+    const m = nuovoToon(c, { emissive: c, emissiveIntensity: 0 }); m.userData.base = new THREE.Color(c);
+    o.mats.push(m);
+    const ob = sol(geo, m, x, y, z, padre);
+    ob.add(new THREE.Mesh(geo, o.bordo));
+    return ob;
   }
-  const prato = new THREE.Mesh(new THREE.CircleGeometry(5.8, 48), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
-  prato.rotation.x = -Math.PI / 2; prato.position.set(0, 0.005, 0.3); casa.add(prato);
-  const pavimenti = new Map<THREE.Object3D, Stanza>([[prato, 'giardino']]);
 
-  // --- Pavimenti e muri bassi. Il bordo del pavimento della stanza scelta diventa arancio
-  scatola(6.3, PAV, 6.0, 0, 0, -0.6, M.muro);
-  const bordi = new Map<Stanza, THREE.LineBasicMaterial>();
+  // --- L'isola, come quella di AI terms: prato e spiaggia, curve di livello sui colli, una griglia di punti, i fianchi di terra
+  const ANGOLI = 200, riva: number[] = [];
+  for (let k = 0; k < ANGOLI; k++) {
+    const t = (k / ANGOLI) * Math.PI * 2, c = Math.cos(t), s = Math.sin(t);
+    let a = 0, b = 10;
+    for (let q = 0; q < 30; q++) { const m = (a + b) / 2; if (forma(c * m, CZ + s * m) < 1) a = m; else b = m; }
+    riva.push(a);
+  }
+  const rivaA = (t: number) => { const f = ((t / (Math.PI * 2)) * ANGOLI % ANGOLI + ANGOLI) % ANGOLI, i = Math.floor(f), j = (i + 1) % ANGOLI; return riva[i]! + (riva[j]! - riva[i]!) * (f - i); };
+  const ERBA = new THREE.Color('#79c257'), ERBA2 = new THREE.Color('#8fd166'), SABBIA = new THREE.Color('#f6e3b4'), cTmp = new THREE.Color();
+  const velo = (() => {
+    const geo = new THREE.RingGeometry(0.001, 1, ANGOLI, 56).rotateX(-Math.PI / 2);
+    const q = geo.attributes.position as THREE.BufferAttribute, colori: number[] = [];
+    for (let i = 0; i < q.count; i++) {
+      const x = q.getX(i), z = q.getZ(i), t = Math.atan2(z, x), u = Math.hypot(x, z) * 0.998, rr = u * rivaA(t);
+      const X = Math.cos(t) * rr, Z = CZ + Math.sin(t) * rr;
+      q.setXYZ(i, X, Math.max(0, altezza(X, Z)) - 0.006, Z);
+      const macchie = Math.sin(X * 1.1 + Z * 0.6) + Math.sin(Z * 1.5 - X * 0.5);
+      const b = scarto(t), limite = 0.935 + 0.012 * Math.sin(t * 9) - 0.12 * Math.exp(-(b * b) / (2 * 0.26 * 0.26));
+      cTmp.copy(ERBA).lerp(ERBA2, liscio(macchie, 0.25, 0.65) * 0.8).lerp(SABBIA, liscio(u, limite - 0.009, limite + 0.009));
+      colori.push(cTmp.r, cTmp.g, cTmp.b);
+    }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
+    geo.computeVertexNormals();
+    const o = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true }));
+    casa.add(o);
+    return o;
+  })();
+  const fili = (punti: number[], colore: THREE.ColorRepresentation, op: number) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(punti, 3));
+    const ob = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: colore, transparent: true, opacity: op }));
+    casa.add(ob);
+  };
+  {
+    const { minori, maggiori } = curveLivello(altezza, 8, 130, 0.13, 2.2, 4, 0.07);
+    fili(minori, '#4f9a3c', 0.55);
+    fili(maggiori, '#3f8a30', 0.85);
+    const punti: number[] = [];
+    for (let x = -7; x <= 7; x += 0.34) for (let z = -6; z <= 7; z += 0.34) if (forma(x, z) < 0.9 && fuoriRett(x, z, -3.3, 3.3, -3.7, 2.5) > 0) punti.push(x, altezza(x, z) + 0.008, z);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(punti, 3));
+    casa.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: '#2f6b24', size: 0.028, transparent: true, opacity: 0.4 })));
+  }
+  {
+    const vert: number[] = [], indici: number[] = [], colori: number[] = [], strati: number[] = [];
+    const sopra = new THREE.Color('#b08a5e'), sotto = new THREE.Color('#6d5540');
+    for (let k = 0; k <= ANGOLI; k++) {
+      const t = (k / ANGOLI) * Math.PI * 2, rr = rivaA(t), c = Math.cos(t), s = Math.sin(t);
+      vert.push(c * rr, -0.005, CZ + s * rr, c * rr * 0.92, -0.62, CZ + s * rr * 0.92);
+      colori.push(sopra.r, sopra.g, sopra.b, sotto.r, sotto.g, sotto.b);
+      if (k < ANGOLI) indici.push(k * 2, k * 2 + 1, k * 2 + 2, k * 2 + 1, k * 2 + 3, k * 2 + 2);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(vert, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 3));
+    geo.setIndex(indici);
+    casa.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide })));
+    for (const [y0, f] of [[-0.17, 0.975], [-0.36, 0.95]] as const) for (let k = 0; k < ANGOLI; k++) {
+      const t0 = (k / ANGOLI) * Math.PI * 2, t1 = ((k + 1) / ANGOLI) * Math.PI * 2, w = (t: number) => y0 + Math.sin(t * 11 + y0 * 40) * 0.03;
+      strati.push(Math.cos(t0) * rivaA(t0) * f, w(t0), CZ + Math.sin(t0) * rivaA(t0) * f, Math.cos(t1) * rivaA(t1) * f, w(t1), CZ + Math.sin(t1) * rivaA(t1) * f);
+    }
+    fili(strati, '#5a4633', 0.6);
+  }
+  const pavimenti = new Map<THREE.Object3D, Stanza>([[velo, 'giardino']]);
+
+  // --- Il mare: un cerchio di punti che ondeggia e sfuma, come in AI terms
+  const MARE = 11.5, AZZURRO = new THREE.Color(C.azzurro);
+  {
+    const geo = new THREE.RingGeometry(0.01, MARE, 96, 24).rotateX(-Math.PI / 2);
+    const q = geo.attributes.position as THREE.BufferAttribute, colori: number[] = [], op = chiaro ? 0.2 : 0.13;
+    for (let i = 0; i < q.count; i++) { const d = Math.hypot(q.getX(i), q.getZ(i)); colori.push(AZZURRO.r, AZZURRO.g, AZZURRO.b, op * (1 - liscio(d, MARE * 0.45, MARE))); }
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colori, 4));
+    const o = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false }));
+    o.position.y = -0.47; o.renderOrder = -2; casa.add(o);
+  }
+  const PASSO_MARE = p.telefono ? 0.34 : 0.25, celle: { x: number; z: number }[] = [];
+  for (let x = -MARE; x <= MARE; x += PASSO_MARE) for (let z = -MARE; z <= MARE; z += PASSO_MARE) if (forma(x, z) >= 1.01 && Math.hypot(x, z) <= MARE) celle.push({ x, z });
+  const acqua = puntiMorbidi(celle.length);
+  casa.add(acqua.punti);
+  celle.forEach((c, i) => { acqua.col.set([AZZURRO.r, AZZURRO.g, AZZURRO.b], i * 3); acqua.dim[i] = 0.065; acqua.alfa[i] = (1 - liscio(Math.hypot(c.x, c.z), MARE - 4, MARE)) * (chiaro ? 0.85 : 0.72); });
+  const ondeMare = (s: number) => {
+    celle.forEach((c, i) => acqua.pos.set([c.x, -0.42 + Math.sin(c.x * 0.9 + s * 0.7) * 0.085 + Math.sin(c.z * 1.2 - s * 0.55 + c.x * 0.35) * 0.065, c.z], i * 3));
+    acqua.aggiorna();
+  };
+
+  // --- La base di pietra e i pavimenti: ogni stanza ha il suo. Il bordo del pavimento della stanza scelta diventa arancio
+  scatola(6.62, PAV, 6.12, 0, 0, -0.6, '#cfc5b4', 0.05);
+  const disegno = (f: (g: CanvasRenderingContext2D) => void) => {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 256; f(cv.getContext('2d')!);
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+  };
+  const a_tasselli = (a: string, b: string, n: number) => (g: CanvasRenderingContext2D) => { const q = 256 / n; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { g.fillStyle = (i + j) % 2 ? a : b; g.fillRect(i * q, j * q, q, q); } };
+  const TRAME: Record<string, (g: CanvasRenderingContext2D) => void> = {
+    soggiorno: g => { g.fillStyle = '#d9a66c'; g.fillRect(0, 0, 256, 256); for (let k = 0; k < 8; k++) { g.fillStyle = k % 2 ? '#d09a60' : '#dfae76'; g.fillRect(0, k * 32, 256, 30); g.fillStyle = '#b98650'; g.fillRect(((k * 97) % 200) + 20, k * 32, 3, 30); } },
+    cucina: a_tasselli('#f7efe0', '#e8a79a', 7),
+    camera: g => { g.fillStyle = '#c9b6e8'; g.fillRect(0, 0, 256, 256); g.fillStyle = '#d8c9f0'; for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { g.beginPath(); g.arc(16 + i * 32, 16 + j * 32 + (i % 2) * 8, 5, 0, 7); g.fill(); } },
+    bagno: a_tasselli('#e8f6fb', '#b3e0ee', 8),
+  };
+  const bordi = new Map<Stanza, THREE.LineBasicMaterial>(), matPav = new Map<Stanza, THREE.MeshToonMaterial>();
   for (const s of DENTRO) {
-    const b = PIANTA[s as keyof typeof PIANTA], f = pezzo(new THREE.PlaneGeometry(b.x1 - b.x0 - 0.12, b.z1 - b.z0 - 0.12), M.pavimento, (b.x0 + b.x1) / 2, PAV + 0.004, (b.z0 + b.z1) / 2);
-    f.rotation.x = -Math.PI / 2; casa.add(f); pavimenti.set(f, s);
-    const w = (b.x1 - b.x0) / 2 - 0.1, d = (b.z1 - b.z0) / 2 - 0.1, cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;
+    const b = PIANTA[s as keyof typeof PIANTA], mm = nuovoToon('#ffffff', { map: disegno(TRAME[s]!) });
+    const f = sol(new THREE.PlaneGeometry(b.x1 - b.x0, b.z1 - b.z0), mm, (b.x0 + b.x1) / 2, PAV + 0.006, (b.z0 + b.z1) / 2);
+    f.rotation.x = -Math.PI / 2; pavimenti.set(f, s); matPav.set(s, mm);
+    const w = (b.x1 - b.x0) / 2 - 0.12, d = (b.z1 - b.z0) / 2 - 0.12, cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;
     const lb = new THREE.LineBasicMaterial({ color: C.arancio, transparent: true, opacity: 0 });
-    casa.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[-w, -d], [w, -d], [w, d], [-w, d]].map(([x, z]) => new THREE.Vector3(cx + x!, PAV + 0.01, cz + z!))), lb));
+    casa.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints([[-w, -d], [w, -d], [w, d], [-w, d]].map(([x, z]) => new THREE.Vector3(cx + x!, PAV + 0.016, cz + z!))), lb));
     bordi.set(s, lb);
   }
+
+  // --- I muri: stanno in un gruppo che si abbassa quando il tetto si alza, così dentro si vede bene
+  const guscio = new THREE.Group(); guscio.position.y = PAV; casa.add(guscio);
   type Finestra = { stanza: Stanza; tapparella: THREE.Object3D; vetro: THREE.MeshBasicMaterial; ogg: Oggetto };
   const finestre: Finestra[] = [];
   type Apertura = { c: number; w: number; tipo: 'porta' | 'finestra'; stanza?: Stanza };
-  const DAV = 0.2, ARC = 0.5;
-  function muro(x0: number, z0: number, x1: number, z1: number, aperture: Apertura[] = []) {
+  const DAV = 0.32, ARC = 0.8, ARCO = 0.84;
+  function muro(x0: number, z0: number, x1: number, z1: number, aperture: Apertura[] = [], colore = CREMA) {
     const lungoX = z0 === z1, a = Math.min(lungoX ? x0 : z0, lungoX ? x1 : z1), b = Math.max(lungoX ? x0 : z0, lungoX ? x1 : z1), fisso = lungoX ? z0 : x0;
+    const X = (u: number) => (lungoX ? u : fisso), Z = (u: number) => (lungoX ? fisso : u);
     const pezzoMuro = (da: number, al: number, y0: number, y1: number) => {
       if (al - da < 0.02 || y1 - y0 < 0.02) return;
       const c = (da + al) / 2, L = al - da;
-      scatola(lungoX ? L : SP, y1 - y0, lungoX ? SP : L, lungoX ? c : fisso, PAV + y0, lungoX ? fisso : c, M.muro);
+      sol(new THREE.BoxGeometry(lungoX ? L : SP, y1 - y0, lungoX ? SP : L), colore, X(c), (y0 + y1) / 2, Z(c), guscio);
     };
     let t = a;
     for (const ap of [...aperture].sort((u, v) => u.c - v.c)) {
@@ -111,20 +253,19 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
       pezzoMuro(t, da, 0, MURO);
       if (ap.tipo === 'finestra') {
         pezzoMuro(da, al, 0, DAV); pezzoMuro(da, al, ARC, MURO);
-        const vetro = luminoso('#ffd9a6');
-        const v = new THREE.Mesh(new THREE.PlaneGeometry(ap.w, ARC - DAV), vetro);
-        v.position.set(lungoX ? ap.c : fisso, PAV + (DAV + ARC) / 2, lungoX ? fisso : ap.c);
-        if (!lungoX) v.rotation.y = Math.PI / 2;
-        casa.add(v);
+        const altaF = ARC - DAV, vetro = new THREE.MeshBasicMaterial({ color: '#5f7f9a', side: THREE.DoubleSide });
+        const v = new THREE.Mesh(new THREE.PlaneGeometry(ap.w, altaF), vetro);
+        v.position.set(X(ap.c), (DAV + ARC) / 2, Z(ap.c)); if (!lungoX) v.rotation.y = Math.PI / 2;
+        guscio.add(v);
+        // La cornice bianca, tonda, sporge dal muro da entrambi i lati
+        for (const [u, y, lw, lh] of [[ap.c, ARC + 0.02, ap.w + 0.12, 0.07], [ap.c, DAV - 0.02, ap.w + 0.16, 0.08], [da - 0.02, (DAV + ARC) / 2, 0.07, altaF + 0.08], [al + 0.02, (DAV + ARC) / 2, 0.07, altaF + 0.08], [ap.c, (DAV + ARC) / 2, 0.035, altaF]] as const)
+          sol(rbox(lungoX ? lw : SP + 0.05, lh, lungoX ? SP + 0.05 : lw, 0.02), BIANCO, X(u), y, Z(u), guscio);
         // La tapparella scende dall'alto: la sua altezza segue lo stato
-        const perno = new THREE.Group();
-        perno.position.set(lungoX ? ap.c : fisso, PAV + ARC, lungoX ? fisso : ap.c);
-        casa.add(perno);
-        const ogg = oggetto(['blinds', 'tapparelle'], lungoX ? ap.c : fisso, PAV + (DAV + ARC) / 2, lungoX ? fisso : ap.c, lungoX ? ap.w : 0.2, ARC - DAV + 0.1, lungoX ? 0.2 : ap.w);
-        const doghe = pezzo(new THREE.BoxGeometry(lungoX ? ap.w - 0.02 : 0.03, ARC - DAV, lungoX ? 0.03 : ap.w - 0.02), ogg.m, 0, -(ARC - DAV) / 2, 0);
-        perno.add(doghe);
+        const perno = new THREE.Group(); perno.position.set(X(ap.c), ARC, Z(ap.c)); guscio.add(perno);
+        const ogg = oggetto(['blinds', 'tapparelle'], X(ap.c), PAV + DAV - 0.05, Z(ap.c), lungoX ? ap.w : 0.28, altaF + 0.1, lungoX ? 0.28 : ap.w);
+        parte(ogg, rbox(lungoX ? ap.w - 0.02 : 0.07, altaF, lungoX ? 0.07 : ap.w - 0.02, 0.02), '#f0a35a', 0, -altaF / 2, 0, perno);
         finestre.push({ stanza: ap.stanza!, tapparella: perno, vetro, ogg });
-      }
+      } else pezzoMuro(da, al, ARCO, MURO);
       t = al;
     }
     pezzoMuro(t, b, 0, MURO);
@@ -133,145 +274,286 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
   muro(-3.1, 2.3, 3.1, 2.3, [{ c: -0.1, w: 0.62, tipo: 'porta' }, { c: 1.9, w: 1.0, tipo: 'finestra', stanza: 'cucina' }]);
   muro(-3.1, -3.5, -3.1, 2.3, [{ c: -2.0, w: 0.9, tipo: 'finestra', stanza: 'camera' }, { c: 0.85, w: 1.0, tipo: 'finestra', stanza: 'soggiorno' }]);
   muro(3.1, -3.5, 3.1, 2.3, [{ c: -1.9, w: 0.8, tipo: 'finestra', stanza: 'bagno' }]);
-  muro(0.3, -3.5, 0.3, 2.3, [{ c: -1.3, w: 0.6, tipo: 'porta' }, { c: 1.15, w: 0.7, tipo: 'porta' }]);
-  muro(-3.1, -0.6, 0.3, -0.6, [{ c: -0.25, w: 0.6, tipo: 'porta' }]);
-  muro(0.3, -0.6, 3.1, -0.6, [{ c: 0.9, w: 0.6, tipo: 'porta' }]);
+  muro(0.3, -3.5, 0.3, 2.3, [{ c: -1.3, w: 0.6, tipo: 'porta' }, { c: 1.15, w: 0.7, tipo: 'porta' }], '#ffe8c2');
+  muro(-3.1, -0.6, 0.3, -0.6, [{ c: -0.25, w: 0.6, tipo: 'porta' }], '#ffe8c2');
+  muro(0.3, -0.6, 3.1, -0.6, [{ c: 0.9, w: 0.6, tipo: 'porta' }], '#ffe8c2');
+  // Le travi di legno: quattro colonne tonde agli angoli e una trave in alto, come una casetta di legno
+  for (const [x, z] of [[-3.1, -3.5], [3.1, -3.5], [-3.1, 2.3], [3.1, 2.3]] as const) tubo(0.11, 0.12, MURO + 0.02, x, 0, z, LEGNO, guscio, 0.04);
+  for (const [w, d, x, z] of [[6.3, 0.2, 0, 2.3], [6.3, 0.2, 0, -3.5], [0.2, 5.9, -3.1, -0.6], [0.2, 5.9, 3.1, -0.6]] as const) scatola(w, 0.12, d, x, MURO - 0.08, z, LEGNO, 0.05, guscio);
+  // La porta di casa: un arco di legno, l'anta aperta, lo zerbino e la tettoia
+  for (const v of [-1, 1]) scatola(0.08, ARCO, 0.22, -0.1 + v * 0.35, 0, 2.3, LEGNO2, 0.03, guscio);
+  scatola(0.82, 0.09, 0.24, -0.1, ARCO - 0.02, 2.3, LEGNO2, 0.04, guscio);
+  { const anta = new THREE.Group(); anta.position.set(-0.4, 0, 2.38); anta.rotation.y = -1.9; guscio.add(anta); scatola(0.56, 0.8, 0.05, 0.28, 0.01, 0, TEAL, 0.03, anta); palla(0.03, 0.48, 0.42, 0.04, GIALLO, anta); palla(0.09, 0.28, 0.6, 0.02, BIANCO, anta, 1, 0.3); }
+  scatola(0.7, 0.012, 0.36, -0.1, 0, 2.62, '#c7574a', 0.005, casa);
+  scatola(0.95, 0.06, 0.48, -0.1, MURO - 0.14, 2.56, ROSSO, 0.03, guscio);
+  // Le fioriere sotto le finestre davanti e di lato
+  const fioriera = (x: number, z: number, lungo: number, sulX: boolean) => {
+    scatola(sulX ? lungo : 0.16, 0.1, sulX ? 0.16 : lungo, x, DAV - 0.15, z, LEGNO, 0.03, guscio);
+    for (let k = 0; k < 6; k++) { const u = (k / 5 - 0.5) * lungo * 0.85; palla(0.055, x + (sulX ? u : 0), DAV - 0.01, z + (sulX ? 0 : u), k % 2 ? ROSA : k % 3 ? GIALLO : BIANCO, guscio); }
+  };
+  fioriera(1.9, 2.42, 0.95, true); fioriera(3.22, -1.9, 0.75, false); fioriera(-3.22, 0.85, 0.95, false); fioriera(-3.22, -2.0, 0.85, false);
+
+  // --- Il tetto: un coperchio tondo e rosso con le file di tegole, il camino e l'abbaino tondo sul timpano.
+  // Tutti i suoi materiali sanno sfumare, perché vicino alla stanza non deve coprire la vista
+  const tettoG = new THREE.Group(); tettoG.position.y = PAV + MURO - 0.02; casa.add(tettoG);
+  const matTetto = (c: string) => nuovoToon(c, { transparent: true });
+  const M_TETTO = { base: matTetto('#d9503f'), chiara: matTetto(ROSSO), scura: matTetto('#c94636'), crema: matTetto('#ffe8c2'), legno: matTetto(LEGNO2), camino: matTetto('#c9b8a4'), vetro: new THREE.MeshBasicMaterial({ color: '#5f7f9a', transparent: true }) };
+  const L_T = 3.62, H_T = 1.72, ZF = 2.92, ZB = -4.12;
+  const curvaS = new THREE.QuadraticBezierCurve(new THREE.Vector2(-L_T, 0), new THREE.Vector2(-L_T * 0.62, H_T * 0.5), new THREE.Vector2(-0.5, H_T * 0.9));
+  const curvaD = new THREE.QuadraticBezierCurve(new THREE.Vector2(0.5, H_T * 0.9), new THREE.Vector2(L_T * 0.62, H_T * 0.5), new THREE.Vector2(L_T, 0));
+  const profilo = (k: number, y0: number) => {
+    const s = new THREE.Shape(); s.moveTo(-L_T * k, y0);
+    s.quadraticCurveTo(-L_T * 0.62 * k, H_T * 0.5 * k, -0.5 * k, H_T * 0.9 * k); s.quadraticCurveTo(0, H_T * k, 0.5 * k, H_T * 0.9 * k); s.quadraticCurveTo(L_T * 0.62 * k, H_T * 0.5 * k, L_T * k, y0);
+    s.lineTo(-L_T * k, y0);
+    return s;
+  };
+  {
+    const forma0 = profilo(1, 0); forma0.holes.push(new THREE.Path(profilo(0.86, 0.04).getPoints(14).reverse()));
+    const guscioT = new THREE.ExtrudeGeometry(forma0, { depth: ZF - ZB, bevelEnabled: true, bevelSize: 0.05, bevelThickness: 0.05, bevelSegments: 2, curveSegments: 14 });
+    guscioT.translate(0, 0, ZB);
+    sol(toCreasedNormals(guscioT, 0.8), M_TETTO.base, 0, 0, 0, tettoG);
+    // Il timpano davanti e il fondo dietro, rientrati
+    const piatto = new THREE.ShapeGeometry(profilo(0.87, 0.02), 14);
+    sol(piatto, M_TETTO.crema, 0, 0, 2.38, tettoG); sol(piatto, M_TETTO.crema, 0, 0, -3.56, tettoG).rotation.y = Math.PI;
+    // Un soffitto opaco: chiude il coperchio dal basso
+    const sotto = sol(new THREE.PlaneGeometry(L_T * 1.72, ZF - ZB - 0.04), M_TETTO.crema, 0, 0.03, (ZF + ZB) / 2, tettoG); sotto.rotation.x = Math.PI / 2;
+    // Le file di tegole: capsule lunghe posate sulla curva
+    const geoFila = new THREE.CapsuleGeometry(0.1, ZF - ZB - 0.1, 3, 10).rotateX(Math.PI / 2);
+    for (const [curva, inizio] of [[curvaS, 0.04], [curvaD, 0.96]] as const) for (let k = 0; k < 7; k++) {
+      const t = inizio < 0.5 ? 0.04 + k * 0.145 : 0.96 - k * 0.145, q = curva.getPoint(t), n = curva.getTangent(t);
+      const lato = inizio < 0.5 ? 1 : -1;
+      sol(geoFila, k % 2 ? M_TETTO.chiara : M_TETTO.scura, q.x + -n.y * 0.03 * lato, q.y + n.x * 0.03 * lato, (ZF + ZB) / 2, tettoG);
+    }
+    sol(new THREE.CapsuleGeometry(0.16, ZF - ZB - 0.1, 3, 12).rotateX(Math.PI / 2), M_TETTO.chiara, 0, H_T * 0.96, (ZF + ZB) / 2, tettoG);
+    // Il camino, dietro a destra
+    sol(rbox(0.42, 0.7, 0.42, 0.06), M_TETTO.camino, 1.75, 1.38, -2.1, tettoG);
+    sol(rbox(0.54, 0.12, 0.54, 0.05), M_TETTO.legno, 1.75, 1.76, -2.1, tettoG);
+    // L'abbaino tondo sul timpano
+    const anello = sol(new THREE.TorusGeometry(0.25, 0.05, 10, 28), M_TETTO.legno, 0, 0.66, 2.42, tettoG); void anello;
+    sol(new THREE.CircleGeometry(0.23, 28), M_TETTO.vetro, 0, 0.66, 2.4, tettoG);
+  }
+  const fiancoTetto = new THREE.Vector3();
+  const CAMINO = new THREE.Vector3(1.75, 1.86, -2.1);
+  // La sagoma della casa: passandoci sopra col mouse il tetto si alza
+  const sagoma = new THREE.Mesh(new THREE.BoxGeometry(6.6, MURO + PAV + 1.1, 6.1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+  sagoma.position.set(0, (MURO + PAV + 1.1) / 2, -0.6); casa.add(sagoma);
+  const conMouse = window.matchMedia('(hover: hover)').matches;
 
   // --- Luci: una lampada per stanza, tre lanterne in giardino. Sul pavimento, una pozza di luce del suo colore
   const lampade = new Map<Stanza, { ogg: Oggetto[]; punti: THREE.Vector3[] }>(STANZE.map(s => [s, { ogg: [], punti: [] }]));
-  const lampada = (s: Stanza, nome: [string, string], geo: THREE.BufferGeometry, x: number, y: number, z: number) => {
-    const o = oggetto(nome, x, y, z, 0.35, 0.35, 0.35);
-    casa.add(pezzo(geo, o.m, x, y, z));
-    lampade.get(s)!.ogg.push(o); lampade.get(s)!.punti.push(new THREE.Vector3(x, y, z));
+  const lampada = (s: Stanza, nome: [string, string], x: number, base: number, z: number, fa: (o: Oggetto) => void, fuori = false) => {
+    const o = oggetto(nome, x, base, z, 0.36, 0.36, 0.36, casa, !fuori);
+    fa(o);
+    lampade.get(s)!.ogg.push(o); lampade.get(s)!.punti.push(new THREE.Vector3(x, base + 0.14, z));
     return o;
   };
   const pozze = new Map<Stanza, THREE.MeshBasicMaterial>();
   {
-    const cv = document.createElement('canvas'); cv.width = cv.height = 64;
-    const g = cv.getContext('2d')!, gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
-    const tex = new THREE.CanvasTexture(cv);
+    const tex = new THREE.CanvasTexture((() => { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d')!, gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return cv; })());
     for (const s of STANZE) {
       const mm = new THREE.MeshBasicMaterial({ map: tex, color: '#ffd9a6', transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
-      const c = s === 'giardino' ? new THREE.Vector3(-0.2, 0, 4.0) : centro(s), d = s === 'giardino' ? 3.4 : 3.2;
+      const c = s === 'giardino' ? new THREE.Vector3(-0.2, 0, 4.0) : centro(s), d = s === 'giardino' ? 3.8 : 3.2;
       const o = new THREE.Mesh(new THREE.PlaneGeometry(d, d), mm);
-      o.rotation.x = -Math.PI / 2; o.position.set(c.x, quota(s) + 0.02, c.z); o.renderOrder = 2;
+      o.rotation.x = -Math.PI / 2; o.position.set(c.x, quota(s) + 0.024, c.z); o.renderOrder = 2;
       casa.add(o); pozze.set(s, mm);
     }
   }
+  const tappeto = (ra: number, x: number, z: number, c: string, c2: string, sz = 0.72) => {
+    for (const [k, col, dy] of [[1, c, 0.012], [0.72, c2, 0.016], [0.44, c, 0.02]] as const) { const t = sol(new THREE.CircleGeometry(ra * k, 36), col, x, PAV + dy, z); t.rotation.x = -Math.PI / 2; t.scale.y = sz; }
+  };
+  const pianta = (x: number, y0: number, z: number, g: THREE.Object3D = casa) => {
+    tubo(0.1, 0.08, 0.15, x, y0, z, '#d9775a', g, 0.03);
+    for (const [dx, dy, dz, q] of [[0, 0.3, 0, 0.13], [0.08, 0.24, 0.03, 0.09], [-0.08, 0.25, -0.03, 0.09], [0, 0.4, 0.02, 0.08]] as const) palla(q, x + dx, y0 + dy, z + dz, '#5fb548', g);
+  };
 
   // --- Soggiorno: divano, tappeto, TV, stufa, lampada a stelo, cassa
-  { const t = pezzo(new THREE.CircleGeometry(1.0, 28), M.pavimento, -1.5, PAV + 0.01, 0.85); t.rotation.x = -Math.PI / 2; t.scale.y = 0.72; casa.add(t); }
-  scatola(1.5, 0.2, 0.6, -1.5, PAV, 1.85, M.mobile); scatola(1.5, 0.22, 0.16, -1.5, PAV + 0.2, 2.1, M.mobile);
-  scatola(0.16, 0.14, 0.6, -2.3, PAV + 0.2, 1.85, M.mobile); scatola(0.16, 0.14, 0.6, -0.7, PAV + 0.2, 1.85, M.mobile);
-  scatola(1.3, 0.26, 0.36, -1.5, PAV, -0.34, M.mobile);
-  const tv = oggetto(['TV', 'TV'], -1.5, PAV + 0.55, -0.36, 1.0, 0.55, 0.2);
-  scatola(0.96, 0.52, 0.05, -1.5, PAV + 0.28, -0.36, tv.m);
+  tappeto(1.0, -1.5, 0.85, '#f0c98a', '#e8a86a');
+  scatola(1.56, 0.2, 0.62, -1.5, PAV + 0.01, 1.85, TEAL, 0.08); scatola(1.56, 0.34, 0.2, -1.5, PAV + 0.14, 2.1, '#35a397', 0.09);
+  for (const x of [-2.3, -0.7]) scatola(0.2, 0.26, 0.64, x, PAV + 0.08, 1.85, '#35a397', 0.09);
+  for (const x of [-1.86, -1.14]) scatola(0.62, 0.08, 0.5, x, PAV + 0.19, 1.82, '#6fd0c4', 0.04);
+  scatola(1.3, 0.26, 0.38, -1.5, PAV, -0.34, LEGNO, 0.05);
+  const tv = oggetto(['TV', 'TV'], -1.5, PAV + 0.26, -0.36, 1.0, 0.6, 0.2);
+  parte(tv, rbox(1.0, 0.56, 0.07, 0.035), SCURO, 0, 0.3, 0);
+  for (const v of [-1, 1]) parte(tv, new THREE.CapsuleGeometry(0.008, 0.16, 2, 6), SCURO, v * 0.07, 0.64, 0).rotation.z = -v * 0.45;
   const schermo = luminoso(C.fg);
-  { const o = new THREE.Mesh(new THREE.PlaneGeometry(0.88, 0.44), schermo); o.position.set(-1.5, PAV + 0.54, -0.33); casa.add(o); }
-  const stufa = oggetto(['stove (heating)', 'stufa (riscaldamento)'], -2.7, PAV + 0.4, -0.15, 0.6, 0.85, 0.6);
-  tubo(0.22, 0.25, 0.46, -2.7, PAV, -0.15, stufa.m, 12); tubo(0.05, 0.05, 0.4, -2.7, PAV + 0.46, -0.15, stufa.m, 6);
-  const fiamma = luminoso(C.arancio);
-  { const o = new THREE.Mesh(new THREE.CircleGeometry(0.1, 14), fiamma); o.position.set(-2.7, PAV + 0.22, 0.105); casa.add(o); }
-  tubo(0.015, 0.015, 0.7, -2.75, PAV, 1.95, M.mobile, 4);
-  lampada('soggiorno', ['lamp', 'lampada'], new THREE.CylinderGeometry(0.11, 0.18, 0.18, 10, 1, true), -2.75, PAV + 0.78, 1.95);
+  { const o = new THREE.Mesh(new THREE.PlaneGeometry(0.88, 0.44), schermo); o.position.set(0, 0.3, 0.04); tv.g.add(o); }
+  const stufa = oggetto(['stove (heating)', 'stufa (riscaldamento)'], -2.7, PAV, -0.15, 0.6, 0.95, 0.6);
+  parte(stufa, botte(0.2, 0.26, 0.5, 0.06), '#d9654a', 0, 0.03, 0);
+  parte(stufa, botte(0.055, 0.055, 0.42, 0.015), SCURO, 0, 0.52, 0);
+  for (const a of [0, 2.1, 4.2]) parte(stufa, rbox(0.05, 0.05, 0.05, 0.02), SCURO, Math.cos(a) * 0.2, 0.02, Math.sin(a) * 0.2);
+  const fiamma = luminoso('#ffb347');
+  { const o = new THREE.Mesh(new THREE.CircleGeometry(0.1, 18), fiamma); o.position.set(0, 0.24, 0.24); stufa.g.add(o); }
+  tubo(0.016, 0.016, 0.74, -2.75, PAV, 1.95, GRIGIO); tubo(0.12, 0.13, 0.03, -2.75, PAV, 1.95, GRIGIO);
+  lampada('soggiorno', ['lamp', 'lampada'], -2.75, PAV + 0.68, 1.95, o => { parte(o, botte(0.12, 0.2, 0.22, 0.03), GIALLO); });
   const casse = new Map<Stanza, { ogg: Oggetto; bocca: THREE.Vector3 }>();
-  const cassa = (s: Stanza, x: number, y: number, z: number) => { const o = oggetto(['speaker', 'cassa'], x, y + 0.14, z, 0.3, 0.35, 0.3); scatola(0.18, 0.28, 0.16, x, y, z, o.m); casse.set(s, { ogg: o, bocca: new THREE.Vector3(x, y + 0.32, z) }); };
+  const cassa = (s: Stanza, x: number, y: number, z: number, verso = 0) => {
+    const o = oggetto(['speaker', 'cassa'], x, y, z, 0.3, 0.38, 0.3);
+    parte(o, rbox(0.22, 0.34, 0.2, 0.05), '#e8a13c', 0, 0.17, 0);
+    const f = palla(0.065, Math.sin(verso) * 0.09, 0.14, Math.cos(verso) * 0.09, SCURO, o.g, 1, 0.4); f.rotation.y = verso;
+    casse.set(s, { ogg: o, bocca: new THREE.Vector3(x, y + 0.36, z) });
+  };
   cassa('soggiorno', 0.0, PAV, -0.3);
-  casa.add(pezzo(sasso(0.2, r, 1), M.foglie, -2.75, PAV + 0.3, 1.25)); tubo(0.1, 0.08, 0.16, -2.75, PAV, 1.25, M.mobile, 8);
+  pianta(-2.75, PAV, 1.2);
 
   // --- Cucina: piano di lavoro, frigo, macchina del caffè, timer, tavolo tondo, la ciotola del gatto
-  scatola(0.55, 0.42, 1.7, 2.78, PAV, 0.55, M.mobile); scatola(0.55, 0.85, 0.5, 2.78, PAV, -0.28, M.mobile);
-  const caffe = oggetto(['coffee machine', 'macchina del caffè'], 2.8, PAV + 0.58, 1.15, 0.35, 0.4, 0.35);
-  scatola(0.22, 0.28, 0.2, 2.8, PAV + 0.42, 1.15, caffe.m);
-  const tazza = tubo(0.035, 0.03, 0.05, 2.64, PAV + 0.42, 1.15, M.mobile, 8);
-  const timer = oggetto(['kitchen timer', 'timer da cucina'], 2.8, PAV + 0.5, 0.65, 0.3, 0.3, 0.3);
-  tubo(0.07, 0.07, 0.09, 2.8, PAV + 0.42, 0.65, timer.m, 12);
-  const lancetta = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0.065)]), timer.l);
-  lancetta.position.set(2.8, PAV + 0.52, 0.65); casa.add(lancetta);
-  cassa('cucina', 2.8, PAV + 0.42, 0.2);
-  tubo(0.46, 0.46, 0.04, 1.55, PAV + 0.44, 0.85, M.mobile, 20); tubo(0.04, 0.1, 0.44, 1.55, PAV, 0.85, M.mobile, 6);
-  tubo(0.15, 0.15, 0.28, 0.95, PAV, 0.85, M.mobile, 10); tubo(0.15, 0.15, 0.28, 2.15, PAV, 0.85, M.mobile, 10);
-  lampada('cucina', ['lamp', 'lampada'], new THREE.SphereGeometry(0.14, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2), 1.55, PAV + 0.62, 0.85);
-  tubo(0.09, 0.07, 0.04, 2.2, PAV, 1.98, M.acqua, 10);
+  scatola(0.55, 0.42, 1.7, 2.78, PAV, 0.55, '#7fc8b8', 0.04); scatola(0.6, 0.05, 1.74, 2.77, PAV + 0.41, 0.55, BIANCO, 0.02);
+  scatola(0.55, 0.92, 0.5, 2.78, PAV, -0.28, '#d7efe8', 0.08); scatola(0.03, 0.2, 0.04, 2.49, PAV + 0.5, -0.12, GRIGIO, 0.012);
+  const caffe = oggetto(['coffee machine', 'macchina del caffè'], 2.8, PAV + 0.45, 1.15, 0.36, 0.42, 0.36);
+  parte(caffe, rbox(0.22, 0.3, 0.22, 0.05), ROSSO, 0, 0.15, 0);
+  parte(caffe, rbox(0.07, 0.05, 0.1, 0.02), SCURO, -0.14, 0.2, 0);
+  const tazza = tubo(0.042, 0.034, 0.06, 2.64, PAV + 0.46, 1.15, BIANCO);
+  const timer = oggetto(['kitchen timer', 'timer da cucina'], 2.8, PAV + 0.45, 0.65, 0.3, 0.3, 0.3);
+  parte(timer, botte(0.09, 0.1, 0.11, 0.03), GIALLO);
+  const lancetta = new THREE.Group(); lancetta.position.y = 0.12; timer.g.add(lancetta);
+  sol(rbox(0.018, 0.018, 0.08, 0.008), SCURO, 0, 0, 0.04, lancetta);
+  cassa('cucina', 2.8, PAV + 0.45, 0.2, -Math.PI / 2);
+  tappeto(0.75, 1.55, 0.85, '#f4d9a0', '#efc47c', 1);
+  tubo(0.48, 0.48, 0.05, 1.55, PAV + 0.42, 0.85, LEGNO, casa, 0.024); tubo(0.04, 0.12, 0.42, 1.55, PAV, 0.85, LEGNO2);
+  for (const x of [0.95, 2.15]) { tubo(0.15, 0.13, 0.05, x, PAV + 0.24, 0.85, ROSA, casa, 0.024); tubo(0.03, 0.08, 0.25, x, PAV, 0.85, LEGNO2); }
+  lampada('cucina', ['lamp', 'lampada'], 1.55, PAV + 0.47, 0.85, o => { parte(o, botte(0.025, 0.04, 0.1, 0.01), LEGNO2); const c = parte(o, new THREE.SphereGeometry(0.15, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), GIALLO, 0, 0.09, 0); c.scale.y = 0.9; });
+  tubo(0.1, 0.07, 0.05, 2.2, PAV + 0.01, 1.98, CIELO, casa, 0.02);
 
   // --- Camera: letto, comodino con l'abat-jour, armadio, ventilatore, cassa
-  scatola(1.3, 0.22, 1.85, -1.45, PAV, -2.55, M.mobile); scatola(1.3, 0.42, 0.08, -1.45, PAV, -3.44, M.mobile);
-  scatola(1.2, 0.08, 1.1, -1.45, PAV + 0.22, -2.2, M.mobile); scatola(0.9, 0.1, 0.3, -1.45, PAV + 0.22, -3.15, M.mobile);
-  scatola(0.34, 0.32, 0.32, -2.45, PAV, -3.22, M.mobile);
-  lampada('camera', ['bedside lamp', 'abat-jour'], new THREE.CylinderGeometry(0.08, 0.12, 0.12, 10, 1, true), -2.45, PAV + 0.46, -3.22);
-  scatola(0.48, 0.5, 0.9, -2.82, PAV, -1.15, M.mobile);
+  tappeto(0.85, -1.5, -1.3, '#efe0ff', '#dcc8f6');
+  scatola(1.34, 0.18, 1.9, -1.45, PAV + 0.02, -2.55, LEGNO, 0.05); scatola(1.34, 0.56, 0.1, -1.45, PAV, -3.44, LEGNO2, 0.05);
+  scatola(1.24, 0.14, 1.78, -1.45, PAV + 0.16, -2.5, BIANCO, 0.06); scatola(1.28, 0.1, 1.2, -1.45, PAV + 0.22, -2.14, LILLA, 0.05);
+  for (const x of [-1.76, -1.14]) scatola(0.5, 0.12, 0.32, x, PAV + 0.26, -3.14, BIANCO, 0.05);
+  scatola(0.36, 0.32, 0.34, -2.45, PAV, -3.22, LEGNO, 0.05);
+  lampada('camera', ['bedside lamp', 'abat-jour'], -2.45, PAV + 0.32, -3.22, o => { parte(o, botte(0.02, 0.05, 0.08, 0.01), LEGNO2); parte(o, botte(0.08, 0.13, 0.13, 0.025), ROSA, 0, 0.08, 0); });
+  scatola(0.5, 0.82, 0.94, -2.8, PAV, -1.15, LEGNO, 0.05); palla(0.025, -2.54, PAV + 0.46, -1.05, GIALLO); palla(0.025, -2.54, PAV + 0.46, -1.25, GIALLO);
   cassa('camera', -0.15, PAV, -3.25);
-  const ventola = oggetto(['fan', 'ventilatore'], -0.15, PAV + 0.35, -1.0, 0.4, 0.7, 0.4);
-  tubo(0.12, 0.14, 0.03, -0.15, PAV, -1.0, ventola.m, 10); tubo(0.015, 0.015, 0.45, -0.15, PAV + 0.03, -1.0, ventola.m, 4);
-  const pale = new THREE.Group(); pale.position.set(-0.15, PAV + 0.52, -0.95); casa.add(pale);
-  pale.add(pezzo(new THREE.TorusGeometry(0.15, 0.006, 4, 18), ventola.m));
-  for (let k = 0; k < 4; k++) { const b = pezzo(new THREE.BoxGeometry(0.06, 0.2, 0.01), ventola.m, Math.cos(k * Math.PI / 2) * 0.08, Math.sin(k * Math.PI / 2) * 0.08, 0); b.rotation.z = k * Math.PI / 2 - Math.PI / 2; pale.add(b); }
+  const ventola = oggetto(['fan', 'ventilatore'], -0.15, PAV, -1.0, 0.44, 0.74, 0.44);
+  parte(ventola, botte(0.12, 0.15, 0.04, 0.015), CIELO);
+  parte(ventola, botte(0.017, 0.017, 0.47, 0.006), BIANCO, 0, 0.03, 0);
+  const pale = new THREE.Group(); pale.position.set(0, 0.54, 0.05); ventola.g.add(pale);
+  parte(ventola, new THREE.TorusGeometry(0.17, 0.012, 8, 28), CIELO, 0, 0.54, 0.05);
+  for (let k = 0; k < 4; k++) { const b = sol(geoPalla, BIANCO, Math.cos(k * Math.PI / 2) * 0.085, Math.sin(k * Math.PI / 2) * 0.085, 0, pale); b.scale.set(k % 2 ? 0.045 : 0.085, k % 2 ? 0.085 : 0.045, 0.012); }
+  palla(0.03, 0, 0, 0.012, CIELO, pale);
 
   // --- Bagno: vasca, lavandino con lo specchio tondo che fa da lampada
-  scatola(1.4, 0.34, 0.7, 2.25, PAV, -3.0, M.mobile);
-  { const a = pezzo(new THREE.PlaneGeometry(1.2, 0.5), M.acqua, 2.25, PAV + 0.3, -3.0); a.rotation.x = -Math.PI / 2; casa.add(a); }
-  scatola(0.4, 0.32, 0.3, 0.55, PAV, -2.6, M.mobile);
-  { const o = lampada('bagno', ['mirror light', 'luce dello specchio'], new THREE.TorusGeometry(0.14, 0.02, 5, 20), 0.42, PAV + 0.55, -2.6); void o; (casa.children[casa.children.length - 1] as THREE.Object3D).rotation.y = Math.PI / 2; }
+  tappeto(0.5, 1.7, -1.8, BIANCO, '#cfeaf3', 0.72);
+  scatola(1.44, 0.34, 0.74, 2.25, PAV, -3.0, BIANCO, 0.13);
+  { const a = sol(new THREE.PlaneGeometry(1.14, 0.46), CIELO, 2.25, PAV + 0.345, -3.0); a.rotation.x = -Math.PI / 2; }
+  palla(0.05, 2.84, PAV + 0.42, -3.0, GRIGIO, casa, 0.5, 0.6);
+  scatola(0.42, 0.3, 0.34, 0.58, PAV, -2.6, '#7fc8b8', 0.05); tubo(0.15, 0.1, 0.05, 0.58, PAV + 0.3, -2.6, BIANCO, casa, 0.02);
+  lampada('bagno', ['mirror light', 'luce dello specchio'], 0.42, PAV + 0.5, -2.6, o => { const a = parte(o, new THREE.TorusGeometry(0.15, 0.024, 8, 26), GIALLO, 0, 0.16, 0); a.rotation.y = Math.PI / 2; const v = sol(new THREE.CircleGeometry(0.135, 24), '#d7eef8', 0.004, 0.16, 0, o.g); v.rotation.y = Math.PI / 2; });
 
-  // --- Giardino: alberi a filo come nel bosco della home, il vialetto, tre lanterne, l'erba da tagliare e la casetta del tosaerba
-  const albero = (x: number, z: number, alto: number) => {
-    tubo(0.04, 0.06, alto * 0.45, x, 0, z, M.tronco, 6);
-    casa.add(pezzo(sasso(alto * 0.3, r, 1), M.foglie, x, alto * 0.6, z));
+  // --- Giardino: alberi tondi da cartone, colli coi pini, sassi, fiori, il vialetto, lo stagno con la papera, il pontile con la barca
+  const VERDI = ['#5fb548', '#4fa644', '#72c257'];
+  const chiome: { g: THREE.Group; fase: number }[] = [];
+  const alberello = (x: number, z: number, alto: number, k: number, frutti?: string) => {
+    const g = new THREE.Group(); g.position.set(x, altezza(x, z) - 0.01, z); g.rotation.y = r() * 6; casa.add(g);
+    tubo(0.07 * alto, 0.12 * alto, alto * 0.6, 0, 0, 0, LEGNO2, g, 0.02);
+    const c = VERDI[k % 3]!, q = alto * 0.42;
+    for (const [dx, dy, dz, f] of [[0, 0.82, 0, 1], [0.32, 0.66, 0.1, 0.72], [-0.3, 0.68, -0.12, 0.75], [0.04, 0.68, 0.34, 0.68], [-0.04, 0.7, -0.34, 0.66]] as const) palla(q * f, dx * alto, dy * alto, dz * alto, c, g);
+    if (frutti) for (let j = 0; j < 6; j++) { const a = j * 1.05 + 0.4, y = alto * (0.62 + (j % 3) * 0.11); palla(0.042, Math.cos(a) * q * 1.05, y, Math.sin(a) * q * 1.05, frutti, g); }
+    chiome.push({ g, fase: r() * 6 });
   };
-  [[-4.2, 3.2, 1.6], [-4.7, -1.4, 1.9], [4.5, -2.4, 1.7], [-3.2, -4.2, 1.3], [3.4, -4.1, 1.2], [-4.9, 1.0, 1.1], [4.8, -0.1, 1.0]].forEach(([x, z, a]) => albero(x!, z!, a!));
-  for (let k = 0; k < 9; k++) casa.add(pezzo(sasso(0.1 + r() * 0.1, r), M.verde, (r() < 0.5 ? -1 : 1) * (3.5 + r() * 1.3), 0.06, -3 + r() * 6));
-  for (let k = 0; k < 5; k++) { const s = pezzo(new THREE.CylinderGeometry(0.19, 0.2, 0.02, 9), M.mobile, -0.1 + (k % 2 ? 0.12 : -0.12), 0.01, 2.75 + k * 0.6); casa.add(s); }
+  const pino = (x: number, z: number, alto: number) => {
+    const g = new THREE.Group(); g.position.set(x, altezza(x, z) - 0.01, z); casa.add(g);
+    tubo(0.05, 0.08, alto * 0.25, 0, 0, 0, LEGNO2, g);
+    for (let q = 0; q < 3; q++) { const f = 1 - q * 0.26; sol(new THREE.ConeGeometry(alto * 0.27 * f, alto * 0.46, 16), '#3f9a5a', 0, alto * (0.38 + q * 0.23), 0, g); }
+    palla(alto * 0.05, 0, alto * 0.94, 0, '#3f9a5a', g);
+    chiome.push({ g, fase: r() * 6 });
+  };
+  ([[-4.5, 1.2, 1.5, 0, ROSSO], [-5.5, -0.6, 1.25, 1], [-4.2, -3.9, 1.3, 2, '#f7a13c'], [-2.3, -4.8, 1.2, 0], [1.6, -5.0, 1.1, 1, ROSSO], [4.1, -1.0, 1.35, 2], [5.3, 2.6, 1.05, 0, '#f7a13c'], [-5.3, 4.9, 0.95, 1], [5.4, -0.8, 1.0, 1]] as [number, number, number, number, string?][]).forEach(([x, z, a, k, f]) => alberello(x, z, a, k, f));
+  ([[4.9, -3.6, 1.0], [4.2, -3.2, 0.72], [5.6, -3.0, 0.8], [-5.1, -3.3, 0.95], [-5.8, -2.6, 0.7], [0.1, -5.5, 0.8], [-0.9, -5.4, 0.62]] as const).forEach(([x, z, a]) => pino(x, z, a));
+  // Sassi tondi e ciuffi di fiori
+  for (const [x, z, q] of [[-3.7, 2.9, 0.16], [3.6, 3.0, 0.0], [-6.0, 1.0, 0.2], [6.0, -0.4, 0.17], [-1.9, 6.0, 0.17], [2.4, 6.0, 0.13], [-3.3, 5.9, 0.12]] as const) if (q) { const o = palla(q, x, altezza(x, z) + q * 0.3, z, '#b7b2a8', casa, 0.65, 0.85); o.rotation.y = x; }
+  {
+    const geo = new THREE.SphereGeometry(0.05, 10, 7), TINTE = [ROSA, BIANCO, GIALLO, '#e88a5a', LILLA], posti: [number, number][] = [];
+    for (let k = 0; k < 70; k++) { const x = -3.1 + (k / 69) * 2.4 + (r() - 0.5) * 0.1; if (k < 30) posti.push([x, 2.56 + r() * 0.18]); }
+    for (let k = 0; k < 150 && posti.length < 110; k++) {
+      const a = r() * 6.283, d = 3.4 + r() * 3.2, x = Math.cos(a) * d * 1.1, z = CZ + Math.sin(a) * d;
+      if (forma(x, z) < 0.88 && fuoriRett(x, z, -3.5, 3.5, -3.9, 2.6) > 0.1 && fuoriRett(x, z, 0.9, 4.9, 2.6, 5.6) > 0.15 && Math.abs(x + 0.1) > 0.6 && Math.hypot(x + 3.9, z - 4.2) > 1.5) posti.push([x, z]);
+    }
+    const fiori = new THREE.InstancedMesh(geo, new THREE.MeshToonMaterial({ gradientMap: bande }), posti.length), M4 = new THREE.Matrix4();
+    posti.forEach(([x, z], i) => { M4.makeTranslation(x, altezza(x, z) + 0.05, z); fiori.setMatrixAt(i, M4); fiori.setColorAt(i, cTmp.set(TINTE[i % 5]!)); });
+    casa.add(fiori);
+  }
+  // Il vialetto di sassi piatti, dalla porta alla spiaggia
+  for (let k = 0; k < 7; k++) { const z = 2.95 + k * 0.5, x = -0.1 + Math.sin(k * 0.9) * 0.16; const s = sol(botte(0.2, 0.22, 0.03, 0.012), '#d7cfbf', x, 0, z); s.scale.z = 0.8; }
   for (const [x, z] of [[-0.85, 3.1], [0.65, 4.0], [-0.85, 4.9]] as const) {
-    tubo(0.015, 0.015, 0.55, x, 0, z, M.mobile, 4);
-    lampada('giardino', ['lantern', 'lanterna'], new THREE.BoxGeometry(0.12, 0.15, 0.12), x, 0.63, z);
+    tubo(0.018, 0.024, 0.55, x, 0, z, SCURO); tubo(0.06, 0.07, 0.03, x, 0, z, SCURO);
+    lampada('giardino', ['lantern', 'lanterna'], x, 0.5, z, o => { parte(o, rbox(0.15, 0.18, 0.15, 0.05), GIALLO, 0, 0.09, 0); parte(o, botte(0.03, 0.11, 0.06, 0.02), SCURO, 0, 0.18, 0); }, true);
+  }
+  // Lo stagno con le ninfee e una papera che gira
+  const STAGNO = new THREE.Vector3(-3.9, 0, 4.2);
+  {
+    const a = sol(new THREE.CircleGeometry(1.05, 40), '#6bbfe4', STAGNO.x, 0.012, STAGNO.z); a.rotation.x = -Math.PI / 2; a.scale.y = 0.78; a.material = new THREE.MeshBasicMaterial({ color: '#6bbfe4' });
+    for (let k = 0; k < 16; k++) { const t = (k / 16) * 6.283; palla(0.1 + (k % 3) * 0.022, STAGNO.x + Math.cos(t) * 1.08, 0.03, STAGNO.z + Math.sin(t) * 0.84, '#c8c2b5', casa, 0.6); }
+    for (const [dx, dz] of [[0.42, 0.24], [-0.3, -0.36], [0.05, 0.42]] as const) { const n = sol(new THREE.CircleGeometry(0.12, 16), '#5fb548', STAGNO.x + dx, 0.018, STAGNO.z + dz); n.rotation.x = -Math.PI / 2; palla(0.03, STAGNO.x + dx, 0.03, STAGNO.z + dz, ROSA, casa, 0.7); }
+  }
+  const papera = new THREE.Group(); papera.scale.setScalar(0.85); casa.add(papera);
+  palla(0.1, 0, 0.07, 0, BIANCO, papera, 0.72, 1.3); palla(0.06, 0, 0.17, 0.09, BIANCO, papera); palla(0.03, 0, 0.16, 0.16, '#f7a13c', papera, 0.45, 1.1); for (const v of [-1, 1]) palla(0.011, v * 0.042, 0.19, 0.14, SCURO, papera);
+  // La cassetta delle lettere, la panchina e lo steccato bianco del prato
+  { const g = new THREE.Group(); g.position.set(0.72, 0, 2.86); casa.add(g); tubo(0.02, 0.025, 0.42, 0, 0, 0, LEGNO2, g); scatola(0.2, 0.15, 0.3, 0, 0.4, 0, CIELO, 0.07, g); scatola(0.015, 0.14, 0.05, 0.11, 0.47, -0.05, ROSSO, 0.006, g); }
+  { const g = new THREE.Group(); g.position.set(-2.55, 0, 5.45); g.rotation.y = -2.6; casa.add(g); scatola(0.8, 0.04, 0.24, 0, 0.2, 0, LEGNO, 0.018, g); scatola(0.8, 0.2, 0.04, 0, 0.26, -0.11, LEGNO, 0.018, g); for (const v of [-1, 1]) scatola(0.05, 0.2, 0.2, v * 0.33, 0, 0, LEGNO2, 0.018, g); }
+  {
+    const geoP = rbox(0.07, 0.3, 0.05, 0.024), geoS = rbox(1, 0.035, 0.02, 0.012), steccati: [number, number, number, number][] = [[1.0, 3.25, 1.0, 5.5], [1.0, 5.5, 4.75, 5.5]];
+    for (const [x0, z0, x1, z1] of steccati) {
+      const L = Math.hypot(x1 - x0, z1 - z0), n = Math.round(L / 0.3), a = Math.atan2(z1 - z0, x1 - x0);
+      for (let k = 0; k <= n; k++) { const f = k / n, q = sol(geoP, BIANCO, x0 + (x1 - x0) * f, 0.15, z0 + (z1 - z0) * f); q.rotation.y = -a; }
+      for (const y of [0.1, 0.21]) { const q = sol(geoS, BIANCO, (x0 + x1) / 2, y, (z0 + z1) / 2); q.scale.x = L; q.rotation.y = -a; }
+    }
+  }
+  // Il pontile e la barchetta, nella baia
+  const barca = new THREE.Group(); barca.position.set(1.05, -0.3, 7.15); barca.rotation.y = -1.1; casa.add(barca);
+  {
+    for (let k = 0; k < 8; k++) scatola(0.72, 0.035, 0.17, -0.1, -0.05, 5.55 + k * 0.22, k % 2 ? LEGNO : '#b67e49', 0.015);
+    for (const [x, z] of [[-0.44, 5.7], [0.24, 5.7], [-0.44, 7.0], [0.24, 7.0]] as const) tubo(0.035, 0.04, 0.5, x, -0.48, z, LEGNO2);
+    palla(0.17, 0, 0.03, 0, BIANCO, barca, 0.72, 2.6);
+    palla(0.175, 0, 0.0, 0, TEAL, barca, 0.45, 2.62);
+    palla(0.12, 0, 0.09, 0, LEGNO, barca, 0.22, 2.75);
+    tubo(0.012, 0.012, 0.75, 0, 0.08, -0.03, LEGNO2, barca);
+    const vela = new THREE.Shape(); vela.moveTo(0, 0); vela.lineTo(0, 0.62); vela.quadraticCurveTo(0.26, 0.26, 0.38, 0); vela.lineTo(0, 0);
+    const v = sol(new THREE.ShapeGeometry(vela, 12), new THREE.MeshToonMaterial({ color: ROSSO, gradientMap: bande, side: THREE.DoubleSide }), 0, 0.16, -0.03, barca); v.rotation.y = -Math.PI / 2;
   }
   // Ciuffi d'erba nel prato davanti: il tosaerba li accorcia dove passa, poi ricrescono piano
   const PRATO = { x0: 1.3, x1: 4.4, z0: 2.8, z1: 5.2 };
-  const ciuffi: { x: number; z: number; h: number; ora: number }[] = [];
-  for (let x = PRATO.x0; x <= PRATO.x1; x += 0.3) for (let z = PRATO.z0; z <= PRATO.z1; z += 0.3) if (Math.hypot(x, z - 0.3) < 5.3) ciuffi.push({ x: x + (r() - 0.5) * 0.14, z: z + (r() - 0.5) * 0.14, h: 0.08 + r() * 0.05, ora: 0 });
+  const ciuffi: { x: number; z: number; h: number; ora: number; disegnata: number }[] = [];
+  for (let x = PRATO.x0; x <= PRATO.x1; x += 0.2) for (let z = PRATO.z0; z <= PRATO.z1; z += 0.2) if (forma(x, z) < 0.94) ciuffi.push({ x: x + (r() - 0.5) * 0.1, z: z + (r() - 0.5) * 0.1, h: 0.11 + r() * 0.07, ora: 0, disegnata: -1 });
   ciuffi.forEach(c => { c.ora = c.h; });
-  const posErba = new Float32Array(ciuffi.length * 3 * 6), geoErba = new THREE.BufferGeometry();
-  geoErba.setAttribute('position', new THREE.BufferAttribute(posErba, 3));
-  { const l = new THREE.LineBasicMaterial({ color: C.verde, transparent: true, opacity: 0.75 }); scuri.push({ m: l, base: 0.75 }); casa.add(new THREE.LineSegments(geoErba, l)); }
+  const erba = new THREE.InstancedMesh(new THREE.ConeGeometry(0.05, 1, 6).translate(0, 0.5, 0), new THREE.MeshToonMaterial({ color: '#4fa33f', gradientMap: bande }), ciuffi.length);
+  erba.frustumCulled = false; casa.add(erba);
+  const M4 = new THREE.Matrix4();
   const disegnaErba = () => {
-    ciuffi.forEach((c, i) => [-0.035, 0, 0.035].forEach((dx, j) => { const o = (i * 3 + j) * 6; posErba.set([c.x, 0, c.z, c.x + dx, c.ora * (dx === 0 ? 1.2 : 1), c.z + dx * 0.4], o); }));
-    (geoErba.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+    let cambiata = false;
+    ciuffi.forEach((c, i) => { if (Math.abs(c.ora - c.disegnata) < 0.002) return; c.disegnata = c.ora; M4.makeScale(1, c.ora, 1).setPosition(c.x, 0, c.z); erba.setMatrixAt(i, M4); cambiata = true; });
+    if (cambiata) erba.instanceMatrix.needsUpdate = true;
   };
   disegnaErba();
-  scatola(0.62, 0.36, 0.54, 4.55, 0, 2.75, M.mobile);
-  { const t = pezzo(new THREE.ConeGeometry(0.5, 0.28, 4), M.mobile, 4.55, 0.5, 2.75); t.rotation.y = Math.PI / 4; casa.add(t); }
+  // La casetta del tosaerba, sorella piccola della casa
+  scatola(0.74, 0.42, 0.62, 4.65, 0, 2.75, CREMA, 0.05);
+  { const t = sol(botte(0.03, 0.58, 0.32, 0.03), ROSSO, 4.65, 0.42, 2.75); t.scale.z = 0.82; scatola(0.34, 0.3, 0.02, 4.32, 0, 2.75, SCURO, 0.008).rotation.y = Math.PI / 2; }
   const BASE_TOSA = new THREE.Vector3(4.0, 0, 2.75);
   const tosa = new THREE.Group(); tosa.position.copy(BASE_TOSA); casa.add(tosa);
-  const tosaO = oggetto(['lawn mower', 'tosaerba'], 0, 0.12, 0, 0.45, 0.3, 0.45);
-  tosa.add(tosaO.presa);
-  tosa.add(pezzo(new THREE.BoxGeometry(0.34, 0.1, 0.26), tosaO.m, 0, 0.09, 0));
-  for (const [x, z] of [[-0.13, 0.14], [0.13, 0.14], [-0.13, -0.14], [0.13, -0.14]] as const) { const w = pezzo(new THREE.CylinderGeometry(0.045, 0.045, 0.025, 8), tosaO.m, x, 0.045, z); w.rotation.x = Math.PI / 2; tosa.add(w); }
+  const tosaO = oggetto(['lawn mower', 'tosaerba'], 0, 0, 0, 0.5, 0.42, 0.5, tosa, false);
+  parte(tosaO, rbox(0.36, 0.15, 0.3, 0.06), ROSSO, 0, 0.13, 0);
+  parte(tosaO, botte(0.07, 0.09, 0.08, 0.02), GIALLO, 0, 0.2, 0);
+  parte(tosaO, new THREE.CapsuleGeometry(0.012, 0.3, 2, 6), SCURO, 0, 0.32, -0.2).rotation.x = -0.75;
+  for (const [x, z] of [[-0.17, 0.12], [0.17, 0.12], [-0.17, -0.12], [0.17, -0.12]] as const) { const w = sol(botte(0.05, 0.05, 0.03, 0.01), SCURO, x + (x > 0 ? -0.015 : 0.015), 0.05, z, tosaO.g); w.rotation.z = Math.PI / 2; w.position.x = x > 0 ? x + 0.015 : x - 0.015; }
 
-  // --- Robot aspirapolvere: va di stanza in stanza passando dalle porte, poi torna alla base
+  // --- Robot aspirapolvere: va di stanza in stanza passando dalle porte, poi torna alla base. Ha due occhietti davanti
   const robot = new THREE.Group(); robot.position.copy(BASE_ROBOT); casa.add(robot);
-  const robotO = oggetto(['robot vacuum', 'robot aspirapolvere'], 0, 0.06, 0, 0.4, 0.2, 0.4);
-  robot.add(robotO.presa);
-  robot.add(pezzo(new THREE.CylinderGeometry(0.16, 0.16, 0.05, 14), robotO.m, 0, 0.025, 0));
+  const robotO = oggetto(['robot vacuum', 'robot aspirapolvere'], 0, 0, 0, 0.44, 0.22, 0.44, robot);
+  parte(robotO, botte(0.17, 0.18, 0.07, 0.025), '#4d6e9e', 0, 0.005, 0);
+  parte(robotO, botte(0.07, 0.08, 0.025, 0.01), '#f0a35a', 0, 0.07, -0.03);
+  for (const v of [-1, 1]) { palla(0.024, v * 0.055, 0.065, 0.125, BIANCO, robot); palla(0.012, v * 0.055, 0.067, 0.145, SCURO, robot); }
   let percorso: THREE.Vector3[] = [], stanzaRobot: Stanza = 'soggiorno';
 
-  // --- Il gatto, nello stile dei cervi della home: ovali pieni a facce con i bordi sottili, zampe col ginocchio.
-  // Bianco e nero: pelo nero, petto, muso, zampe e punta della coda bianchi. In scala con la casa: il garrese arriva a metà
-  // del sedile del divano, e il gatto è lungo un quinto del divano. Il corpo è fatto di tre ovali (petto, ventre, fianchi)
-  // che si piegano nelle curve; la coda è una catena con un'onda che scorre dalla base alla punta.
-  const bordiGatto = new THREE.LineBasicMaterial({ color: C.fg, transparent: true, opacity: chiaro ? 0.55 : 0.4 });
-  const nero = new THREE.MeshBasicMaterial({ color: chiaro ? '#2a2621' : '#131313', transparent: true, opacity: 0.96 });
-  const bianco = new THREE.MeshBasicMaterial({ color: chiaro ? '#f8f5ee' : '#eef1f5', transparent: true, opacity: chiaro ? 1 : 0.92 });
-  const occhi = luminoso(tono('#c8e05a'), 0.85);
-  const geoOvale = new THREE.SphereGeometry(1, 8, 6), bordiOvale = new THREE.EdgesGeometry(geoOvale, 25);
+  // --- Il gatto: forme piene e lisce, come il cane di /learn/. Bianco e nero: pelo nero, petto, muso, zampe e punta della coda
+  // bianchi, gli occhi gialli. Il corpo è fatto di tre ovali (petto, ventre, fianchi) che si piegano nelle curve;
+  // la coda è una catena con un'onda che scorre dalla base alla punta.
+  const nero = nuovoToon('#2b2b33'), bianco = nuovoToon('#fbf7ee');
+  const occhi = new THREE.MeshBasicMaterial({ color: '#e8e05a', transparent: true, opacity: 1 });
   const ovale = (mm: THREE.Material, rx: number, ry: number, rz: number, x: number, y: number, z: number, padre: THREE.Object3D) => {
-    const g = new THREE.Group();
-    g.add(new THREE.Mesh(geoOvale, mm), new THREE.LineSegments(bordiOvale, bordiGatto));
+    const g = new THREE.Mesh(geoPalla, mm);
     g.scale.set(rx, ry, rz); g.position.set(x, y, z); padre.add(g);
     return g;
   };
   const ALTO = 0.15;
-  const gatto = new THREE.Group(); gatto.scale.setScalar(0.68); casa.add(gatto);
+  const gatto = new THREE.Group(); gatto.scale.setScalar(1.25); casa.add(gatto);
   // Il corpo guarda verso +z. corpo: l'altezza e l'inclinazione; petto e fianchi si girano un po' per piegare la schiena
   const corpo = new THREE.Group(); corpo.position.y = ALTO; gatto.add(corpo);
   const ventre = ovale(nero, 0.068, 0.066, 0.1, 0, 0, 0, corpo);
@@ -280,31 +562,31 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
   ovale(bianco, 0.045, 0.055, 0.04, 0, -0.022, 0.07, petto);
   const fianchi = new THREE.Group(); fianchi.position.z = -0.07; corpo.add(fianchi);
   ovale(nero, 0.07, 0.07, 0.08, 0, 0.004, -0.03, fianchi);
-  // Collo e testa: il collo ruota sul petto, la testa in cima al collo
+  // Collo e testa: il collo ruota sul petto, la testa in cima al collo. La testa è grande, come nei cartoni
   const collo = new THREE.Group(); collo.position.set(0, 0.04, 0.08); petto.add(collo);
   ovale(nero, 0.036, 0.045, 0.04, 0, 0.03, 0.02, collo);
-  const testa = new THREE.Group(); testa.position.set(0, 0.07, 0.05); collo.add(testa);
-  ovale(nero, 0.06, 0.054, 0.058, 0, 0, 0, testa);
-  ovale(bianco, 0.032, 0.024, 0.028, 0, -0.018, 0.048, testa);
-  ovale(bianco, 0.022, 0.03, 0.012, 0, 0.012, 0.052, testa);
+  { const c = sol(new THREE.TorusGeometry(0.036, 0.009, 8, 20), ROSSO, 0, 0.02, 0.02, collo); c.rotation.x = Math.PI / 2; }
+  const testa = new THREE.Group(); testa.position.set(0, 0.075, 0.05); collo.add(testa);
+  ovale(nero, 0.074, 0.064, 0.066, 0, 0, 0, testa);
+  ovale(bianco, 0.04, 0.027, 0.03, 0, -0.022, 0.05, testa);
+  ovale(bianco, 0.024, 0.034, 0.012, 0, 0.014, 0.058, testa);
+  ovale(toon(ROSA), 0.008, 0.006, 0.005, 0, -0.012, 0.08, testa);
   const orecchie = [-1, 1].map(lato => {
-    const o = new THREE.Group(); o.position.set(lato * 0.034, 0.045, -0.005); testa.add(o);
-    const cono = new THREE.ConeGeometry(0.022, 0.045, 4);
-    o.add(new THREE.Mesh(cono, nero), new THREE.LineSegments(new THREE.EdgesGeometry(cono), bordiGatto));
+    const o = new THREE.Group(); o.position.set(lato * 0.044, 0.05, -0.005); testa.add(o);
+    o.add(new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.055, 14), nero));
     o.rotation.z = -lato * 0.28;
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.009, 6, 4), occhi); e.position.set(lato * 0.024, 0.008, 0.052); testa.add(e);
+    const e = new THREE.Mesh(geoPalla, occhi); e.scale.set(0.013, 0.015, 0.008); e.position.set(lato * 0.033, 0.008, 0.058); testa.add(e);
     return o;
   });
   // Le zampe: anca, coscia, ginocchio, stinco e la zampetta bianca. Passo a quattro tempi, come i cervi
   const ZAMPE_GATTO = [{ x: -0.042, z: -0.1, fase: 0, davanti: false }, { x: -0.042, z: 0.1, fase: 0.25, davanti: true }, { x: 0.042, z: -0.1, fase: 0.5, davanti: false }, { x: 0.042, z: 0.1, fase: 0.75, davanti: true }];
-  const geoCoscia = new THREE.CylinderGeometry(0.022, 0.013, 0.08, 6), geoStinco = new THREE.CylinderGeometry(0.012, 0.01, 0.07, 6);
-  const bordiCoscia = new THREE.EdgesGeometry(geoCoscia, 30), bordiStinco = new THREE.EdgesGeometry(geoStinco, 30);
+  const geoCoscia = new THREE.CapsuleGeometry(0.018, 0.05, 4, 10), geoStinco = new THREE.CapsuleGeometry(0.012, 0.05, 4, 10);
   const zampe = ZAMPE_GATTO.map(q => {
     const anca = new THREE.Group(); anca.position.set(q.x, ALTO, q.z); gatto.add(anca);
-    anca.add(new THREE.Mesh(geoCoscia, nero).translateY(-0.04), new THREE.LineSegments(bordiCoscia, bordiGatto).translateY(-0.04));
+    anca.add(new THREE.Mesh(geoCoscia, nero).translateY(-0.04));
     const ginocchio = new THREE.Group(); ginocchio.position.y = -0.078; anca.add(ginocchio);
-    ginocchio.add(new THREE.Mesh(geoStinco, nero).translateY(-0.035), new THREE.LineSegments(bordiStinco, bordiGatto).translateY(-0.035));
-    ovale(bianco, 0.015, 0.009, 0.02, 0, -0.07, 0.006, ginocchio);
+    ginocchio.add(new THREE.Mesh(geoStinco, nero).translateY(-0.035));
+    ovale(bianco, 0.017, 0.011, 0.022, 0, -0.07, 0.006, ginocchio);
     return { ...q, anca, ginocchio };
   });
   // La coda: nove pezzi, ognuno figlio del precedente; la punta è bianca
@@ -313,7 +595,7 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
     let padre: THREE.Object3D = fianchi;
     for (let k = 0; k < 9; k++) {
       const g = new THREE.Group(); g.position.set(0, k ? 0.026 : 0.035, k ? 0 : -0.095); padre.add(g);
-      ovale(k > 6 ? bianco : nero, 0.012 - k * 0.0004, 0.016, 0.012 - k * 0.0004, 0, 0.013, 0, g);
+      ovale(k > 6 ? bianco : nero, 0.013 - k * 0.0004, 0.018, 0.013 - k * 0.0004, 0, 0.013, 0, g);
       coda.push(g); padre = g;
     }
   }
@@ -322,28 +604,46 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
   // I posti del gatto: dove si siede, dove mangia, dove dorme. y è l'altezza della superficie
   type Posto = { stanza: Stanza; x: number; z: number; y: number; fa: 'dorme' | 'siede' | 'mangia'; verso: number; peso: (st: Stato, caldo: boolean) => number };
   const POSTI: Posto[] = [
-    { stanza: 'camera', x: -1.65, z: -2.2, y: PAV + 0.3, fa: 'dorme', verso: 0.6, peso: () => 2.5 },
-    { stanza: 'soggiorno', x: -1.8, z: 1.8, y: PAV + 0.2, fa: 'dorme', verso: 1.6, peso: st => (st.tv ? 3 : 1.5) },
+    { stanza: 'camera', x: -1.65, z: -2.2, y: PAV + 0.32, fa: 'dorme', verso: 0.6, peso: () => 2.5 },
+    { stanza: 'soggiorno', x: -1.8, z: 1.8, y: PAV + 0.27, fa: 'dorme', verso: 1.6, peso: st => (st.tv ? 3 : 1.5) },
     { stanza: 'soggiorno', x: -2.25, z: 0.3, y: PAV, fa: 'dorme', verso: -0.4, peso: (_, caldo) => (caldo ? 7 : 0.4) },
     { stanza: 'soggiorno', x: -2.8, z: 0.85, y: PAV, fa: 'siede', verso: -Math.PI / 2, peso: st => 2 * st.stanze.soggiorno.tapparelle },
     { stanza: 'cucina', x: 2.2, z: 1.82, y: PAV, fa: 'mangia', verso: 0, peso: () => 1.5 },
     { stanza: 'cucina', x: 1.0, z: 1.75, y: PAV, fa: 'siede', verso: 2.4, peso: st => (st.caffe ? 1.2 : 0.6) },
     { stanza: 'bagno', x: 1.5, z: -1.7, y: PAV, fa: 'siede', verso: -2.4, peso: () => 0.6 },
-    { stanza: 'giardino', x: 0.7, z: 3.4, y: 0, fa: 'siede', verso: 0.8, peso: st => (st.tosaerba ? 0 : 1.6) },
-    { stanza: 'giardino', x: -2.3, z: 3.7, y: 0, fa: 'dorme', verso: 2, peso: st => (st.tosaerba ? 0 : 1.2) },
+    { stanza: 'giardino', x: 0.55, z: 3.35, y: 0, fa: 'siede', verso: 0.5, peso: st => (st.tosaerba ? 0 : 3) },
+    { stanza: 'giardino', x: -2.3, z: 3.7, y: 0, fa: 'dorme', verso: 2, peso: st => (st.tosaerba ? 0 : 2.2) },
   ];
   type Fare = 'cammina' | 'dorme' | 'siede' | 'lecca' | 'stira' | 'mangia' | 'salta';
+  // All'apertura il gatto è fuori, davanti alla porta: con il tetto chiuso si vede subito
   const micio = {
-    fare: 'dorme' as Fare, fino: 4, posto: POSTI[1]!, via: [] as THREE.Vector3[], veloce: false, salto: null as null | { da: THREE.Vector3; a: THREE.Vector3; t: number },
-    verso: 1.6, giro: 0, vel: 0, passo: 0, pose: { sedere: 0, sdraio: 1, testaGiu: 0, stira: 0, lecca: 0 }, paura: 0, sguardo: 0, orecchio: 0,
+    fare: 'siede' as Fare, fino: 9, posto: POSTI[7]!, via: [] as THREE.Vector3[], veloce: false, salto: null as null | { da: THREE.Vector3; a: THREE.Vector3; t: number },
+    verso: 0.5, giro: 0, vel: 0, passo: 0, pose: { sedere: 1, sdraio: 0, testaGiu: 0, stira: 0, lecca: 0 }, paura: 0, sguardo: 0, orecchio: 0,
   };
-  gatto.position.set(-1.8, PAV + 0.2, 1.8);
+  gatto.position.set(0.55, 0, 3.35);
 
-  // --- Particelle: alone delle lampade, dello schermo e della stufa; vapore del caffè e note della musica
-  const nLampade = [...lampade.values()].reduce((a, l) => a + l.punti.length, 0), VAP = 10, NOTE = 24;
-  const alone = puntiMorbidi(nLampade + 2), part = puntiMorbidi(VAP + NOTE);
-  casa.add(alone.punti, part.punti);
+  // --- Particelle: alone delle lampade, dello schermo e della stufa; vapore del caffè, note della musica, fumo del camino, polvere del tetto
+  const nLampade = [...lampade.values()].reduce((a, l) => a + l.punti.length, 0), VAP = 10, NOTE = 24, FUMO = 9, POLVERE = 14;
+  const alone = puntiMorbidi(nLampade + 2), part = puntiMorbidi(VAP + NOTE), fumo = puntiMorbidi(FUMO + POLVERE);
+  casa.add(alone.punti, part.punti, fumo.punti);
   const vita = Array.from({ length: VAP + NOTE }, (_, i) => i / (VAP + NOTE));
+  const vitaFumo = Array.from({ length: FUMO }, (_, i) => i / FUMO);
+  const polvere = Array.from({ length: POLVERE }, (_, i) => { const t = (i / POLVERE) * Math.PI * 2; return { x: Math.cos(t) * 3.7, z: -0.6 + Math.sin(t) * 3.5, a: t, v: 1 }; });
+
+  // --- Nuvole tonde e piene, sempre dietro l'isola, così non coprono mai la casa: vanno piano avanti e indietro
+  const matNuvola = nuovoToon('#f4f6fa', { fog: false });
+  const nuvole = Array.from({ length: 5 }, (_, i) => {
+    const g = new THREE.Group(); casa.add(g);
+    const n = 3 + (i % 3);
+    for (let k = 0; k < n; k++) { const q = new THREE.Mesh(geoPalla, matNuvola); const f = 0.32 + r() * 0.26; q.scale.set(f, f * 0.7, f * 0.85); q.position.set((k - (n - 1) / 2) * 0.42, r() * 0.1, (r() - 0.5) * 0.3); g.add(q); }
+    return { g, a: -2.9 + i * 0.44, raggio: 9 + r() * 2, y: 2.2 + r() * 1.6, v: 0.09 + r() * 0.06, fase: r() * 6 };
+  });
+  // Due farfalle sul prato
+  const farfalle = [ROSA, GIALLO].map((c, i) => {
+    const g = new THREE.Group(); casa.add(g);
+    const ali = [-1, 1].map(v => { const a = new THREE.Group(); g.add(a); const m = sol(new THREE.CircleGeometry(0.055, 12), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide }), v * 0.05, 0, 0, a); m.rotation.x = -Math.PI / 2; return { a, v }; });
+    return { g, ali, cx: i ? 2.6 : -2.2, cz: i ? 4.2 : 3.3, fase: i * 2 };
+  });
 
   // --- Etichette HTML: le stanze, i gradi sulla stufa, il timer, e il nome dell'oggetto sotto il mouse
   const nomiEl = new Map<Stanza, HTMLElement>();
@@ -352,11 +652,54 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
   const timerEl = document.createElement('span'); timerEl.className = 'etichetta-timer'; etichette.append(timerEl);
   const sopraEl = document.createElement('span'); sopraEl.className = 'etichetta-oggetto'; etichette.append(sopraEl);
 
+  // Il tasto per tornare subito alla vista larga, come «see everything» nella pagina del cane
+  const tastoLargo = document.createElement('button');
+  tastoLargo.type = 'button'; tastoLargo.textContent = 'see the whole island';
+  tastoLargo.style.cssText = `position:absolute;right:8px;bottom:8px;padding:${p.telefono ? '7px 12px' : '6px 12px'};border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--fg);font:12px var(--mono);cursor:pointer;opacity:0;pointer-events:none;transition:opacity .25s`;
+  tastoLargo.addEventListener('pointerdown', e => e.stopPropagation());
+  tastoLargo.addEventListener('click', () => azzera());
+  el.appendChild(tastoLargo);
+
   // --- Stato
   let stato: Stato | null = null, prima: Stato | null = null, caffeFino = 0, gradi = 20.5, sTempo = 0, angoloPale = 0, pausaTosa = 0, dove: Stanza = 'soggiorno';
   const luci = new Map<Stanza, { v: number; c: THREE.Color }>(STANZE.map(s => [s, { v: 0, c: new THREE.Color('#ffd9a6') }]));
   const tapp = new Map<Stanza, number>(STANZE.map(s => [s, 1]));
-  let fuocoS: Stanza | null = null, fuocoFino = 0, percorsoTosa: THREE.Vector3[] = [];
+  let percorsoTosa: THREE.Vector3[] = [];
+  // Il tetto: 0 chiuso, 1 alzato, con una molla che lo fa rimbalzare. topoFino: fin quando il mouse tiene aperto
+  let tetto = 0, velTetto = 0, schiaccia = 0, topoFino = 0, sfumaTetto = 1;
+  // Le viste in coda: una per ogni pezzo del comando. attuale è quella sullo schermo
+  const coda2Fuochi: Fuoco[] = [];
+  let attuale: Fuoco | null = null, attualeFino = 0, vicino = false;
+  const ora = () => performance.now() / 1000;
+
+  function azzera() { coda2Fuochi.length = 0; if (attuale) { attuale = null; p.zoom(1); } }
+  function accoda(f: Fuoco) {
+    const ultimo = coda2Fuochi[coda2Fuochi.length - 1] ?? attuale;
+    // Due pezzi sulla stessa cosa: una vista sola, un po' più lunga
+    if (ultimo?.chiave === f.chiave) { ultimo.durata += 1.5; if (ultimo === attuale) attualeFino += 1.5; return; }
+    coda2Fuochi.push(f);
+  }
+  const suCosa = (o: Oggetto, aperto = true, zoom = 0.26, durata = 6): Fuoco => ({ chiave: o.nome[0] + o.g.id, punto: v => { o.presa.getWorldPosition(v); }, zoom, aperto, durata });
+  const suStanza = (s: Stanza, durata = 6): Fuoco => ({ chiave: s, punto: v => { v.copy(centro(s)); v.y = s === 'giardino' ? 0.2 : 0.35; }, zoom: s === 'giardino' ? 0.42 : 0.36, aperto: s !== 'giardino', durata });
+  const LARGA: Fuoco = { chiave: 'larga', punto: v => { v.copy(MIRA0); }, zoom: 1, aperto: true, durata: 7 };
+  const seguendo = (g: THREE.Object3D, aperto: boolean, durata: number): Fuoco => ({ chiave: `segue${g.id}`, punto: v => { v.copy(g.position); v.y = 0.2; }, zoom: 0.32, aperto, durata });
+
+  function comando(intento: string, stanza: Stanza | null, fatto: boolean) {
+    const unaCassa = () => { const k = stanza && casse.has(stanza) ? stanza : stato?.musica.length === 1 ? stato.musica[0]! : null; return k ? casse.get(k)!.ogg : null; };
+    let f: Fuoco | null = null;
+    switch (intento) {
+      case 'caffe': f = suCosa(caffe); break;
+      case 'timer': case 'timer_stop': f = suCosa(timer); break;
+      case 'tv_accendi': case 'tv_spegni': f = suCosa(tv, true, 0.3); break;
+      case 'caldo_su': case 'caldo_giu': case 'temperatura': f = suCosa(stufa); break;
+      case 'ventilatore_on': case 'ventilatore_off': f = suCosa(ventola); break;
+      case 'pulisci': case 'pulisci_stop': f = fatto ? seguendo(robot, true, 11) : null; break;
+      case 'tosaerba': case 'tosaerba_stop': f = seguendo(tosa, false, 10); break;
+      case 'musica_play': case 'musica_stop': case 'musica_avanti': case 'volume_su': case 'volume_giu': case 'volume_livello': case 'muto': { const o = unaCassa(); f = o ? suCosa(o) : fatto ? { ...LARGA } : null; break; }
+      default: f = stanza ? suStanza(stanza) : fatto ? { ...LARGA } : null;
+    }
+    if (f) accoda(f);
+  }
 
   // La strada fra due stanze, di porta in porta. Il robot non esce in giardino
   function strada(da: Stanza, a: Stanza, giardino = true): THREE.Vector3[] {
@@ -524,12 +867,12 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
   function aggiorna(s: number, dt: number, pp: Palco) {
     sTempo = s;
     // Sempre giorno: niente ciclo giorno e notte. Le luci accese brillano come in un tardo pomeriggio
-    const giorno = 1, notte = 0.3;
+    const notte = 0.3;
 
     const st = stato;
     if (!st) return;
     oggetti.forEach(o => { o.attivo = 0; o.colore = null; });
-    // Luci: ogni stanza va piano verso la sua luce e il suo colore; la lampada prende quel colore
+    // Luci: ogni stanza va piano verso la sua luce e il suo colore; la lampada prende quel colore. Una stanza spenta è più scura
     let i = 0;
     for (const k of STANZE) {
       const l = luci.get(k)!, voluta = st.stanze[k], lp = lampade.get(k)!;
@@ -540,28 +883,29 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
         alone.pos.set([q.x, q.y, q.z], i * 3); alone.col.set([l.c.r, l.c.g, l.c.b], i * 3);
         alone.dim[i] = (k === 'giardino' ? 0.8 : 1.2) * (0.4 + l.v); alone.alfa[i] = l.v * (0.25 + 0.55 * notte) * (chiaro ? 0.85 : 1); i++;
       }
-      const pm = pozze.get(k)!; pm.color.copy(l.c); pm.opacity = l.v * (0.06 + 0.26 * notte) * (k === 'giardino' ? 0.6 : 1) * (chiaro ? 0.8 : 1);
-      bordi.get(k)?.color.copy(C.arancio);
-      const b = bordi.get(k); if (b) b.opacity += ((k === dove ? 0.8 : 0) - b.opacity) * Math.min(1, dt * 5);
+      const pm = pozze.get(k)!; pm.color.copy(l.c); pm.opacity = l.v * (0.12 + 0.5 * notte) * (k === 'giardino' ? 0.6 : 1) * (chiaro ? 0.8 : 1);
+      matPav.get(k)?.color.setScalar(0.76 + 0.24 * Math.min(1, l.v * 1.6));
+      const b = bordi.get(k); if (b) b.opacity += ((k === dove && tetto > 0.4 ? 0.9 : 0) - b.opacity) * Math.min(1, dt * 5);
     }
     // TV: un fondo che cambia colore e sfarfalla, con la sua luce davanti
     tv.attivo = st.tv ? 1 : 0;
-    if (st.tv) { schermo.color.setHSL((s * 0.05) % 1, 0.5, 0.6 + 0.08 * Math.sin(s * 9)); schermo.opacity = 0.75; } else schermo.opacity = 0;
+    if (st.tv) { schermo.color.setHSL((s * 0.05) % 1, 0.5, 0.6 + 0.08 * Math.sin(s * 9)); schermo.opacity = 0.95; } else schermo.opacity = 0;
     alone.pos.set([-1.5, PAV + 0.55, -0.1], i * 3); alone.col.set([schermo.color.r, schermo.color.g, schermo.color.b], i * 3); alone.dim[i] = 1.5; alone.alfa[i] = st.tv ? 0.22 + 0.4 * notte : 0; i++;
     // Stufa: la temperatura vera segue piano quella voluta; la fiamma è viva mentre scalda
     gradi += Math.sign(st.termostato - gradi) * Math.min(Math.abs(st.termostato - gradi), dt * 0.35);
     const scalda = st.termostato - gradi > 0.05, forza = THREE.MathUtils.clamp((st.termostato - 15) / 11, 0.1, 1);
-    fiamma.opacity = scalda ? (0.55 + 0.3 * Math.sin(s * 11) * Math.sin(s * 7)) * forza : 0.1 * forza;
-    stufa.attivo = scalda ? 0.8 : 0.25 * forza;
+    fiamma.opacity = scalda ? (0.65 + 0.3 * Math.sin(s * 11) * Math.sin(s * 7)) * forza : 0.15 * forza;
+    stufa.attivo = scalda ? 0.8 : 0.1 * forza;
     alone.pos.set([-2.7, PAV + 0.25, 0.15], i * 3); alone.col.set([C.arancio.r, C.arancio.g, C.arancio.b], i * 3); alone.dim[i] = 0.8 + forza * (scalda ? 0.8 : 0.2); alone.alfa[i] = fiamma.opacity * (0.4 + 0.4 * notte);
     alone.aggiorna();
-    // Finestre: tapparelle e vetri che di notte prendono la luce della stanza
+    // Finestre: la tapparella scende; il vetro prende la luce della stanza, così si vede anche da fuori con il tetto chiuso
     for (const f of finestre) {
       const t = tapp.get(f.stanza)!, l = luci.get(f.stanza)!;
-      f.tapparella.scale.y = Math.max(0.04, 1 - t);
-      f.ogg.attivo = 1 - t;
-      f.vetro.color.copy(l.c); f.vetro.opacity = l.v * notte * 0.45 * (0.3 + 0.7 * t);
+      f.tapparella.scale.y = Math.max(0.05, 1 - t);
+      f.ogg.attivo = 1 - t > 0.1 ? 0.25 : 0;
+      f.vetro.color.set('#5f7f9a').lerp(l.c, Math.min(1, l.v * 1.5));
     }
+    M_TETTO.vetro.color.set('#5f7f9a').lerp(luci.get('soggiorno')!.c, Math.min(1, luci.get('soggiorno')!.v * 1.5) * 0.9);
     // Ventilatore, caffè e timer
     angoloPale += dt * st.ventola * 22; pale.rotation.z = angoloPale; ventola.attivo = st.ventola;
     const fa = s < caffeFino, adesso = performance.now() / 1000, resta = st.timer ? st.timerFine - adesso : 0;
@@ -576,15 +920,15 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
       vita[j] = (vita[j]! + dt * (vapore ? 0.55 : 0.4)) % 1;
       const v = vita[j]!;
       if (vapore) {
-        part.pos.set([2.8 + Math.sin(v * 9 + j) * 0.04 * v, PAV + 0.72 + v * 0.5, 1.15 + Math.cos(v * 7 + j) * 0.04 * v], j * 3);
-        part.col.set([C.fg.r, C.fg.g, C.fg.b], j * 3); part.dim[j] = 0.1 + v * 0.22; part.alfa[j] = fa ? (1 - v) * 0.45 : 0;
+        part.pos.set([2.8 + Math.sin(v * 9 + j) * 0.04 * v, PAV + 0.78 + v * 0.5, 1.15 + Math.cos(v * 7 + j) * 0.04 * v], j * 3);
+        part.col.set([1, 1, 1], j * 3); part.dim[j] = 0.1 + v * 0.22; part.alfa[j] = fa ? (1 - v) * 0.6 : 0;
         continue;
       }
       const n = j - VAP, dov = suona[n % Math.max(1, suona.length)], b = dov ? casse.get(dov)!.bocca : null;
       const c = [C.arancio, C.azzurro, C.verde][(n + st.brano) % 3]!;
       if (b) part.pos.set([b.x + Math.sin(v * 9 + n) * 0.25 * v, b.y + v * 0.9, b.z + Math.cos(v * 7 + n) * 0.2 * v], j * 3);
-      part.col.set([c.r, c.g, c.b], j * 3); part.dim[j] = 0.08;
-      part.alfa[j] = b && n / NOTE < st.volume + 0.15 ? (1 - v) * 0.9 : 0;
+      part.col.set([c.r, c.g, c.b], j * 3); part.dim[j] = 0.09;
+      part.alfa[j] = b && n / NOTE < st.volume + 0.15 ? (1 - v) * 0.95 : 0;
     }
     part.aggiorna();
 
@@ -604,57 +948,133 @@ export function montaCasa(el: HTMLElement, etichette: HTMLElement, alClic: (s: S
     }
     disegnaErba();
 
-    // Gli oggetti accesi: più riempimento e linee piene; le lampade prendono il colore della loro luce
+    // Il nome sotto il mouse. Con il tetto chiuso le cose di casa non si leggono
+    const prese = oggetti.filter(o => !o.dentro || tetto > 0.5).map(o => o.presa);
+    const colpo = pp.raggio ? pp.raggio.intersectObjects(prese, false)[0] : undefined;
+    const sotto = colpo ? oggetti.find(x => x.presa === colpo.object)! : null;
+
+    // Gli oggetti accesi brillano del loro colore (le lampade di quello della luce). All'accensione fanno un saltino
     for (const o of oggetti) {
-      o.m.opacity = (chiaro ? 0.1 : 0.06) * (0.55 + 0.45 * giorno) + o.attivo * 0.22;
-      o.l.opacity = (0.5 + 0.2 * giorno) + o.attivo * 0.35;
-      const c = o.colore ?? C.arancio; o.m.color.copy(c); o.l.color.copy(c);
+      if (o.attivo > 0.2 && o.prima <= 0.05) o.pop = 1;
+      o.prima = o.attivo;
+      o.pop = Math.max(0, o.pop - dt * 1.7);
+      const q = Math.sin(o.pop * Math.PI * 3) * o.pop * 0.28;
+      o.g.scale.set(1 - q * 0.6, 1 + q, 1 - q * 0.6);
+      for (const m of o.mats) { m.emissive.copy(o.colore ?? (m.userData.base as THREE.Color)); m.emissiveIntensity = o.attivo * 0.55; }
+      (o.bordo.uniforms.colore!.value as THREE.Color).copy(o.colore ?? C.arancio);
+      o.bordo.uniforms.spess!.value = o === sotto ? 0.024 : 0.012;
     }
 
     aggiornaGatto(s, dt, st, scalda || gradi > 21.5);
 
-    // Vista su una stanza: la casa si sposta e si ingrandisce, poi torna intera
-    if (fuocoS && s > fuocoFino) fuocoS = null;
-    const sc = fuocoS ? 1.6 : 1, c = fuocoS ? centro(fuocoS) : tmp.set(0, 0, 0);
-    const k = Math.min(1, dt * 2.6);
-    casa.scale.setScalar(casa.scale.x + (sc - casa.scale.x) * k);
-    p.gruppo.position.x += (-c.x * sc - p.gruppo.position.x) * k; p.gruppo.position.z += (-c.z * sc - p.gruppo.position.z) * k;
+    // Vista sulla cosa comandata: come «follow the dog», la mira scivola verso la cosa e la camera si avvicina.
+    // Le viste di uno stesso comando passano una alla volta; finita l'ultima, la vista torna larga
+    const t0 = ora();
+    if (attuale && t0 > attualeFino) { const fine = !coda2Fuochi.length; attuale = null; if (fine) p.zoom(1); }
+    if (!attuale && coda2Fuochi.length) {
+      attuale = coda2Fuochi.shift()!;
+      attualeFino = t0 + (coda2Fuochi.length ? Math.min(attuale.durata, 3.4) : attuale.durata);
+      vicino = false;
+    }
+    // Prima si alza il tetto, poi la vista si avvicina: così si capisce che cosa succede
+    if (attuale && !vicino && (!attuale.aperto || tetto > 0.6 || pp.ridotto)) { vicino = true; p.zoom(attuale.zoom); }
+    if (attuale && vicino) attuale.punto(tmp2); else tmp2.copy(MIRA0);
+    const km = pp.ridotto ? 1 : Math.min(1, dt * 1.5);
+    MIRA.x += (tmp2.x - MIRA.x) * km; MIRA.y += (tmp2.y - MIRA.y) * km; MIRA.z += (tmp2.z - MIRA.z) * km;
+    tastoLargo.style.opacity = attuale ? '1' : '0'; tastoLargo.style.pointerEvents = attuale ? 'auto' : 'none';
 
-    // Etichette. Un'etichetta fuori dall'inquadratura si nasconde
-    const w = el.clientWidth, h = el.clientHeight;
+    // Il tetto. Si alza per la vista su una cosa in casa, col mouse sulla casa, o finché il robot pulisce
+    if (conMouse && pp.raggio && pp.raggio.intersectObject(sagoma, false).length) topoFino = t0 + 0.5;
+    const aperto = (attuale ? attuale.aperto : false) || t0 < topoFino || percorso.length > 0;
+    if (pp.ridotto) tetto = aperto ? 1 : 0;
+    else {
+      velTetto += ((aperto ? 1 : 0) - tetto) * 13 * dt - velTetto * 4.8 * dt;
+      tetto += velTetto * dt;
+      if (tetto < 0) { if (velTetto < -0.5) { schiaccia = 1; polvere.forEach(q => { q.v = 0; }); } tetto = 0; velTetto = -velTetto * 0.28; }
+    }
+    schiaccia = Math.max(0, schiaccia - dt * 3);
+    const su = Math.max(0, tetto);
+    // Il coperchio prima sale, poi scivola indietro, dalla parte opposta alla camera
+    fiancoTetto.set(-pp.camera.position.x + MIRA.x, 0, -pp.camera.position.z + MIRA.z).normalize();
+    const via = liscio(su, 0.15, 1) * 5.5;
+    tettoG.position.set(fiancoTetto.x * via, PAV + MURO - 0.02 + su * 0.8 + liscio(su, 0.25, 1) * 1.2, fiancoTetto.z * via);
+    tettoG.rotation.z = Math.sin(Math.min(1, su) * Math.PI) * 0.09;
+    tettoG.scale.set(1 + schiaccia * 0.035, 1 - Math.sin(schiaccia * Math.PI) * 0.1, 1 + schiaccia * 0.035);
+    guscio.scale.y = 1 - 0.62 * liscio(su, 0.05, 0.75);
+    // Da vicino il tetto non deve coprire: sfuma mentre sale, e resta visibile solo nella vista larga
+    const voluta = attuale && vicino && attuale.zoom < 0.8 ? 1 - liscio(su, 0.25, 0.75) : 1 - liscio(su, 0.7, 1) * 0.12;
+    sfumaTetto += (voluta - sfumaTetto) * (pp.ridotto ? 1 : Math.min(1, dt * 7));
+    for (const m of Object.values(M_TETTO)) m.opacity = sfumaTetto;
+    tettoG.visible = sfumaTetto > 0.01;
+
+    // Il fumo del camino, quando la stufa scalda; la polvere quando il tetto si posa
+    tmp2.copy(CAMINO).applyMatrix4(tettoG.matrixWorld.compose(tettoG.position, tettoG.quaternion, tettoG.scale));
+    for (let j = 0; j < FUMO; j++) {
+      vitaFumo[j] = (vitaFumo[j]! + dt * 0.28) % 1;
+      const v = vitaFumo[j]!;
+      fumo.pos.set([tmp2.x + Math.sin(v * 6 + j) * 0.12 * v + v * 0.35, tmp2.y + v * 1.5, tmp2.z + Math.cos(v * 5 + j) * 0.1 * v], j * 3);
+      fumo.col.set([1, 1, 1], j * 3); fumo.dim[j] = 0.16 + v * 0.34; fumo.alfa[j] = (scalda ? (1 - v) * 0.6 : 0) * sfumaTetto;
+    }
+    polvere.forEach((q, j) => {
+      q.v = Math.min(1, q.v + dt * 1.3);
+      const d = 1 + q.v * 0.5;
+      fumo.pos.set([Math.cos(q.a) * 3.7 * d, PAV + MURO * 0.9 + q.v * 0.25, -0.6 + Math.sin(q.a) * 3.5 * d], (FUMO + j) * 3);
+      fumo.col.set([1, 0.97, 0.9], (FUMO + j) * 3); fumo.dim[FUMO + j] = 0.3 + q.v * 0.45; fumo.alfa[FUMO + j] = (1 - q.v) * 0.75;
+    });
+    fumo.aggiorna();
+
+    // Il mare, le nuvole, la papera, le farfalle, la barca, gli alberi al vento
+    ondeMare(s);
+    for (const n of nuvole) { const a = n.a + Math.sin(s * n.v + n.fase) * 0.22; n.g.position.set(Math.cos(a) * n.raggio, n.y + Math.sin(s * 0.2 + n.fase) * 0.1, CZ + Math.sin(a) * n.raggio * 0.85); n.g.rotation.y = -a + Math.PI / 2; }
+    { const a = s * 0.22; papera.position.set(STAGNO.x + Math.cos(a) * 0.6, 0.02 + Math.sin(s * 2.2) * 0.006, STAGNO.z + Math.sin(a) * 0.42); papera.rotation.y = Math.atan2(-Math.sin(a) * 0.6, Math.cos(a) * 0.42); }
+    for (const f of farfalle) {
+      const t = s * 0.35 + f.fase;
+      f.g.position.set(f.cx + Math.sin(t) * 1.1, 0.4 + Math.sin(t * 2.3) * 0.14, f.cz + Math.sin(t * 1.7) * 0.8);
+      f.g.rotation.y = Math.atan2(Math.cos(t), Math.cos(t * 1.7) * 1.3);
+      f.ali.forEach(({ a, v }) => { a.rotation.z = v * (0.25 + Math.sin(s * 16 + f.fase) * 0.75); });
+    }
+    barca.position.y = -0.3 + Math.sin(s * 0.9) * 0.025; barca.rotation.z = Math.sin(s * 0.7) * 0.05;
+    for (const c of chiome) { c.g.rotation.x = Math.sin(s * 0.8 + c.fase) * 0.012; c.g.rotation.z = Math.sin(s * 0.6 + c.fase * 2) * 0.012; }
+
+    // Etichette. Un'etichetta fuori dall'inquadratura si nasconde. I nomi delle stanze appaiono solo a tetto alzato
+    const w = el.clientWidth, h = el.clientHeight, dentro = tetto > 0.5;
     const metti = (e: HTMLElement, x: number, y: number, z: number) => {
-      const q = casa.localToWorld(tmp.set(x, y, z)).project(pp.camera), dentro = q.z < 1 && Math.abs(q.x) < 0.95 && Math.abs(q.y) < 0.95;
-      e.style.transform = `translate(${((q.x + 1) / 2) * w}px, ${((1 - q.y) / 2) * h}px) translate(-50%, -100%)`; e.style.visibility = dentro ? '' : 'hidden';
-      return dentro;
+      const q = casa.localToWorld(tmp.set(x, y, z)).project(pp.camera), inVista = q.z < 1 && Math.abs(q.x) < 0.95 && Math.abs(q.y) < 0.95;
+      e.style.transform = `translate(${((q.x + 1) / 2) * w}px, ${((1 - q.y) / 2) * h}px) translate(-50%, -100%)`; e.style.visibility = inVista ? '' : 'hidden';
+      return inVista;
     };
+    const fuocoS = attuale && (STANZE as readonly string[]).includes(attuale.chiave) ? attuale.chiave as Stanza : null;
     for (const s2 of STANZE) {
       const e = nomiEl.get(s2)!, cc = centro(s2);
-      const visibile = metti(e, cc.x, s2 === 'giardino' ? 0.5 : PAV + MURO + 0.3, s2 === 'giardino' ? cc.z + 0.6 : cc.z);
-      e.style.opacity = visibile && (!fuocoS || fuocoS === s2) ? '1' : '0';
+      const visibile = metti(e, cc.x, s2 === 'giardino' ? 0.5 : PAV + MURO * 0.38 + 0.25, s2 === 'giardino' ? cc.z + 0.6 : cc.z);
+      e.style.opacity = visibile && (s2 === 'giardino' ? fuocoS === 'giardino' : dentro && (!attuale || attuale.zoom >= 0.8 || fuocoS === s2)) ? '1' : '0';
       e.classList.toggle('qui', s2 === dove);
     }
-    metti(gradiEl, -2.7, PAV + 1.0, -0.15);
+    metti(gradiEl, -2.7, PAV + 1.15, -0.15);
     gradiEl.textContent = `${gradi.toFixed(1)}°${Math.abs(st.termostato - gradi) > 0.05 ? ` → ${st.termostato}°` : ''}`;
-    metti(timerEl, 2.8, PAV + 0.78, 0.65);
+    gradiEl.style.opacity = dentro ? '1' : '0';
+    metti(timerEl, 2.8, PAV + 0.86, 0.65);
     timerEl.textContent = st.timer ? (resta > 0 ? `${Math.floor(resta / 60)}:${String(Math.floor(resta % 60)).padStart(2, '0')}` : resta > -8 ? 'ding!' : '') : '';
-    metti(zzz, gatto.position.x, gatto.position.y + 0.4, gatto.position.z);
-    zzz.style.opacity = micio.fare === 'dorme' && micio.pose.sdraio > 0.8 ? String(0.5 + 0.4 * Math.sin(s * 1.7)) : '0';
-    // Sotto il mouse: il nome dell'oggetto, nella lingua della pagina
-    const colpo = pp.raggio ? pp.raggio.intersectObjects(oggetti.map(o => o.presa), false)[0] : undefined;
-    if (colpo) { const o = oggetti.find(x => x.presa === colpo.object)!; sopraEl.textContent = o.nome[0]; colpo.object.getWorldPosition(tmp2); casa.worldToLocal(tmp2); metti(sopraEl, tmp2.x, tmp2.y + 0.3, tmp2.z); sopraEl.style.opacity = '1'; }
+    timerEl.style.opacity = dentro && timerEl.textContent ? '1' : '0';
+    metti(zzz, gatto.position.x, gatto.position.y + 0.42, gatto.position.z);
+    const gattoFuori = stanzaDi(gatto.position.x, gatto.position.z) === 'giardino';
+    zzz.style.opacity = micio.fare === 'dorme' && micio.pose.sdraio > 0.8 && (gattoFuori || dentro) ? String(0.5 + 0.4 * Math.sin(s * 1.7)) : '0';
+    if (sotto) { sopraEl.textContent = sotto.nome[0]; sotto.presa.getWorldPosition(tmp2); casa.worldToLocal(tmp2); metti(sopraEl, tmp2.x, tmp2.y + 0.34, tmp2.z); sopraEl.style.opacity = '1'; }
     else sopraEl.style.opacity = '0';
   }
 
   function clic(raggio: THREE.Raycaster) {
     const colpo = raggio.intersectObjects([...pavimenti.keys()], false)[0];
-    if (!colpo) { fuocoS = null; return; }
-    // I pavimenti delle stanze stanno sopra il prato: vince la stanza
+    if (!colpo) { azzera(); return; }
+    // I pavimenti delle stanze stanno sopra il prato: vince la stanza. Il tetto non ferma il clic
     const stanza = raggio.intersectObjects([...pavimenti.keys()].filter(o => pavimenti.get(o) !== 'giardino'), false)[0];
     alClic(pavimenti.get((stanza ?? colpo).object)!);
   }
   return {
     imposta,
-    fuoco: (s, durata = 5) => { fuocoS = s; fuocoFino = sTempo + durata; },
+    fuoco: (s, durata = 6) => { azzera(); accoda(suStanza(s, durata)); },
+    comando,
+    azzera,
     dove: s => { dove = s; },
   };
 }
